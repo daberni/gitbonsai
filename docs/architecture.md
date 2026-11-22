@@ -13,7 +13,25 @@ See also: [Feature overview](feature-overview.md) · [Screens](screens.md) · [F
 
 Rules: `GitEngine`, `GraphLayout` and `Avatars` import neither AppKit nor SwiftUI. Every repository read and write is a `git` command run by `GitRunner`; nothing is reimplemented that git itself provides. [git-operations.md](git-operations.md) lists the command behind every operation.
 
-The app is written in AppKit. A spike that rebuilds the settings window in SwiftUI is under review; the history, diff, sidebar and command bar stay AppKit either way.
+The app is AppKit with SwiftUI for self-contained forms and panels; section 1.1 states the rule.
+
+### 1.1 AppKit and SwiftUI
+
+Decided after the settings spike (`docs/spikes/settings-swiftui.md`).
+
+**AppKit** for the main window and everything inside it: window, tab row in the title bar, toolbar, sidebar, history table and graph, detail panel and file lists, diff and conflict views, popovers with custom rows, the command bar and the interactive rebase sheet. These need custom CoreGraphics drawing, virtualized lists of up to 100k rows, precise focus, key and click handling, and the harness's real-event driving. The main window is expected to stay AppKit.
+
+**SwiftUI**, hosted in AppKit through `NSHostingController`, for self-contained forms and panels that are mostly standard controls: the settings window today; candidates are the welcome page, form sheets (clone, new branch, failure) and future side panels.
+
+Rules for SwiftUI surfaces:
+- The window, its lifecycle and its toolbar stay AppKit; SwiftUI fills the content (the app starts through `main.swift` and `AppDelegate`, so SwiftUI scenes are not used).
+- State goes through a small `@Observable` model that reads and writes the existing stores (`AppSettings`, controllers); no second copy of state.
+- Design tokens come from `DesignTokens+SwiftUI.swift`; no literal sizes or colours, as in AppKit.
+- Text is `LocalizedStringResource("key", defaultValue: "…", bundle: .module, comment: …)` with semantic keys.
+- Every interactive control has an accessibility identifier, so `ScreenshotHarness` can find and click it through the accessibility tree.
+- Content-sized windows measure the form (`onScrollGeometryChange`) and cap the height.
+
+Never mix the two inside one surface beyond a hosted view; a SwiftUI view per commit or per list row in the main window is ruled out.
 
 ## 2. GitRunner
 

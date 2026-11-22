@@ -12455,60 +12455,8 @@
         }
       }
     },
-    "settings.appearance.language.caption" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gilt ab dem nächsten Start von GitBonsai."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Takes effect the next time GitBonsai starts."
-          }
-        }
-      }
-    },
-    "settings.appearance.language.label" : {
-      "comment" : "Settings label of the interface language choice.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sprache"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Language"
-          }
-        }
-      }
-    },
-    "settings.appearance.language.system" : {
-      "comment" : "Interface language that follows the system's language order.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "System"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "System Language"
-          }
-        }
-      }
-    },
     "settings.apps.addOther" : {
+      "comment" : "Adds an editor or terminal the app did not find.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -12525,36 +12473,90 @@
         }
       }
     },
-    "settings.apps.firstCheckedEditor" : {
+    "settings.apps.editors.caption" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erster angehakter Editor"
+            "value" : "Angehakte Editoren bietet die Befehlsleiste (⇧⌘P) unter „Im Editor öffnen mit …“ an. Der Standard öffnet Worktrees mit „Im Editor öffnen“ und Dateien aus ihrem Kontextmenü; zum Standard wird ein anderer Editor über „Als Standard“ in seiner Zeile."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "First checked editor"
+            "value" : "The command bar (⇧⌘P) offers the checked editors under “Open in editor with…”. The default opens worktrees with “Open in editor” and files from their context menu; point at another editor to make it the default."
           }
         }
       }
     },
-    "settings.apps.firstCheckedTerminal" : {
+    "settings.apps.editors.label" : {
+      "comment" : "Settings section of the editors.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erstes angehaktes Terminal"
+            "value" : "Editoren"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "First checked terminal"
+            "value" : "Editors"
+          }
+        }
+      }
+    },
+    "settings.apps.makeDefault" : {
+      "comment" : "Makes this editor or terminal the default.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Standard"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Make default"
+          }
+        }
+      }
+    },
+    "settings.apps.terminals.caption" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angehakte Terminals bietet die Befehlsleiste unter „Im Terminal öffnen mit …“ an. Der Standard öffnet Repositories und Worktrees mit „Im Terminal öffnen“; zum Standard wird ein anderes Terminal über „Als Standard“ in seiner Zeile."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The command bar offers the checked terminals under “Open in terminal with…”. The default opens repositories and worktrees with “Open in terminal”; point at another terminal to make it the default."
+          }
+        }
+      }
+    },
+    "settings.apps.terminals.label" : {
+      "comment" : "Settings section of the terminals.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminals"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Terminals"
           }
         }
       }
@@ -12565,35 +12567,19 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zeigt Profilbilder statt Initialen. Gefragt wird der Host des Remotes: GitHub erhält die Commit-SHA, GitLab die E-Mail-Adresse. Ohne Haken geht nichts ins Netz."
+            "value" : "Zeigt Profilbilder statt Initialen. Gefragt wird der Host des Remotes: GitHub erhält die Commit-SHA, GitLab die E-Mail-Adresse. Ausgeschaltet geht nichts ins Netz."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Shows profile pictures instead of initials. The remote's host is asked: GitHub gets the commit SHA, GitLab the email address. Unchecked, nothing goes over the network."
-          }
-        }
-      }
-    },
-    "settings.avatars.authors.label" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autoren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Authors"
+            "value" : "Shows profile pictures instead of initials. The remote's host is asked: GitHub gets the commit SHA, GitLab the email address. Turned off, nothing goes over the network."
           }
         }
       }
     },
     "settings.avatars.load" : {
+      "comment" : "Toggle for loading author pictures.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -12645,6 +12631,7 @@
       }
     },
     "settings.avatars.sources.label" : {
+      "comment" : "Label of the avatar sources choice.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -12719,6 +12706,7 @@
       }
     },
     "settings.fetch.automatic.label" : {
+      "comment" : "Settings section of the automatic fetch.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -12736,6 +12724,7 @@
       }
     },
     "settings.fetch.everyMinutes" : {
+      "comment" : "Periodic fetch interval.",
       "localizations" : {
         "de" : {
           "variations" : {
@@ -12776,6 +12765,7 @@
       }
     },
     "settings.fetch.onActivation" : {
+      "comment" : "Toggle for fetching when the app or a tab becomes active.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -12810,6 +12800,7 @@
       }
     },
     "settings.fetch.periodic.label" : {
+      "comment" : "Label of the periodic fetch interval.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -12845,18 +12836,19 @@
       }
     },
     "settings.folders.add" : {
+      "comment" : "Adds folders to search for repositories.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ordner hinzufügen"
+            "value" : "Ordner hinzufügen …"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Add folder"
+            "value" : "Add folder…"
           }
         }
       }
@@ -12895,122 +12887,55 @@
         }
       }
     },
-    "settings.form.label" : {
-      "comment" : "A settings label in front of its control.",
+    "settings.general.language.caption" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@:"
+            "value" : "Gilt ab dem nächsten Start von GitBonsai."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%@:"
+            "value" : "Takes effect the next time GitBonsai starts."
           }
         }
       }
     },
-    "settings.general.defaultEditor.caption" : {
+    "settings.general.language.label" : {
+      "comment" : "Settings label of the interface language choice.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Öffnet Worktrees mit „Im Editor öffnen“ und Dateien aus ihrem Kontextmenü."
+            "value" : "Sprache"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Opens worktrees with “Open in editor” and files from their context menu."
+            "value" : "Language"
           }
         }
       }
     },
-    "settings.general.defaultEditor.label" : {
+    "settings.general.language.system" : {
+      "comment" : "Interface language that follows the system's language order.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Standard-Editor"
+            "value" : "System"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Default editor"
-          }
-        }
-      }
-    },
-    "settings.general.defaultTerminal.caption" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Öffnet Repositories und Worktrees mit „Im Terminal öffnen“."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Opens repositories and worktrees with “Open in terminal”."
-          }
-        }
-      }
-    },
-    "settings.general.defaultTerminal.label" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard-Terminal"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Default terminal"
-          }
-        }
-      }
-    },
-    "settings.general.editors.caption" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Angehakte Editoren bietet die Befehlsleiste (⇧⌘P) unter „Im Editor öffnen mit …“ an."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The command bar (⇧⌘P) offers the checked editors under “Open in editor with…”."
-          }
-        }
-      }
-    },
-    "settings.general.editors.label" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Editoren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Editors"
+            "value" : "System Language"
           }
         }
       }
@@ -13056,6 +12981,7 @@
       }
     },
     "settings.general.repositoryFolders.label" : {
+      "comment" : "Settings section of the folders searched for repositories.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -13068,40 +12994,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Repository folders"
-          }
-        }
-      }
-    },
-    "settings.general.terminals.caption" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Angehakte Terminals bietet die Befehlsleiste unter „Im Terminal öffnen mit …“ an."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The command bar offers the checked terminals under “Open in terminal with…”."
-          }
-        }
-      }
-    },
-    "settings.general.terminals.label" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terminals"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Terminals"
           }
         }
       }
@@ -13124,6 +13016,7 @@
       }
     },
     "settings.git.choose" : {
+      "comment" : "Opens a panel to choose the git program.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -13228,6 +13121,7 @@
       }
     },
     "settings.git.program.label" : {
+      "comment" : "Label of the git binary path.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -13275,6 +13169,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Appearance"
+          }
+        }
+      }
+    },
+    "settings.pane.apps" : {
+      "comment" : "Settings tab of the editors and terminals.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apps"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Apps"
           }
         }
       }

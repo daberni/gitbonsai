@@ -102,9 +102,10 @@ Clone sheet: URL (a URL on the clipboard is suggested), parent folder, branch, "
 
 | Section | Content |
 |---|---|
-| General | Repository folders for the empty tab; editors and terminals: detected apps with which ones the command bar offers and the default |
+| General | Repository folders for the empty tab; language (system, English, German) |
+| Apps | Editors and terminals: detected apps and added ones, checked when the command bar offers them; the default carries a pill and is chosen in its row (on hover, from the context menu or as a VoiceOver action) |
 | Git | The git binary (automatic or chosen) with its version; a warning below 2.38 |
-| Appearance | Language (system, English, German); system, light or dark appearance |
+| Appearance | System, light or dark appearance |
 | Fetching | Automatic fetch on activation and periodically, with its interval |
 | Avatars | Load avatars, from the remote host and optionally Gravatar; turning them off deletes the caches |
 

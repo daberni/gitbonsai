@@ -1,14 +1,17 @@
 import AppKit
+import SwiftUI
 
-/// The one settings window, with a toolbar tab per section like the system's own settings.
+/// The one settings window, with a toolbar tab per section like the system's own settings. The tabs are AppKit, each section a SwiftUI form:
+/// the app has no SwiftUI `App` lifecycle, so the `Settings` scene is not available, and a SwiftUI `TabView` outside it draws a segmented control instead of toolbar tabs.
 @MainActor
 final class SettingsWindowController: NSWindowController {
     enum Section: String, CaseIterable {
-        case general, git, appearance, fetch, avatars
+        case general, apps, git, appearance, fetch, avatars
 
         var title: String {
             switch self {
             case .general: String(localized: "settings.pane.general", defaultValue: "General", bundle: .module, comment: "Settings tab.")
+            case .apps: String(localized: "settings.pane.apps", defaultValue: "Apps", bundle: .module, comment: "Settings tab of the editors and terminals.")
             case .git: String(localized: "settings.pane.git", defaultValue: "Git", bundle: .module, comment: "Settings tab.")
             case .appearance: String(localized: "settings.pane.appearance", defaultValue: "Appearance", bundle: .module, comment: "Settings tab.")
             case .fetch: String(localized: "settings.pane.fetch", defaultValue: "Fetch", bundle: .module, comment: "Settings tab.")
@@ -19,6 +22,7 @@ final class SettingsWindowController: NSWindowController {
         var symbol: String {
             switch self {
             case .general: "gearshape"
+            case .apps: "square.grid.2x2"
             case .git: "point.3.connected.trianglepath.dotted"
             case .appearance: "circle.lefthalf.filled"
             case .fetch: "arrow.down.circle"
@@ -26,27 +30,31 @@ final class SettingsWindowController: NSWindowController {
             }
         }
 
-        @MainActor func makeViewController() -> NSViewController {
+        @MainActor @ViewBuilder fileprivate var pane: some View {
             switch self {
-            case .general: GeneralSettingsViewController()
-            case .git: GitSettingsViewController()
-            case .appearance: AppearanceSettingsViewController()
-            case .fetch: FetchSettingsViewController()
-            case .avatars: AvatarSettingsViewController()
+            case .general: GeneralSettingsPane()
+            case .apps: AppsSettingsPane()
+            case .git: GitSettingsPane()
+            case .appearance: AppearanceSettingsPane()
+            case .fetch: FetchSettingsPane()
+            case .avatars: AvatarSettingsPane()
             }
         }
     }
 
     static let shared = SettingsWindowController()
 
+    let model = SettingsModel()
     private let tabs = NSTabViewController()
 
     private init() {
         tabs.tabStyle = .toolbar
         for section in Section.allCases {
-            let controller = section.makeViewController()
-            controller.title = section.title
-            let item = NSTabViewItem(viewController: controller)
+            let host = NSHostingController(rootView: SettingsPaneFrame { section.pane }.environment(model))
+            // The window takes each section's height, as the system settings do.
+            host.sizingOptions = .preferredContentSize
+            host.title = section.title
+            let item = NSTabViewItem(viewController: host)
             item.label = section.title
             item.identifier = section.rawValue
             item.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)
@@ -74,5 +82,38 @@ final class SettingsWindowController: NSWindowController {
         }
         showWindow(nil)
         if !ScreenshotHarness.runsInBackground { window?.makeKeyAndOrderFront(nil) }
+    }
+}
+
+/// Every section is a grouped form of the same width that is as tall as its content, so switching sections only changes the window's height.
+/// A section taller than `Theme.Settings.maxHeight` stops there and scrolls.
+private struct SettingsPaneFrame<Content: View>: View {
+    @ViewBuilder let content: Content
+    @State private var contentHeight: CGFloat?
+
+    var body: some View {
+        Form { content }
+            .formStyle(.grouped)
+            .scrollBounceBehavior(.basedOnSize)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentSize.height + geometry.contentInsets.top + geometry.contentInsets.bottom
+            } action: { _, height in
+                contentHeight = height
+            }
+            .frame(width: Theme.Settings.width, height: min(contentHeight ?? Theme.Settings.maxHeight, Theme.Settings.maxHeight))
+    }
+}
+
+/// An explanation under a section, in the app's caption style.
+struct SettingsCaption: View {
+    let text: LocalizedStringResource
+
+    init(_ text: LocalizedStringResource) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.themeCaption)
+            .foregroundStyle(.inkMuted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

@@ -664,18 +664,12 @@ enum Theme {
     enum Settings {
         /// Every section has this width, so switching sections only changes the window's height.
         static let width: CGFloat = 560
-        static let inset = Space.xl
-        static let rowSpacing = Space.m
+        /// Tallest a section gets before it scrolls; leaves room for the toolbar on a 13-inch display.
+        static let maxHeight: CGFloat = 600
+        /// Between the git path field and its button.
         static let columnSpacing = Space.s
-        /// Gap between a control and the explanation under it.
-        static let captionGap = Space.xs
-        static let popupWidth: CGFloat = 240
         static let pathFieldWidth: CGFloat = 260
-        static let captionWidth: CGFloat = 340
         static let appIcon = Icon.regular
-        static let folderRowHeight: CGFloat = 22
-        /// Room for five folders before the list scrolls.
-        static let folderListHeight: CGFloat = 112
     }
 
     /// The command bar (⌘⇧P): a glass panel centred near the top of the window.
@@ -700,12 +694,6 @@ enum Theme {
         static let stepHeight: CGFloat = 20
         /// Paper tint of the glass, about 60 % as the design language asks for system-level glass.
         static let glassTint: CGFloat = 0.6
-    }
-
-    /// The editor list of Settings → Allgemein.
-    enum Editors {
-        /// Room for five editors before the list scrolls.
-        static let listHeight: CGFloat = 112
     }
 }
 
