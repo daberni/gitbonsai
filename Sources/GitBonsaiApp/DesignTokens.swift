@@ -224,6 +224,8 @@ enum Theme {
         static let sectionGap = Space.l
         /// The stage or unstage button a row shows while hovered.
         static let actionButton: CGFloat = 20
+        /// Between the buttons of one hovered row.
+        static let actionGap = Space.xs / 2
     }
 
     /// The commit form at the bottom of the right column.

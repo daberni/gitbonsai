@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged.
+/// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged, and unstaged or untracked hunks discarded.
 @MainActor
 final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private enum Row {
@@ -154,6 +154,11 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         if selection.isUnstageable { staging.unstage(diff.hunks[index], of: diff) } else { staging.stage(diff.hunks[index], of: diff) }
     }
 
+    func discardHunk(_ index: Int) {
+        guard let selection, selection.isStageable, let diff, diff.hunks.indices.contains(index) else { return }
+        staging.discard(diff.hunks[index], of: diff, untracked: selection.source == .untracked)
+    }
+
     private func jumpToHunk(forward: Bool) {
         let hunkRows = rows.indices.filter { if case .hunk = rows[$0] { true } else { false } }
         let top = table.rows(in: table.visibleRect).location
@@ -181,8 +186,9 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             let view = (tableView.makeView(withIdentifier: .init("hunk"), owner: nil) as? DiffHunkView) ?? DiffHunkView()
             view.identifier = .init("hunk")
             let title: String? = selection?.isUnstageable == true ? "Hunk unstagen" : selection?.isStageable == true ? "Hunk stagen" : nil
-            if let diff { view.show(diff.hunks[index], actionTitle: title) }
+            if let diff { view.show(diff.hunks[index], actionTitle: title, canDiscard: selection?.isStageable == true) }
             view.onAction = { [weak self] in self?.runHunkAction(index) }
+            view.onDiscard = { [weak self] in self?.discardHunk(index) }
             return view
         case .line(let hunk, let line):
             let view = (tableView.makeView(withIdentifier: .init("line"), owner: nil) as? DiffLineView) ?? DiffLineView()

@@ -9,6 +9,8 @@ final class DetailView: NSView {
     var onSelectFile: ((FileSelection) -> Void)?
     var onStage: (([String]) -> Void)?
     var onUnstage: (([String]) -> Void)?
+    /// Discard the unstaged changes of one file, or delete it when it is untracked.
+    var onDiscard: ((FileSelection) -> Void)?
     /// Kept across redraws of the same commit or working directory, cleared otherwise.
     var selectedFile: FileSelection? { didSet { fileList?.selected = selectedFile } }
 
@@ -160,11 +162,11 @@ final class DetailView: NSView {
         func sections(unstagedStats: [String: DiffStat], stagedStats: [String: DiffStat]) -> [FileListView.Section] {
             let unstagedRows = unstaged.map { entry in
                 entry.isUntracked
-                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", action: .stage)
-                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil, action: .stage)
+                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", actions: [.stage, .discard])
+                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil, actions: [.stage, .discard])
             }
             let stagedRows = staged.map { entry in
-                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil, action: .unstage)
+                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil, actions: [.unstage])
             }
             var result = [
                 FileListView.Section(title: "Unstaged  \(unstaged.count)", rows: unstagedRows, action: unstaged.isEmpty ? nil : ("Alle stagen", { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
@@ -198,6 +200,7 @@ final class DetailView: NSView {
             switch action {
             case .stage: self?.onStage?([selection.path])
             case .unstage: self?.onUnstage?([selection.path])
+            case .discard: self?.onDiscard?(selection)
             }
         }
         fileList = list

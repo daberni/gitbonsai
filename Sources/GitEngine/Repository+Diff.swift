@@ -80,4 +80,23 @@ extension Repository {
     public func unstage(_ hunk: DiffHunk, of file: FileDiff) async throws {
         _ = try await runner.runWrite(["apply", "--cached", "--reverse", "--whitespace=nowarn", "-"], stdin: file.patch(for: hunk))
     }
+
+    // MARK: Discarding
+
+    /// Reverts one hunk of an unstaged file in the working tree; the index stays as it is. The one hunk of an untracked file deletes it.
+    public func discard(_ hunk: DiffHunk, of file: FileDiff) async throws {
+        _ = try await runner.runWrite(["apply", "--reverse", "--whitespace=nowarn", "-"], stdin: file.patch(for: hunk))
+    }
+
+    /// Resets tracked files in the working tree to their staged content, so staged changes survive.
+    public func discardUnstagedChanges(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        _ = try await runner.runWrite(["restore", "--worktree", "--"] + paths)
+    }
+
+    /// Deletes untracked files. Ignored files are left alone.
+    public func removeUntracked(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        _ = try await runner.runWrite(["clean", "-f", "-q", "--"] + paths)
+    }
 }

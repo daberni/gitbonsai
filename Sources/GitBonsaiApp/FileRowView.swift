@@ -4,12 +4,17 @@ import GitEngine
 /// One file in one line: status letter, the folder dimmed, the file name, and on the right the line counts.
 /// When space runs out the folder gives way from the front, the file name stays.
 final class FileRowView: NSView {
-    /// What the button a hovered row shows does with the whole file.
+    /// What the buttons a hovered row shows do with the whole file.
     enum Action {
-        case stage, unstage
+        case stage, unstage, discard
 
-        var glyph: Glyph { self == .stage ? .plus : .minus }
-        var toolTip: String { self == .stage ? "Datei stagen" : "Datei unstagen" }
+        var glyph: Glyph {
+            switch self {
+            case .stage: .plus
+            case .unstage: .minus
+            case .discard: .trash
+            }
+        }
     }
 
     struct Model {
@@ -19,7 +24,8 @@ final class FileRowView: NSView {
         let stat: DiffStat?
         /// Shown instead of the counts, for instance "untracked".
         let note: String?
-        var action: Action? = nil
+        /// Shown from right to left while the row is hovered.
+        var actions: [Action] = []
     }
 
     private typealias M = Theme.FileList
@@ -28,12 +34,17 @@ final class FileRowView: NSView {
     var onClick: (() -> Void)?
     var onAction: ((Action) -> Void)?
     private var isHovered = false { didSet { needsDisplay = true } }
-    private var isOverAction = false { didSet { needsDisplay = true } }
+    private var hoveredAction: Action? { didSet { needsDisplay = true } }
 
-    /// The action button replaces the counts at the right end while the row is hovered.
-    private var actionRect: CGRect {
+    /// The action buttons replace the counts at the right end while the row is hovered, the first one outermost.
+    func actionRect(_ index: Int) -> CGRect {
         let size = M.actionButton
-        return CGRect(x: bounds.maxX - Theme.Space.xs / 2 - size, y: bounds.midY - size / 2, width: size, height: size)
+        let maxX = bounds.maxX - Theme.Space.xs / 2 - CGFloat(index) * (size + M.actionGap)
+        return CGRect(x: maxX - size, y: bounds.midY - size / 2, width: size, height: size)
+    }
+
+    private func action(at point: CGPoint) -> Action? {
+        model.actions.indices.first { actionRect($0).contains(point) }.map { model.actions[$0] }
     }
 
     init(model: Model) {
@@ -60,17 +71,18 @@ final class FileRowView: NSView {
     override func mouseEntered(with event: NSEvent) { isHovered = true }
     override func mouseExited(with event: NSEvent) {
         isHovered = false
-        isOverAction = false
+        hoveredAction = nil
     }
 
     override func mouseMoved(with event: NSEvent) {
-        isOverAction = model.action != nil && actionRect.contains(convert(event.locationInWindow, from: nil))
+        isHovered = true
+        hoveredAction = action(at: convert(event.locationInWindow, from: nil))
     }
 
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard bounds.contains(point) else { return }
-        if let action = model.action, actionRect.contains(point) { onAction?(action) } else { onClick?() }
+        if let action = action(at: point) { onAction?(action) } else { onClick?() }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -83,18 +95,20 @@ final class FileRowView: NSView {
         let letter = NSAttributedString(string: model.letter, attributes: [.font: Theme.monoStrong, .foregroundColor: model.color])
         letter.draw(at: CGPoint(x: inset, y: midY - letter.size().height / 2))
 
-        let showsAction = isHovered && model.action != nil
-        let trailing = showsAction ? nil : trailingText()
+        let showsActions = isHovered && !model.actions.isEmpty
+        let trailing = showsActions ? nil : trailingText()
         var trailingWidth = trailing?.size().width ?? 0
         trailing?.draw(at: CGPoint(x: bounds.maxX - inset - trailingWidth, y: midY - (trailing?.size().height ?? 0) / 2))
-        if showsAction, let action = model.action, let context = NSGraphicsContext.current?.cgContext {
-            let rect = actionRect
-            if isOverAction {
-                Theme.ink.withAlphaComponent(Theme.Wash.pressed).setFill()
-                NSBezierPath(roundedRect: rect, xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm).fill()
+        if showsActions, let context = NSGraphicsContext.current?.cgContext {
+            for (index, action) in model.actions.enumerated() {
+                let rect = actionRect(index)
+                if hoveredAction == action {
+                    Theme.ink.withAlphaComponent(Theme.Wash.pressed).setFill()
+                    NSBezierPath(roundedRect: rect, xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm).fill()
+                }
+                action.glyph.draw(in: rect.insetBy(dx: Theme.Space.xs, dy: Theme.Space.xs), color: Theme.ink, context: context)
+                trailingWidth = bounds.maxX - inset - rect.minX
             }
-            action.glyph.draw(in: rect.insetBy(dx: Theme.Space.xs, dy: Theme.Space.xs), color: Theme.ink, context: context)
-            trailingWidth = rect.width
         }
 
         let pathX = inset + M.letterWidth

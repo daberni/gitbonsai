@@ -155,11 +155,13 @@ final class DiffLineView: NSView {
     }
 }
 
-/// The header of one hunk: its range and section, and the action for this hunk alone.
+/// The header of one hunk: its range and section, and the actions for this hunk alone.
 final class DiffHunkView: NSView {
     var onAction: (() -> Void)?
+    var onDiscard: (() -> Void)?
     private let label = NSTextField(labelWithString: "")
     private let action = NSButton()
+    let discard = NSButton()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -170,8 +172,14 @@ final class DiffHunkView: NSView {
         action.controlSize = .small
         action.target = self
         action.action = #selector(run(_:))
+        discard.bezelStyle = .rounded
+        discard.controlSize = .small
+        discard.title = "Hunk verwerfen"
+        discard.target = self
+        discard.action = #selector(runDiscard(_:))
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
+        addSubview(discard)
         addSubview(action)
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: DiffLineView.textX - Theme.Diff.signColumn),
@@ -180,20 +188,24 @@ final class DiffHunkView: NSView {
         ])
     }
 
-    /// The button keeps to the right edge of what is visible, also while long lines scroll the diff sideways.
+    /// The buttons keep to the right edge of what is visible, also while long lines scroll the diff sideways; discarding sits left of staging.
     override func layout() {
         super.layout()
         action.sizeToFit()
+        discard.sizeToFit()
         let visible = visibleRect.isEmpty ? bounds : visibleRect
         action.setFrameOrigin(NSPoint(x: visible.maxX - Theme.Space.m - action.frame.width, y: (bounds.height - action.frame.height) / 2))
+        discard.setFrameOrigin(NSPoint(x: action.frame.minX - Theme.Space.s - discard.frame.width, y: (bounds.height - discard.frame.height) / 2))
     }
 
     required init?(coder: NSCoder) { nil }
 
-    func show(_ hunk: DiffHunk, actionTitle: String?) {
+    func show(_ hunk: DiffHunk, actionTitle: String?, canDiscard: Bool) {
         label.stringValue = hunk.header
         action.title = actionTitle ?? ""
         action.isHidden = actionTitle == nil
+        discard.isHidden = !canDiscard
+        needsLayout = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -205,4 +217,5 @@ final class DiffHunkView: NSView {
     }
 
     @objc private func run(_ sender: Any?) { onAction?() }
+    @objc private func runDiscard(_ sender: Any?) { onDiscard?() }
 }

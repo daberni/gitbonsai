@@ -98,11 +98,15 @@ final class RepositoryViewController: NSObject {
         detail.onSelectFile = { [weak self] selection in self?.showDiff(selection) }
         detail.onStage = { [weak self] paths in self?.staging.stage(paths) }
         detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
+        detail.onDiscard = { [weak self] selection in self?.staging.discard(selection) }
         detail.showNothing()
         checkoutController.window = { [weak self] in self?.view.window }
         staging.window = { [weak self] in self?.view.window }
         commitController.window = { [weak self] in self?.view.window }
-        staging.onChange = { [weak self] in self?.diff.reload() }
+        staging.onChange = { [weak self] in
+            self?.diff.reload()
+            self?.refreshWorkingDirectoryCounts()
+        }
         diff.onClose = { [weak self] in self?.showGraph() }
     }
 
@@ -231,6 +235,13 @@ final class RepositoryViewController: NSObject {
         reportLoadedOnce()
     }
 
+    /// Staging or discarding a hunk can leave the status as it was while the line counts change, so the list is read again regardless.
+    private func refreshWorkingDirectoryCounts() {
+        let row = history.selectedRow
+        guard row >= 0, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip else { return }
+        showDetail(for: row, keepingFile: true)
+    }
+
     private func reportLoadedOnce() {
         guard !didReportLoaded, !viewModel.isLoading else { return }
         didReportLoaded = true
@@ -244,6 +255,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.openDiff(on: self)
             ScreenshotHarness.clickFile(on: self)
             ScreenshotHarness.fillCommit(on: self)
+            ScreenshotHarness.discard(on: self)
         }
         onLoaded?()
     }

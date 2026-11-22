@@ -158,6 +158,83 @@ enum ScreenshotHarness {
         return true
     }
 
+    // MARK: Discarding
+
+    /// `GITBONSAI_CLICK_HUNK_DISCARD=<n>` clicks "Hunk verwerfen" of hunk n in the open diff, `GITBONSAI_HOVER_FILE=<n>` moves the mouse onto file row n,
+    /// `GITBONSAI_CLICK_FILE_DISCARD=<n>` also clicks that row's discard button; all with real mouse events through the window.
+    static func discard(on tab: RepositoryViewController, attempt: Int = 0) {
+        let environment = environment
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let window = tab.view.window else { return }
+            if let index = environment["GITBONSAI_CLICK_HUNK_DISCARD"].flatMap(Int.init) {
+                // The diff loads asynchronously; try again until its hunk rows are there.
+                if views(of: DiffHunkView.self, in: window).count <= index, attempt < 10 {
+                    discard(on: tab, attempt: attempt + 1)
+                    return
+                }
+                let hunks = views(of: DiffHunkView.self, in: window).sorted { $0.convert(CGPoint.zero, to: nil).y > $1.convert(CGPoint.zero, to: nil).y }
+                guard hunks.indices.contains(index), !hunks[index].discard.isHidden else {
+                    FileHandle.standardError.write(Data("no discard button on hunk \(index) of \(hunks.count)\n".utf8))
+                    return
+                }
+                let button = hunks[index].discard
+                click(in: window, at: button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
+            }
+            let rowIndex = environment["GITBONSAI_CLICK_FILE_DISCARD"].flatMap(Int.init) ?? environment["GITBONSAI_HOVER_FILE"].flatMap(Int.init)
+            if let rowIndex {
+                let rows = views(of: FileRowView.self, in: window)
+                guard rows.indices.contains(rowIndex), let discardIndex = rows[rowIndex].model.actions.firstIndex(of: .discard) else {
+                    FileHandle.standardError.write(Data("no discard button on file row \(rowIndex) of \(rows.count)\n".utf8))
+                    return
+                }
+                let row = rows[rowIndex]
+                let rect = row.actionRect(discardIndex)
+                let point = row.convert(CGPoint(x: rect.midX, y: rect.midY), to: nil)
+                // Tracking areas follow the real cursor only, so the move goes to the view under the point the way tracking would deliver it.
+                if let moved = mouseEvent(.mouseMoved, at: point, in: window) { window.contentView?.superview?.hitTest(point)?.mouseMoved(with: moved) }
+                if environment["GITBONSAI_CLICK_FILE_DISCARD"] != nil { click(in: window, at: point) }
+            }
+        }
+    }
+
+    /// The confirmation sheet for discarding. `GITBONSAI_DISCARD_ANSWER=confirm|cancel` clicks its button with real mouse events;
+    /// without an answer `GITBONSAI_SHEET_SCREENSHOT=<path>` writes the sheet to a PNG while it is up.
+    static func answerDiscardSheet(_ alert: NSAlert) {
+        guard outputPath != nil else { return }
+        let environment = environment
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let sheet = alert.window
+            FileHandle.standardError.write(Data("discard sheet: \(alert.messageText) — \(alert.informativeText)\n".utf8))
+            switch environment["GITBONSAI_DISCARD_ANSWER"] {
+            case "confirm", "cancel":
+                let button = alert.buttons[environment["GITBONSAI_DISCARD_ANSWER"] == "confirm" ? 0 : 1]
+                click(in: sheet, at: button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
+            default:
+                guard let path = environment["GITBONSAI_SHEET_SCREENSHOT"], let view = sheet.contentView?.superview, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds), let context = NSGraphicsContext(bitmapImageRep: rep) else { return }
+                // The sheet's glass and vibrant text blend with what lies behind them; on an empty bitmap they vanish, so a window background goes underneath.
+                sheet.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    NSGraphicsContext.saveGraphicsState()
+                    NSGraphicsContext.current = context
+                    NSColor.windowBackgroundColor.setFill()
+                    view.bounds.fill()
+                    NSGraphicsContext.restoreGraphicsState()
+                }
+                view.displayIgnoringOpacity(view.bounds, in: context)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+            }
+        }
+    }
+
+    private static func views<V: NSView>(of type: V.Type, in window: NSWindow) -> [V] {
+        var found: [V] = []
+        func collect(_ view: NSView) {
+            if let match = view as? V { found.append(match) }
+            view.subviews.forEach(collect)
+        }
+        if let content = window.contentView { collect(content) }
+        return found
+    }
+
     /// Queues the movement and the release, then delivers the press. Views that follow the mouse in a tracking loop find the queued events there.
     static func drag(in window: NSWindow, from start: CGPoint, to end: CGPoint, steps: Int) {
         for step in 1...max(steps, 1) {

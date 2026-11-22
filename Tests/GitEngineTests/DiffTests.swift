@@ -93,6 +93,81 @@ final class DiffTests: XCTestCase {
         let untrackedAfterwards = try await repo.diff(of: "notes/new file.txt", in: .untracked)
         XCTAssertNil(untrackedAfterwards, "a staged file has no untracked change left")
     }
+
+    func testDiscardingOneHunkKeepsTheOtherAndTheIndex() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "numbers.txt", contents: numbered())
+        try fixture.write("numbers.txt", numbered(changing: [10: "line ten"]))
+        try fixture.git("add", "numbers.txt")
+        try fixture.write("numbers.txt", numbered(changing: [2: "line two", 10: "line ten", 18: "line eighteen"]))
+        let repo = fixture.repository
+        let stagedBefore = try await repo.diff(of: "numbers.txt", in: .staged)
+
+        let unstaged = try await XCTUnwrapAsync(await repo.diff(of: "numbers.txt", in: .unstaged))
+        XCTAssertEqual(unstaged.hunks.count, 2)
+        try await repo.discard(unstaged.hunks[0], of: unstaged)
+
+        XCTAssertEqual(try String(contentsOf: fixture.url.appendingPathComponent("numbers.txt"), encoding: .utf8), numbered(changing: [10: "line ten", 18: "line eighteen"]))
+        let stagedAfter = try await repo.diff(of: "numbers.txt", in: .staged)
+        XCTAssertEqual(stagedAfter, stagedBefore, "discarding never touches the index")
+    }
+
+    func testDiscardingAFileKeepsItsStagedChanges() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "numbers.txt", contents: numbered())
+        try fixture.write("numbers.txt", numbered(changing: [2: "line two"]))
+        try fixture.git("add", "numbers.txt")
+        try fixture.write("numbers.txt", numbered(changing: [2: "line two", 18: "line eighteen"]))
+        let repo = fixture.repository
+
+        try await repo.discardUnstagedChanges(["numbers.txt"])
+
+        XCTAssertEqual(try String(contentsOf: fixture.url.appendingPathComponent("numbers.txt"), encoding: .utf8), numbered(changing: [2: "line two"]), "the working tree falls back to the staged content")
+        let unstaged = try await repo.diff(of: "numbers.txt", in: .unstaged)
+        XCTAssertNil(unstaged)
+        let staged = try await XCTUnwrapAsync(await repo.diff(of: "numbers.txt", in: .staged))
+        XCTAssertEqual(staged.hunks.flatMap(\.lines).filter { $0.kind == .added }.map(\.text), ["line two"])
+    }
+
+    func testRemovingAnUntrackedFileLeavesOthersAlone() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base")
+        try fixture.write("notes/new file.txt", "a\n")
+        try fixture.write("notes/keep.txt", "b\n")
+        try fixture.write("staged.txt", "c\n")
+        try fixture.git("add", "staged.txt")
+        let repo = fixture.repository
+
+        try await repo.removeUntracked(["notes/new file.txt"])
+
+        let manager = FileManager.default
+        XCTAssertFalse(manager.fileExists(atPath: fixture.url.appendingPathComponent("notes/new file.txt").path))
+        XCTAssertTrue(manager.fileExists(atPath: fixture.url.appendingPathComponent("notes/keep.txt").path))
+        let entries = try await repo.status().entries
+        XCTAssertEqual(entries.first { $0.path == "staged.txt" }?.indexState, .added)
+        XCTAssertNil(entries.first { $0.path == "notes/new file.txt" })
+    }
+
+    func testDiscardingTheHunkOfAnUntrackedFileRemovesIt() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base")
+        try fixture.write("notes/new file.txt", "a\nb\n")
+        try fixture.write("notes/keep.txt", "c\n")
+        let repo = fixture.repository
+
+        let diff = try await XCTUnwrapAsync(await repo.diff(of: "notes/new file.txt", in: .untracked))
+        XCTAssertEqual(diff.hunks.count, 1)
+        try await repo.discard(diff.hunks[0], of: diff)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent("notes/new file.txt").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent("notes/keep.txt").path))
+        let entries = try await repo.status().entries
+        XCTAssertNil(entries.first { $0.path == "notes/new file.txt" }, "the file is neither in the working tree nor in the index")
+    }
 }
 
 /// `XCTUnwrap` for values produced by an async call.
