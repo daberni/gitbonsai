@@ -393,7 +393,7 @@ final class DetailView: NSView {
         button.toolTip = copied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy the full SHA, with ⌥ the short one: \(copySHA.full)", bundle: .module)
     }
 
-    /// Both states share the box of the copy symbol, so the checkmark does not shift the parents beside it.
+    /// Both states share the box and the alignment rect of the copy symbol, so the checkmark changes neither the button's size nor its baseline and nothing around it moves.
     private static func copyIcon(copied: Bool) -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.monoSmall.pointSize, weight: .regular).applying(.init(paletteColors: [copied ? Theme.moss : Theme.inkMuted]))
         guard let copy = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else { return nil }
@@ -407,6 +407,7 @@ final class DetailView: NSView {
             check.draw(in: CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height))
             return true
         }
+        icon.alignmentRect = copy.alignmentRect
         icon.accessibilityDescription = String(localized: "Copied", bundle: .module)
         return icon
     }

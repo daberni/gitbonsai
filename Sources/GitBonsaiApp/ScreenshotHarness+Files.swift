@@ -233,11 +233,14 @@ extension ScreenshotHarness {
             if environment["GITBONSAI_PRINT_CURSORS"] == "1" { printCursors(in: detail, window: window) }
             if let copyMode, let button = detail.copyButton {
                 let flags: NSEvent.ModifierFlags = copyMode == "short" ? .option : []
+                printCopyFrames(button, in: detail, when: "before the click")
                 click(in: window, at: button.convert(CGPoint(x: button.bounds.maxX - Theme.Space.s, y: button.bounds.midY), to: nil), flags: flags)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     let copied = DetailView.pasteboard.string(forType: .string) ?? "nothing"
                     FileHandle.standardError.write(Data("copy (\(copyMode)) put on the pasteboard: \(copied); icon \(button.image?.accessibilityDescription ?? "none"), tooltip \(button.toolTip ?? "none")\n".utf8))
+                    printCopyFrames(button, in: detail, when: "with the checkmark")
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Detail.copiedFeedback + 0.3) { printCopyFrames(button, in: detail, when: "after the feedback") }
             }
             if let parent {
                 guard detail.parentLinks.indices.contains(parent) else {
@@ -252,6 +255,18 @@ extension ScreenshotHarness {
                 }
             }
         }
+    }
+
+    /// The copy button, its image, every view of its line and the detail panel's header, in window coordinates, after a layout pass; they must not move while the checkmark shows.
+    private static func printCopyFrames(_ button: NSButton, in detail: DetailView, when: String) {
+        detail.window?.layoutIfNeeded()
+        func frame(_ view: NSView) -> String {
+            let rect = view.convert(view.bounds, to: nil)
+            return "\(rect.minX),\(rect.minY) \(rect.width)x\(rect.height)"
+        }
+        let line = button.superview?.subviews.map { "\(type(of: $0)) \(frame($0))" }.joined(separator: "; ") ?? "-"
+        let image = button.image.map { "\($0.size.width)x\($0.size.height) alignment \($0.alignmentRect)" } ?? "none"
+        FileHandle.standardError.write(Data("copy frames \(when): button \(frame(button)), intrinsic \(button.intrinsicContentSize), image \(image), baseline \(button.firstBaselineOffsetFromTop); line [\(line)]; detail content \(detail.subviews.first.map(frame) ?? "-")\n".utf8))
     }
 
     private static func selectedCommit(on tab: RepositoryViewController) -> String {
