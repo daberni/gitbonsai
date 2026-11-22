@@ -113,6 +113,35 @@ final class DiffTests: XCTestCase {
         XCTAssertEqual(stagedAfter, stagedBefore, "discarding never touches the index")
     }
 
+    func testFullFileShowsEveryLineOnceWithTheChangesInPlace() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "numbers.txt", contents: numbered())
+        try fixture.write("numbers.txt", numbered(changing: [2: "line two", 18: "line eighteen"]))
+
+        let diff = try await XCTUnwrapAsync(await fixture.repository.diff(of: "numbers.txt", in: .unstaged, fullFile: true))
+        XCTAssertEqual(diff.hunks.count, 1)
+        var expected: [DiffLine] = [DiffLine(kind: .context, text: "line 1", oldNumber: 1, newNumber: 1)]
+        expected.append(DiffLine(kind: .removed, text: "line 2", oldNumber: 2, newNumber: nil))
+        expected.append(DiffLine(kind: .added, text: "line two", oldNumber: nil, newNumber: 2))
+        expected += (3...17).map { (number: Int) in DiffLine(kind: .context, text: "line \(number)", oldNumber: number, newNumber: number) }
+        expected.append(DiffLine(kind: .removed, text: "line 18", oldNumber: 18, newNumber: nil))
+        expected.append(DiffLine(kind: .added, text: "line eighteen", oldNumber: nil, newNumber: 18))
+        expected += (19...20).map { (number: Int) in DiffLine(kind: .context, text: "line \(number)", oldNumber: number, newNumber: number) }
+        XCTAssertEqual(diff.hunks[0].lines, expected)
+    }
+
+    func testFullFileOfADeletedFileShowsItsOldContent() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "numbers.txt", contents: numbered())
+        try fixture.git("rm", "-q", "numbers.txt")
+
+        let diff = try await XCTUnwrapAsync(await fixture.repository.diff(of: "numbers.txt", in: .staged, fullFile: true))
+        XCTAssertTrue(diff.isDeleted)
+        XCTAssertEqual(diff.hunks.flatMap(\.lines), (1...20).map { (number: Int) in DiffLine(kind: .removed, text: "line \(number)", oldNumber: number, newNumber: nil) })
+    }
+
     func testDiscardingAFileKeepsItsStagedChanges() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }

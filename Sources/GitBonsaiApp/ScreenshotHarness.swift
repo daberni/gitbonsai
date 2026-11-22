@@ -117,6 +117,43 @@ enum ScreenshotHarness {
         if let hunk = environment["GITBONSAI_HUNK_ACTION"].flatMap(Int.init) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { tab.diff.runHunkAction(hunk) }
         }
+        driveDiffHeader(on: tab)
+    }
+
+    // MARK: Diff mode
+
+    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top line after each step.
+    static func driveDiffHeader(on tab: RepositoryViewController) {
+        let environment = environment
+        let mode = environment["GITBONSAI_CLICK_DIFF_MODE"].flatMap(DiffMode.init)
+        let jumps = environment["GITBONSAI_DIFF_NEXT"].flatMap(Int.init) ?? 0
+        guard mode != nil || jumps > 0 else { return }
+        func report(_ step: String) { FileHandle.standardError.write(Data("\(step): top line \(tab.diff.topLineNumbers)\n".utf8)) }
+        func jump(_ remaining: Int) {
+            guard remaining > 0, let window = tab.view.window else { return }
+            let next = tab.diff.header.next
+            click(in: window, at: next.convert(CGPoint(x: next.bounds.midX, y: next.bounds.midY), to: nil))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                report("after ↓")
+                jump(remaining - 1)
+            }
+        }
+        // The diff loads asynchronously and the toggle shows once it is there.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let window = tab.view.window else { return }
+            guard let mode else { return jump(jumps) }
+            let modes = tab.diff.header.modes
+            guard !modes.isHidden, let index = DiffMode.allCases.firstIndex(of: mode) else {
+                FileHandle.standardError.write(Data("no diff mode toggle\n".utf8))
+                return
+            }
+            let segment = modes.bounds.width / CGFloat(DiffMode.allCases.count)
+            click(in: window, at: modes.convert(CGPoint(x: segment * (CGFloat(index) + 0.5), y: modes.bounds.midY), to: nil))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                report("clicked \(mode.title)")
+                jump(jumps)
+            }
+        }
     }
 
     /// `GITBONSAI_CLICK_FILE=<n>` clicks the n-th file in the detail panel with real mouse events and reports whether its diff opened.

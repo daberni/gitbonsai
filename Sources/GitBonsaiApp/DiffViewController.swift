@@ -2,11 +2,14 @@ import AppKit
 import GitEngine
 
 /// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged, and unstaged or untracked hunks discarded.
+/// The "Datei" mode shows the whole file with the changes in place instead; hunks are staged in the "Diff" mode only.
 @MainActor
 final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private enum Row {
         case hunk(Int)
         case line(hunk: Int, line: Int)
+        /// A line of the whole file in the "Datei" mode.
+        case fileLine(Int)
         case message(String)
     }
 
@@ -16,10 +19,15 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     private let staging: StagingController
     private let repository: () -> Repository
-    private let header = DiffHeaderView()
+    let header = DiffHeaderView()
     private let table = NSTableView()
     private let column = NSTableColumn(identifier: .init("diff"))
     private var diff: FileDiff?
+    private var mode = DiffMode.remembered
+    /// Every line of the file, read only in the "Datei" mode.
+    private var fileLines: [DiffLine] = []
+    /// The rows hunk navigation stops at: hunk headers, or in the "Datei" mode the line each hunk starts with.
+    private var hunkStarts: [Int] = []
     private var rows: [Row] = []
     private var loadTask: Task<Void, Never>?
 
@@ -28,6 +36,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         self.repository = repository
         super.init()
         header.onBack = { [weak self] in self?.onClose?() }
+        header.onModeChange = { [weak self] in self?.switchMode(to: $0) }
         header.onPrevious = { [weak self] in self?.jumpToHunk(forward: false) }
         header.onNext = { [weak self] in self?.jumpToHunk(forward: true) }
         header.onFileAction = { [weak self] in self?.runFileAction() }
@@ -90,11 +99,12 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         let isNewFile = selection != self.selection
         loadTask?.cancel()
         let repository = repository()
+        let mode = mode
         loadTask = Task { [weak self] in
-            let diff = try? await repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
+            let (diff, full) = await Self.read(selection, mode: mode, from: repository)
             guard let self, !Task.isCancelled else { return }
             self.selection = selection
-            apply(diff, scrollToTop: isNewFile)
+            apply(diff, full: full, scrollToTop: isNewFile)
             ready?()
         }
     }
@@ -104,26 +114,56 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         guard let selection else { return }
         let repository = repository()
         loadTask?.cancel()
+        let mode = mode
         loadTask = Task { [weak self] in
-            let diff = try? await repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
+            let (diff, full) = await Self.read(selection, mode: mode, from: repository)
             guard let self, !Task.isCancelled else { return }
             guard diff != nil else {
                 onClose?()
                 return
             }
-            apply(diff, scrollToTop: false)
+            apply(diff, full: full, scrollToTop: false)
         }
     }
 
-    private func apply(_ diff: FileDiff?, scrollToTop: Bool) {
+    /// The diff, and in the "Datei" mode also the whole file; both are read before either is shown.
+    private static func read(_ selection: FileSelection, mode: DiffMode, from repository: Repository) async -> (FileDiff?, FileDiff?) {
+        async let diff = try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
+        async let full = mode == .file ? try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil
+        return await (diff, full)
+    }
+
+    /// The new mode holds for this file right away and for every file after it.
+    private func switchMode(to newMode: DiffMode) {
+        guard newMode != mode, let selection else { return }
+        mode = newMode
+        DiffMode.remembered = newMode
+        loadTask?.cancel()
+        let repository = repository()
+        loadTask = Task { [weak self] in
+            let (diff, full) = await Self.read(selection, mode: newMode, from: repository)
+            guard let self, !Task.isCancelled else { return }
+            apply(diff, full: full, scrollToTop: true)
+        }
+    }
+
+    private func apply(_ diff: FileDiff?, full: FileDiff?, scrollToTop: Bool) {
         guard let selection else { return }
         self.diff = diff
-        header.show(selection, diff: diff)
+        fileLines = full?.hunks.flatMap(\.lines) ?? []
+        header.show(selection, diff: diff, mode: mode)
         rows = []
+        hunkStarts = []
         if let diff, diff.isBinary {
             rows = [.message("Binärdatei, kein Textvergleich.")]
+        } else if let diff, !diff.hunks.isEmpty, mode == .file, !fileLines.isEmpty {
+            rows = fileLines.indices.map { .fileLine($0) }
+            // A hunk starts with the same line in both views, and a line's pair of old and new number occurs once in the file.
+            let rowOfNumbers = Dictionary(fileLines.enumerated().map { (NumberPair($1), $0) }, uniquingKeysWith: { first, _ in first })
+            hunkStarts = diff.hunks.compactMap { $0.lines.first.flatMap { rowOfNumbers[NumberPair($0)] } }
         } else if let diff, !diff.hunks.isEmpty {
             for (hunkIndex, hunk) in diff.hunks.enumerated() {
+                hunkStarts.append(rows.count)
                 rows.append(.hunk(hunkIndex))
                 rows += hunk.lines.indices.map { .line(hunk: hunkIndex, line: $0) }
             }
@@ -132,12 +172,14 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         }
         column.minWidth = contentWidth()
         table.reloadData()
-        if scrollToTop { table.scrollRowToVisible(0) }
+        // The whole file opens where its first change is.
+        if scrollToTop { self.scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0) }
     }
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.
     private func contentWidth() -> CGFloat {
-        let longest = diff?.hunks.flatMap(\.lines).map { DiffLineView.display($0.text).count }.max() ?? 0
+        let lines = mode == .file && !fileLines.isEmpty ? fileLines : diff?.hunks.flatMap(\.lines) ?? []
+        let longest = lines.map { DiffLineView.display($0.text).count }.max() ?? 0
         let characterWidth = NSAttributedString(string: "0", attributes: [.font: Theme.mono]).size().width
         return DiffLineView.textX + CGFloat(longest) * characterWidth + Theme.Space.xl
     }
@@ -160,15 +202,32 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     }
 
     private func jumpToHunk(forward: Bool) {
-        let hunkRows = rows.indices.filter { if case .hunk = rows[$0] { true } else { false } }
-        let top = table.rows(in: table.visibleRect).location
-        let target = forward ? hunkRows.first { $0 > top } : hunkRows.last { $0 < top }
+        let top = topRow
+        let target = forward ? hunkStarts.first { $0 > top } : hunkStarts.last { $0 < top }
         guard let target else { NSSound.beep(); return }
-        // The hunk header goes to the top of the view.
-        if let scroll = table.enclosingScrollView {
-            scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: table.rect(ofRow: target).minY))
-            scroll.reflectScrolledClipView(scroll.contentView)
+        scrollToTop(row: target)
+    }
+
+    /// The first row in view; harness checks read it after a jump.
+    var topRow: Int { table.rows(in: table.visibleRect).location }
+
+    /// Where a hunk starts goes to the top of the view.
+    private func scrollToTop(row: Int) {
+        guard let scroll = table.enclosingScrollView else { return }
+        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: table.rect(ofRow: row).minY))
+        scroll.reflectScrolledClipView(scroll.contentView)
+    }
+
+    /// The old and new number of the first row in view, as the gutter shows them.
+    var topLineNumbers: String {
+        guard rows.indices.contains(topRow) else { return "none" }
+        let line: DiffLine? = switch rows[topRow] {
+        case .line(let hunk, let line): diff?.hunks[hunk].lines[line]
+        case .fileLine(let index): fileLines[index]
+        case .hunk(let index): diff?.hunks[index].lines.first
+        case .message: nil
         }
+        return line.map { "\($0.oldNumber.map(String.init) ?? "-")/\($0.newNumber.map(String.init) ?? "-")" } ?? "none"
     }
 
     // MARK: Table
@@ -176,7 +235,10 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        if case .line = rows[row] { return Theme.Diff.lineHeight }
+        switch rows[row] {
+        case .line, .fileLine: return Theme.Diff.lineHeight
+        case .hunk, .message: break
+        }
         return Theme.Diff.hunkHeight
     }
 
@@ -195,11 +257,27 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             view.identifier = .init("line")
             view.line = diff?.hunks[hunk].lines[line]
             return view
+        case .fileLine(let index):
+            let view = (tableView.makeView(withIdentifier: .init("line"), owner: nil) as? DiffLineView) ?? DiffLineView()
+            view.identifier = .init("line")
+            view.line = fileLines[index]
+            return view
         case .message(let text):
             let field = NSTextField(labelWithString: text)
             field.font = Theme.body
             field.textColor = Theme.inkMuted
             return field
         }
+    }
+}
+
+/// A line's place on both sides of the comparison; nil on the side it does not exist.
+private struct NumberPair: Hashable {
+    let old: Int?
+    let new: Int?
+
+    init(_ line: DiffLine) {
+        old = line.oldNumber
+        new = line.newNumber
     }
 }

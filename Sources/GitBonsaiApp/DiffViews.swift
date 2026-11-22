@@ -1,9 +1,10 @@
 import AppKit
 import GitEngine
 
-/// The bar above a file diff: the way back to the graph, the file, its counts, hunk navigation and the file-wide action.
+/// The bar above a file diff: the way back to the graph, the file, its counts, the choice between diff and whole file, hunk navigation and the file-wide action.
 final class DiffHeaderView: BarView {
     var onBack: (() -> Void)?
+    var onModeChange: ((DiffMode) -> Void)?
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onFileAction: (() -> Void)?
@@ -12,8 +13,9 @@ final class DiffHeaderView: BarView {
     private let title = NSTextField(labelWithString: "")
     private let badge = BadgeView()
     private let stat = NSTextField(labelWithString: "")
+    let modes = NSSegmentedControl(labels: DiffMode.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
     private let previous = NSButton()
-    private let next = NSButton()
+    let next = NSButton()
     private let fileAction = NSButton()
 
     init() {
@@ -34,14 +36,18 @@ final class DiffHeaderView: BarView {
             button.action = action
             button.toolTip = tip
         }
+        modes.target = self
+        modes.action = #selector(changeMode(_:))
+        modes.toolTip = "Nur die Änderungen oder die ganze Datei zeigen"
         fileAction.bezelStyle = .rounded
         fileAction.target = self
         fileAction.action = #selector(runFileAction(_:))
 
         let leading = NSStackView(views: [back, title, badge, stat])
         leading.spacing = Theme.Space.m
-        let trailing = NSStackView(views: [previous, next, fileAction])
+        let trailing = NSStackView(views: [modes, previous, next, fileAction])
         trailing.spacing = Theme.Space.s
+        trailing.setCustomSpacing(Theme.Space.m, after: modes)
         for stack in [leading, trailing] {
             stack.orientation = .horizontal
             stack.translatesAutoresizingMaskIntoConstraints = false
@@ -58,7 +64,7 @@ final class DiffHeaderView: BarView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(_ selection: FileSelection, diff: FileDiff?) {
+    func show(_ selection: FileSelection, diff: FileDiff?, mode: DiffMode) {
         let text = NSMutableAttributedString(string: selection.directory, attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted])
         text.append(NSAttributedString(string: selection.name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink]))
         title.attributedStringValue = text
@@ -70,6 +76,9 @@ final class DiffHeaderView: BarView {
         case .untracked: badge.text = "untracked"
         }
         stat.attributedStringValue = diff.map { FileRowView.statText($0.stat) } ?? NSAttributedString()
+        // Binary files and files without changes have nothing to show in full.
+        modes.isHidden = diff.map { $0.isBinary || $0.hunks.isEmpty } ?? true
+        modes.selectedSegment = DiffMode.allCases.firstIndex(of: mode) ?? 0
         let hasHunks = (diff?.hunks.count ?? 0) > 1
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
@@ -78,6 +87,10 @@ final class DiffHeaderView: BarView {
     }
 
     @objc private func goBack(_ sender: Any?) { onBack?() }
+    @objc private func changeMode(_ sender: Any?) {
+        guard DiffMode.allCases.indices.contains(modes.selectedSegment) else { return }
+        onModeChange?(DiffMode.allCases[modes.selectedSegment])
+    }
     @objc private func goPrevious(_ sender: Any?) { onPrevious?() }
     @objc private func goNext(_ sender: Any?) { onNext?() }
     @objc private func runFileAction(_ sender: Any?) { onFileAction?() }
