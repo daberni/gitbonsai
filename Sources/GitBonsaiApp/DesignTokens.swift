@@ -67,8 +67,6 @@ enum Theme {
         static let maxVisibleLanes = 5
         static let authorColumn: CGFloat = 150
         static let dateColumn: CGFloat = 96
-        /// Below this row width the author column gives way to the commit text.
-        static let authorMinimumWidth: CGFloat = 900
     }
 }
 

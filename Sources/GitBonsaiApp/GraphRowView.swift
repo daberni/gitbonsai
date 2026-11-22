@@ -49,10 +49,11 @@ final class GraphRowView: NSView {
     override var isFlipped: Bool { true }
 
     private typealias G = Theme.Graph
+    /// Left edge of the graph column in the row being drawn.
+    private var graphOrigin: CGFloat = 0
 
     private func laneX(_ lane: Int) -> CGFloat {
-        guard let columns = model?.columns else { return 0 }
-        return columns.label + G.firstLane + CGFloat(lane) * G.lane - columns.graphScrollX
+        graphOrigin + G.firstLane + CGFloat(lane) * G.lane - (model?.columns.graphScrollX ?? 0)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -60,26 +61,32 @@ final class GraphRowView: NSView {
         let height = bounds.height
         let midY = height / 2
         let strand = Theme.strand(model.row.color)
-        let columns = model.columns
-        let graphRect = CGRect(x: columns.label, y: 0, width: columns.graph, height: height)
-        let textX = graphRect.maxX + 10
-        let nodeX = laneX(model.row.lane)
+        let layout = model.columns.layout(in: bounds.width)
+        let textX = layout.commit.lowerBound + 10
 
         if model.isSelected {
             Theme.surfaceSelected.setFill()
             bounds.fill()
         }
-
-        // Band from the node to the strand bar of the text column, with a gap above and below so rows stay separate.
+        defer { drawText(context, model: model, layout: layout, textX: textX, midY: midY) }
+        guard let graphRange = layout.graph else {
+            if layout.label != nil { _ = drawPills(context, model: model, strand: strand, midY: midY, labelEnd: layout.label!.upperBound) }
+            return
+        }
+        graphOrigin = graphRange.lowerBound
+        let graphRect = CGRect(x: graphRange.lowerBound, y: 0, width: graphRange.upperBound - graphRange.lowerBound, height: height)
+        let nodeX = laneX(model.row.lane)
+        // The strand bar closes the graph column on the right; the band runs from the node to it, with a gap above and below so rows stay separate.
+        let barX = graphRect.maxX - 6
         let bandColor: NSColor = model.kind == .wip ? Theme.inkMuted : strand
-        if nodeX < graphRect.maxX {
+        if nodeX < barX {
             context.setFillColor(bandColor.withAlphaComponent(model.isHead ? 0.26 : 0.13).cgColor)
             // A node scrolled out to the left still leaves its band, starting at the column edge.
             let bandStart = max(nodeX, graphRect.minX)
-            context.fill(CGRect(x: bandStart, y: G.bandInset, width: textX - 6 - bandStart, height: height - 2 * G.bandInset))
+            context.fill(CGRect(x: bandStart, y: G.bandInset, width: barX - bandStart, height: height - 2 * G.bandInset))
         }
         context.setFillColor(bandColor.cgColor)
-        context.fill(CGRect(x: textX - 6, y: G.bandInset, width: 2, height: height - 2 * G.bandInset))
+        context.fill(CGRect(x: barX, y: G.bandInset, width: 2, height: height - 2 * G.bandInset))
 
         context.saveGState()
         context.clip(to: graphRect)
@@ -103,18 +110,16 @@ final class GraphRowView: NSView {
         context.restoreGState()
 
         let nodeEdge = nodeX - Self.nodeExtent(model.kind)
-        let pillsEnd = drawPills(context, model: model, strand: strand, midY: midY)
+        let pillsEnd = layout.label.flatMap { drawPills(context, model: model, strand: strand, midY: midY, labelEnd: $0.upperBound) }
         if let pillsEnd, nodeEdge > pillsEnd {
             context.setStrokeColor(strand.cgColor)
             context.setLineWidth(1)
             context.setLineDash(phase: 0, lengths: [])
             context.beginPath()
             context.move(to: CGPoint(x: pillsEnd, y: midY))
-            context.addLine(to: CGPoint(x: min(nodeEdge, graphRect.maxX), y: midY))
+            context.addLine(to: CGPoint(x: min(nodeEdge, barX), y: midY))
             context.strokePath()
         }
-
-        drawText(context, model: model, textX: textX, midY: midY)
     }
 
     // MARK: Strands
@@ -214,9 +219,9 @@ final class GraphRowView: NSView {
     // MARK: Labels
 
     /// Draws the pills right-aligned in the label column and returns the right edge of the last pill, where the connector starts.
-    private func drawPills(_ context: CGContext, model: Model, strand: NSColor, midY: CGFloat) -> CGFloat? {
+    private func drawPills(_ context: CGContext, model: Model, strand: NSColor, midY: CGFloat, labelEnd: CGFloat) -> CGFloat? {
         guard !model.pills.isEmpty else { return nil }
-        let rightEdge = model.columns.label - 14
+        let rightEdge = labelEnd - 14
         let pillHeight: CGFloat = 20
         let glyphSize: CGFloat = 13
         var right = rightEdge
@@ -261,11 +266,8 @@ final class GraphRowView: NSView {
 
     // MARK: Text
 
-    private func drawText(_ context: CGContext, model: Model, textX: CGFloat, midY: CGFloat) {
-        let dateX = bounds.width - model.columns.date
-        let showsAuthor = model.columns.showsAuthor(in: bounds.width)
-        let authorX = showsAuthor ? dateX - model.columns.author : dateX
-        let subjectWidth = max(authorX - textX - 12, 40)
+    private func drawText(_ context: CGContext, model: Model, layout: HistoryColumns.Layout, textX: CGFloat, midY: CGFloat) {
+        let subjectWidth = max(layout.commit.upperBound - textX - 12, 40)
 
         if let counts = model.wipCounts {
             var x = textX + 2
@@ -287,12 +289,16 @@ final class GraphRowView: NSView {
         subject.draw(with: CGRect(x: textX + 2, y: midY - subjectHeight / 2, width: subjectWidth, height: subjectHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
 
         let muted: [NSAttributedString.Key: Any] = [.font: Theme.caption, .foregroundColor: Theme.inkMuted]
-        if showsAuthor {
-            let author = NSAttributedString(string: model.commit.authorName, attributes: muted)
-            author.draw(with: CGRect(x: authorX, y: midY - author.size().height / 2, width: model.columns.author - 8, height: author.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+        func cell(_ string: String, in range: ClosedRange<CGFloat>?, attributes: [NSAttributedString.Key: Any], rightAligned: Bool = false) {
+            guard let range else { return }
+            let text = NSAttributedString(string: string, attributes: attributes)
+            let width = range.upperBound - range.lowerBound - 22
+            guard width > 8 else { return }
+            let x = rightAligned ? max(range.upperBound - 12 - text.size().width, range.lowerBound + 10) : range.lowerBound + 10
+            text.draw(with: CGRect(x: x, y: midY - text.size().height / 2, width: width, height: text.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
-        let relative = Self.relativeFormatter.localizedString(for: model.commit.authorDate, relativeTo: Date())
-        let date = NSAttributedString(string: relative, attributes: muted)
-        date.draw(at: CGPoint(x: bounds.width - 12 - date.size().width, y: midY - date.size().height / 2))
+        cell(model.commit.authorName, in: layout.author, attributes: muted)
+        cell(String(model.commit.id.prefix(7)), in: layout.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkMuted])
+        cell(Self.relativeFormatter.localizedString(for: model.commit.authorDate, relativeTo: Date()), in: layout.date, attributes: muted, rightAligned: true)
     }
 }
