@@ -28,7 +28,7 @@ final class GraphRowView: NSView {
         var isSelected: Bool
         var subject: String
         var wipCounts: (changed: Int, staged: Int, untracked: Int)?
-        var graphWidth: CGFloat
+        var columns: HistoryColumns
     }
 
     var model: Model? { didSet { needsDisplay = true } }
@@ -51,7 +51,8 @@ final class GraphRowView: NSView {
     private typealias G = Theme.Graph
 
     private func laneX(_ lane: Int) -> CGFloat {
-        G.labelColumn + G.firstLane + CGFloat(lane) * G.lane
+        guard let columns = model?.columns else { return 0 }
+        return columns.label + G.firstLane + CGFloat(lane) * G.lane - columns.graphScrollX
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -59,7 +60,8 @@ final class GraphRowView: NSView {
         let height = bounds.height
         let midY = height / 2
         let strand = Theme.strand(model.row.color)
-        let graphRect = CGRect(x: G.labelColumn, y: 0, width: model.graphWidth, height: height)
+        let columns = model.columns
+        let graphRect = CGRect(x: columns.label, y: 0, width: columns.graph, height: height)
         let textX = graphRect.maxX + 10
         let nodeX = laneX(model.row.lane)
 
@@ -72,7 +74,9 @@ final class GraphRowView: NSView {
         let bandColor: NSColor = model.kind == .wip ? Theme.inkMuted : strand
         if nodeX < graphRect.maxX {
             context.setFillColor(bandColor.withAlphaComponent(model.isHead ? 0.26 : 0.13).cgColor)
-            context.fill(CGRect(x: nodeX, y: G.bandInset, width: textX - 6 - nodeX, height: height - 2 * G.bandInset))
+            // A node scrolled out to the left still leaves its band, starting at the column edge.
+            let bandStart = max(nodeX, graphRect.minX)
+            context.fill(CGRect(x: bandStart, y: G.bandInset, width: textX - 6 - bandStart, height: height - 2 * G.bandInset))
         }
         context.setFillColor(bandColor.cgColor)
         context.fill(CGRect(x: textX - 6, y: G.bandInset, width: 2, height: height - 2 * G.bandInset))
@@ -212,7 +216,7 @@ final class GraphRowView: NSView {
     /// Draws the pills right-aligned in the label column and returns the right edge of the last pill, where the connector starts.
     private func drawPills(_ context: CGContext, model: Model, strand: NSColor, midY: CGFloat) -> CGFloat? {
         guard !model.pills.isEmpty else { return nil }
-        let rightEdge = G.labelColumn - 14
+        let rightEdge = model.columns.label - 14
         let pillHeight: CGFloat = 20
         let glyphSize: CGFloat = 13
         var right = rightEdge
@@ -258,9 +262,9 @@ final class GraphRowView: NSView {
     // MARK: Text
 
     private func drawText(_ context: CGContext, model: Model, textX: CGFloat, midY: CGFloat) {
-        let dateX = bounds.width - G.dateColumn
-        let showsAuthor = bounds.width >= G.authorMinimumWidth
-        let authorX = showsAuthor ? dateX - G.authorColumn : dateX
+        let dateX = bounds.width - model.columns.date
+        let showsAuthor = model.columns.showsAuthor(in: bounds.width)
+        let authorX = showsAuthor ? dateX - model.columns.author : dateX
         let subjectWidth = max(authorX - textX - 12, 40)
 
         if let counts = model.wipCounts {
@@ -285,7 +289,7 @@ final class GraphRowView: NSView {
         let muted: [NSAttributedString.Key: Any] = [.font: Theme.caption, .foregroundColor: Theme.inkMuted]
         if showsAuthor {
             let author = NSAttributedString(string: model.commit.authorName, attributes: muted)
-            author.draw(with: CGRect(x: authorX, y: midY - author.size().height / 2, width: G.authorColumn - 8, height: author.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            author.draw(with: CGRect(x: authorX, y: midY - author.size().height / 2, width: model.columns.author - 8, height: author.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
         let relative = Self.relativeFormatter.localizedString(for: model.commit.authorDate, relativeTo: Date())
         let date = NSAttributedString(string: relative, attributes: muted)

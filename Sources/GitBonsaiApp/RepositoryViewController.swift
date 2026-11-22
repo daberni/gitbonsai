@@ -18,14 +18,16 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
     var preferredFirstResponder: NSView { tableView }
 
     private let viewModel: GraphViewModel
-    private let tableView = NSTableView()
+    private let tableView = HistoryTableView()
     private let headerView = HistoryHeaderView()
     private let sidebar = SidebarView()
     private let detail = DetailView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let fetchLabel = NSTextField(labelWithString: "")
     private let searchField = NSSearchField()
-    private var graphWidth: CGFloat = Theme.Graph.firstLane + Theme.Graph.lane
+    private var columns = ColumnStore.load()
+    /// Nil while the graph column follows the number of lanes; set once the user has dragged it.
+    private var chosenGraphWidth = ColumnStore.loadGraphWidth()
     private var selectedRow = -1
     private var didReportLoaded = false
     private var lastReportedName = ""
@@ -66,6 +68,19 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
         tableView.selectionHighlightStyle = .none
         tableView.gridStyleMask = []
         tableView.target = self
+        tableView.onGraphScroll = { [weak self] deltaX, point in self?.scrollGraph(by: deltaX, at: point) ?? false }
+        headerView.columns = columns
+        tableView.columns = columns
+        let resetGraph: () -> Void = { [weak self] in
+            guard let self else { return }
+            chosenGraphWidth = nil
+            updateGraphWidth()
+            ColumnStore.save(columns, graphWidth: nil)
+        }
+        headerView.onDrag = { [weak self] divider, x in self?.resize(divider, to: x) }
+        headerView.onResetGraph = resetGraph
+        tableView.onDrag = { [weak self] divider, x in self?.resize(divider, to: x) }
+        tableView.onResetGraph = resetGraph
         tableView.doubleAction = #selector(checkoutClickedRow(_:))
         let menu = NSMenu()
         menu.delegate = self
@@ -231,13 +246,61 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
         viewModel.onStatusChanged = { [weak self] text in self?.statusLabel.stringValue = text }
     }
 
+    /// Width the graph needs to show every lane.
+    private var graphContentWidth: CGFloat {
+        Theme.Graph.firstLane + CGFloat(viewModel.maxLaneCount) * Theme.Graph.lane
+    }
+
+    /// Fits the graph column to the lanes unless the user chose a width, and keeps the scroll position inside the graph.
     private func updateGraphWidth() {
-        let lanes = min(viewModel.maxLaneCount, Theme.Graph.maxVisibleLanes)
-        let width = Theme.Graph.firstLane + CGFloat(lanes) * Theme.Graph.lane
-        guard width != graphWidth else { return }
-        graphWidth = width
-        headerView.graphWidth = width
+        var updated = columns
+        let automatic = Theme.Graph.firstLane + CGFloat(min(viewModel.maxLaneCount, Theme.Graph.maxVisibleLanes)) * Theme.Graph.lane
+        updated.graph = chosenGraphWidth ?? automatic
+        updated.graphScrollX = min(max(updated.graphScrollX, 0), max(graphContentWidth - updated.graph, 0))
+        headerView.graphContentWidth = graphContentWidth
+        apply(updated)
+    }
+
+    private func apply(_ updated: HistoryColumns) {
+        guard updated != columns else { return }
+        columns = updated
+        headerView.columns = updated
+        tableView.columns = updated
         reloadVisibleRows()
+    }
+
+    /// A divider in the header was dragged to `x`. Every column keeps a minimum, and the commit text never drops below its own.
+    private func resize(_ divider: HistoryHeaderView.Divider, to x: CGFloat) {
+        let width = headerView.bounds.width
+        let showsAuthor = columns.showsAuthor(in: width)
+        let rightColumns = columns.date + (showsAuthor ? columns.author : 0)
+        var updated = columns
+        switch divider {
+        case .label:
+            updated.label = min(max(x, 80), width - columns.graph - rightColumns - HistoryColumns.minimumCommitWidth)
+        case .graph:
+            // Wider than the graph needs is allowed; only the commit text keeps its minimum.
+            let limit = width - columns.label - rightColumns - HistoryColumns.minimumCommitWidth
+            updated.graph = min(max(x - columns.label, Theme.Graph.firstLane + Theme.Graph.lane / 2), limit)
+            chosenGraphWidth = updated.graph
+            updated.graphScrollX = min(updated.graphScrollX, max(graphContentWidth - updated.graph, 0))
+        case .author:
+            let limit = width - columns.date - columns.label - columns.graph - HistoryColumns.minimumCommitWidth
+            updated.author = min(max(width - columns.date - x, 60), limit)
+        case .date:
+            let limit = width - (showsAuthor ? columns.author : 0) - columns.label - columns.graph - HistoryColumns.minimumCommitWidth
+            updated.date = min(max(width - x, 64), limit)
+        }
+        apply(updated)
+        ColumnStore.save(columns, graphWidth: chosenGraphWidth)
+    }
+
+    private func scrollGraph(by deltaX: CGFloat, at point: NSPoint) -> Bool {
+        guard point.x >= columns.label, point.x <= columns.label + columns.graph else { return false }
+        var updated = columns
+        updated.graphScrollX = min(max(columns.graphScrollX - deltaX, 0), max(graphContentWidth - columns.graph, 0))
+        apply(updated)
+        return true
     }
 
     private func reloadVisibleRows() {
@@ -441,7 +504,7 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             isSelected: index == selectedRow,
             subject: stash.map { "\($0.selector): \($0.message)" } ?? commit.subject,
             wipCounts: wipCounts,
-            graphWidth: graphWidth
+            columns: columns
         )
         view.toolTip = kind == .wip ? "Uncommittete Änderungen" : GraphRowView.exactFormatter.string(from: commit.authorDate)
         return view
@@ -493,6 +556,23 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
         if ScreenshotHarness.outputPath != nil, runHarnessAction() { return }
         if ScreenshotHarness.outputPath != nil {
             if let row = ScreenshotHarness.selectRow, row < viewModel.rows.count { select(row: row, scroll: true) }
+            let environment = ProcessInfo.processInfo.environment
+            if let width = environment["GITBONSAI_GRAPH_WIDTH"].flatMap(Double.init) { resize(.graph, to: columns.label + CGFloat(width)) }
+            // A real drag through the window, starting on the boundary between graph and commit in the middle of the rows.
+            if let target = environment["GITBONSAI_DRAG_GRAPH_TO"].flatMap(Double.init), let window = view.window {
+                let y = tableView.visibleRect.midY
+                func event(_ type: NSEvent.EventType, x: CGFloat) -> NSEvent? {
+                    NSEvent.mouseEvent(with: type, location: tableView.convert(NSPoint(x: x, y: y), to: nil), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+                }
+                let end = columns.label + CGFloat(target)
+                if let drag = event(.leftMouseDragged, x: end), let up = event(.leftMouseUp, x: end), let down = event(.leftMouseDown, x: columns.label + columns.graph) {
+                    NSApp.postEvent(drag, atStart: false)
+                    NSApp.postEvent(up, atStart: false)
+                    window.sendEvent(down)
+                }
+                FileHandle.standardError.write(Data("graph column after drag: \(columns.graph)\n".utf8))
+            }
+            if let offset = environment["GITBONSAI_GRAPH_SCROLL"].flatMap(Double.init) { _ = scrollGraph(by: -CGFloat(offset), at: NSPoint(x: columns.label + 1, y: 1)) }
             if ProcessInfo.processInfo.environment["GITBONSAI_SCROLL_TO_STASH"] != nil, let row = viewModel.kinds.firstIndex(of: .stash) { select(row: row, scroll: true) }
         }
         onLoaded?()
@@ -518,4 +598,33 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
     }
 
     private static var didRunHarnessAction = false
+}
+
+/// Column widths are a preference of the user, shared by all tabs and kept across launches. Screenshot runs neither read nor write them.
+@MainActor
+enum ColumnStore {
+    private static var defaults: UserDefaults? { ScreenshotHarness.outputPath == nil ? .standard : nil }
+
+    static func load() -> HistoryColumns {
+        var columns = HistoryColumns()
+        guard let defaults else { return columns }
+        func width(_ key: String) -> CGFloat? { defaults.object(forKey: key) == nil ? nil : CGFloat(defaults.double(forKey: key)) }
+        columns.label = width("columnLabel") ?? columns.label
+        columns.author = width("columnAuthor") ?? columns.author
+        columns.date = width("columnDate") ?? columns.date
+        return columns
+    }
+
+    static func loadGraphWidth() -> CGFloat? {
+        guard let defaults, defaults.object(forKey: "columnGraph") != nil else { return nil }
+        return CGFloat(defaults.double(forKey: "columnGraph"))
+    }
+
+    static func save(_ columns: HistoryColumns, graphWidth: CGFloat?) {
+        guard let defaults else { return }
+        defaults.set(Double(columns.label), forKey: "columnLabel")
+        defaults.set(Double(columns.author), forKey: "columnAuthor")
+        defaults.set(Double(columns.date), forKey: "columnDate")
+        if let graphWidth { defaults.set(Double(graphWidth), forKey: "columnGraph") } else { defaults.removeObject(forKey: "columnGraph") }
+    }
 }
