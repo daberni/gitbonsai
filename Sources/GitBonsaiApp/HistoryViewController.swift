@@ -14,6 +14,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     /// The commit of the selected row. Rows are rebuilt before the table hears of it, so the index alone no longer names the commit then.
     private(set) var selectedID: String?
     private var multiSelection = HistoryMultiSelection()
+    let toolTips = HistoryRowToolTips()
     private var isExtendingRange = false
     /// What a reload shows once it finished: the anchor to restore, or nil for the current row.
     private var focusAfterReload: Anchor?
@@ -56,6 +57,17 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         search.onJump = { [weak self] row in self?.select(row: row, scroll: true) }
         configureTable()
         layout()
+        // Tooltip rects do not follow a resize; the columns right of the commit text move with the width.
+        tableView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(tableResized(_:)), name: NSView.frameDidChangeNotification, object: tableView)
+    }
+
+    @objc private func tableResized(_ notification: Notification) {
+        let visible = tableView.rows(in: tableView.visibleRect)
+        for row in visible.location..<(visible.location + visible.length) {
+            guard let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? GraphRowView, let model = view.model else { continue }
+            toolTips.install(on: view, model: model, width: tableView.bounds.width)
+        }
     }
 
     private func configureTable() {
@@ -299,7 +311,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         let view = (tableView.makeView(withIdentifier: identifier, owner: nil) as? GraphRowView) ?? GraphRowView()
         view.identifier = identifier
         view.model = HistoryRowModel.make(row: index, in: viewModel, isSelected: selectedRows.contains(index), columns: columnsController.columns, search: search)
-        view.toolTip = viewModel.kinds[index] == .wip ? "Uncommittete Änderungen" : GraphRowView.exactFormatter.string(from: viewModel.commits[index].authorDate)
+        if let model = view.model { toolTips.install(on: view, model: model, width: tableView.bounds.width) }
         return view
     }
 }

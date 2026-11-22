@@ -9,7 +9,7 @@ extension ScreenshotHarness {
     /// `file:<n>` clicks file n in the detail panel, `row:<n>`, `cmd:<n>` and `shift:<n>` click history row n plainly, with ⌘ or with ⇧, `key:up|down|return` presses that key,
     /// `parent:<n>` clicks parent link n, `sidebar:<subject>` clicks a sidebar row and `sidebar2:<subject>` double-clicks it (subjects as for `GITBONSAI_SIDEBAR_MENU_LIST`), `tags:<n>` opens the tag list and presses entry n,
     /// `search:<text>` types into the commit search, `git:<argument>,<argument>…` runs a git command and refreshes the history in place like a write action, `stage:<path>` stages a file through the app,
-    /// `base` clicks the comparison's "seit gemeinsamer Basis", `close` the diff's close button, `focus:history` focuses the history and `shot:<png>` renders the window.
+    /// `base` clicks the comparison's "seit gemeinsamer Basis", `close` the diff's close button, `focus:history` focuses the history, `tooltips:<row>` prints the tooltip a row registers over its labels, subject, author and date, `width:<points>` resizes the window and `shot:<png>` renders the window.
     static func navigate(on tab: RepositoryViewController) {
         guard let script = environment["GITBONSAI_NAVIGATE"] else { return }
         let steps = script.split(separator: ";").map(String.init)
@@ -109,6 +109,20 @@ extension ScreenshotHarness {
         case "close":
             let close = tab.diff.header.close
             send(click: close.convert(CGPoint(x: close.bounds.midX, y: close.bounds.midY), to: nil), flags: [], count: 1, in: window)
+        case "tooltips":
+            guard let row = Int(argument), let view = table.view(atColumn: 0, row: row, makeIfNecessary: false) else { return navigationLog("row \(argument) not on screen") }
+            let layout = tab.history.columnsController.columns.layout(in: table.bounds.width)
+            let probes: [(String, CGFloat?)] = [
+                ("label", layout.label.map { ($0.lowerBound + $0.upperBound) / 2 }),
+                ("subject", layout.commit.lowerBound + Theme.Cell.subjectLeading + Theme.Space.s),
+                ("author", layout.author.map { ($0.lowerBound + $0.upperBound) / 2 }),
+                ("date", layout.date.map { ($0.lowerBound + $0.upperBound) / 2 }),
+            ]
+            let texts = probes.map { name, x in "\(name) \(x.map { tab.history.toolTips.text(in: view, at: $0).map { "\"\($0)\"" } ?? "none" } ?? "hidden")" }
+            navigationLog("tooltips row \(row) at width \(Int(table.bounds.width)): \(texts.joined(separator: ", ")); row-wide tooltip \(view.toolTip ?? "none")")
+        case "width":
+            guard let points = Double(argument) else { return }
+            window.setFrame(NSRect(origin: window.frame.origin, size: CGSize(width: points, height: window.frame.height)), display: true)
         case "focus":
             window.makeFirstResponder(table)
         case "shot":
