@@ -5,11 +5,18 @@ import GitEngine
 final class DetailView: NSView {
     private typealias M = Theme.Detail
     var onNavigate: ((String) -> Void)?
+    /// A file was chosen; the history pane shows its diff.
+    var onSelectFile: ((FileSelection) -> Void)?
+    var onStage: (([String]) -> Void)?
+    var onUnstage: (([String]) -> Void)?
+    /// Kept across redraws of the same commit or working directory, cleared otherwise.
+    var selectedFile: FileSelection? { didSet { fileList?.selected = selectedFile } }
 
     private let stack = NSStackView()
     private var loadTask: Task<Void, Never>?
     private var parentTargets: [String] = []
     private var copySHA = ""
+    private var fileList: FileListView?
 
     override var isFlipped: Bool { true }
 
@@ -25,6 +32,7 @@ final class DetailView: NSView {
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
         ])
     }
 
@@ -117,35 +125,67 @@ final class DetailView: NSView {
 
         let filesHeader = label("Dateien werden geladen …", font: Theme.caption, color: Theme.inkMuted)
         add(filesHeader)
+        let list = makeFileList()
         loadTask = Task { [weak self] in
             let files = (try? await repository.changedFiles(of: commit)) ?? []
             guard let self, !Task.isCancelled else { return }
-            filesHeader.stringValue = files.count == 1 ? "1 Datei" : "\(files.count) Dateien"
-            for file in files.prefix(M.maximumFiles) { add(fileRow(path: file.path, letter: String(file.state.rawValue), color: Self.color(for: file.state))) }
-            if files.count > 200 { add(label("… und \(files.count - 200) weitere", font: Theme.caption, color: Theme.inkMuted)) }
+            let total = files.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
+            let summary = NSMutableAttributedString(string: (files.count == 1 ? "1 Datei" : "\(files.count) Dateien") + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
+            summary.append(FileRowView.statText(total))
+            filesHeader.attributedStringValue = summary
+            let rows = files.map { file in
+                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: Self.color(for: file.state), stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil)
+            }
+            list.show([FileListView.Section(title: "Dateien", rows: rows, action: nil)])
         }
     }
 
     // MARK: Working directory
 
-    func showWorkingDirectory(status: RepositoryStatus) {
+    func showWorkingDirectory(status: RepositoryStatus, repository: Repository) {
         reset(title: "Working Directory")
-        func list(_ title: String, _ entries: [StatusEntry], state: (StatusEntry) -> (String, NSColor)) {
-            add(label("\(title.uppercased())  \(entries.count)", font: Theme.label, color: Theme.inkMuted))
-            for entry in entries.prefix(M.maximumFiles) {
-                let (letter, color) = state(entry)
-                add(fileRow(path: entry.path, letter: letter, color: color))
+        let list = makeFileList()
+        let unstaged = status.unstaged
+        let staged = status.staged
+        func sections(unstagedStats: [String: DiffStat], stagedStats: [String: DiffStat]) -> [FileListView.Section] {
+            let unstagedRows = unstaged.map { entry in
+                entry.isUntracked
+                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked")
+                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil)
             }
+            let stagedRows = staged.map { entry in
+                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil)
+            }
+            var result = [
+                FileListView.Section(title: "Unstaged  \(unstaged.count)", rows: unstagedRows, action: unstaged.isEmpty ? nil : ("Alle stagen", { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
+                FileListView.Section(title: "Staged  \(staged.count)", rows: stagedRows, action: staged.isEmpty ? nil : ("Alle unstagen", { [weak self] in self?.onUnstage?(staged.map(\.path)) })),
+            ]
+            if status.hasConflicts {
+                let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: "Konflikt") }
+                result.append(FileListView.Section(title: "Konflikte  \(conflictRows.count)", rows: conflictRows, action: nil))
+            }
+            return result
         }
-        list("Unstaged", status.unstaged) { entry in
-            entry.isUntracked ? ("?", Theme.inkMuted) : (String(entry.worktreeState.rawValue), Self.color(for: entry.worktreeState))
+        list.show(sections(unstagedStats: [:], stagedStats: [:]))
+        loadTask = Task {
+            async let unstagedStats = repository.workingStats(staged: false)
+            async let stagedStats = repository.workingStats(staged: true)
+            let counted = ((try? await unstagedStats) ?? [:], (try? await stagedStats) ?? [:])
+            guard !Task.isCancelled else { return }
+            list.show(sections(unstagedStats: counted.0, stagedStats: counted.1))
         }
-        add(divider())
-        list("Staged", status.staged) { entry in (String(entry.indexState.rawValue), Self.color(for: entry.indexState)) }
-        if status.hasConflicts {
-            add(divider())
-            list("Konflikte", status.conflicted) { _ in ("U", Theme.persimmon) }
+    }
+
+    private func makeFileList() -> FileListView {
+        let list = FileListView()
+        list.selected = selectedFile
+        list.onSelect = { [weak self] selection in
+            self?.selectedFile = selection
+            self?.onSelectFile?(selection)
         }
+        fileList = list
+        add(list)
+        return list
     }
 
     func showNothing() {
@@ -178,20 +218,6 @@ final class DetailView: NSView {
         row.orientation = .horizontal
         row.spacing = M.spacing
         return row
-    }
-
-    private func fileRow(path: String, letter: String, color: NSColor) -> NSView {
-        let directory = (path as NSString).deletingLastPathComponent
-        let name = (path as NSString).lastPathComponent
-        let text = NSMutableAttributedString(string: letter + "  ", attributes: [.font: Theme.monoStrong, .foregroundColor: color])
-        if !directory.isEmpty { text.append(NSAttributedString(string: directory + "/", attributes: [.font: Theme.mono, .foregroundColor: Theme.inkMuted])) }
-        text.append(NSAttributedString(string: name, attributes: [.font: Theme.mono, .foregroundColor: Theme.ink]))
-        let field = NSTextField(labelWithAttributedString: text)
-        // When space runs out the folder path gives way, never the file name.
-        field.lineBreakMode = .byTruncatingHead
-        field.toolTip = path
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return field
     }
 
     @objc private func copyCommitSHA(_ sender: NSButton) {

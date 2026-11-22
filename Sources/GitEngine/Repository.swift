@@ -151,8 +151,14 @@ public final class Repository: Sendable {
         } else {
             arguments = ["diff-tree", "-r", "--root", "--no-commit-id", "--name-status", "-M", "-z", commit.id]
         }
-        let result = try await runner.run(arguments)
-        return Self.parseNameStatus(result.stdout)
+        async let names = runner.run(arguments)
+        async let stats = commitStats(of: commit)
+        let counted = (try? await stats) ?? [:]
+        return Self.parseNameStatus(try await names.stdout).map { file in
+            var file = file
+            file.stat = counted[file.path]
+            return file
+        }
     }
 
     /// `--name-status -z`: `status NUL path NUL`, and for renames and copies `status NUL old NUL new NUL`.

@@ -1,0 +1,83 @@
+import Foundation
+
+/// What a diff compares.
+public enum DiffSource: Sendable, Hashable {
+    /// A commit against its first parent, or against nothing for a root commit.
+    case commit(Commit)
+    /// Working tree against the index.
+    case unstaged
+    /// Index against HEAD.
+    case staged
+    /// A file git does not track yet, shown as entirely added.
+    case untracked
+}
+
+extension Repository {
+    private static let diffOptions = ["-p", "--no-color", "--no-ext-diff", "-M"]
+
+    /// The diff of one file, or nil when the file has no changes in that source.
+    /// For a renamed or copied file pass `originalPath` too; limited to the new path alone git would show it as entirely new.
+    public func diff(of path: String, originalPath: String? = nil, in source: DiffSource) async throws -> FileDiff? {
+        let paths = [originalPath, path].compactMap { $0 }
+        let result: GitCommandResult
+        switch source {
+        case .commit(let commit):
+            if let parent = commit.parents.first {
+                result = try await runner.run(["diff"] + Self.diffOptions + [parent, commit.id, "--"] + paths)
+            } else {
+                result = try await runner.run(["diff-tree", "-r", "--root", "--no-commit-id"] + Self.diffOptions + [commit.id, "--"] + paths)
+            }
+        case .unstaged:
+            result = try await runner.run(["diff"] + Self.diffOptions + ["--"] + paths)
+        case .staged:
+            result = try await runner.run(["diff", "--cached"] + Self.diffOptions + ["--"] + paths)
+        case .untracked:
+            // Once the file is in the index it is no longer untracked, even though it still differs from nothing.
+            let tracked = try await runner.run(["ls-files", "--cached", "-z", "--", path])
+            guard tracked.stdout.isEmpty else { return nil }
+            // Exits with 1 because the files differ.
+            result = try await runner.run(["diff", "--no-index"] + Self.diffOptions + ["--", "/dev/null", path], accepting: [0, 1])
+        }
+        return DiffParser.parse(result.stdout).first
+    }
+
+    /// Lines added and removed per path for the working tree (`staged: false`) or the index (`staged: true`).
+    public func workingStats(staged: Bool) async throws -> [String: DiffStat] {
+        let result = try await runner.run(["diff"] + (staged ? ["--cached"] : []) + ["--numstat", "-M", "-z"])
+        return DiffParser.parseNumstat(result.stdout)
+    }
+
+    func commitStats(of commit: Commit) async throws -> [String: DiffStat] {
+        let arguments: [String]
+        if let parent = commit.parents.first {
+            arguments = ["diff", "--numstat", "-M", "-z", parent, commit.id]
+        } else {
+            arguments = ["diff-tree", "-r", "--root", "--no-commit-id", "--numstat", "-M", "-z", commit.id]
+        }
+        return DiffParser.parseNumstat(try await runner.run(arguments).stdout)
+    }
+
+    // MARK: Staging
+
+    public func stage(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        _ = try await runner.runWrite(["add", "--"] + paths)
+    }
+
+    /// Takes the paths out of the index again; in a repository without commits they become untracked.
+    public func unstage(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        let hasHead = (try? await runner.run(["rev-parse", "--verify", "--quiet", "HEAD"])) != nil
+        _ = try await runner.runWrite(hasHead ? ["restore", "--staged", "--"] + paths : ["rm", "--cached", "-q", "--"] + paths)
+    }
+
+    /// Stages one hunk of an unstaged or untracked file.
+    public func stage(_ hunk: DiffHunk, of file: FileDiff) async throws {
+        _ = try await runner.runWrite(["apply", "--cached", "--whitespace=nowarn", "-"], stdin: file.patch(for: hunk))
+    }
+
+    /// Takes one hunk of a staged file out of the index.
+    public func unstage(_ hunk: DiffHunk, of file: FileDiff) async throws {
+        _ = try await runner.runWrite(["apply", "--cached", "--reverse", "--whitespace=nowarn", "-"], stdin: file.patch(for: hunk))
+    }
+}

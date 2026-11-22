@@ -94,12 +94,13 @@ public actor GitRunner {
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) } ?? "/usr/bin/git"
     }
 
-    /// Runs a read-only command to completion. Throws `GitError` on non-zero exit.
-    public func run(_ arguments: [String], environment: [String: String] = [:]) async throws -> GitCommandResult {
+    /// Runs a read-only command to completion. Throws `GitError` on an exit code outside `accepting`;
+    /// `git diff --no-index` for instance exits with 1 when the files differ.
+    public func run(_ arguments: [String], environment: [String: String] = [:], accepting exitCodes: Set<Int32> = [0]) async throws -> GitCommandResult {
         let startedAt = Date()
         let result = try await execute(arguments, environment: Self.readEnvironment.merging(environment) { $1 }, stdin: nil)
         record(result, startedAt: startedAt)
-        guard result.exitCode == 0 else {
+        guard exitCodes.contains(result.exitCode) else {
             throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr)
         }
         return result

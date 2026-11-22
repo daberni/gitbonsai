@@ -1,0 +1,181 @@
+import AppKit
+import GitEngine
+
+/// One file in one line: status letter, the folder dimmed, the file name, and on the right the line counts.
+/// When space runs out the folder gives way from the front, the file name stays.
+final class FileRowView: NSView {
+    struct Model {
+        let selection: FileSelection
+        let letter: String
+        let color: NSColor
+        let stat: DiffStat?
+        /// Shown instead of the counts, for instance "untracked".
+        let note: String?
+    }
+
+    private typealias M = Theme.FileList
+    let model: Model
+    var isSelected = false { didSet { needsDisplay = true } }
+    var onClick: (() -> Void)?
+    private var isHovered = false { didSet { needsDisplay = true } }
+
+    init(model: Model) {
+        self.model = model
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(equalToConstant: M.rowHeight).isActive = true
+        toolTip = model.selection.originalPath.map { "\($0) → \(model.selection.path)" } ?? model.selection.path
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var isFlipped: Bool { true }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+    override func mouseUp(with event: NSEvent) {
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if isSelected || isHovered {
+            (isSelected ? Theme.surfaceSelected : Theme.surface2).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: M.rowRadius, yRadius: M.rowRadius).fill()
+        }
+        let midY = bounds.midY
+        let inset = Theme.Space.xs
+        let letter = NSAttributedString(string: model.letter, attributes: [.font: Theme.monoStrong, .foregroundColor: model.color])
+        letter.draw(at: CGPoint(x: inset, y: midY - letter.size().height / 2))
+
+        let trailing = trailingText()
+        let trailingWidth = trailing?.size().width ?? 0
+        trailing?.draw(at: CGPoint(x: bounds.maxX - inset - trailingWidth, y: midY - (trailing?.size().height ?? 0) / 2))
+
+        let pathX = inset + M.letterWidth
+        let available = bounds.maxX - inset - trailingWidth - (trailing == nil ? 0 : M.statGap) - pathX
+        guard available > 0 else { return }
+        // One string, cut from the front: the folder goes first, the file name last.
+        let path = NSMutableAttributedString(string: model.selection.directory, attributes: Self.attributes(Theme.inkMuted))
+        path.append(NSAttributedString(string: model.selection.name, attributes: Self.attributes(Theme.ink)))
+        let height = path.size().height
+        path.draw(with: CGRect(x: pathX, y: midY - height / 2, width: available, height: height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+    }
+
+    private static func attributes(_ color: NSColor) -> [NSAttributedString.Key: Any] {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingHead
+        return [.font: Theme.mono, .foregroundColor: color, .paragraphStyle: paragraph]
+    }
+
+    private func trailingText() -> NSAttributedString? {
+        if let note = model.note { return NSAttributedString(string: note, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted]) }
+        guard let stat = model.stat else { return nil }
+        return Self.statText(stat)
+    }
+
+    /// `+18 −9`, either part left out when it is zero.
+    static func statText(_ stat: DiffStat) -> NSAttributedString {
+        let text = NSMutableAttributedString()
+        if stat.added > 0 { text.append(NSAttributedString(string: "+\(stat.added)", attributes: [.font: Theme.captionDigits, .foregroundColor: Theme.moss])) }
+        if stat.removed > 0 {
+            if text.length > 0 { text.append(NSAttributedString(string: " ", attributes: [.font: Theme.captionDigits])) }
+            text.append(NSAttributedString(string: "−\(stat.removed)", attributes: [.font: Theme.captionDigits, .foregroundColor: Theme.persimmon]))
+        }
+        return text
+    }
+}
+
+/// Sections of file rows with a caption and an optional action, and one selected file across all of them.
+final class FileListView: NSStackView {
+    struct Section {
+        let title: String
+        let rows: [FileRowView.Model]
+        /// For instance "Alle stagen".
+        let action: (title: String, perform: () -> Void)?
+    }
+
+    var onSelect: ((FileSelection) -> Void)?
+    var selected: FileSelection? { didSet { rowViews.forEach { $0.isSelected = $0.model.selection == selected } } }
+    private var rowViews: [FileRowView] = []
+    private var actions: [() -> Void] = []
+
+    init() {
+        super.init(frame: .zero)
+        orientation = .vertical
+        alignment = .leading
+        spacing = 0
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func show(_ sections: [Section]) {
+        arrangedSubviews.forEach { $0.removeFromSuperview() }
+        rowViews = []
+        actions = []
+        for section in sections {
+            addFull(header(for: section))
+            for model in section.rows.prefix(Theme.Detail.maximumFiles) {
+                let row = FileRowView(model: model)
+                row.isSelected = model.selection == selected
+                row.onClick = { [weak self] in
+                    self?.selected = model.selection
+                    self?.onSelect?(model.selection)
+                }
+                rowViews.append(row)
+                addFull(row)
+            }
+            if section.rows.count > Theme.Detail.maximumFiles {
+                addFull(Self.caption("… und \(section.rows.count - Theme.Detail.maximumFiles) weitere"))
+            }
+        }
+    }
+
+    private func addFull(_ view: NSView) {
+        addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: widthAnchor).isActive = true
+    }
+
+    private func header(for section: Section) -> NSView {
+        let box = NSView()
+        box.translatesAutoresizingMaskIntoConstraints = false
+        let title = Self.caption("")
+        title.attributedStringValue = NSAttributedString(string: section.title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
+        box.addSubview(title)
+        var constraints = [
+            box.heightAnchor.constraint(equalToConstant: Theme.FileList.sectionHeight),
+            title.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: Theme.Space.xs),
+            title.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+        ]
+        if let action = section.action {
+            let button = NSButton(title: action.title, target: self, action: #selector(runAction(_:)))
+            button.isBordered = false
+            button.attributedTitle = NSAttributedString(string: action.title, attributes: [.font: Theme.caption, .foregroundColor: Theme.moss])
+            button.tag = actions.count
+            actions.append(action.perform)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(button)
+            constraints += [button.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -Theme.Space.xs), button.centerYAnchor.constraint(equalTo: box.centerYAnchor)]
+        }
+        title.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate(constraints)
+        return box
+    }
+
+    @objc private func runAction(_ sender: NSButton) {
+        guard actions.indices.contains(sender.tag) else { return }
+        actions[sender.tag]()
+    }
+
+    private static func caption(_ string: String) -> NSTextField {
+        let field = NSTextField(labelWithString: string)
+        field.font = Theme.caption
+        field.textColor = Theme.inkMuted
+        return field
+    }
+}

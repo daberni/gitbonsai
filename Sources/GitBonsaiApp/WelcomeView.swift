@@ -107,7 +107,7 @@ final class WelcomeView: NSView {
 }
 
 /// Hosts the active tab's content and accepts a folder dropped anywhere on it.
-final class TabContentView: NSView {
+final class TabContentView: ContainerView {
     var onDropFolders: (([String]) -> Void)?
 
     override init(frame frameRect: NSRect) {
@@ -116,15 +116,6 @@ final class TabContentView: NSView {
     }
 
     required init?(coder: NSCoder) { nil }
-
-    func show(_ content: NSView) {
-        guard content.superview !== self else { return }
-        subviews.forEach { $0.removeFromSuperview() }
-        content.translatesAutoresizingMaskIntoConstraints = true
-        content.frame = bounds
-        content.autoresizingMask = [.width, .height]
-        addSubview(content)
-    }
 
     private func folders(in sender: NSDraggingInfo) -> [String] {
         let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []

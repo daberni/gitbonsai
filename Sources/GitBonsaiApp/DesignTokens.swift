@@ -212,6 +212,34 @@ enum Theme {
         static let buttonGap: CGFloat = 20
     }
 
+    /// File lists in the detail panel.
+    enum FileList {
+        static let rowHeight: CGFloat = 24
+        static let letterWidth: CGFloat = 18
+        static let sectionHeight: CGFloat = 28
+        static let rowRadius = Radius.sm
+        /// Space between the path and the line counts.
+        static let statGap = Space.s
+    }
+
+    /// The diff of one file in the history pane.
+    enum Diff {
+        static let headerHeight = Window.columnHeader + Space.m
+        static let lineHeight: CGFloat = 20
+        static let hunkHeight: CGFloat = 32
+        static let numberColumn: CGFloat = 44
+        static let signColumn: CGFloat = 16
+        static let textInset = Space.s
+        /// Tint of added and removed lines, and the stronger tint of their number columns.
+        static let lineTint: CGFloat = 0.12
+        static let numberTint: CGFloat = 0.2
+        static let tabWidth = 4
+        static let badgePadding = Space.s
+        static let badgeHeight: CGFloat = 20
+        /// Long hunk sections are cut here so the hunk's button stays in view.
+        static let hunkLabelWidth: CGFloat = 480
+    }
+
     /// Text cells of the history columns.
     enum Cell {
         static let leading: CGFloat = 10

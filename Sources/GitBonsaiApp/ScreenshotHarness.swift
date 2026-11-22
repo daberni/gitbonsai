@@ -1,4 +1,5 @@
 import AppKit
+import GitEngine
 
 /// Agent-facing verification: with `GITBONSAI_SCREENSHOT=/path/out.png` the app renders its window to a PNG once loading has finished and quits.
 /// The README lists the switches that set up a state or drive the UI with real events before the capture.
@@ -20,7 +21,8 @@ enum ScreenshotHarness {
         // The frame view above the content view also holds the title bar, so the traffic lights are in the picture.
         guard let outputPath, let view = window.contentView?.superview else { return }
         // Give the last batch of rows and the asynchronously loaded file list time to lay out and draw.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        let delay = environment["GITBONSAI_CAPTURE_DELAY"].flatMap(Double.init) ?? 0.8
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
             view.cacheDisplay(in: view.bounds, to: rep)
             if let png = rep.representation(using: .png, properties: [:]) {
@@ -64,6 +66,53 @@ enum ScreenshotHarness {
         }
         if let offset = environment["GITBONSAI_GRAPH_SCROLL"].flatMap(Double.init), let graph = columns.columns.layout(in: table.bounds.width).graph {
             _ = columns.scrollGraph(by: -CGFloat(offset), at: NSPoint(x: graph.lowerBound + 1, y: 1))
+        }
+    }
+
+    /// `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file of the working directory, or of the selected commit without a source.
+    /// `GITBONSAI_HUNK_ACTION=<n>` then stages or unstages hunk n.
+    static func openDiff(on tab: RepositoryViewController) {
+        guard let path = environment["GITBONSAI_OPEN_FILE"] else { return }
+        let row = tab.history.selectedRow
+        let source: DiffSource
+        switch environment["GITBONSAI_OPEN_SOURCE"] {
+        case "unstaged": source = .unstaged
+        case "staged": source = .staged
+        case "untracked": source = .untracked
+        default:
+            guard row >= 0 else { return }
+            source = .commit(tab.viewModel.commits[row])
+        }
+        tab.openFile(FileSelection(path: path, originalPath: nil, source: source))
+        if let hunk = environment["GITBONSAI_HUNK_ACTION"].flatMap(Int.init) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { tab.diff.runHunkAction(hunk) }
+        }
+    }
+
+    /// `GITBONSAI_CLICK_FILE=<n>` clicks the n-th file in the detail panel with real mouse events and reports whether its diff opened.
+    static func clickFile(on tab: RepositoryViewController) {
+        guard let index = environment["GITBONSAI_CLICK_FILE"].flatMap(Int.init) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            guard let window = tab.view.window else { return }
+            var rows: [FileRowView] = []
+            func collect(_ view: NSView) {
+                if let row = view as? FileRowView { rows.append(row) }
+                view.subviews.forEach(collect)
+            }
+            collect(window.contentView!)
+            guard rows.indices.contains(index) else {
+                FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
+                return
+            }
+            let row = rows[index]
+            let point = row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
+            let hit = window.contentView?.superview?.hitTest(point).map { "\(type(of: $0))" } ?? "nothing"
+            click(in: window, at: point)
+            // The release is still queued; the result is there once it has been handled.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                let opened = tab.diff.selection?.path
+                FileHandle.standardError.write(Data("clicked \(row.model.selection.path) (hit \(hit)), diff shows \(opened ?? "nothing")\n".utf8))
+            }
         }
     }
 

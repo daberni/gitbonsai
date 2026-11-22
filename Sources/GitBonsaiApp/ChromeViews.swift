@@ -38,3 +38,18 @@ class BarView: NSView {
         NSRect(x: 0, y: edge == .bottom ? bounds.height - 1 : 0, width: bounds.width, height: 1).fill()
     }
 }
+
+/// Shows one of several views at a time, filling itself.
+class ContainerView: NSView {
+    private(set) var current: NSView?
+
+    func show(_ content: NSView) {
+        guard content !== current else { return }
+        current?.removeFromSuperview()
+        content.translatesAutoresizingMaskIntoConstraints = true
+        content.frame = bounds
+        content.autoresizingMask = [.width, .height]
+        addSubview(content)
+        current = content
+    }
+}
