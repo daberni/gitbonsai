@@ -1,96 +1,101 @@
-GitBonsai ist ein nativer macOS-Git-Client. Seine Gestaltung folgt dem Bonsai: ruhig, warm, handwerklich, geduldig. Nichts blinkt, nichts drängt. Der Graph ist die Pflanze, die Oberfläche die Schale.
+# Design language
 
-## Prinzipien
+GitBonsai is a native macOS git client. Its design follows the bonsai: calm, warm, crafted, patient. Nothing blinks, nothing pushes. The graph is the plant, the interface is the bowl.
 
-1. **Warm statt neutral.** Jede Fläche und jedes Grau trägt einen Hauch Rinde oder Papier. Reines Weiß nur für Popover und Eingabefelder (`surface-2`), reines Schwarz nirgends.
-2. **Weich, aber präzise.** Runde Enden, runde Ringe, Pills; dafür exakte 1-px-Hairlines und klare Spalten. Weich ist die Form, nicht die Information.
-3. **Der Graph ist die Hauptfigur.** Farbe gehört zuerst den Strängen. Chrome, Sidebar und Text bleiben in Papier und Tinte, damit der Graph leuchtet.
-4. **Eine Metapher, sparsam.** Bonsai-Bilder und -Wörter erscheinen in Marke, Onboarding, Leerzuständen und Worktree-Icons. Die Arbeitsoberfläche spricht Git: Branch, Rebase, Stash, Worktree.
-5. **Kein Lärm.** Keine KI-Buttons, keine Werbeflächen, keine Badges ohne Bedeutung. Jede Hervorhebung sagt etwas über den Zustand des Repos.
+Token names below refer to [tokens.json](tokens.json), which `Sources/GitBonsaiApp/DesignTokens.swift` mirrors.
 
-## Stimme und Text
+## Principles
 
-- Deutsch in der Doku und im Marketing, Englisch in der Oberfläche (Git-Begriffe bleiben englisch, auch in deutscher Lokalisierung: "Rebase auf main", nicht "Umbasieren").
-- Ruhige, vollständige Sätze. Keine Ausrufezeichen, keine Emojis in der Oberfläche. Buttons benennen die Handlung mit dem Git-Verb: "Merge feature/graph", "Push with lease", "Drop stash".
-- Beschriftungen von Aktionen (Buttons, Menüeinträge, Banner-Aktionen) sind immer einzeilig; bei Platzmangel wird der erklärende Text gekürzt, nie die Aktion umgebrochen.
-- Fehler zeigen die vollständige git-Ausgabe im Monospace (`code`) unter einem kurzen Satz, der sagt, was zu tun ist.
-- Die Metapher darf in Leerzuständen und Onboarding sprechen, aber nur mit dem Wort Bonsai und den Git-Begriffen; Gärtnervokabular wie "Steckling" kommt in der Oberfläche nicht vor. In Dialogen keine Metapher.
+1. **Warm, not neutral.** Every surface and every grey carries a trace of bark or paper. Pure white only for popovers and input fields (`surface-2`), pure black nowhere.
+2. **Soft, but precise.** Round caps, round rings, pills; but exact 1 px hairlines and clear columns. The form is soft, not the information.
+3. **The graph is the main figure.** Colour belongs to the strands first. Chrome, sidebar and text stay in paper and ink so that the graph shines.
+4. **One metaphor, used sparingly.** Bonsai images and words appear in the brand, empty states and worktree icons. The working interface speaks git: Branch, Rebase, Stash, Worktree.
+5. **No noise.** No AI buttons, no ads, no badges without meaning. Every highlight says something about the state of the repository.
 
-## Farbe
+## Voice and text
 
-- Flächen: `surface-0` für Fenster und Graph, `surface-1` für Sidebar, Toolbar, Tabs und Statusleiste, `surface-2` für alles, was darüber schwebt. Trennlinien immer `hairline`.
-- Text: `ink` auf allen Flächen; `ink-muted` für Autor, Datum, Zähler; `ink-faint` nur für gedimmte Commits außerhalb des aktuellen Branches und nur ab 13 px.
-- Akzent: `moss` ist die einzige Primärfarbe. Primärbutton, Links, aktiver Tab, Fokusring, ausgecheckter Branch. Text auf `moss` in `on-moss`.
-- `clay` markiert Worktrees und handwerkliche Eingriffe (Rebase-Banner, Worktree-Badges). Nie als zweiter Primärakzent für Buttons.
-- Zustände: `ochre` warnt, `persimmon` gefährdet, `sky` informiert; jede mit ihrer `-soft`-Fläche als Hintergrund. Ein Zustand trägt immer auch ein Wort oder Icon, nie nur Farbe.
-- Graph-Stränge: die zwölf `strand-*`-Farben zyklisch in der angegebenen Reihenfolge, damit Nachbarstränge nie derselben Hue-Familie angehören. Im Dark Mode sind sie bewusst gedämpft; die Linie trägt die Farbe, nicht die Fläche.
-- Dark Mode ist kein invertiertes Light: Stränge werden heller und etwas entsättigt, Akzente werden zu hellen Flächen mit dunklem Text (`on-moss`).
+- English is the development language of the interface and of all documentation; German is the first translation. Git terms stay as git users know them in every language ("Rebase auf main", not a translated verb).
+- Calm, complete sentences. No exclamation marks, no emoji in the interface. Commands follow the capitalization rule in `AGENTS.md`: the verb and the git object capitalized ("Checkout Commit", "Create annotated Tag…").
+- Labels of actions (buttons, menu items, banner actions) are always one line; when space is short the explanatory text is shortened, never the action wrapped.
+- Errors show the complete git output in monospace (`code`) under a short sentence that says what to do.
+- The metaphor may speak in empty states and onboarding, but only with the word bonsai and the git terms; gardening vocabulary does not appear in the interface. No metaphor in dialogs.
 
-## Typografie
+## Colour
 
-- Oberfläche in der Systemschrift (`ui`, SF Pro): `body` 13/18 für alles Lesbare, `body-strong` für HEAD, aktiven Worktree und ausgecheckten Branch, `caption` für Autor, Datum, Zähler, `label` versal für Abschnittstitel und Spaltenköpfe.
-- Marke in `display` (Fraunces, weich, mit optischer Größe): `wordmark` und `display` nur in Onboarding, About, Website, Leerzuständen. Nie in Listen, Dialogen oder der Toolbar.
-- Code in `mono`: Diffs, Kommando-Log, Pfade, SHAs (`sha` in Listen). Tabellarische Ziffern überall, wo Zahlen untereinander stehen. Zeitangaben relativ ("gestern", "vor 1 Woche"), der exakte Zeitstempel beim Hover als Tooltip.
+- Surfaces: `surface-0` for window and graph, `surface-1` for sidebar, toolbar, tabs and status line, `surface-2` for everything that floats above. Separators are always `hairline`.
+- Text: `ink` on all surfaces; `ink-muted` for author, date, counts; `ink-faint` only for dimmed commits outside the current branch and only from 13 px.
+- Accent: `moss` is the only primary colour. Primary button, links, active tab, focus ring, checked-out branch. Text on `moss` in `on-moss`.
+- `clay` marks worktrees and crafting interventions (rebase banner, worktree badges). Never a second primary accent for buttons.
+- States: `ochre` warns, `persimmon` endangers, `sky` informs; each with its `-soft` fill as background. A state always carries a word or icon too, never colour alone.
+- Graph strands: the twelve `strand-*` colours in their given order, cycling, so that neighbouring strands never share a hue family. In dark mode they are deliberately muted; the line carries the colour, not the fill.
+- Dark mode is not inverted light: strands get lighter and slightly desaturated, accents become light fills with dark text (`on-moss`).
 
-## Form und Raum
+## Typography
 
-- Radien: `radius-sm` für Buttons und Felder, `radius-md` für Tabs (oben, mit Gegenrundung in den Inhalt wie in Chrome), Popover und Banner, `radius-lg` für Sheets, `radius-pill` für jedes Label. Der Stash-Knoten ist das einzige Quadrat (`radius-xs`).
-- Abstände aus der 4-px-Skala; Zeilen in Graph und Sidebar sind `row` (26 px) hoch, Lanes liegen `lane` (18 px) auseinander.
-- Schatten nur für Schwebendes (`shadow-popover`) und gedrückte Toolbar-Buttons (`shadow-raised`). Karten im Detail-Panel haben Hairline statt Schatten.
-- Kein Element bekommt gleichzeitig Rahmen, Schatten und Füllung.
+- Interface in the system font (`ui`, SF Pro): `body` 13/18 for everything readable, `body-strong` for HEAD, the active worktree and the checked-out branch, `caption` for author, date and counts, `label` in capitals for section titles and column headers.
+- Brand in `display` (Fraunces, soft, with optical size): `wordmark` and `display` only in onboarding, About, the website and empty states. Never in lists, dialogs or the toolbar.
+- Code in `mono`: diffs, the command line in the status line, paths, SHAs (`sha` in lists). Tabular figures wherever numbers stand above one another. Times are relative ("yesterday", "1 week ago"), the exact timestamp in the tooltip.
 
-## Linien und Graph
+## Form and space
 
-- Stränge `stroke-strand` (2 px), runde Enden, Lane-Wechsel als weiche S-Kurve zwischen zwei Zeilenmitten.
-- Commits sind Avatare im Strangring (24 px, Strich `stroke-strand`, Fallback Initialen); der Ring ist opak, keine Linie läuft hindurch. Merge-Commits sind gefüllte Punkte 11 px ohne Avatar.
-- Stashes sind gestrichelte Quadrate mit gestrichelter Linie zum Basis-Commit und tragen kein Label links.
-- Die WIP-Zeile hat einen gestrichelten Ring in `ink-muted`.
-- Ref-Labels stehen rechtsbündig in der Spalte links vom Graphen: Strangfarbe als 16-%-Tint mit 1-px-Rahmen, Text und Glyphen in `ink`, nie weiße Schrift auf Vollfläche. Ein lokaler Branch und seine gleichnamigen Remotes teilen ein Label; monochrome Glyphen stehen alle im Label: zuerst eine Standort-Glyphe (Häkchen = hier ausgecheckt, Worktree-Glyphe = in anderem Worktree ausgecheckt, Laptop = lokal, nirgends ausgecheckt), dann eine Wolke je Remote.
-- Namen im Text (Branches, Remote-Branches, Remotes, Tags, Commits, Dateipfade, Worktrees, Stashes) stehen nie in Anführungszeichen, sondern als kleine Pill: das Ref-Label der History im Kleinen, mit Glyphe (Laptop lokal, Wolke Remote, Etikett Tag, Ring Commit, Blatt Datei, Bonsai Worktree, Schale Stash) und in der Farbe der Art (`moss` lokal, `sky` Remote, `ochre` Tag, `clay` Worktree, `ink-muted` sonst) als 24-%-Tint. Commits immer mit dem 7-stelligen SHA, SHA und Pfad in `mono`. Das gilt für Menüs, Sheets, Banner, Toasts und Feldmeldungen; alle Texte entstehen über `RefString`/`RefText`. Die Pill behält in einer markierten Menüzeile ihre Farben. Namen über 220 pt werden in der Mitte gekürzt. Tooltips, Buttons und die Befehlsleiste nehmen nur Text an: dort steht der Name blank, ohne Anführungszeichen. Anführungszeichen bleiben für Prosa: Commit-Betreffs, Stash-Nachrichten, Kommandos und Eingaben des Nutzers.
-- Lane-Wechsel sind enge S-Kurven: senkrecht auf der Lane, der Übergang liegt in einem 12-px-Fenster (`elbow`) um die Mitte zwischen zwei Zeilen. Zeilen-Bänder vom Knoten bis zur Strang-Linie der Textspalte, 13 % (HEAD 26 %), mit 5 px Abstand zwischen den Zeilen; die Textspalte bleibt ungetönt.
+- Radii: `radius-sm` for buttons and fields, `radius-md` for tabs, popovers and banners, `radius-lg` for sheets, `radius-pill` for every label. The stash node is the only square (`radius-xs`).
+- Spacing from the 4 px scale. Graph rows are `row` (36 px) high and lanes `lane` (28 px) apart; sidebar rows are 26 px.
+- Shadows only for floating elements (`shadow-popover`) and pressed toolbar buttons (`shadow-raised`). Cards in the detail panel have a hairline instead of a shadow.
+- No element gets border, shadow and fill at once.
 
-## Ikonografie
+## Lines and graph
 
-- Oberfläche: SF Symbols in Regular-Gewicht, Linienstärke `stroke-icon`, runde Enden. Keine gefüllten Varianten außer für Zustände (Konflikt, Fehler).
-- Bonsai-Glyphen unter `assets/Icons` für alles, was ein Worktree ist: `bonsai-main` (Baum in Schale, der Hauptworktree), `bonsai-linked` (junger Baum in kleiner Schale, verknüpfter Worktree), `bonsai-locked` (Schale mit Band), `bonsai-detached` (Trieb im Wasserglas, detached HEAD), `bonsai-prunable` (kahler Trieb). Einfarbig in `ink`, als Badge in `clay`.
-- `stash-bowl` (leere Schale) ist das Stash-Icon in Sidebar, Popover und Toolbar. Alle anderen Metaphern bleiben Git-Icons: Branch, Tag, Remote (Wolke), Laptop für lokal. Alle Glyphen monochrom in `currentColor`; der ausgecheckte Branch trägt überall dasselbe Häkchen, nie einen farbigen Punkt.
+- Strands `stroke-strand` (2 px), round caps; a lane change is a tight S curve: vertical on the lane, with the transition inside a 12 px window (`elbow`) around the middle between two rows.
+- Commits are avatars in the strand ring (`node`, 24 px, stroke `stroke-strand`, initials as fallback); the ring is opaque, no line runs through it. Merge commits are filled dots without avatar.
+- Stashes are dashed squares with a dashed line to their base commit and carry no label on the left.
+- The working directory row has a dashed ring in `ink-muted`.
+- Row bands run from the node to the strand line of the text column, 13 % (HEAD 26 %), with 5 px between rows; the text column stays untinted.
+- Ref labels stand right-aligned in the column left of the graph: the strand colour as a 16 % tint with a 1 px border, text and glyphs in `ink`, never white text on a solid fill. A local branch and its remote branches of the same name share a label; its monochrome glyphs come first a location glyph (check mark: checked out here; worktree glyph: checked out in another worktree; laptop: local, checked out nowhere), then a cloud per remote.
+- Names in running text (branches, remote branches, remotes, tags, commits, file paths, worktrees, stashes) never stand in quotes but as small pills: the history's ref label in small, with a glyph (laptop local, cloud remote, tag, ring commit, leaf file, bonsai worktree, bowl stash) in the colour of the kind (`moss` local, `sky` remote, `ochre` tag, `clay` worktree, `ink-muted` otherwise) as a 24 % tint. Commits always with the 7-character SHA, SHA and path in `mono`. This holds for menus, sheets, banners, toasts and field messages; all texts are built through `RefString` and `RefText`. The pill keeps its colours in a highlighted menu row. Names over 220 pt are shortened in the middle. Tooltips, buttons and the command bar take plain text only: there the name stands bare, without quotes. Quotes remain for prose: commit subjects, stash messages, commands and user input. The study behind this is [ref-text.md](ref-text.md).
 
-## Bewegung
+## Iconography
 
-- 160 ms ease-out für Hover und Auswahl, 220 ms für Popover und Sheets, keine Federung. Graph-Zeilen erscheinen ohne Animation; Nachladen ist unsichtbar.
-- Während eines Drags friert das Layout ein; der Ghost ist ein Overlay mit 35 % Deckung, andere Stränge dimmen auf 35 %.
-- `prefers-reduced-motion` schaltet alle Übergänge ab.
+- Interface: SF Symbols in regular weight, line width `stroke-icon`, round caps. No filled variants except for states (conflict, error).
+- Bonsai glyphs in [icons/](icons/README.md) for everything that is a worktree: `bonsai-main` (tree in a bowl, the main worktree), `bonsai-linked` (young tree in a small bowl, linked worktree), `bonsai-locked` (bowl with a band), `bonsai-detached` (shoot in a water glass, detached HEAD), `bonsai-prunable` (bare shoot). Monochrome in `ink`, as a badge in `clay`.
+- `stash-bowl` (an empty bowl) is the stash icon in the sidebar, popover and toolbar. All other metaphors stay git icons: branch, tag, remote (cloud), laptop for local. All glyphs monochrome in `currentColor`; the checked-out branch carries the same check mark everywhere, never a coloured dot.
 
-## Fenster und Panels
+## Motion
 
-- **Drei Spalten**: Sidebar, History (Graph), Detail-Panel. Tabs in der Titelzeile, darunter die Toolbar: links Fetch-Status, in der Mitte die Aktionen, rechts die Suche.
-- **Das Detail-Panel folgt der Auswahl in der History** und hat keinen Umschalter: ein Commit zeigt "Commit", die WIP-Zeile "Working Directory", ein Stash "Stash".
-- **Diffs öffnen in der History-Spalte**, nie im Detail-Panel: eine Datei auswählen ersetzt den Graph durch ihren Diff (Kopf mit Zurück-Button "Graph", Dateiname, `+n −m`, Unified / Side by side, Hunk-Navigation). Hunks werden dort gestaged oder verworfen. Esc kehrt zum Graph zurück. Das Detail-Panel behält Dateiliste und Commit-Formular.
-- **Author und Committer**: unterscheiden sich Name, E-Mail oder Datum, stehen beide Zeilen mit eigenem Datum da; ist alles identisch, eine Zeile "Author und Committer". Daten relativ, exakt im Tooltip.
-- **SHAs**: der Commit-SHA ist ein Button, der den vollen SHA kopiert; jeder Parent-SHA ist ein Link, der zum Parent im Graph springt.
-- **Zähler** wie `+18 −9` stehen immer einzeilig; bei Platzmangel kürzt sich der Pfad davor.
-- **Keine erklärenden Sätze in Panels.** Was ein Klick tut, steht im Tooltip oder ergibt sich aus der Form.
-- **WIP-Zeile**: nicht fett, nur Icons mit Zahlen (Stift geändert, Haken im Kreis staged, Plus untracked), Wörter im Tooltip.
+- 160 ms ease-out for hover and selection, 220 ms for popovers and sheets, no spring. Graph rows appear without animation; loading more is invisible.
+- Reduce Motion turns all transitions off.
 
-## Drag-and-drop
+## Window and panels
 
-- Während eines Drags wird nichts eingeschoben oder verschoben.
-- Gedimmt wird pro Strang und Element, nie pro Zeile: voll sind der Quell-Strang auf ganzer Länge mit seinen Commits und die Spitze des Ziels (Knoten, Label mit Ring in `moss`, Textzeile); alles andere liegt bei 30 %. Ein Strang hat durchgehend eine Stärke.
-- Das Ergebnis zeigt eine Karte neben dem Ziel: kleine Skizze mit gestrichelt gezeichnetem Neuen, ein Satz, das git-Kommando, der Hinweis auf ⌥ für Rebase.
+- **Three columns**: sidebar, history (graph), detail panel. Tabs in the title bar, the toolbar below: fetch on the left, the actions in the middle, the search on the right.
+- **The detail panel follows the selection in the history** and has no switcher: a commit shows the commit, the working directory row the working directory, a comparison its files, a stash the stash.
+- **Diffs open in the history column**, never in the detail panel: selecting a file replaces the history with its diff (header with change letter, path, "Diff | File", hunk navigation and a close button). Hunks are staged or discarded there. The detail panel keeps the file list and the commit form.
+- **Author and committer**: when name, email or date differ, both lines stand with their own date; when all match, one line. Dates relative, exact in the tooltip.
+- **SHAs**: the commit SHA has a button that copies the full SHA; every parent SHA is a link to the parent in the graph.
+- **Counts** such as `+18 −9` always stay on one line; when space is short the path before them is shortened.
+- **No explanatory sentences in panels.** What a click does is in the tooltip or follows from the form.
+- **Working directory row**: not bold, only icons with counts (pencil modified, check in a circle staged, plus untracked), words in the tooltip.
+
+## Drag and drop (planned)
+
+Not built yet; the backlog tracks it. The design:
+
+- While dragging nothing is inserted or moved, and the layout is frozen.
+- Dimming is per strand and element, never per row: fully visible are the source strand over its whole length with its commits and the target's tip (node, label with a ring in `moss`, text row); everything else is at 30 %. A strand keeps one strength throughout.
+- The result shows as a card next to the target: a small sketch with the new parts dashed, one sentence, the git command, and the hint that ⌥ switches to rebase.
 
 ## Liquid Glass
 
-macOS 26 legt Toolbar, Sidebar, Sheets und Popover als Liquid Glass über den Inhalt. Glas widerspricht dem matten Bonsai-Bild nicht, solange es dort bleibt, wo das System es vorsieht, und der Inhalt selbst matt bleibt.
+macOS 26 lays toolbar, sidebar, sheets and popovers as Liquid Glass over the content. Glass does not contradict the matte bonsai image as long as it stays where the system puts it and the content itself stays matte.
 
-- **Glas nur für die Systemebene**: Toolbar, Tab-Leiste, Sidebar-Hintergrund, Sheets, Popover, Menüs. Diese Flächen nutzen das Standard-Glas des Systems (`NSGlassEffectView` bzw. `.glassEffect`), getönt mit `surface-1` bei etwa 60 % Deckung, damit das warme Papier durchscheint. Keine eigenen Blur-Werte, keine eigenen Highlights.
-- **Der Graph ist nie Glas.** Er ist die Pflanze, nicht das Fenster: `surface-0`, matt, mit vollen Strangfarben. Beim Scrollen gleiten die Stränge unter der Glas-Toolbar hindurch; das ist der einzige Moment, in dem Glas das Konzept trägt, weil der Graph dann wie hinter einer Scheibe wächst.
-- **Labels, Knoten, Banner und Detail-Panel bleiben matt.** Ein Label auf Glas verliert Kontrast; deshalb sitzen Ref-Labels im Graph-Bereich, nie in der Toolbar.
-- **Tönung statt Farbe**: Glasflächen tragen nie `moss` oder `clay` als Tönung, nur Papier bzw. Rinde. Akzente bleiben opake Elemente auf dem Glas (Buttons, Badges), damit sie in jedem Hintergrund lesbar sind.
-- **Fallback**: Mit "Transparenz reduzieren" werden dieselben Flächen opak `surface-1`; Layout und Abstände ändern sich nicht, nur die Materialität. Die Sidebar-Zeilenhöhen und Radien gelten auf beiden.
+- **Glass only for the system layer**: toolbar, tab row, sidebar background, sheets, popovers, menus, the command bar. These use the system's standard glass, tinted with `surface-1` so that the warm paper shows through. No custom blur values, no custom highlights.
+- **The graph is never glass.** It is the plant, not the window: `surface-0`, matte, with full strand colours. When scrolling, the strands glide under the glass toolbar.
+- **Labels, nodes, banners and the detail panel stay matte.** A label on glass loses contrast; ref labels therefore sit in the graph area, never in the toolbar.
+- **Tint, not colour**: glass surfaces never carry `moss` or `clay` as tint, only paper or bark. Accents stay opaque elements on the glass (buttons, badges) so they are readable on any background.
+- **Fallback**: with Reduce Transparency the same surfaces become opaque `surface-1`; layout and spacing do not change.
 
-## Nicht
+## Never
 
-- Keine Verläufe, keine Glas-Effekte, keine farbigen Linksränder an Karten.
-- Keine Emojis als Icons in der fertigen App; die Vorschauen hier nutzen sie nur als Platzhalter für SF Symbols.
-- Keine zweite Akzentfarbe neben `moss` für Aktionen.
-- Kein Bonsai-Bild in einem Dialog, der Daten löscht.
+- No gradients, no glass outside the system layer, no coloured left borders on cards.
+- No emoji as icons.
+- No second accent colour next to `moss` for actions.
+- No bonsai image in a dialog that deletes data.

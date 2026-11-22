@@ -1,150 +1,105 @@
 # GitBonsai — Flows
 
-Siehe auch: [Feature-Überblick](feature-overview.md) · [Architektur](architecture.md) · [Screens](screens.md)
+See also: [Feature overview](feature-overview.md) · [Architecture](architecture.md) · [Screens](screens.md) · [Git operations](git-operations.md)
 
-Jeder Flow nennt Vorbedingungen, Schritte mit dem ausgeführten git-Kommando und dem UI-Feedback, und die Fehlerfälle. Alle Kommandos laufen mit der Umgebung aus [Architektur › GitRunner](architecture.md#2-gitrunner) und erscheinen im Kommando-Log.
+Each flow names its steps, the git commands they run and the feedback in the app. All commands run with the environment from [Architecture › GitRunner](architecture.md#2-gitrunner); [git-operations.md](git-operations.md) is the complete list. The status line under the history shows the command of the last action and its duration.
 
-## 1. Repository öffnen
+## 1. Open a repository
 
-Vorbedingung: Ordner ist ein Repository oder liegt in einem.
+1. Open a folder with ⌘O, from Open Recent, from the empty tab's list of recent repositories and repository folders, or as a command-line argument. `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` finds the worktree root and the shared `.git`. A subfolder of a repository opens the repository.
+2. Side by side: `git for-each-ref` fills the sidebar and the ref pills, `git status --porcelain=v2 -z --branch --untracked-files=all` the working directory row, `git worktree list --porcelain -z` the worktrees, and `git log` streams the history (see [Architecture › History pipeline](architecture.md#5-history-pipeline)).
+3. The file watcher starts. From then on the tab is reconciled whenever it becomes visible, the app becomes active or its files change.
+4. With automatic fetching on (Settings › Fetching), the visible tab fetches on activation and periodically.
 
-1. Nutzer wählt Ordner (⌘O, Drag auf Fenster, zuletzt verwendet). `git rev-parse --show-toplevel --git-common-dir --abbrev-ref HEAD` bestimmt Wurzel, `.git`-Verzeichnis und Branch. UI: Fenster mit Titel, Sidebar-Skelett.
-2. Cache wird gelesen; vorhandene Zeilen erscheinen sofort im Graph.
-3. Parallel: `git for-each-ref …` (Sidebar füllt sich), `git status --porcelain=v2 -z --branch --untracked-files=all` (WIP-Zeile), `git worktree list --porcelain -z` (Worktrees-Abschnitt), `git log --all --topo-order …` gestreamt (Graph ersetzt Cache ab der ersten Abweichung).
-4. FSEvents-Watcher startet. Bei fehlender `commit-graph`-Datei und > 10 000 Commits läuft im Hintergrund `git commit-graph write --reachable`.
-5. Optional Auto-Fetch nach Einstellung.
+Errors: a folder outside any repository shows a failure sheet with git's message. Without a path the app restores the tabs of the last session.
 
-Fehler: kein Repository → Dialog "Kein Git-Repository" mit "Init hier"; git-Version < 2.38 → Banner mit Hinweis auf Settings › Git; Repo auf Netzlaufwerk ohne FSEvents → Polling-Hinweis im Log.
+## 2. Clone
 
-## 2. Commit mit Datei- und Hunk-Staging
+1. File › Clone Repository… (⌥⌘N) or "Clone…" on the empty tab. The sheet takes the URL (a URL on the clipboard is suggested), the parent folder, an optional branch, "recurse submodules" and "shallow".
+2. `git clone --progress [--recurse-submodules] [--depth 1] [--branch <branch>] -- <url> <folder>`; progress comes from stderr. Cancelling stops git and removes the folder.
+3. The clone opens in a new tab.
 
-Vorbedingung: Working Tree hat Änderungen; kein laufender Merge mit Konflikten.
+Errors: git never prompts, so credentials must come from the credential helper or the SSH agent; a failure shows the complete git output.
 
-1. Klick auf WIP-Zeile öffnet Working-Directory-Tab mit Unstaged/Staged aus dem letzten Status.
-2. Datei stagen: Hover-Button oder S. `git add -- <pfad>`; gelöschte Datei: `git rm --cached -- <pfad>` bzw. `git add -A -- <pfad>`. Unstage: `git restore --staged -- <pfad>`. "Alle": `git add -A` / `git restore --staged .`. UI: Datei wechselt die Liste sofort (optimistisch), Status-Refresh bestätigt.
-3. Hunk stagen: Datei auswählen, Diff-Tab zeigt `git diff --no-color -p --no-ext-diff -M -z -- <pfad>`. Button "Stage hunk" sendet Dateiheader + Hunk per stdin an `git apply --cached -`. Unstage: `git diff --cached … -- <pfad>` und `git apply --cached -R -`. Discard: Dialog, dann `git apply -R -`. UI: Hunk verschwindet aus der Seite, Diff lädt neu.
-4. Subject und Body eingeben; Zähler färbt ab 50/72 Zeichen. Template aus `commit.template` vorbefüllt.
-5. ⌘⏎: `git commit -F -` (Nachricht per stdin, erhält Zeilenumbrüche), mit Signing nach Konfiguration (`-S` nur, wenn in Settings aktiv und nicht schon `commit.gpgsign`). UI: neuer Commit erscheint oben im Graph, WIP-Zeile schrumpft oder verschwindet, Formular leert sich.
+## 3. Stage and commit
 
-Fehler: Hook lehnt ab → Commit-Panel zeigt Hook-Ausgabe, Nachricht bleibt erhalten; `git apply` scheitert (Datei zwischenzeitlich geändert) → Diff lädt neu, Hinweis "Datei hat sich geändert"; leere Nachricht → Button deaktiviert; Signing-Fehler → stderr mit Link zu Settings › Git.
+1. Select the working directory row in the history. The detail panel lists unstaged and staged files with their line counts.
+2. Stage or unstage a file with its row button or the file's context menu (`git add -- <paths>`, `git restore --staged -- <paths>`); Repository › Stage all changes and Unstage all changes do the same for every file. Discarding asks first (`git restore --worktree`, untracked files `git clean -f`).
+3. Click a file to open its diff in the history column. Each hunk has Stage or Unstage and Discard; the patch of the hunk goes to `git apply --cached [--reverse] -` on stdin.
+4. Type the subject and body in the commit form. "Amend" loads the last message (`git log -1 --format=%B`) and warns when HEAD is already on its upstream.
+5. Commit with the button or ⌘↩: `git commit --cleanup=whitespace -F - [--amend]`, message on stdin. The new commit appears at the top of the history and the form clears.
 
-## 3. Fetch, Pull, Push
+Errors: a rejecting hook or failed signing shows the complete git output and keeps the message. Not implemented: prefilling from `commit.template` and ⌘⇧↩ for amend (backlog: "Commit template and amend shortcut"), staging single lines.
 
-Vorbedingung: Remote konfiguriert; für Pull/Push ein Upstream.
+## 4. Fetch, pull, push
 
-1. **Fetch** (⌘⇧F): `git fetch --prune --progress [<remote>]`. UI: Spinner in der Toolbar, Fortschritt aus stderr im Log, danach Refs-Refresh; Behind-Badges aktualisieren sich.
-2. **Pull** (⌘⇧L): Standard `git pull --ff-only`; Dropdown bietet `--rebase` und `--no-rebase`. UI: bei ff-only-Fehler "Branches sind auseinandergelaufen" Dialog mit Rebase/Merge/Abbrechen.
-3. **Push** (⌘⇧P): `git push --progress <remote> <branch>:refs/heads/<branch>`; ohne Upstream Dialog "Upstream setzen" → `-u`. Force nur über Dropdown "Force push (with lease)" mit Dialog → `--force-with-lease`. UI: Ahead-Badge verschwindet, Remote-Label springt im Graph.
+1. **Fetch** (⇧⌘F): `git fetch --all --prune`. The Fetch button's menu also offers each remote with and without prune and `git fetch --all --tags`. Every fetch ends with the tab's in-place refresh, so new commits enter the history.
+2. **Pull** (⇧⌘L): the default mode comes from `pull.rebase`, then `pull.ff`, and is fast-forward only without either. The Pull button's menu offers fast-forward only, merge and rebase. Every pull runs with `--autostash`, so local changes are carried along; when applying them again conflicts, a toast with "Show conflicts" and the status line say so and the stash stays.
+3. **Push** (⇧⌘U): `git push <remote> refs/heads/<branch>:refs/heads/<upstream branch>`. Without an upstream a sheet asks for remote and name and pushes with `-u`. A non-fast-forward rejection offers `--force-with-lease` after asking; plain `--force` is never used.
+4. Badges on Pull and Push show the behind and ahead counts against the upstream; a branch without upstream shows a marker on Push.
 
-Fehler: Auth-Fehler → Dialog mit stderr und Hinweis Credential-Helper/SSH-Agent; `non-fast-forward` → Dialog mit "Fetch und ansehen"; Netzwerkfehler → Retry-Button; Push abgelehnt durch Hook/Branch-Protection → stderr vollständig.
+Errors: git's complete output in the failure sheet; a diverged branch on pull asks how to go on.
 
-## 4. Branch anlegen und wechseln
+## 5. Create and check out branches
 
-1. ⌘B oder Kontextmenü "Branch hier erstellen" am Commit. Sheet: Name (validiert mit `git check-ref-format --branch <name>`), Start-Ref (vorbelegt HEAD oder Commit), Checkbox "Auschecken", Checkbox "Als Worktree anlegen".
-2. Anlegen: `git branch <name> <start>`; mit Auschecken `git switch -c <name> <start>`; als Worktree siehe Flow 10.
-3. Checkout eines bestehenden Branches: Doppelklick in Sidebar oder ⏎ im Graph → `git switch <name>`; Remote-Branch ohne lokalen Branch → `git switch -c <name> --track <remote>/<name>`; Commit → `git switch --detach <sha>` mit Hinweis "Detached HEAD".
-   Remote-Branch, dem ein lokaler Branch folgt (oder gleichnamig): der lokale Branch wird ausgecheckt. Liegt er nur zurück → `git switch <name>`, `git merge --ff-only <remote>/<name>`. Sind beide auseinandergelaufen → Frage mit der Zahl der lokalen Commits, die verloren gingen: "Zurücksetzen" (`git switch -C <name> <remote>/<name>`), "Nur auschecken" oder Abbrechen.
-   Jeder Wechsel nimmt nicht committete Änderungen mit: bei Änderungen `git stash push --include-untracked -m "GitBonsai: Änderungen beim Wechsel zu <ziel>"`, dann der Wechsel, dann `git stash pop --index` (ohne `--index`, wenn git den Index nicht wiederherstellen kann).
-4. UI: HEAD-Label springt, Sidebar markiert, WIP-Zeile wechselt den Elternteil.
+1. Branch › New Branch… (⌘B), the toolbar's Branch button, the plus on the sidebar's Local header, or "Create Branch…" in a commit's menu. The sheet takes the name (validated live with `git check-ref-format --branch`), a start point from the ref picker, "check out" and "in a new worktree".
+2. Creating runs `git branch <name> <start>`, `git switch -c <name> <start>` or `git worktree add -b <name> <path> <start>`.
+3. Checking out: double-click a branch in the sidebar, Branch › Checkout Branch… or a menu. A local branch is `git switch <branch>`; a remote branch without local branch `git switch -c <branch> --track <remote>/<branch>`; a commit `git switch --detach <commit>`, which shows a HEAD pill in the history.
+4. A remote branch that a local branch tracks checks out the local branch and fast-forwards it (`git merge --ff-only`). If they diverged, the app asks, naming the local commits that would be lost: reset to the remote branch (`git switch -C`), check out as it is, or cancel.
+5. Every checkout carries local changes: with changes it runs `git stash push --include-untracked -m "GitBonsai: …"`, the switch, then `git stash pop --index`.
 
-Fehler: Wechsel scheitert → der Stash wird sofort zurückgespielt, git-Meldung im Dialog; Pop kollidiert auf dem Ziel → Hinweis, dass die Konflikte im Arbeitsverzeichnis stehen und die Änderungen im benannten Stash bleiben; Name existiert → Inline-Validierung; Branch in anderem Worktree ausgecheckt → kein Dialog, der Tab wechselt direkt in diesen Worktree (ein Branch kann nur einmal ausgecheckt sein, der Wechsel ändert nichts am Repository).
+Errors: a failed switch pops the stash at once; a conflicting pop keeps the stash and lists the conflicts. A branch checked out in another worktree moves the tab to that worktree instead.
 
-## 5. Merge per Drag-and-drop mit Ghost-Preview (V1)
+## 6. Merge, cherry-pick, revert, reset
 
-Vorbedingung: Quelle ist ein Branch-Label, Ziel ist ein anderes Branch-Label (lokal oder remote); keine laufende Operation.
+1. A branch's context menu (sidebar or ref pill) offers merging it into the current branch: `git merge --no-edit <ref>`.
+2. A commit's context menu offers Cherry-Pick (`git cherry-pick [--empty=drop] [-m 1] <commit>`), Revert Commit (`git revert --no-edit [-m 1] <commit>`) and Reset to here (`--soft`, `--mixed`, `--hard`).
+3. When local changes block a cherry-pick, revert, merge or rebase, the failure offers to stash them and retry; the stash is popped afterwards.
+4. A stop on conflicts shows the operation banner above the history with Continue, Skip and Abort (`git <operation> --continue|--skip|--abort`) and lists the conflicting files in the working directory. Resolve them in an editor, stage them, then continue.
 
-1. Drag beginnt am Label `feature/x`. Sofort: Graph-Layout wird eingefroren (kein Refresh, keine Nachladung, keine Zeilen-Einfügung), Watcher-Ereignisse werden gepuffert.
-2. Während des Drags: Overlay-Layer zeichnet über dem Graphen. Lanes von Quelle und Ziel behalten volle Deckkraft, alle anderen Zeilen und Lanes werden auf 35 % gedimmt. Hover über einem gültigen Ziel-Label `main` zeigt einen **Ghost-Merge-Knoten** (gestrichelt) eine halbe Zeilenhöhe über der Ziel-Spitze mit gestrichelten Kanten zu beiden Eltern, und einen Tooltip `git merge feature/x` (mit ⌥: `git rebase main feature/x`). Ungültige Ziele (gleicher Branch, Commit statt Label bei Branch-Drag) zeigen das Verbotssymbol. Auto-Scroll nur am oberen/unteren Rand nach 400 ms Verweildauer.
-3. Drop auf `main`: Popover mit Optionen "Merge (ff wenn möglich)", "Merge-Commit erzwingen (--no-ff)", "Squash", "Rebase feature/x auf main", "Abbrechen". Standardwahl per ⏎.
-4. Ausführung: ist `main` nicht ausgecheckt, kommt zuerst `git switch main` (mit Stash-Dialog wie Flow 4), dann `git merge [--no-ff|--squash] feature/x`. Overlay verschwindet, Layout wird aufgetaut, gepufferte Ereignisse lösen einen Refresh aus; der echte Merge-Commit erscheint.
-5. Esc während des Drags oder Drop außerhalb bricht ohne Kommando ab.
+Not implemented: merge or rebase by drag and drop with a preview, taking ours or theirs per file, and a conflict editor; see the backlog.
 
-Fehler: Konflikte → Banner "Merge mit 2 Konflikten" (Flow 8); Quelle bereits enthalten → Hinweis "Bereits aktuell", kein Commit; Working Tree dirty und Ziel-Checkout nötig → Stash-Dialog.
+## 7. Stash and pop
 
-## 6. Rebase per Drag mit ⌥ (V1)
+1. **Stash** (⇧⌘S or the toolbar) runs at once, without a dialog: `git stash push --include-untracked -m "WIP on <branch>: <subject>"`. A toast offers Undo while the stash is the newest and nothing changed since.
+2. The Stash button's menu offers "Stash with Message…" and "Stash staged changes only" (`--staged`).
+3. **Pop** (⌥⇧⌘S or the toolbar) pops the newest stash. The sidebar's Stashes row opens a popover with all stashes: show the diff, apply, pop, drop (asks first) or create a branch from it.
 
-1. Drag eines Branch-Labels mit gehaltener ⌥-Taste (oder ⌥ während des Drags drücken). Ghost zeigt die Commits der Quelle, die nicht im Ziel enthalten sind (`git rev-list --count ziel..quelle` wird beim Drag-Start berechnet), als gestrichelte Kopien linear über der Ziel-Spitze; die ursprüngliche Lane wird halbtransparent.
-2. Tooltip `git rebase main feature/x`. Drop → Popover "Rebase", bei Branches, die auf Zwischen-Commits zeigen, Checkbox "Abhängige Branches mitziehen (--update-refs)".
-3. Ausführung: `git rebase [--update-refs] main feature/x` (Checkout der Quelle ist implizit). Layout wird aufgetaut.
+Errors: a conflicting pop keeps the stash and shows the conflicts.
 
-Fehler: Konflikte → Banner mit Schritt n/m und Fortsetzen/Überspringen/Abbrechen (`git rebase --continue/--skip/--abort`); veröffentlichte Commits würden umgeschrieben (Upstream enthält sie) → Warnung vor dem Start.
+## 8. Worktrees
 
-## 7. Cherry-pick per Drag (V1)
+1. Create one from a commit's menu ("Create Worktree…"), a branch's menu, or the new-branch sheet with "in a new worktree": `git worktree add [-b <branch> | --detach] <path> <commit>` or `git worktree add <path> <branch>`.
+2. Switch with a double-click on the worktree in the sidebar or Branch › Switch Worktree…: the tab moves to that worktree with its own runner, status and watcher. The history stays, because the repository is shared; the working directory row and HEAD follow.
+3. The worktree's context menu opens it in Finder or the terminal, locks or unlocks it, removes it (asks first and offers to delete its branch) and prunes missing worktrees.
 
-1. Drag einer Commit-Zeile (oder Mehrfachauswahl) auf ein Branch-Label. Ghost-Knoten über der Ziel-Spitze, Tooltip `git cherry-pick a1b2c3f`. Merge-Commits als Quelle zeigen das Verbotssymbol; mit ⌥ wird `-m 1` angeboten.
-2. Drop → bei nicht ausgechecktem Ziel erst `git switch <ziel>` (Stash-Dialog), dann `git cherry-pick [-x] <sha>…` in chronologischer Reihenfolge.
-3. UI: neue Commits erscheinen auf dem Ziel-Branch; Auswahl springt auf den letzten.
+Not implemented: the plus on the Worktrees header (backlog: "Create a worktree from the sidebar's `+`").
 
-Fehler: Konflikt → Banner "Cherry-pick mit Konflikten", Fortsetzen (`git cherry-pick --continue`), Überspringen, Abbrechen; leerer Commit → Dialog "Leeren Commit behalten?" (`--allow-empty` oder `--skip`).
+## 9. Interactive rebase
 
-## 8. Konflikte lösen (MVP)
+Preconditions: no merge between base and HEAD, otherwise the entry is disabled with the reason in its tooltip.
 
-Vorbedingung: `.git/MERGE_HEAD`, `rebase-merge/` oder `CHERRY_PICK_HEAD` existiert; `git status` liefert `u`-Einträge.
+1. "Rebase <branch> interactively onto this Commit…" in a commit's menu, or Branch › Interactive Rebase…. On an ancestor of HEAD the branch is rewritten in place; otherwise the branch's own commits from the detected base move onto it (`--onto`), and the base can be changed at the top of the sheet. Commits the target already has start as drop.
+2. The sheet lists the commits with pick, reword, edit, squash, fixup and drop as popups or the keys p, r, e, s, f, d, reorders by dragging or ⌥↑/⌥↓, edits messages for reword and squash groups, and shows the result as a small graph with the stacked branches that move along. Options: "update refs" (`--update-refs`) and "autostash".
+3. Start writes the todo list and prepared messages into `git rev-parse --git-path gitbonsai-rebase` and runs `git -c commit.cleanup=whitespace rebase --interactive --no-autosquash --empty=drop … <base>`. `GIT_SEQUENCE_EDITOR` and `GIT_EDITOR` are scripts that write the app's list and messages; no editor opens, also when continuing after a stop or a restart of the app.
+4. A stop shows the banner with step n of m: at `edit` with "Amend Commit…", at a failed `exec` with the command, at conflicts with their number; plus Continue, Skip and Abort.
+5. Single steps in a commit's menu (Move up, Move down, Drop Commit…) run the same machinery from the commit below. "Edit Message" (commit menu, Repository › Edit Commit Message, double-click on the subject, the pencil in the detail panel, or ⌘E) edits subject and body in place in the detail panel; ⌘↩ saves, Esc cancels. HEAD alone is amended with `git commit --amend --only`; older commits take the one-step rebase.
+6. After a rebase the status line offers Undo while HEAD, its branch and `ORIG_HEAD` are where the rebase left them: `git reset --keep <ORIG_HEAD>`, with moved stacked branches restored in one `git update-ref --stdin` transaction.
 
-1. Banner erscheint; Working-Directory-Tab listet Konflikt-Dateien rot mit Art (`git status --porcelain=v2` XY-Codes: `UU` both modified, `AA` both added, `DU`/`UD` deleted by us/them, `AU`/`UA` added by us/them, `DD` both deleted).
-2. Pro Datei eine Entscheidung: **Ours** → `git checkout --ours -- <pfad>` und `git add -- <pfad>`; **Theirs** → `git checkout --theirs -- <pfad>` und `git add`; **Im Editor öffnen** → Datei mit Markern im externen Editor, nach dem Speichern Button **Als gelöst markieren** → `git add -- <pfad>`; bei Lösch-Konflikten **Datei behalten** (`git add`) oder **Löschen** (`git rm -- <pfad>`).
-3. Der Diff-Tab zeigt die Datei mit Markern (`<<<<<<<`, `=======`, `>>>>>>>`) farbig; der Zähler im Banner zählt herunter.
-4. Alle gelöst → **Fortsetzen**: Merge `git commit --no-edit` (Nachricht aus `MERGE_MSG`, editierbar im Working-Directory-Tab); Rebase `git rebase --continue` mit `GIT_EDITOR=true`; Cherry-pick `git cherry-pick --continue`.
-5. **Abbrechen** → `git merge --abort` / `git rebase --abort` / `git cherry-pick --abort` nach Dialog.
+Errors: commits already on the base are dropped and counted in a toast; rewriting published commits shows a quiet hint instead of a question; dropping every commit asks first.
 
-Fehler: Datei nach "Als gelöst markieren" enthält noch Marker → Warnung mit "Trotzdem markieren"; `git add` scheitert wegen Lock → Retry.
+## 10. Search commits
 
-## 9. Stash und Pop
+1. Edit › Search Commits (⌘F) focuses the search field above the history. Typing searches the loaded commits in memory: subject, body, author name and email, ref names and SHA prefixes of 4 or more characters, without running git.
+2. Non-matching rows are dimmed, the field shows the match count, ↩ and ⇧↩ jump to the next and previous match, Esc clears the search.
 
-1. ⌘⇧S oder Toolbar: Sheet mit Nachricht, Checkbox "Untracked einschließen" (vorausgewählt), optional "Nur ausgewählte Dateien" aus dem Working-Directory-Tab. Kommando: `git stash push -u [-m <msg>] [-- <pfade>]`. UI: WIP-Zeile verschwindet, Stash erscheint in der Sidebar.
-2. Auswahl eines Stashes zeigt `git stash show -p --include-untracked stash@{n}` im Detail-Panel.
-3. **Pop**: `git stash pop stash@{n}`; **Apply**: `git stash apply stash@{n}`; **Drop**: Dialog, `git stash drop stash@{n}`; **Branch aus Stash**: `git stash branch <name> stash@{n}`.
+Not implemented: filters by path or date and content search (`git log -S/-G`).
 
-Fehler: Pop mit Konflikt → Banner "Stash-Konflikt", Stash bleibt erhalten, Lösung wie Flow 8, danach Hinweis "Stash manuell droppen"; nichts zu stashen → Button deaktiviert.
+## 11. Compare commits
 
-## 10. Worktree anlegen und wechseln
+1. ⌘-click a second history row. Two commits show `git diff <older> <newer>` in the detail panel's file list and the diff view; when they sit on different branches, a switch compares "since common base" (`<older>...<newer>`).
+2. A run of consecutive commits shows their combined change; commits with gaps are listed one below the other like `git show`.
 
-Vorbedingung: Branch ist in keinem anderen Worktree ausgecheckt.
+## Not implemented
 
-1. "+" im Worktrees-Abschnitt, ⌘⇧W oder Kontextmenü eines Branches. Sheet: Branch (bestehend / neu ab Start-Ref), Pfad (Standard `../<repo>-<branch>`), Checkbox "Nach dem Anlegen wechseln".
-2. Anlegen: `git worktree add <pfad> <branch>` oder `git worktree add -b <neu> <pfad> <start>`. UI: Fortschritt (Checkout kann bei großen Repos dauern), neuer Eintrag in der Sidebar.
-3. Wechseln: Doppelklick → das Fenster bindet `Repository` auf den Worktree-Pfad: eigener `GitRunner`, `git status` und Watcher für den Worktree; der Graph bleibt (gemeinsames `.git`), die WIP-Zeile und der HEAD-Marker wechseln. Titel zeigt `repo › worktree`.
-4. Jeder Worktree in der Sidebar zeigt laufend `git -C <pfad> status --porcelain=v2 --branch -z` (parallel, gedrosselt auf einen Refresh pro Worktree und 2 s).
-5. Entfernen: Kontextmenü → `git worktree remove <pfad>`; bei dirty zweite Bestätigung → `--force`. Prune: `git worktree prune`.
-
-Fehler: Pfad existiert und ist nicht leer → Inline-Fehler; Branch ausgecheckt in anderem Worktree → Hinweis mit "Dorthin wechseln"; Worktree-Ordner fehlt (prunable) → grauer Eintrag mit "Prune".
-
-## 11. Interaktives Rebase (V1)
-
-Vorbedingung: Ziel-Basis liegt auf der First-Parent-Linie von HEAD, zwischen Basis und HEAD liegt kein Merge (sonst ist der Eintrag deaktiviert, Tooltip mit Grund). Lokale Änderungen an versionierten Dateien: Checkbox "vorher stashen und danach zurückholen (`--autostash`)", vorausgewählt.
-
-1. Kontextmenü „Rebase <Branch> interaktiv auf … …“ an einem beliebigen Commit. Ist er Vorfahr von HEAD, wird an Ort und Stelle umgeschrieben; sonst kommen die eigenen Commits des Branches ab der erkannten Basis auf ihn (`--onto`), die Basis lässt sich oben im Sheet ändern („von … nach …“), Commits mit gleicher patch-id auf dem Ziel starten als drop. Sheet mit Commits `basis..HEAD` von alt nach neu (aus `git log --reverse --format=%H%x1f%P%x1f%s%x1f%B%x1e basis..HEAD`), Aktion pick/reword/edit/squash/fixup/drop als Popup oder Taste p/r/e/s/f/d, Umsortieren per Drag am Griff oder ⌥↑/⌥↓. Squash und Fixup rücken unter den Commit darüber ein. Subject-Feld bei reword; darunter die ganze Nachricht des gewählten Commits, editierbar bei reword und bei Squash-Gruppen (vorbelegt mit den zusammengefügten Nachrichten). Rechts das Ergebnis als Mini-Graph, neuester oben, mit Markierungen (neu formuliert, zusammengeführt, verschoben, hält an, verworfen) und mitgezogenen Branches.
-2. **Rebase starten**: Die App schreibt Todo-Liste und vorbereitete Nachrichten in `git rev-parse --git-path gitbonsai-rebase` (pro Worktree) und ruft `git -c commit.cleanup=whitespace rebase --interactive --no-autosquash [--update-refs] [--autostash] <basis>` auf. `GIT_SEQUENCE_EDITOR` ist ein `/bin/sh`-Skript, das die Todo-Liste der App über die von git angelegte Datei schreibt; `GIT_EDITOR` ein Skript, das anhand der letzten Zeile von `rebase-merge/done` die für diesen Schritt vorbereitete Nachricht liefert und sonst gits Text unverändert lässt. Es öffnet sich nie ein Editor; die Skripte gelten auch für Fortsetzen nach einem Halt, über App-Neustarts hinweg.
-3. UI: Bei einem Halt zeigt das Banner Schritt n/m: bei `edit` "Angehalten zum Bearbeiten von <sha> …" mit **Commit ändern …** (Commit-Formular mit Amend, unter HEAD oder dem Working Directory), bei fehlgeschlagenem `exec` den Befehl, bei Konflikten deren Zahl; dazu Fortsetzen/Überspringen/Abbrechen. Bei Erfolg lädt der Graph neu.
-4. Einzelschritte im Kontextmenü: "Nach oben verschieben", "Nach unten verschieben", "Commit verwerfen …" laufen über dieselbe Maschine mit erzeugter Todo-Liste ab dem Commit darunter; nur "Commit verwerfen" fragt vorher (Änderungen gehen aus dem Branch), mit Anzahl neu geschriebener Commits.
-   "Nachricht bearbeiten" (Kontextmenü, Doppelklick auf das Subject, Stift neben dem Titel im Detailpanel oder ⌘E) macht Subject und Body im Detailpanel an Ort und Stelle editierbar; darunter "Sichern" (⌘⏎) und "Abbrechen" (Esc) und eine leise Zeile wie "Schreibt 3 Commits neu · 3 schon auf origin/develop". HEAD allein geht über `git commit --amend --only` (Vorgemerktes bleibt draußen), alles andere über den Einzelschritt-Rebase. Danach ist der neu geschriebene Commit ausgewählt; rückgängig über die Statuszeile.
-5. Rückgängig: Nach einem fertigen Rebase bietet die Statuszeile **Rückgängig** an, solange HEAD, Branch und `ORIG_HEAD` dort stehen, wo das Rebase sie hinterlassen hat (auch nach Neustart). Nach Rückfrage `git reset --keep <ORIG_HEAD>`; mitgezogene Branches gehen in einer `git update-ref --stdin`-Transaktion zurück.
-
-Fehler: Konflikte → Flow 8 mit Fortsetzen/Überspringen/Abbrechen, ohne Dialog (Banner und Konfliktliste zeigen den Stand); ein Schritt, den die Auflösung leer gelassen hat, wird bei Fortsetzen übersprungen (`--skip`, Toast unten in der History); bereits enthaltene Commits fallen weg (`--empty=drop`) und werden in einem Toast gezählt ("7 bereits enthaltene Commits übersprungen", verschwindet von selbst); nach dem Ende ist HEAD ausgewählt und kein Diff mehr offen. Umschreiben veröffentlichter Commits → keine Rückfrage, nur ein ruhiger Hinweis "3 Commits sind schon auf origin/feature, Push danach nur mit --force-with-lease" (Push fragt selbst vor `--force-with-lease`); `drop` aller Commits → Dialog "Branch wird auf die Basis zurückgesetzt"; Squash/Fixup ohne Commit darüber oder leere Nachricht → Hinweis im Sheet, Start deaktiviert.
-
-## 12. Commits suchen
-
-1. ⌘F fokussiert die Filterleiste. Freitext ab 2 Zeichen mit 250 ms Debounce startet `git log --all --format=%H --grep=<text> -i` (nur SHAs, gestreamt); ein neuer Tastendruck bricht den laufenden Prozess ab.
-2. Treffer-SHAs werden in eine Menge gesammelt; der Graph dimmt Nicht-Treffer, ↑↓ springt zwischen Treffern, der Zähler zeigt "17 Treffer". Bei Repos mit > 50 000 Commits läuft die Suche erst auf den bereits geladenen Commits (sofort) und dann vollständig über git.
-3. Chips `author:`, `path:`, `since:`, `until:` ergänzen `--author`, `-- <pfad>`, `--since`, `--until`. `sha:` prüft `git rev-parse --verify <prefix>^{commit}` und springt direkt.
-4. "Inhalt (Pickaxe)"-Modus: Eingabe und Button "Suchen" → `git log --all --format=%H -S<text>` oder `-G<regex>`, mit Spinner und Abbrechen, weil jeder Commit gedifft wird.
-
-Fehler: ungültige Regex → Inline-Fehler aus stderr; Suche länger als 5 s → Hinweis "Große Historie, Pickaxe läuft weiter…" mit Abbrechen.
-
-## 13. Amend
-
-1. Working-Directory-Tab, Checkbox "Amend": Subject und Body werden aus `git log -1 --format=%B` geladen; Staged-Änderungen werden eingeschlossen.
-2. ⌘⇧⏎ oder Commit-Button "Amend": `git commit --amend -F -`. Ohne Staged-Änderungen und ohne Textänderung ist der Button deaktiviert.
-3. UI: oberster Commit wird ersetzt (neuer SHA), Auswahl folgt.
-
-Fehler: Commit ist bereits gepusht (Upstream enthält ihn) → Warnung "Erfordert Force-Push" vor dem Amend; Hook-Ablehnung wie Flow 2.
-
-## 14. Wiederherstellung über Reflog (V2)
-
-GitBonsai hat keinen eigenen Undo-Stack; git merkt sich jede HEAD-Bewegung selbst.
-
-1. Menü Repository › Reflog… zeigt `git reflog --format=%H%1F%gd%1F%gs%1F%ct%1E` als Liste: Aktion (commit, checkout, rebase, reset …), Zeit, Subject.
-2. Auswahl zeigt den Commit im Detail-Panel. Aktionen: **Branch hier erstellen** (`git branch <name> <sha>`), **Aktuellen Branch hierher zurücksetzen** (Dialog, `git reset --hard <sha>` oder `--soft`), **Cherry-pick**.
-3. Typische Fälle: versehentlicher Reset, gelöschter Branch (Eintrag "checkout: moving from <branch>"), kaputter Rebase (`HEAD@{n}` vor "rebase (start)").
-
-Fehler: Objekte bereits durch `gc` entfernt → Hinweis "Commit nicht mehr vorhanden"; dirty Working Tree bei `--hard` → Stash-Dialog.
+Drag and drop of branches and commits with a preview, a conflict editor, a reflog browser, file history and blame. Planned items are in the project backlog.

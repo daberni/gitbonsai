@@ -1,12 +1,14 @@
-Bonsai-Glyphen und Laptop, 24×24, Linienstärke 1.5, runde Enden, einfarbig in `ink` (#2a241e). In Labels und Sidebar mit `currentColor` inline; im Dark Mode mit `ink` (#f1eae1) neu einfärben.
+# Icons
 
-| Datei | Bedeutung |
+Bonsai glyphs and the laptop, 24×24, line width 1.5, round caps, monochrome in `ink` (#2a241e). In labels and the sidebar they are drawn with `currentColor`; in dark mode they are recoloured with the dark `ink` (#f1eae1).
+
+| File | Meaning |
 |---|---|
-| bonsai-main.svg | Hauptworktree: Baum mit drei Kronen in flacher Schale |
-| bonsai-linked.svg | Verknüpfter Worktree: junger Baum mit einer Krone in kleiner Schale; auch die Glyphe im Branch-Label für "in anderem Worktree ausgecheckt" |
-| bonsai-locked.svg | Gesperrter Worktree: Schale mit Band |
-| bonsai-detached.svg | Detached HEAD: Trieb im Wasserglas, ohne Schale |
-| bonsai-prunable.svg | Verwaist (prunable): kahler Trieb |
-| stash-bowl.svg | Stash: leere Bonsai-Schale, in der etwas geparkt ist; Sidebar-Zeile, Popover, Toolbar (Stash, Pop) |
-| laptop.svg | Lokal: Laptop mit offenem Bildschirm; im Branch-Label und im Kopf der Sidebar-Sektion Local (SF Symbol `laptopcomputer` hat einen gefüllten Bildschirm) |
-| empty-state-bonsai.svg | Leerzustand: Bonsai in Schale als Linienzeichnung, Stamm in den S-Kurven der Graph-Stränge; 210×216, Linien 1.5 (Äste 2, Stamm 3). Nur im Hintergrund von Leerzuständen, unten rechts, in `ink` bei 7 % Deckung (`EmptyStateView`, `BonsaiArtView` mit denselben Pfaden) |
+| bonsai-main.svg | Main worktree: tree with three crowns in a flat bowl |
+| bonsai-linked.svg | Linked worktree: young tree with one crown in a small bowl; also the glyph in a branch label for "checked out in another worktree" |
+| bonsai-locked.svg | Locked worktree: bowl with a band |
+| bonsai-detached.svg | Detached HEAD: shoot in a water glass, without bowl |
+| bonsai-prunable.svg | Missing (prunable): bare shoot |
+| stash-bowl.svg | Stash: an empty bonsai bowl where something is parked; sidebar row, popover, toolbar (Stash, Pop) |
+| laptop.svg | Local: laptop with an open screen; in branch labels and the header of the sidebar's Local section (the SF Symbol `laptopcomputer` has a filled screen) |
+| empty-state-bonsai.svg | Empty state: bonsai in a bowl as a line drawing, the trunk in the S curves of the graph strands; 210×216, lines 1.5 (branches 2, trunk 3). Only in the background of empty states, bottom right, in `ink` at 7 % opacity (`EmptyStateView`, `BonsaiArtView` with the same paths) |

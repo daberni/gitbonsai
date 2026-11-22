@@ -1,8 +1,9 @@
 # Design
 
-Dieser Ordner hält die Designquellen von GitBonsai für die App:
+The design sources of GitBonsai:
 
-- `tokens.json` — Farben (Light/Dark), Typografie, Abstände, Radien, Schatten, Linienstärken. Quelle für die Swift-Token-Datei (`Sources/GitBonsaiApp/DesignTokens.swift`, folgt).
-- `design-language.md` — das Brand-Book: Prinzipien, Stimme, Farbe, Typografie, Form, Graph, Ikonografie, Bewegung.
-- `icons/` — Bonsai-Glyphen für Worktree-Zustände.
-- `app-icon/` — das App-Icon als Icon-Composer-Dokument mit einem SVG je Ebene; Konzept, Ebenen und Farben im README dort.
+- [design-language.md](design-language.md) — principles, voice, colour, typography, form, graph, iconography, motion, windows and panels.
+- [tokens.json](tokens.json) — the shared scales: colours (light and dark), typography, spacing, radii, shadows, strokes, icon sizes, washes and focus dimming. `Sources/GitBonsaiApp/DesignTokens.swift` (`Theme`) mirrors every scale; sizes that belong to one component live only in its namespace there (`Theme.Tabs`, `Theme.Sidebar`, `Theme.Graph`, …). Change a shared value in both places.
+- [ref-text.md](ref-text.md) — the study behind names as inline pills in menus, sheets and banners.
+- [icons/](icons/README.md) — bonsai glyphs for worktree states, the stash bowl, the laptop and the empty-state drawing.
+- [app-icon/](app-icon/README.md) — the app icon as an Icon Composer document with one SVG per layer; concept, layers and colours in its README.

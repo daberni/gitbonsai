@@ -9,3 +9,7 @@ DerivedData/
 /bench/
 *.png
 !docs/**/*.png
+.claude/
+.vscode/
+.idea/
+*.xcresult

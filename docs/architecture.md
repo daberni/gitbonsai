@@ -1,230 +1,125 @@
-# GitBonsai — Architektur
+# GitBonsai — Architecture
 
-Siehe auch: [Feature-Überblick](feature-overview.md) · [Screens](screens.md) · [Flows](flows.md)
+See also: [Feature overview](feature-overview.md) · [Screens](screens.md) · [Flows](flows.md) · [Git operations](git-operations.md)
 
-## 1. Schichten
+## 1. Layers
 
-| Schicht | Target | Abhängigkeiten | Verantwortung |
+| Layer | Target | Depends on | Responsibility |
 |---|---|---|---|
-| Engine | `GitEngine` | Foundation | Prozess-Runner, Modelle, Parser, `Repository`-Fassade, Kommando-Log, Dateisystem-Watching |
-| Layout | `GraphLayout` | `GitEngine` | Inkrementelles Lane-Layout für den Commit-Graphen; reine Funktionen über `Commit` |
-| App | `GitBonsaiApp` | beide, AppKit, SwiftUI | View-Models, Fenster, Graph- und Diff-Rendering, Drag-and-drop, Settings |
+| Engine | `GitEngine` | Foundation | Process runner, models, parsers, the `Repository` facade, file watching, command rules, commit search |
+| Layout | `GraphLayout` | `GitEngine` | Incremental lane layout of the commit graph, row diffs for in-place refreshes; pure functions over `Commit` values |
+| Avatars | `Avatars` | Foundation | Author avatars from the remote host (GitHub, GitLab) or Gravatar, with memory and disk caches |
+| App | `GitBonsaiApp` | all three, AppKit | Windows and tabs, history, diff, sidebar, sheets, settings, command bar, and `ScreenshotHarness` for verification |
 
-Regeln: `GitEngine` und `GraphLayout` importieren weder AppKit noch SwiftUI. Jede Aktion der App entspricht genau einem git-Kommando, das im Kommando-Log erscheint. Nichts wird nachgebaut, was git selbst kann.
+Rules: `GitEngine`, `GraphLayout` and `Avatars` import neither AppKit nor SwiftUI. Every repository read and write is a `git` command run by `GitRunner`; nothing is reimplemented that git itself provides. [git-operations.md](git-operations.md) lists the command behind every operation.
+
+The app is written in AppKit. A spike that rebuilds the settings window in SwiftUI is under review; the history, diff, sidebar and command bar stay AppKit either way.
 
 ## 2. GitRunner
 
-`GitRunner` ist ein Actor pro Repository-Pfad (bei Worktrees: ein Runner pro Worktree, da `git -C <worktree>` die Working-Tree-Sicht bestimmt).
+`GitRunner` is an actor per repository path. Each worktree gets its own runner, because `git -C <worktree>` decides the working tree.
 
-### 2.1 Umgebung und Neutralisierung
+### 2.1 Environment
 
-| Variable / Option | Reads | Writes | Zweck |
+| Variable / option | Reads | Writes | Purpose |
 |---|---|---|---|
-| `GIT_TERMINAL_PROMPT=0` | ✅ | ✅ | Kein Hänger auf Credential- oder Passphrase-Prompts |
-| `GIT_OPTIONAL_LOCKS=0` | ✅ | – | `status` und `log` nehmen keine Index-Locks, Reads stören keine laufenden Writes |
-| `LC_ALL=C` | ✅ | ✅ | Stabile englische Fehlermeldungen und Datumsformate |
-| `GIT_ASKPASS=<App-Helper>` | – | ✅ | Credential-Dialog der App für HTTPS-Push/Fetch, wenn kein Helper konfiguriert ist |
-| `GIT_SSH_COMMAND` | – | ✅ | Nur gesetzt, wenn der Nutzer in den Settings einen eigenen Key wählt |
-| `-c core.quotepath=off` | ✅ | ✅ | Unicode-Pfade unmaskiert |
-| `-c color.ui=never` | ✅ | ✅ | Keine ANSI-Sequenzen in geparster Ausgabe |
-| `-c log.showSignature=false` | ✅ | – | Keine GPG-Ausgabe in `log` |
-| `-c diff.noprefix=false -c diff.mnemonicPrefix=false` | ✅ | – | Stabile `a/`/`b/`-Präfixe für den Diff-Parser |
-| `-c core.pager=cat` | ✅ | ✅ | Kein Pager |
+| `GIT_TERMINAL_PROMPT=0` | ✅ | ✅ | No hang on credential or passphrase prompts; credentials come from the credential helper or the SSH agent |
+| `GIT_OPTIONAL_LOCKS=0` | ✅ | – | `status` and `log` take no optional index locks, so reads do not disturb writes |
+| `LC_ALL=C` | ✅ | ✅ | Stable English messages that error matching can rely on |
+| `-c core.quotepath=off` | ✅ | ✅ | Unicode paths unescaped |
+| `-c color.ui=never` | ✅ | ✅ | No ANSI sequences in parsed output |
+| `-c log.showSignature=false` | ✅ | ✅ | No signature output in `log` |
 
-Aliase werden nie benutzt; jedes Kommando ist ein eingebautes git-Kommando mit vollem Namen.
+The git binary is `GIT_BONSAI_GIT` if set, else the one chosen in Settings › Git, else the first of `/opt/homebrew/bin/git`, `/usr/local/bin/git`, `/usr/bin/git`. Aliases are never used; every command is a built-in git command with its full name.
 
-### 2.2 Nebenläufigkeit
+### 2.2 Concurrency
 
-- **Reads** (`run`, `stream`) laufen parallel und unbegrenzt; sie sind durch `GIT_OPTIONAL_LOCKS=0` seiteneffektfrei.
-- **Writes** (`runWrite`) laufen seriell pro Repository über eine interne Queue im Actor. Ein laufender Write blockiert neue Writes, nicht Reads.
-- **Streams**: `stream(_:)` liefert `AsyncThrowingStream<Data, Error>` mit stdout-Chunks. Das Abbrechen der konsumierenden Task sendet `SIGTERM` an git; bei einem Exit ≠ 0 endet der Stream mit `GitError` inklusive vollständigem stderr.
-- **Timeouts**: keine. Lange Operationen (Clone, Fetch) zeigen Fortschritt aus stderr (`--progress`) und sind abbrechbar.
+- **Reads** (`run`, `stream`) run concurrently.
+- **Writes** (`runWrite`) run one at a time per working tree through `IndexLockQueue`, whichever runner or tab starts them.
+- **Index-refreshing reads** (`runRefreshingIndex`): `git diff` against the working tree rewrites stale stat information under `index.lock` and ignores `GIT_OPTIONAL_LOCKS`, so these reads wait in the same queue as writes.
+- **Streams**: `stream(_:)` yields stdout chunks as `AsyncThrowingStream<Data, Error>`. Cancelling the consuming task terminates git; a non-zero exit ends the stream with `GitError` carrying the full stderr.
+- **Timeouts**: none, except the remote tag status, which gives up after 10 s.
 
-### 2.3 Kommando-Log
+### 2.3 Command log
 
-Jeder Aufruf wird als `GitCommandLogEntry` (Argumente, Exit-Code, Dauer, stderr, gekürztes stdout) gespeichert, begrenzt auf die letzten 500 Einträge pro Runner. Das Log-Panel zeigt Reads grau, Writes schwarz, Fehler rot; ein Eintrag lässt sich als Shell-Zeile kopieren.
+Every invocation is recorded as a `GitCommandLogEntry` (arguments, exit code, duration, stderr), the last 500 per runner. The app shows the command of each action and its duration in the status line under the history; a panel that lists the whole log is planned (backlog: "Command log").
 
-## 3. Kommandos und Formate
+## 3. Formats
 
-### 3.1 Log
+Parsers consume machine formats only, and each has fixture tests against real repositories built in the tests.
 
-```
-git log --all --topo-order --parents --date=unix \
-  --format=<Felder getrennt durch 0x1F, Record-Ende 0x1E> \
-  [-n <limit>] [--skip <n>] [--grep=<text>] [--author=<text>] [-- <pfade>]
-```
-
-Felder in Reihenfolge: `%H`, `%P`, `%an`, `%ae`, `%at`, `%cn`, `%ce`, `%ct`, `%s`, `%b`. Der Record-Separator steht am Ende des Formats, deshalb kein `-z`. `LogParser.feed(_:)` ist inkrementell und liefert pro Chunk alle vollständigen Records; ein Rest wird gepuffert. `%b` darf Newlines und beliebige Bytes enthalten, deshalb Trennung über Steuerzeichen statt Zeilen.
-
-Varianten: ohne `--all` für "nur aktueller Branch"; `--first-parent` für die Solo-Ansicht (V2); `-S<text>` / `-G<regex>` nur als explizite Aktion (Pickaxe diffst jeden Commit).
-
-### 3.2 Refs
-
-```
-git for-each-ref --format='%(refname)%1F%(objecttype)%1F%(objectname)%1F%(*objectname)%1F%(HEAD)%1F%(upstream:short)%1F%(upstream:track)%1E' \
-  refs/heads refs/remotes refs/tags refs/stash
-```
-
-`%(*objectname)` liefert bei annotierten Tags den Commit. `%(upstream:track)` wird zu `ahead`/`behind` geparst; `[gone]` ergibt `upstream` gesetzt und `ahead = behind = nil`.
-
-### 3.3 Status
-
-```
-git status --porcelain=v2 -z --branch --untracked-files=all --ignored=no
-```
-
-Zeilentypen `#` (branch.oid, branch.head, branch.upstream, branch.ab), `1` (normal), `2` (rename/copy, zweiter NUL-Pfad), `u` (unmerged mit Konfliktart aus den XY-Codes), `?` (untracked), `!` (ignored, nur wenn angefordert). Submodule erkennt der Parser am `<sub>`-Feld `S...`.
-
-### 3.4 Diff
-
-```
-git diff --no-color -p --no-ext-diff -M -z [--cached] [--] <pfad>
-git diff --no-color -p --no-ext-diff -M <sha>^! -- <pfad>        # Commit-Diff
-git diff --no-color -p --no-ext-diff -M <a> <b> -- <pfad>         # zwei Commits
-```
-
-Der Unified-Parser liefert `FileDiff` mit Hunks und Zeilen inklusive `\ No newline at end of file`. Hunk-Staging: Dateiheader + ein Hunk unverändert nach `git apply --cached --unidiff-zero=false -` (stdin). Unstage: `git apply --cached -R -`. Discard-Hunk: `git apply -R -`. Zeilen-Staging (V1) baut aus einem Hunk einen reduzierten Hunk mit korrigierten Zählern.
-
-### 3.5 Worktrees
-
-```
-git worktree list --porcelain -z
-git -C <worktree> status --porcelain=v2 --branch -z       # pro Worktree, parallel
-git worktree add [-b <neu>] <pfad> <ref>
-git worktree remove [--force] <pfad>
-git worktree prune
-```
-
-### 3.6 Branches, Remotes, Tags
-
-| Aktion | Kommando |
-|---|---|
-| Branch anlegen | `git branch <name> <start>` bzw. `git switch -c <name> <start>` |
-| Checkout | `git switch <name>` / `git switch --detach <sha>` |
-| Umbenennen, löschen | `git branch -m <alt> <neu>`, `git branch -d/-D <name>` |
-| Upstream | `git branch --set-upstream-to=<remote>/<branch> <name>` |
-| Fetch | `git fetch --prune --progress [<remote>]` |
-| Pull | `git pull --ff-only` / `--rebase` / `--no-rebase` je nach Dialog |
-| Push | `git push --progress [-u] <remote> <branch>:refs/heads/<branch>` ; Force nur als `--force-with-lease` |
-| Remote | `git remote add/rename/remove/set-url` |
-| Tag | `git tag [-a -m <msg>] [-s] <name> <sha>`, `git push <remote> refs/tags/<name>` |
-
-### 3.7 Merge, Rebase, Cherry-pick, Reset, Stash
-
-| Aktion | Kommando |
-|---|---|
-| Merge | `git merge [--no-ff|--ff-only|--squash] <quelle>`, Abbruch `git merge --abort` |
-| Rebase | `git rebase [--onto <neu-basis>] <basis> [<branch>]`, `--continue/--skip/--abort` |
-| Rebase mit Stack | `git rebase --update-refs <basis>` |
-| Interaktiv | `GIT_SEQUENCE_EDITOR=<helper> git rebase -i <basis>`; der Helper ersetzt die Todo-Datei durch die von der App erzeugte Liste und beendet sich |
-| Cherry-pick | `git cherry-pick [-x] <sha>…`, bei Merge-Commits nach Rückfrage `-m 1` |
-| Revert | `git revert [-m 1] <sha>` |
-| Reset | `git reset --soft/--mixed/--hard <sha>` |
-| Stash | `git stash push [-u] [-m <msg>] [-- <pfade>]`, `git stash list --format=…`, `git stash show -p stash@{n}`, `pop/apply/drop` |
-
-### 3.8 Konflikte
-
-```
-git diff --name-only --diff-filter=U -z
-git show :1:<pfad>  :2:<pfad>  :3:<pfad>          # base, ours, theirs
-git checkout --ours|--theirs -- <pfad>
-git merge-file -p <ours> <base> <theirs>           # V1-Editor
-git add -- <pfad>                                  # als gelöst markieren
-```
-
-Laufender Zustand aus `.git`-Dateien: `MERGE_HEAD`, `REBASE_HEAD`, `rebase-merge/`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`. Diese Dateien werden nur gelesen, nie geschrieben.
-
-### 3.9 Suche, Blame, Historie
-
-```
-git log … --grep=<t> --author=<t> --since=<d> --until=<d> -- <pfad>
-git log -S<t> | -G<regex>                          # explizit
-git grep -n -z -I -- <muster>                      # Working Tree
-git log --follow --format=… -- <pfad>              # Datei-Historie
-git blame --porcelain [--] <pfad> [<sha>]          # Blame
-```
-
-## 4. Dateisystem-Watching und Refresh
-
-- **Quellen**: FSEvents auf dem Working Tree (rekursiv, ohne `.git/`) und separat auf `.git/` (HEAD, `refs/`, `packed-refs`, `index`, `MERGE_HEAD`, `rebase-merge/`, `logs/HEAD`, `worktrees/*/HEAD`).
-- **Klassifikation**: Änderung im Working Tree → Status-Refresh. Änderung an `HEAD`/`refs`/`packed-refs`/`logs/HEAD` → Refs- und Log-Refresh. Änderung an `index` → Status-Refresh. Zustandsdateien (`MERGE_HEAD` …) → Banner-Refresh.
-- **Koalition**: Ereignisse werden 150 ms gesammelt; Bursts (z. B. `npm install`) verlängern das Fenster bis maximal 1 s. Pro Klasse läuft höchstens ein Refresh gleichzeitig; ein währenddessen eintreffendes Ereignis markiert "dirty" und löst nach Abschluss genau einen weiteren Refresh aus.
-- **Eigene Writes**: Nach jedem `runWrite` wird der Refresh direkt angestoßen und die durch FSEvents gemeldeten Folgeereignisse werden für 300 ms ignoriert.
-- **Fallback**: Polling alle 10 s, wenn FSEvents für ein Volume (Netzlaufwerk) nicht liefert.
-
-## 5. Cache
-
-Pro Repository eine SQLite-Datei unter `~/Library/Caches/app.gitbonsai/<hash-des-pfads>.sqlite`:
-
-| Tabelle | Inhalt | Zweck |
+| Data | Command | Parser |
 |---|---|---|
-| `commits` | SHA, Eltern, Autor, Daten, Subject, Body | Sofortige Anzeige beim Öffnen, bevor `git log` liefert |
-| `layout` | SHA, Lane, Farbe, Kanten (Blob), Reihenfolge-Index, Hash der Ref-Menge | Layout ohne Neuberechnung, solange die Refs gleich sind |
-| `meta` | Letzter HEAD, Ref-Hash, git-Version | Validierung |
+| History | `git log --format=<fields separated by 0x1F, record end 0x1E> [--topo-order] --branches --remotes --tags [HEAD]` plus the stash commits | `LogParser`, incremental per chunk; fields are hash, parents, author name, email and date, committer name, email and date, subject, body |
+| Refs | `git for-each-ref --format=…` | `RefsParser`, `RefTipsParser` |
+| Status | `git status --porcelain=v2 -z --branch --untracked-files=all` | `StatusParser` (ordinary, renamed, unmerged and untracked entries, branch headers) |
+| Diff | `git diff -p --no-color --no-ext-diff -M …` | `DiffParser`, hunks with lines and "No newline at end of file" |
+| Worktrees | `git worktree list --porcelain -z` | `WorktreeParser` |
 
-Der Cache ist ein reiner Beschleuniger: Beim Öffnen werden gecachte Zeilen angezeigt, parallel läuft `git log`; weicht die neue Reihenfolge ab, wird ab der ersten Abweichung ersetzt. Ein Cache-Fehler führt nie zu einem Nutzerfehler, nur zu einem Neuaufbau.
+Hunk staging sends the file header and one hunk to `git apply --cached [--reverse] --whitespace=nowarn -` on stdin; discarding a hunk uses `git apply --reverse`. The interactive rebase writes its own todo list through `GIT_SEQUENCE_EDITOR` and its prepared messages through `GIT_EDITOR`, both small scripts in `git rev-parse --git-path gitbonsai-rebase` (see [Flows › Interactive rebase](flows.md#9-interactive-rebase)).
 
-## 6. Lazy-Graph-Pipeline
+## 4. File watching and refresh
+
+- **Sources**: `RepositoryWatcher` runs FSEvents on the working tree and the common git directory, found with `git rev-parse --absolute-git-dir`. `WatchScope` ignores objects, lock files, reflogs other than the stash, and folders such as `node_modules` and `.build`.
+- **Bursts**: events are gathered until 0.2 s pass without a relevant event, and for 1 s at most after the first one, so a long build cannot hold changes back.
+- **Own writes**: a burst that falls inside one of the app's own writes (`WriteActivity`), or within 0.5 s after it, is dropped; the write refreshes the tab itself.
+- **Reconcile**: a tab is reconciled when it becomes visible, when the app becomes active, after a burst and after every fetch. `TabReconciler` and `RefreshCoalescer` gather triggers that arrive together into one refresh. The refresh reads status, refs, stashes and worktrees side by side and runs `git log` only for commits that are not loaded yet; `HistoryRowDiff` applies the difference to the shown rows instead of reloading the table.
+- Only the visible tab is reconciled; hidden tabs catch up when they become visible.
+
+## 5. History pipeline
 
 ```
-git log (stream) ─▶ LogParser.feed ─▶ GraphLayout.append ─▶ GraphStore (MainActor)
-                                                                  │
-                                                     NSTableView (virtualisiert)
-                                                                  │
-                                                     GraphRowView.draw(_:) mit CoreGraphics
+git log (stream) ─▶ LogParser.feed ─▶ GraphLayout ─▶ LogLoader batches ─▶ GraphViewModel (main actor)
+                                                                                  │
+                                                               NSTableView (virtualized, HistoryViewController)
+                                                                                  │
+                                                               GraphRowView draws lanes, nodes and labels with CoreGraphics
 ```
 
-1. `Repository.log` startet git und liefert `Commit`-Werte, sobald ein Record komplett ist; die ersten Commits sind nach wenigen Millisekunden da, weil `--topo-order` die Ausgabe streamt, auch wenn git intern den vollen Walk macht (deshalb `commit-graph` pflegen, siehe 3.1 und `Repository.writeCommitGraph`).
-2. `GraphLayout` hält nur die aktiven Lanes (erwartete Eltern-SHAs pro Lane) und gibt pro Commit eine `GraphRow` mit Knoten-Lane, Farbe und Kanten zur nächsten Zeile zurück. Speicher pro Zeile ist konstant.
-3. Der `GraphStore` (MainActor) sammelt Zeilen in Batches von 200 und meldet `insertRows` an die Tabelle; die Tabelle fragt nur sichtbare Zeilen ab.
-4. `GraphRowView` zeichnet Lanes, Kanten und Knoten mit CoreGraphics; Labels (Refs, Subject, Autor, Datum) sind `NSTextField`-Zellen oder direkt gezeichneter Text für maximale Scroll-Leistung. Keine SwiftUI-View pro Commit.
-5. Refs, Avatare und Worktree-HEADs kommen aus separaten Abfragen und werden über eine SHA→Dekoration-Map in die Zeilen gemischt; eine Änderung der Refs zeichnet nur betroffene Zeilen neu.
-6. Die WIP-Zeile ist eine synthetische erste Zeile pro Worktree mit HEAD als Elternteil; sie erscheint nur bei `status`-Einträgen.
+1. `Repository` streams `git log`; `LogParser` yields `Commit` values as soon as a record is complete.
+2. `GraphLayout` keeps only the active lanes and returns a row per commit with its lane, colour and edges to the next row. Memory per row is constant. A lane keeps its colour from fork to merge.
+3. `LogLoader` hands rows over in batches: the first at once, later ones after 500 commits or 100 ms. The table inserts them and asks only for visible rows.
+4. `GraphRowView` draws lanes, edges, nodes, ref pills and text directly. There is never one view per commit.
+5. Refs, avatars and worktree HEADs come from separate queries and are merged into the rows by commit.
+6. The working directory row is a synthetic first row with HEAD as parent; it appears only when `git status` reports changes. Stashes appear as nodes on the commit they were made on.
 
-Lane-Farben sind stabil pro Strang: eine Lane behält ihre Farbe von der Entstehung (Fork) bis zur Vereinigung (Merge).
+There is no on-disk cache: every open streams the history from git.
 
-## 7. Nebenläufigkeitsmodell
+## 6. Concurrency model
 
-| Ebene | Isolation | Inhalt |
+| Level | Isolation | Content |
 |---|---|---|
-| `GitRunner` | Actor pro Worktree-Pfad | Prozesse, Write-Queue, Kommando-Log |
-| `Repository` | `Sendable` Fassade | Startet Reads auf dem Runner, liefert Streams und Werte |
-| `RepositoryWatcher` | eigener Actor | FSEvents, Koalition, löst Refreshes aus |
-| `RepositoryModel` | `@MainActor @Observable` | Refs, Status, Worktrees, laufender Zustand, Graph-Store; einzige Quelle für Views |
-| Views | MainActor | SwiftUI für Chrome, AppKit über `NSViewRepresentable` für Graph, Diff, Konflikt-Editor |
+| `GitRunner` | actor per worktree path | Processes, command log |
+| `IndexLockQueue` | one per resolved working tree, process-wide | Order of writes and index-refreshing reads |
+| `Repository` | `Sendable` facade | Starts commands on its runner, returns values and streams |
+| `RepositoryWatcher` | own dispatch queue | FSEvents and bursts |
+| `GraphViewModel` and controllers | `@MainActor` | Loaded history, status, refs and worktrees of a tab; the controllers own one interaction each |
+| Views | main actor | AppKit |
 
-Jede Operation ist eine `Task` mit Abbruchmöglichkeit; Streams werden bei Repository-Wechsel oder Fensterschluss abgebrochen. Kein `DispatchQueue`, keine Locks außerhalb des Runners.
+Operations are `Task`s; streams are cancelled when a tab closes or switches worktree.
 
-## 8. Fehlerbehandlung
+## 7. Errors
 
-- `GitError` trägt Argumente, Exit-Code und das vollständige stderr. Die UI zeigt immer den ersten stderr-Satz als Titel und das vollständige Kommando plus stderr aufklappbar.
-- Bekannte Muster werden erkannt und bekommen Aktionen: `CONFLICT` → Konflikt-Banner; `non-fast-forward` → Dialog mit Fetch/Pull; `Authentication failed` → Hinweis auf Credential-Helper und Settings; `index.lock` → Retry-Button; `not a git repository` → Repo schließen.
-- Hooks: stdout/stderr der Hooks ist Teil des Kommando-Logs; ein abgelehnter Commit zeigt die Hook-Ausgabe im Commit-Panel.
-- Nie ein stiller Fehler: Jede fehlgeschlagene Operation ist im Kommando-Log rot markiert.
+- `GitError` carries the arguments, the exit code and the full stderr.
+- A failed action shows a failure sheet with a short sentence and the complete git output behind "Git Output". Known cases get actions: conflicts show the operation banner and the conflicting files; local changes that block a cherry-pick, revert, merge or rebase offer to stash them and retry; a non-fast-forward push offers `--force-with-lease` after asking.
+- A failure is never silent: the status line shows the failed command.
 
-## 9. Performance-Budgets (als Tests)
+## 8. Performance
 
-| Metrik | Budget | Testrepo |
-|---|---|---|
-| Fenster bis erste 300 Commits sichtbar | < 100 ms (Cache) / < 300 ms (ohne Cache) | 100k synthetisch |
-| `GraphLayout` für 100k Commits | < 2 s | 100k synthetisch |
-| `LogParser` Durchsatz | > 200k Commits/s | 100k synthetisch |
-| Status-Refresh bei 10k geänderten Dateien | < 200 ms Parser, UI bleibt bedienbar | Fixture |
-| Scroll über 100k Zeilen | 60 fps, kein Layout im Draw-Pfad | 100k synthetisch, Instruments |
-| Speicher 100k Commits geladen | < 150 MB | 100k synthetisch |
+Budgets that are tests (`swift test --filter Performance`):
 
-`scripts/make-synthetic-repo.sh` erzeugt das Benchmark-Repo.
-
-## 10. Verifikations-Harness für agentengetriebene UI-Arbeit
-
-Ziel: Eine Schleife, die so nah wie möglich an Browser-Tools liegt, ohne Xcode-GUI.
-
-| Baustein | Umsetzung |
+| Measure | Test |
 |---|---|
-| Snapshot-Tests | `swift-snapshot-testing` für Graph-Zeilen, Diff-Zeilen, Sidebar-Zustände; Referenzbilder liegen unter `Tests/__Snapshots__` |
-| Debug-URL-Scheme | `gitbonsai://debug/open?repo=<pfad>&select=<sha>&panel=wip` bringt die laufende App deterministisch in einen Zustand; danach `screencapture -l <windowid>` |
-| Accessibility-Dump | Alle Elemente tragen `accessibilityIdentifier`; ein Dump über AXUIElement liefert den Zustand als Text, analog zum Accessibility-Tree im Browser |
-| Fixture-Repos | `Tests/GitEngineTests/FixtureRepo.swift` baut Repos zur Laufzeit; `scripts/make-synthetic-repo.sh` für Größe |
-| Budgets | `swift test --filter Performance` schlägt bei Überschreitung fehl |
+| `GraphLayout` over 100k synthetic commits | `GraphLayoutTests.testPerformanceHundredThousandCommits`, under 3 s |
+| Commit search over 100k commits | `CommitSearchTests.testPerformanceHundredThousandCommits` |
 
-Jede UI-Aufgabe bekommt ein Screenshot- oder Snapshot-Akzeptanzkriterium, damit der Agent sie ohne Menschen abschließen kann; nur Scroll-Gefühl und Interaktionsdetails werden von Hand abgenommen.
+`scripts/make-synthetic-repo.sh <folder> 100000` creates a 100k-commit repository with branches and merges for checks by hand in the app.
+
+## 9. Verification
+
+UI work is verified in the running app, without a human, through `ScreenshotHarness`:
+
+- `GITBONSAI_SCREENSHOT=<png> swift run GitBonsaiApp <repo>` renders the window to a PNG once loading has finished and quits. Harness runs stay in the background, keep their session in their own defaults domain (`app.gitbonsai.harness`) and never fetch or load avatars unless asked.
+- Further `GITBONSAI_*` switches drive the app with real mouse and key events through the window (clicks, drags, menus, sheets, the command bar) and print its state as text: the history, the selection, menus with their enabled state, toolbar badges, the status line. The README lists every switch by area.
+- Each area's switches live in their own `ScreenshotHarness+<Area>.swift` extension; `ScreenshotHarness.swift` holds the shared helpers.
+- Engine and layout logic is covered by XCTest against fixture repositories that `Tests/GitEngineTests/FixtureRepo.swift` builds with git in a temporary folder.
