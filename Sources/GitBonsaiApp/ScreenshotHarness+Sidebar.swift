@@ -15,31 +15,6 @@ extension ScreenshotHarness {
     }
 }
 
-/// The constant scroller gutter of the sidebar.
-@MainActor
-extension ScreenshotHarness {
-    /// `GITBONSAI_SIDEBAR_GUTTER=collapsed|expanded` prints the right edges of the rows, the slot column and the counts with every section collapsed and expanded, under a legacy and an overlay scroller.
-    /// It then restores the system's scroller style and leaves the sections in the given state for the capture.
-    static func printSidebarGutter(_ sidebar: SidebarView) {
-        guard let final = environment["GITBONSAI_SIDEBAR_GUTTER"], let scrollView = sidebar.enclosingScrollView else { return }
-        let systemStyle = scrollView.scrollerStyle
-        for style in [NSScroller.Style.legacy, .overlay] {
-            scrollView.scrollerStyle = style
-            for collapsed in [true, false] {
-                sidebar.setSections(collapsed: collapsed)
-                scrollView.tile()
-                scrollView.layoutSubtreeIfNeeded()
-                let scrolls = sidebar.contentHeight > scrollView.contentSize.height
-                let scroller = scrollView.verticalScroller.map { sidebar.convert($0.bounds, from: $0).minX }
-                let rowRight = (0..<sidebar.rowCount).map { sidebar.rowRect(at: $0).maxX }.max() ?? 0
-                print("sidebar gutter \(style == .overlay ? "overlay" : "legacy") \(collapsed ? "collapsed" : "expanded"): scrolls \(scrolls), scroller x \(scroller.map { "\($0)" } ?? "none"), view width \(sidebar.bounds.width), row right \(rowRight), slot right \(sidebar.slotRight), count right \(sidebar.valueRight)")
-            }
-        }
-        scrollView.scrollerStyle = systemStyle
-        sidebar.setSections(collapsed: final == "collapsed")
-    }
-}
-
 /// Harness switches for the sidebar's context menus and for opening the new-branch sheet. Sheets the menus raise are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`.
 @MainActor
 extension ScreenshotHarness {

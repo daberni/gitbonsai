@@ -147,12 +147,6 @@ extension ScreenshotHarness {
         return opened
     }
 
-    /// `GITBONSAI_TOOLBAR_HIGHLIGHT=1` prints when a split button shows pressed and what let it go: the menu closing or `popUp` returning.
-    static func traceMenuButton(_ button: MenuButton, cause: String) {
-        guard environment["GITBONSAI_TOOLBAR_HIGHLIGHT"] == "1" else { return }
-        FileHandle.standardError.write(Data("\(button.title) highlighted \(button.isHighlighted) by \(cause)\n".utf8))
-    }
-
     /// A window that is not key swallows the first click on a button, so the press goes to the view under the point directly; its tracking loop finds the queued release.
     private static func press(_ button: NSView, at local: NSPoint) {
         guard let window = button.window else { return }

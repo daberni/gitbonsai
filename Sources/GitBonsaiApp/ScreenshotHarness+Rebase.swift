@@ -207,7 +207,7 @@ extension ScreenshotHarness {
                 let row = tab.history.tableView.selectedRow
                 let selected = model.commits.indices.contains(row) ? "\(model.commits[row].shortID) \(model.commits[row].subject)" : "row \(row)"
                 let detail = views(of: DetailView.self, in: window).first
-                let panel = detail?.messageEditor != nil ? "editor (saving \(detail?.messageEditor?.isSaving == true))" : "\(detail?.traceState.header ?? "-") \(detail?.subjectLabel?.stringValue ?? "-")"
+                let panel = detail?.messageEditor != nil ? "editor (saving \(detail?.messageEditor?.isSaving == true))" : "\(detail?.shownShortSHA ?? "-") \(detail?.subjectLabel?.stringValue ?? "-")"
                 let state = "selected \(selected) · panel \(panel)"
                 guard state != last else { return }
                 last = state
@@ -225,7 +225,7 @@ extension ScreenshotHarness {
         log("log: " + rows.joined(separator: " | "))
         let row = tab.history.tableView.selectedRow
         let selected = model.commits.indices.contains(row) ? "\(model.commits[row].shortID) \(model.commits[row].subject)" : "row \(row)"
-        log("selected: \(selected); panel: \(detail?.traceState.header ?? "-") \(detail?.subjectLabel?.stringValue ?? "-"); pencil \(detail?.editMessageButton.map { $0.isHidden ? "hidden" : $0.isEnabled ? "enabled" : "disabled" } ?? "none")")
+        log("selected: \(selected); panel: \(detail?.shownShortSHA ?? "-") \(detail?.subjectLabel?.stringValue ?? "-"); pencil \(detail?.editMessageButton.map { $0.isHidden ? "hidden" : $0.isEnabled ? "enabled" : "disabled" } ?? "none")")
         if let editor {
             log("editor: subject „\(editor.subject.stringValue)“, body „\(editor.body.string.replacingOccurrences(of: "\n", with: "\\n"))“, note „\(editor.noteText)“, Sichern \(editor.saveButton.isEnabled ? "an" : "aus"), focus \(editor.window?.firstResponder.map { "\(type(of: $0))" } ?? "none")")
         } else {

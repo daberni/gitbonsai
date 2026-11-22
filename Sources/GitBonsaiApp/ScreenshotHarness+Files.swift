@@ -243,18 +243,17 @@ extension ScreenshotHarness {
     // MARK: Commit header
 
     /// `GITBONSAI_CLICK_COMMIT_COPY=full|short` clicks the copy icon next to the commit SHA with a real click, ⌥ held for `short`, and prints the pasteboard and the icon afterwards.
-    /// `GITBONSAI_CLICK_PARENT=<n>` clicks parent link n with a real click and prints the selected commit; `GITBONSAI_PRINT_CURSORS=1` prints the cursor each part of the detail panel sets.
+    /// `GITBONSAI_CLICK_PARENT=<n>` clicks parent link n with a real click and prints the selected commit.
     static func driveCommitHeader(on tab: RepositoryViewController) {
         let environment = environment
         let copyMode = environment["GITBONSAI_CLICK_COMMIT_COPY"]
         let parent = environment["GITBONSAI_CLICK_PARENT"].flatMap(Int.init)
-        guard copyMode != nil || parent != nil || environment["GITBONSAI_PRINT_CURSORS"] == "1" else { return }
+        guard copyMode != nil || parent != nil else { return }
         // Clicks copy into the harness's own pasteboard, so runs leave the user's clipboard alone.
         DetailView.pasteboard = NSPasteboard(name: NSPasteboard.Name("app.gitbonsai.harness"))
         DetailView.pasteboard.clearContents()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             guard let window = tab.view.window, let detail = views(of: DetailView.self, in: window).first else { return }
-            if environment["GITBONSAI_PRINT_CURSORS"] == "1" { printCursors(in: detail, window: window) }
             if let copyMode, let button = detail.copyButton {
                 let flags: NSEvent.ModifierFlags = copyMode == "short" ? .option : []
                 printCopyFrames(button, in: detail, when: "before the click")
@@ -307,33 +306,6 @@ extension ScreenshotHarness {
         if let down = event(.leftMouseDown) { press(down, in: window) }
     }
 
-    /// Cursor updates follow the real pointer only, so each probe goes to the view under the point the way tracking would deliver it, starting from the arrow.
-    private static func printCursors(in detail: DetailView, window: NSWindow) {
-        var probes: [(String, NSView, CGPoint)] = []
-        if let copy = detail.copyButton { probes.append(("copy icon", copy, CGPoint(x: copy.bounds.maxX - Theme.Space.s, y: copy.bounds.midY))) }
-        for (index, link) in detail.parentLinks.enumerated() { probes.append(("parent link \(index) \(link.title)", link, CGPoint(x: link.bounds.midX, y: link.bounds.midY))) }
-        for button in views(of: LinkButton.self, in: window) where button.superview?.superview is FileListView {
-            probes.append(("section action \(button.title)", button, CGPoint(x: button.bounds.midX, y: button.bounds.midY)))
-        }
-        if let row = views(of: FileRowView.self, in: window).first {
-            probes.append(("file row \(row.model.selection.path)", row, CGPoint(x: row.bounds.midX, y: row.bounds.midY)))
-            if !row.model.actions.isEmpty {
-                let rect = row.actionRect(0)
-                probes.append(("file row action \(row.model.actions[0])", row, CGPoint(x: rect.midX, y: rect.midY)))
-            }
-        }
-        for (name, view, local) in probes {
-            let point = view.convert(local, to: nil)
-            NSCursor.arrow.set()
-            let hit = window.contentView?.superview?.hitTest(point)
-            if let hit, let update = NSEvent.enterExitEvent(with: .cursorUpdate, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil) {
-                hit.cursorUpdate(with: update)
-            }
-            let cursor = NSCursor.current == NSCursor.pointingHand ? "pointingHand" : NSCursor.current == NSCursor.arrow ? "arrow" : "other"
-            FileHandle.standardError.write(Data("cursor \(name) (hit \(hit.map { "\(type(of: $0))" } ?? "nothing")): \(cursor)\n".utf8))
-        }
-    }
-
     // MARK: File context menu
 
     /// `GITBONSAI_FILE_MENU=<n>` asks file row n for the menu a right click would open and prints its entries, ⌥ alternates marked, without showing it on screen.
@@ -359,74 +331,5 @@ extension ScreenshotHarness {
             FileHandle.standardError.write(Data("file menu \(row.model.selection.path): \(entries.joined(separator: "; "))\n".utf8))
             if let pick = environment["GITBONSAI_FILE_MENU_PICK"] { choose(pick, in: menu) }
         }
-    }
-
-    // MARK: Detail trace
-
-    /// `GITBONSAI_DETAIL_TRACE=<n>[:<ms>]` presses ↓ n times in the history with real key events, <ms> apart (default 80), and prints every state the detail panel holds when the run loop goes to sleep, that is every state that can reach the screen.
-    /// Each line is classified against the selected commit; `GITBONSAI_DETAIL_TRACE_SHOTS=<dir>` writes the panel as a PNG for each state. Set `GITBONSAI_CAPTURE_DELAY` long enough to cover the run.
-    static func traceDetail(on tab: RepositoryViewController) {
-        guard let spec = environment["GITBONSAI_DETAIL_TRACE"] else { return }
-        let parts = spec.split(separator: ":")
-        let steps = parts.first.flatMap { Int($0) } ?? 0
-        let interval = (parts.count > 1 ? Double(parts[1]) : nil) ?? 80
-        let shots = environment["GITBONSAI_DETAIL_TRACE_SHOTS"]
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            guard let window = tab.view.window, let detail = views(of: DetailView.self, in: window).first else { return }
-            window.makeFirstResponder(tab.history.tableView)
-            let start = ProcessInfo.processInfo.systemUptime
-            var lastPress = start
-            var last = ""
-            var counts: [String: Int] = [:]
-            var frames: [(name: String, image: NSBitmapImageRep)] = []
-            func milliseconds(since time: TimeInterval) -> Int { Int((ProcessInfo.processInfo.systemUptime - time) * 1000) }
-            func write(_ line: String) { FileHandle.standardError.write(Data((line + "\n").utf8)) }
-            let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, CFIndex.max) { _, _ in
-                MainActor.assumeIsolated {
-                    let selected = shortCommit(on: tab)
-                    let state = detail.traceState
-                    let line = "selected \(selected) | header \(state.header) | files \(state.filesCommit ?? "-") × \(state.rows) \(state.freshness) | \"\(state.files)\" | height \(Int(state.height))"
-                    guard line != last else { return }
-                    last = line
-                    let kind: String
-                    if state.header != selected { kind = "stale-header" }
-                    else if state.freshness == .loading { kind = "loading" }
-                    else if state.filesCommit == selected { kind = "complete" }
-                    else if state.rows == 0 { kind = "empty" }
-                    else { kind = "old-files" }
-                    counts[kind, default: 0] += 1
-                    write(String(format: "trace %5d ms (+%4d since key) %-12@ %@", milliseconds(since: start), milliseconds(since: lastPress), kind, line))
-                    if shots != nil, let scroll = detail.enclosingScrollView, let rep = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds) {
-                        scroll.cacheDisplay(in: scroll.bounds, to: rep)
-                        frames.append((String(format: "%03d-%05dms-%@.png", frames.count, milliseconds(since: start), kind), rep))
-                    }
-                }
-            }
-            CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
-            for step in 0..<steps {
-                DispatchQueue.main.asyncAfter(deadline: .now() + interval / 1000 * Double(step)) {
-                    guard let scalar = UnicodeScalar(NSDownArrowFunctionKey) else { return }
-                    let characters = String(Character(scalar))
-                    lastPress = ProcessInfo.processInfo.systemUptime
-                    write(String(format: "trace %5d ms key ↓ %d", milliseconds(since: start), step + 1))
-                    if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: lastPress, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: 125) {
-                        window.sendEvent(event)
-                    }
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + interval / 1000 * Double(steps) + 1.5) {
-                CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, .commonModes)
-                write("trace summary: " + counts.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", "))
-                guard let shots else { return }
-                try? FileManager.default.createDirectory(atPath: shots, withIntermediateDirectories: true)
-                for frame in frames { try? frame.image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: shots).appendingPathComponent(frame.name)) }
-            }
-        }
-    }
-
-    private static func shortCommit(on tab: RepositoryViewController) -> String {
-        let row = tab.history.selectedRow
-        guard tab.viewModel.commits.indices.contains(row) else { return "row \(row)" }
-        return tab.viewModel.commits[row].shortID
     }
 }

@@ -344,14 +344,8 @@ final class DetailView: NSView {
         return list
     }
 
-    /// What the panel shows right now, for the harness trace.
-    var traceState: (header: String, files: String, filesCommit: String?, rows: Int, freshness: FileListView.Freshness, height: CGFloat) {
-        let commits = Set((fileList?.models ?? []).compactMap { model -> String? in
-            if case .commit(let commit) = model.selection.source { return commit.shortID }
-            return nil
-        })
-        return (copySHA.short, commitFiles?.header.stringValue ?? "", commits.count == 1 ? commits.first : nil, fileList?.models.count ?? 0, fileList?.freshness ?? .current, frame.height)
-    }
+    /// The short SHA of the commit the panel shows, for the harness.
+    var shownShortSHA: String { copySHA.short }
 
     func showNothing() {
         reset(title: String(localized: "detail.selection.title", defaultValue: "Selection", bundle: .module, comment: "Detail panel title when nothing is selected"))

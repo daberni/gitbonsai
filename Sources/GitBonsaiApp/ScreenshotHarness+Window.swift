@@ -1,12 +1,10 @@
 import AppKit
 import GitEngine
 
-/// Harness switches for tabs, the tab row and the start-up trace.
+/// Harness switches for tabs and the tab row.
 @MainActor
 extension ScreenshotHarness {
-    // MARK: Startup trace
-
-    /// The start of the process, so the first line already shows how long the app took to get there.
+    /// The start of the process, so printed times show how long the app took to get there.
     static let launch: Date = {
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.size
@@ -15,13 +13,6 @@ extension ScreenshotHarness {
         let start = info.kp_proc.p_un.__p_starttime
         return Date(timeIntervalSince1970: Double(start.tv_sec) + Double(start.tv_usec) / 1_000_000)
     }()
-
-    /// `GITBONSAI_TRACE_STARTUP=1` prints every state of the tab row and every rebuild of a sidebar, with the time since launch, to count redraws while the app opens.
-    static func traceStartup(_ line: @autoclosure () -> String) {
-        guard environment["GITBONSAI_TRACE_STARTUP"] == "1" else { return }
-        let milliseconds = Int(Date().timeIntervalSince(launch) * 1000)
-        FileHandle.standardError.write(Data("[\(milliseconds) ms] \(line())\n".utf8))
-    }
 
     /// `GITBONSAI_NEW_TAB=1` opens the empty tab after the launch arguments or the saved session.
     static var wantsNewTab: Bool { environment["GITBONSAI_NEW_TAB"] != nil }
@@ -133,7 +124,7 @@ extension ScreenshotHarness {
 
     /// With a repository tab active, in this order: `GITBONSAI_PRINT_LAYOUT=1` prints the window's frame, screen, zoom and full screen and the panel widths;
     /// `GITBONSAI_RESIZE_WINDOW=<width>` makes the window that wide; `GITBONSAI_DRAG_DIVIDERS=<sidebar>,<detail>` drags the two dividers that many points to the right with real mouse events;
-    /// `GITBONSAI_DIVIDER_SWEEP=<sidebar>,<detail>` moves them in 60 steps that are each laid out and drawn and prints the time a step takes; `GITBONSAI_DOUBLE_CLICK_DIVIDER=0|1` double-clicks a divider. The layout is printed after each step.
+    /// `GITBONSAI_DOUBLE_CLICK_DIVIDER=0|1` double-clicks a divider. The layout is printed after each step.
     static func driveLayout(_ split: PanelSplitView, in window: NSWindow) {
         let prints = environment["GITBONSAI_PRINT_LAYOUT"] == "1"
         func report(_ step: String) {
@@ -159,23 +150,6 @@ extension ScreenshotHarness {
                 drag(in: window, from: start, to: CGPoint(x: start.x + delta, y: start.y), steps: steps)
                 let milliseconds = Date().timeIntervalSince(began) * 1000
                 report("dragged divider \(index) by \(Int(delta)) in \(steps) steps, \(String(format: "%.1f", milliseconds / Double(steps))) ms a step")
-            }
-        }
-        // A queued drag runs inside the divider's tracking loop without drawing in between, so the sweep times layout and drawing of every step itself.
-        if let spec = environment["GITBONSAI_DIVIDER_SWEEP"] {
-            let deltas = spec.split(separator: ",").compactMap { Double($0) }
-            for (index, delta) in deltas.prefix(2).enumerated() where delta != 0 {
-                let start = split.dividerFrame(at: index).minX
-                var times: [Double] = []
-                for step in 1...60 {
-                    let began = Date()
-                    split.setPosition(start + delta * CGFloat(step) / 60, ofDividerAt: index)
-                    window.contentView?.layoutSubtreeIfNeeded()
-                    window.contentView?.superview?.displayIfNeeded()
-                    times.append(Date().timeIntervalSince(began) * 1000)
-                }
-                let average = times.reduce(0, +) / Double(times.count)
-                report("swept divider \(index) by \(Int(delta)) in 60 drawn steps, \(String(format: "%.1f", average)) ms average, \(String(format: "%.1f", times.max() ?? 0)) ms slowest")
             }
         }
         if let index = environment["GITBONSAI_DOUBLE_CLICK_DIVIDER"].flatMap(Int.init) {

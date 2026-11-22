@@ -216,21 +216,20 @@ final class MenuButton: NSButton, NSMenuDelegate {
         // `popUp` returns only after the chosen entry's action has run, so waiting for it would keep the button pressed through that action.
         let menu = entries()
         menu.delegate = self
-        setPressed(true, by: "press")
+        setPressed(true)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + Theme.Space.xs), in: self)
-        setPressed(false, by: "popUp returned")
+        setPressed(false)
     }
 
     func menuDidClose(_ menu: NSMenu) {
-        setPressed(false, by: "menu closed")
+        setPressed(false)
     }
 
     /// Draws the change at once instead of with the window's next update, which waits for the menu's tracking to unwind.
-    private func setPressed(_ pressed: Bool, by cause: String) {
+    private func setPressed(_ pressed: Bool) {
         guard isHighlighted != pressed else { return }
         isHighlighted = pressed
         displayIfNeeded()
-        if ScreenshotHarness.isActive { ScreenshotHarness.traceMenuButton(self, cause: cause) }
     }
 
     /// Divider and chevron are drawing only; every press belongs to the button.

@@ -198,7 +198,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private func refreshTabBar() {
         tabBar.items = tabs.barItems
         tabBar.activeIndex = tabs.activeIndex
-        traceTabRow()
         if let active = tabs.active { window?.title = active.title }
         let session = tabs.session
         store.saveTabs(session.paths, active: session.active)
@@ -276,7 +275,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
         titlebar.placeBesideTrafficLights()
-        traceTabRow()
         frameKeeper.windowShown()
     }
 
@@ -320,16 +318,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     // MARK: Screenshot harness
-
-    private var tracedTabRow = ""
-
-    private func traceTabRow() {
-        let titles = tabs.barItems.enumerated().map { $0.offset == tabs.activeIndex ? "[\($0.element.title)]" : $0.element.title }
-        let state = "tab row (window \(window?.isVisible == true ? "visible" : "hidden")): " + titles.joined(separator: " | ")
-        guard state != tracedTabRow else { return }
-        tracedTabRow = state
-        ScreenshotHarness.traceStartup(state)
-    }
 
     private func captureIfRequested() {
         guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true, !ScreenshotHarness.holdsCapture(for: cloner) else { return }

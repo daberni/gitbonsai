@@ -131,7 +131,6 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     // MARK: Changes from the view model
 
     func rowsAppended(_ range: Range<Int>) {
-        ScreenshotHarness.traceHistory("insert rows \(range.lowerBound)..<\(range.upperBound)")
         tableView.insertRows(at: IndexSet(integersIn: range), withAnimation: [])
         if range.lowerBound > 0 { tableView.reloadData(forRowIndexes: IndexSet(integer: range.lowerBound - 1), columnIndexes: IndexSet(integer: 0)) }
         columnsController.update(laneCount: viewModel.maxLaneCount)
@@ -150,14 +149,12 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         selectedRows = []
         selectedID = nil
         otherSelectedIDs = []
-        ScreenshotHarness.traceHistory("reload all rows (reset, \(viewModel.rows.count) rows)")
         tableView.reloadData()
         search.historyChanged()
         onSelect?([])
     }
 
     func rowsShifted() {
-        ScreenshotHarness.traceHistory("reload all rows (shifted, \(viewModel.rows.count) rows)")
         tableView.reloadData()
         columnsController.update(laneCount: viewModel.maxLaneCount)
         search.historyChanged()
@@ -173,14 +170,12 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         otherSelectedIDs = []
         isApplyingRows = true
         if let diff {
-            ScreenshotHarness.traceHistory("apply diff: remove \(diff.removed.count), insert \(diff.inserted.count), reload \(diff.changed.count) of \(viewModel.rows.count) rows")
             tableView.beginUpdates()
             tableView.removeRows(at: diff.removed, withAnimation: [])
             tableView.insertRows(at: diff.inserted, withAnimation: [])
             tableView.endUpdates()
             tableView.reloadData(forRowIndexes: diff.changed, columnIndexes: IndexSet(integer: 0))
         } else {
-            ScreenshotHarness.traceHistory("reload all rows (reordered, \(viewModel.rows.count) rows)")
             tableView.reloadData()
         }
         isApplyingRows = false

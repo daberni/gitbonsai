@@ -17,7 +17,6 @@ extension ScreenshotHarness {
                     FileHandle.standardError.write(Data("panel \(name) did not open\n".utf8))
                     return
                 }
-                watchPanelLayout(popover)
                 whenSettled(tab.tagsController, attempts: 150) { drivePanel(popover, in: window, on: tab, name: name) }
             }
         }

@@ -66,7 +66,6 @@ final class SidebarView: NSView {
         self.model = model
         items = outline.items(from: model)
         layoutItems()
-        ScreenshotHarness.traceStartup("sidebar of \((model.repository.path as NSString).lastPathComponent): \(items.count) lines, \(model.worktrees.count) worktrees, \(model.worktrees.filter { $0.status != nil }.count) with counters")
     }
 
     private func layoutItems() {
@@ -165,15 +164,6 @@ final class SidebarView: NSView {
     }
 
     func rowRect(at index: Int) -> CGRect { frames[index] }
-
-    var rowCount: Int { frames.count }
-
-    /// Collapses or expands every section, for the harness.
-    func setSections(collapsed: Bool) {
-        guard let model else { return }
-        for case .header(let key, _, _, _, _) in items where outline.isCollapsed(key) != collapsed { outline.toggle(key) }
-        reload(from: model)
-    }
 
     func menu(forItemAt index: Int) -> NSMenu? {
         guard let subject = items[index].menuSubject, let entries = menuItems?(subject), !entries.isEmpty else { return nil }
