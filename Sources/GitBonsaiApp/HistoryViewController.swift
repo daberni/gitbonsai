@@ -9,7 +9,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     let columnsController: HistoryColumnsController
     private(set) var selectedRow = -1
     /// The commit of the selected row. Rows are rebuilt before the table hears of it, so the index alone no longer names the commit then.
-    private var selectedID: String?
+    private(set) var selectedID: String?
     /// What a reload shows once it finished: the anchor to restore, or nil for the current row.
     private var focusAfterReload: Anchor?
     let search: HistorySearchController
@@ -36,6 +36,9 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
             self?.reloadVisibleRows()
             self?.updateSearchCounter()
         }
+        search.selectedRow = { [weak self] in self?.selectedRow ?? -1 }
+        // Selecting through the table leaves the search field first responder, so typing goes on.
+        search.onJump = { [weak self] row in self?.select(row: row, scroll: true) }
         configureTable()
         layout()
     }
@@ -172,6 +175,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     func navigate(to sha: String) {
         guard let index = viewModel.rowIndex(of: sha) else { NSSound.beep(); return }
+        search.userSelected()
         select(row: index, scroll: true)
     }
 
@@ -209,6 +213,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     /// Selects the next or previous match; without matches the counter already says so.
     func stepSearch(forward: Bool) {
         guard let row = search.step(from: selectedRow, forward: forward) else { return }
+        search.userSelected()
         select(row: row, scroll: true)
     }
 
@@ -231,6 +236,12 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     // MARK: Table
 
     func numberOfRows(in tableView: NSTableView) -> Int { viewModel.rows.count }
+
+    /// Asked for clicks and arrow keys only, not for selections made in code.
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        search.userSelected()
+        return true
+    }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         let previous = selectedRow

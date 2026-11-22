@@ -8,6 +8,10 @@ import GitEngine
 final class HistorySearchController {
     /// Matches or the query changed: visible rows and the counter need a redraw.
     var onChange: (() -> Void)?
+    /// A new query found the row to select, see `CommitSearchJump`.
+    var onJump: ((Int) -> Void)?
+    /// The selected row, read when a query takes effect.
+    var selectedRow: () -> Int = { -1 }
 
     private(set) var search: CommitSearch?
     private let viewModel: GraphViewModel
@@ -21,6 +25,8 @@ final class HistorySearchController {
     private var scanTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private var scannedRefs: [Ref] = []
+    /// Set by a typed query only; rescans after history changes leave the selection alone.
+    private var jump: CommitSearchJump?
 
     /// Commits per background pass; the shown matches grow after each one.
     private static let chunkSize = 20_000
@@ -49,6 +55,7 @@ final class HistorySearchController {
         debounceTask = Task { [weak self] in
             try? await Task.sleep(for: Self.debounce)
             guard !Task.isCancelled, let self else { return }
+            jump = CommitSearchJump(search: next, refines: search != nil, selected: selectedCommit(), refNames: selectedRefNames())
             search = next
             rescan()
         }
@@ -60,6 +67,7 @@ final class HistorySearchController {
         scanTask = nil
         let wasActive = search != nil
         search = nil
+        jump = nil
         orderedMatches = []
         matchSet = []
         replaceOnNextChunk = false
@@ -129,7 +137,25 @@ final class HistorySearchController {
             orderedMatches.append(contentsOf: ids)
             matchSet.formUnion(ids)
         }
+        if let id = jump?.target(among: ids), let row = viewModel.rowIndex(of: id) { onJump?(row) }
         onChange?()
+    }
+
+    /// A row the user picked, by click, keys or stepping, is kept even if the query's first match is still to come.
+    func userSelected() {
+        jump?.cancel()
+    }
+
+    /// Nil for no selection and for the uncommitted changes, which never match.
+    private func selectedCommit() -> Commit? {
+        let row = selectedRow()
+        guard viewModel.commits.indices.contains(row), viewModel.kinds[row] != .wip else { return nil }
+        return viewModel.commits[row]
+    }
+
+    private func selectedRefNames() -> [String] {
+        guard let id = selectedCommit()?.id else { return [] }
+        return viewModel.refsByCommit[id]?.map(\.name) ?? []
     }
 
     // MARK: Stepping
