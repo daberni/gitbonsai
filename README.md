@@ -14,6 +14,15 @@ swift run GitBonsaiApp /path/to/repo
 
 `scripts/make-synthetic-repo.sh bench/synthetic 100000` creates a 100k-commit repository with branches and merges for benchmarks.
 
+### App bundle
+
+```bash
+scripts/make-app-bundle.sh
+open .build/app/GitBonsai.app
+```
+
+The script builds the release binary and assembles `GitBonsai.app` (bundle id `app.gitbonsai`, macOS 26.0 or later) in `.build/app`, or in the directory given as its argument. It compiles the app icon `docs/design/app-icon/AppIcon.icon` with `actool` into `Assets.car` (the layered icon macOS 26 renders in every appearance) and writes a classic `AppIcon.icns` with 16–512 pt at @1x and @2x for older surfaces, then signs the bundle ad hoc. It needs Xcode for `actool`.
+
 ### Screenshot harness
 
 The app can render itself for checks without a human: `GITBONSAI_SCREENSHOT=/tmp/out.png swift run GitBonsaiApp /path/to/repo` writes the window to a PNG once loading has finished and quits.
