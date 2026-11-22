@@ -122,16 +122,21 @@ final class GraphViewModel {
         Task { await refresh(note: nil) }
     }
 
-    func fetch() async {
-        setStatus("git fetch --all --prune …")
+    /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.
+    func fetch(_ variant: FetchVariant) async -> Error? {
+        setStatus("\(variant.commandLine) …")
+        let start = ContinuousClock.now
         do {
-            _ = try await repository.runner.runWrite(["fetch", "--all", "--prune"])
+            try await repository.fetch(variant)
             await loadLastFetch()
             await loadRefs()
             onMetadataChanged?()
-            setStatus("Fetch abgeschlossen")
+            setStatus("\(variant.commandLine) · \(elapsed(since: start))")
+            return nil
         } catch {
-            setStatus("fetch fehlgeschlagen: \(error)")
+            let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
+            setStatus("\(variant.commandLine) fehlgeschlagen nach \(elapsed(since: start)): \(message)")
+            return error
         }
     }
 

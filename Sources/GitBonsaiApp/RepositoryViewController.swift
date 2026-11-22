@@ -20,6 +20,8 @@ final class RepositoryViewController: NSObject {
     let history: HistoryViewController
     let checkoutController: CheckoutController
     let commitActions: CommitActionsController
+    let fetchController: FetchController
+    let operationBanner: OperationBannerController
     let staging: StagingController
     let commitController: CommitController
     let diff: DiffViewController
@@ -42,6 +44,8 @@ final class RepositoryViewController: NSObject {
         history = HistoryViewController(viewModel: viewModel)
         checkoutController = CheckoutController(viewModel: viewModel)
         commitActions = CommitActionsController(viewModel: viewModel)
+        fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
+        operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
         commitController = CommitController(viewModel: viewModel)
         let model = viewModel
@@ -51,7 +55,7 @@ final class RepositoryViewController: NSObject {
         layout()
         bind()
         viewModel.load()
-        autoFetch = AutoFetchTimer { [weak self] in await self?.viewModel.fetch() }
+        autoFetch = AutoFetchTimer { [weak self] in _ = await self?.viewModel.fetch(.allRemotes) }
     }
 
     // MARK: Diff
@@ -82,10 +86,8 @@ final class RepositoryViewController: NSObject {
     // MARK: Wiring
 
     private func wire() {
-        toolbar.onFetch = { [weak self] in
-            guard let self else { return }
-            Task { await self.viewModel.fetch() }
-        }
+        toolbar.onFetch = { [weak self] in self?.fetchController.fetch(.allRemotes) }
+        toolbar.fetchMenu = { [weak self] in self?.fetchController.menu() ?? NSMenu() }
         toolbar.onSearch = { [weak self] text in self?.history.search(text) }
 
         sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }
@@ -149,7 +151,16 @@ final class RepositoryViewController: NSObject {
         let detailScroll = Self.scroll(detail, background: Theme.surface1)
         Self.fitToContent(detail, in: detailScroll)
         split.addArrangedSubview(sidebarScroll)
-        split.addArrangedSubview(historyPane)
+        // The banner of a rebase, cherry-pick or revert in progress sits above the history and takes no room while hidden.
+        let historyColumn = NSStackView(views: [operationBanner.view, historyPane])
+        historyColumn.orientation = .vertical
+        historyColumn.spacing = 0
+        for part in [operationBanner.view, historyPane] {
+            part.leadingAnchor.constraint(equalTo: historyColumn.leadingAnchor).isActive = true
+            part.trailingAnchor.constraint(equalTo: historyColumn.trailingAnchor).isActive = true
+        }
+        historyPane.setContentHuggingPriority(.defaultLow, for: .vertical)
+        split.addArrangedSubview(historyColumn)
         historyPane.show(history.view)
         // The commit form sits below the detail panel and only appears for the working directory.
         rightColumn = ColumnWithBottomBar(content: detailScroll, bar: commitController.form)
@@ -237,6 +248,8 @@ final class RepositoryViewController: NSObject {
         }
         let hasRemote = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
         toolbar.showFetchState(hasRemote: hasRemote, lastFetch: viewModel.lastFetch)
+        fetchController.refreshRemotes()
+        operationBanner.update()
         reportLoadedOnce()
     }
 
@@ -264,6 +277,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.discard(on: self)
             ScreenshotHarness.scrollSidebar(sidebar)
             ScreenshotHarness.openCommitMenu(on: self)
+            ScreenshotHarness.runRemotesAndRebase(on: self)
         }
         onLoaded?()
     }

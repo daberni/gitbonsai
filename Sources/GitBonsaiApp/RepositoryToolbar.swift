@@ -11,8 +11,9 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
     var onStash: (() -> Void)? { didSet { stash.isEnabled = onStash != nil } }
     var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
     /// Choices for the fetch button's menu, for example other fetch variants; nil keeps a plain button.
-    var fetchMenu: (() -> NSMenu)?
+    var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : "Fetch-Varianten" } }
 
+    private lazy var fetchButton = button("Fetch", "arrow.down.to.line", #selector(fetch(_:)))
     private lazy var pull = button("Pull", "arrow.down", #selector(runPull(_:)))
     private lazy var push = button("Push", "arrow.up", #selector(runPush(_:)))
     private lazy var branch = button("Branch", "arrow.triangle.branch", #selector(runBranch(_:)))
@@ -29,7 +30,7 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         fetchLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let actions = NSStackView(views: [
-            button("Fetch", "arrow.down.to.line", #selector(fetch(_:))),
+            fetchButton,
             pull,
             push,
             branch,

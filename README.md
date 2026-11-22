@@ -43,6 +43,12 @@ History:
 - `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event and prints the menu (AppKit shows it on screen above other apps for a moment), `GITBONSAI_MENU_SHOT=<png>` renders it, and `GITBONSAI_MENU_PICK=<title>` or `<title>/<title>` chooses an entry; `GITBONSAI_MENU_LIST=<row>` only prints the entries without opening the menu.
 - Sheets of commit actions are answered by `GITBONSAI_FORM=key=value;…` (name, branch, path, message, checked=0|1), `GITBONSAI_CONFIRM=1` and `GITBONSAI_SAVE_PATH=<file>`, and `GITBONSAI_SHEET_SHOT=<png>` renders the sheet.
 
+Remotes and rebase:
+
+- `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's git command without opening it, and `GITBONSAI_FETCH_PICK=<title>` runs an entry and prints the status line afterwards.
+- `GITBONSAI_MENU_RUN=<row>:<title>` runs an entry of a history row's menu without opening the menu; `GITBONSAI_ONTO=<base>` fills the new base of the "Ab hier auf … verschieben" sheet.
+- `GITBONSAI_BANNER_CLICK=continue|skip|abort` clicks a button of the rebase, cherry-pick or revert banner with a real click and prints the banner before and after.
+
 Sidebar:
 
 - `GITBONSAI_SIDEBAR_SCROLL=<points>` scrolls the sidebar down and prints the left edge of its scroller next to the right edge of the status slot column; the capture does not draw scrollers, so these numbers show whether one covers the slot.

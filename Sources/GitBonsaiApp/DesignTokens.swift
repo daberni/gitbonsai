@@ -26,6 +26,7 @@ enum Theme {
     static let onMoss = dynamic(0xffffff, 0x15200f)
     static let clay = dynamic(0x9a4f33, 0xd9906f)
     static let claySoft = dynamic(0xf0dccf, 0x43302a)
+    static let persimmonSoft = dynamic(0xf6dcd4, 0x4a2a24)
     static let ochre = dynamic(0x8c6212, 0xe0b04a)
     static let persimmon = dynamic(0xb53d27, 0xea7d64)
     static let sky = dynamic(0x2f6f96, 0x7fb4d8)
@@ -259,6 +260,20 @@ enum Theme {
         static let messageHeight: CGFloat = 72
         static let rowSpacing = Space.s
         static let labelSpacing = Space.xs
+    }
+
+    /// The sheet that picks the new base of a rebase with `--onto`.
+    enum RebaseSheet {
+        static let visibleChoices = 12
+    }
+
+    /// The banner above the history while git is mid-rebase, cherry-pick or revert: clay-soft, persimmon-soft with conflicts.
+    enum OperationBanner {
+        static let height: CGFloat = 40
+        static let inset = Space.s
+        static let padding = Space.m
+        static let radius = Radius.md
+        static let spacing = Space.s
     }
 
     /// The diff of one file in the history pane.

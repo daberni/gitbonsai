@@ -45,6 +45,9 @@ final class CommitActionsController {
             reset.submenu = submenu
             items.append(reset)
         }
+        if inBranch && !isHead {
+            items.append(ActionMenuItem("Ab hier auf … verschieben") { [weak self] in self?.rebaseOnto(branch, from: commit) })
+        }
         if inBranch {
             items.append(ActionMenuItem("Commit reverten") { [weak self] in self?.revert(commit) })
         }
@@ -112,6 +115,27 @@ final class CommitActionsController {
                 guard await prompter.confirm(alert) else { return }
             }
             run(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: "git rebase") { try await $0.rebaseCurrentBranch(onto: commit.id) }
+        }
+    }
+
+    /// Moves the commits of the current branch after `oldBase` onto a base the sheet asks for.
+    private func rebaseOnto(_ branch: String, from oldBase: Commit) {
+        let repository = viewModel.repository
+        let candidates = viewModel.refs.filter { ref in
+            switch ref.kind {
+            case .localBranch: ref.name != branch
+            case .remoteBranch: !ref.name.hasSuffix("/HEAD")
+            case .tag: true
+            default: false
+            }
+        }.map(\.name)
+        let suggestion = ["main", "master", "origin/main", "origin/master"].first { candidates.contains($0) }
+        Task {
+            let moving = (try? await repository.commitCount(from: oldBase.id, to: branch)) ?? 0
+            let published = await repository.publishedCommitCount(rewrittenBy: oldBase.id)
+            let sheet = RebaseOntoSheet(branch: branch, oldBase: oldBase, moving: moving, candidates: candidates, suggestion: suggestion, warning: published > 0 ? publishedWarning(published, branch: branch) : nil, repository: repository)
+            guard let newBase = await sheet.ask(using: prompter) else { return }
+            run(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: "git rebase --onto \(newBase)") { try await $0.rebase(onto: newBase, from: oldBase.id, branch: branch) }
         }
     }
 
