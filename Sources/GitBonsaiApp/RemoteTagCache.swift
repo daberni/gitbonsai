@@ -3,32 +3,40 @@ import GitEngine
 
 /// The tags each remote has, asked once with `git ls-remote --tags` and kept until something may have changed them: a fetch, pull or push through this repository
 /// (whatever started it, an automatic fetch or a tag action included), another worktree, or other remotes.
+/// While a remote is asked again its last answer stays, so the marks change only once the new answer is in.
 @MainActor
 final class RemoteTagCache {
     enum Lookup {
-        case loading
         case loaded([String: TagTarget])
         case failed(GitError?)
     }
 
     /// Called when a lookup finished.
     var onChange: (() -> Void)?
+    /// The latest answer of each remote, kept while it is asked again.
     private(set) var lookups: [String: Lookup] = [:]
+    /// The remotes being asked right now.
+    private(set) var pending: Set<String> = []
     private var repository: Repository?
     private var startedAt: Date?
-    /// Answers of lookups started before the last reset are dropped.
+    /// Answers of lookups started before the last round are dropped.
     private var generation = 0
 
-    /// Forgets stale answers and asks every remote that has none. Returns at once; answers arrive through `onChange`.
+    /// Asks every remote whose answer is missing or stale. Returns at once; answers arrive through `onChange`.
     func refresh(repository: Repository, remotes: [String]) async {
-        if await isStale(repository: repository, remotes: remotes) { reset() }
+        let stale = await isStale(repository: repository, remotes: remotes)
+        if self.repository !== repository || !Set(lookups.keys).union(pending).isSubset(of: remotes) { reset() }
         self.repository = repository
-        let missing = remotes.filter { lookups[$0] == nil }
-        guard !missing.isEmpty else { return }
-        if startedAt == nil { startedAt = Date() }
+        let due = remotes.filter { stale || (lookups[$0] == nil && !pending.contains($0)) }
+        guard !due.isEmpty else { return }
+        if stale {
+            generation += 1
+            pending = []
+        }
+        if stale || startedAt == nil { startedAt = Date() }
         let round = generation
-        for remote in missing {
-            lookups[remote] = .loading
+        for remote in due {
+            pending.insert(remote)
             Task {
                 let lookup: Lookup
                 do {
@@ -38,14 +46,17 @@ final class RemoteTagCache {
                 }
                 guard round == generation else { return }
                 lookups[remote] = lookup
+                pending.remove(remote)
                 onChange?()
             }
         }
     }
 
+    /// Forgets every answer, for another repository or a changed set of remotes.
     func reset() {
         generation += 1
         lookups = [:]
+        pending = []
         startedAt = nil
     }
 
@@ -60,7 +71,7 @@ final class RemoteTagCache {
     /// A quiet line for the list: still asking, or which remotes did not answer. Nil when every remote answered.
     func note(for remotes: [String]) -> String? {
         if remotes.isEmpty { return "Kein Remote, kein Abgleich" }
-        if remotes.contains(where: { if case .loading? = lookups[$0] { true } else { false } }) { return "Abgleich mit Remote …" }
+        if !pending.isDisjoint(with: remotes) { return "Abgleich mit Remote …" }
         let failed = remotes.compactMap { remote -> (String, GitError?)? in
             guard case .failed(let error)? = lookups[remote] else { return nil }
             return (remote, error)
@@ -71,9 +82,7 @@ final class RemoteTagCache {
     }
 
     private func isStale(repository: Repository, remotes: [String]) async -> Bool {
-        guard let cached = self.repository, cached === repository else { return true }
-        guard Set(lookups.keys).isSubset(of: remotes) else { return true }
-        guard let startedAt else { return false }
+        guard let cached = self.repository, cached === repository, let startedAt else { return false }
         let log = await repository.runner.commandLog
         return log.contains { entry in
             entry.startedAt.addingTimeInterval(entry.result.duration) >= startedAt && Self.mayChangeRemoteTags(entry.result.arguments)

@@ -31,6 +31,9 @@ extension ScreenshotHarness {
             list.filterField.stringValue = filter
             list.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: list.filterField))
         }
+        if let lines = environment["GITBONSAI_PANEL_SCROLL"].flatMap(Int32.init), let source = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -lines, wheel2: 0, wheel3: 0), let event = NSEvent(cgEvent: source) {
+            list.tableView.enclosingScrollView?.scrollWheel(with: event)
+        }
         printRows(of: list, name: name)
         if let row = environment["GITBONSAI_PANEL_SELECT"].flatMap(Int.init), row < list.tableView.numberOfRows {
             let rect = list.tableView.rect(ofRow: row)
@@ -52,14 +55,36 @@ extension ScreenshotHarness {
         }
         // The action refreshes the tab, and a fetch or push makes the tag list ask the remotes again.
         if environment["GITBONSAI_PANEL_BUTTON"] != nil || environment["GITBONSAI_PANEL_MENU"] != nil, name == SidebarPanel.tags.rawValue {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                whenSettled(tab.tagsController, attempts: 150) { printRows(of: list, name: "\(name) after the action") }
+            watchRefresh(of: tab.tagsController, samples: [], attempts: 600) {
+                printRows(of: list, name: "\(name) after the action")
+                FileHandle.standardError.write(Data("panel still shown \(popover.isShown)\n".utf8))
+                if let shot = environment["GITBONSAI_PANEL_SHOT_AFTER"] { capturePanel(popover, to: shot) }
             }
         }
     }
 
+    /// Samples the marks every few frames from the action until the remotes answered again. `GITBONSAI_PANEL_SHOT_DURING=<png>` renders the list once the refresh runs,
+    /// and the samples show whether any tag lost its mark meanwhile.
+    private static func watchRefresh(of tags: TagsController, samples: [Int], attempts: Int, sawRefresh: Bool = false, then body: @escaping () -> Void) {
+        let list = tags.popover.list
+        let marked = list.rows.filter { !$0.badges.isEmpty }.count
+        let refreshing = !tags.isSettled
+        if refreshing, !sawRefresh {
+            FileHandle.standardError.write(Data("panel refreshing, busy \(list.isBusy), note \(list.note ?? "none")\n".utf8))
+            printRows(of: list, name: "tags during the refresh")
+            if let shot = environment["GITBONSAI_PANEL_SHOT_DURING"] { capturePanel(tags.popover, to: shot) }
+        }
+        let seen = sawRefresh || refreshing
+        // A local delete asks no remote; six quiet seconds end the watch then.
+        if (seen && !refreshing) || (!seen && samples.count >= 120) || attempts == 0 {
+            FileHandle.standardError.write(Data("tag marks over \(samples.count) samples: fewest marked rows \(samples.min() ?? 0), most \(samples.max() ?? 0), refresh seen \(seen)\n".utf8))
+            return body()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { watchRefresh(of: tags, samples: samples + [marked], attempts: attempts - 1, sawRefresh: seen, then: body) }
+    }
+
     private static func printRows(of list: PanelListView, name: String) {
-        FileHandle.standardError.write(Data("panel \(name): \(list.shownRows.map { "\($0.title) [\($0.detail)] \($0.sha)" }.joined(separator: "; ")); filter shown \(!list.filterField.isHidden)\n".utf8))
+        FileHandle.standardError.write(Data("panel \(name): \(list.shownRows.map { "\($0.title) [\($0.detail)] \($0.sha)" }.joined(separator: "; ")); filter shown \(!list.filterField.isHidden) „\(list.filterField.stringValue)“, scrolled to \(Int(list.tableView.visibleRect.minY))\n".utf8))
         FileHandle.standardError.write(Data("panel note: \(list.note ?? "none")\n".utf8))
         for row in list.shownRows where !row.badges.isEmpty || row.isHighlighted || row.isDimmed {
             let badges = row.badges.map { "\($0.glyph)\($0.label.map { " " + $0 } ?? "")/\($0.tone)" }.joined(separator: ",")

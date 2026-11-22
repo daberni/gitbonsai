@@ -34,6 +34,8 @@ struct PanelBadge: Equatable {
 /// A choice in the filter's menu that narrows the list to some entries, by their id.
 struct PanelScope {
     let title: String
+    /// Shown in the empty list when no entry is in this scope.
+    let empty: String
     let includes: (String) -> Bool
 }
 
@@ -79,13 +81,24 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             noteLabel.isHidden = note == nil
         }
     }
+    /// A quiet spinner next to the counter while the entries are being brought up to date; the entries stay as they are meanwhile.
+    var isBusy = false {
+        didSet {
+            guard isBusy != oldValue else { return }
+            busyIndicator.isHidden = !isBusy
+            if isBusy { busyIndicator.startAnimation(nil) } else { busyIndicator.stopAnimation(nil) }
+        }
+    }
 
     private(set) var rows: [PanelRow] = []
     private(set) var shownRows: [PanelRow] = []
     private let titleLabel = NSTextField(labelWithString: "")
     private let countLabel = NSTextField(labelWithString: "")
     private let noteLabel = NSTextField(labelWithString: "")
+    private let busyIndicator = NSProgressIndicator()
     private let filterPlaceholder: String
+    private let empty: String
+    private let noMatch: String
     let filterField = NSSearchField()
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
@@ -95,8 +108,11 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     private var tableHeight: NSLayoutConstraint!
     private var filterHeight: NSLayoutConstraint!
 
-    init(title: String, empty: String, filterPlaceholder: String) {
+    /// `empty` is shown without entries, `noMatch` when the filter text matches none.
+    init(title: String, empty: String, noMatch: String, filterPlaceholder: String) {
         self.filterPlaceholder = filterPlaceholder
+        self.empty = empty
+        self.noMatch = noMatch
         super.init(frame: .zero)
         titleLabel.stringValue = title
         titleLabel.font = Theme.bodyStrong
@@ -107,9 +123,13 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         noteLabel.textColor = Theme.inkFaint
         noteLabel.lineBreakMode = .byTruncatingTail
         noteLabel.isHidden = true
+        busyIndicator.style = .spinning
+        busyIndicator.controlSize = .mini
+        busyIndicator.isDisplayedWhenStopped = false
+        busyIndicator.isHidden = true
         emptyLabel.stringValue = empty
-        emptyLabel.font = Theme.body
         emptyLabel.textColor = Theme.inkMuted
+        emptyLabel.font = Theme.body
         emptyLabel.alignment = .center
 
         filterField.placeholderString = filterPlaceholder
@@ -139,7 +159,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         footer.orientation = .horizontal
         footer.spacing = Theme.Space.s
 
-        let header = NSStackView(views: [titleLabel, countLabel, noteLabel])
+        let header = NSStackView(views: [titleLabel, countLabel, busyIndicator, noteLabel])
         header.spacing = Theme.Space.s
         noteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for view in [header, filterField, scrollView, emptyLabel, footer] as [NSView] {
@@ -180,12 +200,14 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         return shownRows.indices.contains(row) ? shownRows[row].id : nil
     }
 
-    /// Replaces the entries and keeps the selection on the same entry while it exists.
+    /// Replaces the entries in place: the filter text, the scroll position and the selection, while its entry exists, stay.
     func show(_ newRows: [PanelRow]) {
         let selected = selectedID
+        let scrollOrigin = scrollView.contentView.bounds.origin
         rows = newRows
-        countLabel.stringValue = "\(rows.count)"
-        let filters = rows.count > P.filterThreshold || !scopes.isEmpty
+        // The list keeps the height of all entries while filtering, so the popover does not jump and its content never outgrows it.
+        tableHeight.constant = CGFloat(min(max(rows.count, 1), P.maxVisibleRows)) * P.rowHeight
+        let filters = rows.count > P.filterThreshold || !scopes.isEmpty || !filterField.stringValue.isEmpty
         filterField.isHidden = !filters
         filterHeight.isActive = !filters
         if !filters {
@@ -195,7 +217,12 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         applyFilter()
         if let selected, let index = shownRows.firstIndex(where: { $0.id == selected }) {
             tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+        } else {
+            // The table keeps the selected index across a reload, which would now point at a neighbour.
+            tableView.deselectAll(nil)
         }
+        layoutSubtreeIfNeeded()
+        tableView.scroll(scrollOrigin)
         updateFooter()
     }
 
@@ -224,8 +251,9 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         shownRows = rows.filter { row in Self.matches(row, query: query) && (scope?.includes(row.id) ?? true) }
         tableView.reloadData()
         emptyLabel.isHidden = !shownRows.isEmpty
-        let visible = min(max(shownRows.count, 1), P.maxVisibleRows)
-        tableHeight.constant = CGFloat(visible) * P.rowHeight
+        let filtered = !query.isEmpty || scope != nil
+        emptyLabel.stringValue = rows.isEmpty ? empty : !query.isEmpty ? noMatch : scope?.empty ?? empty
+        countLabel.stringValue = filtered ? "\(shownRows.count)/\(rows.count)" : "\(rows.count)"
     }
 
     func controlTextDidChange(_ notification: Notification) {

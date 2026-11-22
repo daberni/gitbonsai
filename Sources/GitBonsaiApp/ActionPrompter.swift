@@ -17,7 +17,8 @@ final class ActionPrompter {
 
     /// True when the first button was chosen.
     func confirm(_ alert: NSAlert) async -> Bool {
-        if ScreenshotHarness.isActive { return ScreenshotHarness.answer(alert) }
+        if ScreenshotHarness.isActive, !ScreenshotHarness.clicksSheets { return ScreenshotHarness.answer(alert) }
+        if ScreenshotHarness.clicksSheets { ScreenshotHarness.clickSheet(alert) }
         return await present(alert) == .alertFirstButtonReturn
     }
 

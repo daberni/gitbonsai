@@ -30,9 +30,9 @@ struct TagRows {
         let differing = Set(byName.filter { _, states in states.contains { if case .differs = $0.state { true } else { false } } }.keys)
         let onlyRemote = Set(remoteOnly.keys)
         scopes = [
-            PanelScope(title: "Nur lokal") { onlyLocal.contains($0) },
-            PanelScope(title: "Abweichend") { differing.contains($0) },
-            PanelScope(title: "Nur auf Remote") { onlyRemote.contains($0) },
+            PanelScope(title: "Nur lokal", empty: "Keine nur lokalen Tags") { onlyLocal.contains($0) },
+            PanelScope(title: "Abweichend", empty: "Keine abweichenden Tags") { differing.contains($0) },
+            PanelScope(title: "Nur auf Remote", empty: "Keine Tags nur auf Remote") { onlyRemote.contains($0) },
         ]
     }
 

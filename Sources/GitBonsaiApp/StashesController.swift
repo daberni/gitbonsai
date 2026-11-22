@@ -15,7 +15,7 @@ final class StashesController {
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
-        popover = PanelPopover(list: PanelListView(title: "Stashes", empty: "Keine Stashes", filterPlaceholder: "Stashes filtern"))
+        popover = PanelPopover(list: PanelListView(title: "Stashes", empty: "Keine Stashes", noMatch: "Keine passenden Stashes", filterPlaceholder: "Stashes filtern"))
         let list = popover.list
         list.onSelect = { [weak self] id in self?.onNavigate?(id) }
         list.onActivate = { [weak self] id in self?.showDiff(id) }

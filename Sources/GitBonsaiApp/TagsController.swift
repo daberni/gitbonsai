@@ -21,7 +21,7 @@ final class TagsController {
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
-        popover = PanelPopover(list: PanelListView(title: "Tags", empty: "Keine Tags", filterPlaceholder: "Tags filtern"))
+        popover = PanelPopover(list: PanelListView(title: "Tags", empty: "Keine Tags", noMatch: "Keine passenden Tags", filterPlaceholder: "Tags filtern"))
         let list = popover.list
         list.onSelect = { [weak self] name in self?.jump(to: name) }
         list.onActivate = { [weak self] name in
@@ -73,12 +73,13 @@ final class TagsController {
         let list = popover.list
         list.scopes = rows.scopes
         list.note = remoteTags.note(for: remotes)
+        list.isBusy = !isSettled
         list.show(rows.rows)
         popover.fitContent()
     }
 
     /// No remote is still being asked.
-    var isSettled: Bool { !remoteTags.lookups.values.contains { if case .loading = $0 { true } else { false } } }
+    var isSettled: Bool { remoteTags.pending.isEmpty }
 
     private func tag(_ name: String) -> Tag? { tags.first { $0.name == name } }
 
@@ -144,15 +145,21 @@ final class TagsController {
 
     func deleteLocally(_ name: String) {
         Task {
-            guard await runner.confirm("Tag „\(name)“ löschen?", info: "Der Tag wird in diesem Repository gelöscht. Der Commit und Tags auf Remotes bleiben.", button: "Löschen") else { return }
+            guard await confirm("Tag „\(name)“ löschen?", info: "Der Tag wird in diesem Repository gelöscht. Der Commit und Tags auf Remotes bleiben.", button: "Löschen") else { return }
             runner.run(failure: "Tag nicht gelöscht", note: "git tag --delete \(name)") { try await $0.deleteTag(name) }
         }
     }
 
     func deleteRemotely(_ name: String, on remote: String) {
         Task {
-            guard await runner.confirm("Tag „\(name)“ auf „\(remote)“ löschen?", info: "Der Tag verschwindet für alle, die von „\(remote)“ holen. Der lokale Tag bleibt.", button: "Auf \(remote) löschen") else { return }
+            guard await confirm("Tag „\(name)“ auf „\(remote)“ löschen?", info: "Der Tag verschwindet für alle, die von „\(remote)“ holen. Der lokale Tag bleibt.", button: "Auf \(remote) löschen") else { return }
             runner.run(failure: "Tag auf „\(remote)“ nicht gelöscht", note: "git push \(remote) --delete refs/tags/\(name)") { try await $0.deleteRemoteTag(name, on: remote) }
         }
+    }
+
+    /// The list stays open behind the question and shows the outcome in place.
+    private func confirm(_ title: String, info: String, button: String) async -> Bool {
+        let runner = runner
+        return await popover.stayingOpen { await runner.confirm(title, info: info, button: button) }
     }
 }
