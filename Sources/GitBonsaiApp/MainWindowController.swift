@@ -1,40 +1,19 @@
 import AppKit
-import GitEngine
 
 /// The one app window: the tab row in the title bar, and below it the content of the active tab.
-/// A tab holds either a repository or, until one is chosen, the welcome view.
+/// It coordinates the tab list, the repository opener and the title bar row, and answers the window's menu actions.
 final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    @MainActor
-    private final class Tab {
-        let repository: RepositoryViewController?
-        let welcome: WelcomeView?
-        var isLoaded = false
-
-        init(repository: RepositoryViewController) {
-            self.repository = repository
-            welcome = nil
-        }
-
-        init(welcome: WelcomeView) {
-            repository = nil
-            self.welcome = welcome
-            isLoaded = true
-        }
-
-        var title: String { repository?.name ?? "Neuer Tab" }
-        var view: NSView { repository?.view ?? welcome ?? NSView() }
-    }
-
     private let store: SessionStore
-    private let tabBar = TabBarView()
+    private let opener = RepositoryOpener()
     private let content = TabContentView()
-    private let root = FillView(color: Theme.surface0)
-    private var tabs: [Tab] = []
-    private var activeIndex = 0
+    private let root: FillView
+    private let titlebar: TitlebarTabRow
+    private var tabs = TabList()
     private var didCapture = false
-    private var didDragTab = false
     /// True once the launch arguments or the saved session have been opened; the harness waits for it.
     private var didFinishInitialOpen = false
+
+    private var tabBar: TabBarView { titlebar.tabBar }
 
     init(store: SessionStore) {
         self.store = store
@@ -49,6 +28,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.titlebarSeparatorStyle = .none
         window.minSize = Theme.Window.minimumSize
         window.center()
+        let root = FillView(color: Theme.surface0)
+        self.root = root
+        titlebar = TitlebarTabRow(window: window, root: root)
         super.init(window: window)
         window.delegate = self
         buildContent()
@@ -67,30 +49,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         window.contentView = root
-        mountTabBar()
+        titlebar.mount()
         tabBar.onSelect = { [weak self] index in self?.activate(index) }
         tabBar.onClose = { [weak self] index in self?.close(index) }
         tabBar.onNew = { [weak self] in self?.newTab(nil) }
         tabBar.onMove = { [weak self] from, to in self?.moveTab(from: from, to: to) }
         content.onDropFolders = { [weak self] paths in self?.open(paths: paths, activate: paths.count - 1) }
-    }
-
-    /// macOS decides which parts of the title bar move the window from the views inside the title bar only.
-    /// So the tab row lives there, behind the traffic lights, and tells it that clicks on it are its own; the free space moves the window through the tab row.
-    /// In full screen the title bar slides away, so the row moves into the window content.
-    private func mountTabBar() {
-        guard let window else { return }
-        tabBar.removeFromSuperview()
-        tabBar.translatesAutoresizingMaskIntoConstraints = false
-        let titlebar = window.standardWindowButton(.closeButton)?.superview
-        let host: NSView = window.styleMask.contains(.fullScreen) ? root : titlebar ?? root
-        host.addSubview(tabBar, positioned: .below, relativeTo: nil)
-        NSLayoutConstraint.activate([
-            tabBar.topAnchor.constraint(equalTo: host.topAnchor),
-            tabBar.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            tabBar.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height),
-        ])
     }
 
     // MARK: Opening
@@ -101,7 +65,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let active = arguments.isEmpty ? store.activeTab : 0
         Task {
             await open(paths, activate: active, reportErrors: !arguments.isEmpty)
-            if tabs.isEmpty || ProcessInfo.processInfo.environment["GITBONSAI_NEW_TAB"] != nil { newTab(nil) }
+            if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab(nil) }
             didFinishInitialOpen = true
             captureIfRequested()
         }
@@ -115,40 +79,30 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private func open(_ paths: [String], activate index: Int, reportErrors: Bool) async {
         var opened: [Int] = []
         for path in paths {
-            do {
-                let root = try await Repository.root(containing: path)
-                opened.append(showRepository(at: root))
-            } catch {
-                if reportErrors { reportNotARepository(path) }
-            }
+            guard let root = await opener.root(containing: path, reportErrorsOn: reportErrors ? window : nil) else { continue }
+            opened.append(showRepository(at: root))
         }
         guard !opened.isEmpty else { return }
         activate(opened[min(max(index, 0), opened.count - 1)])
     }
 
-    /// Returns the index of the tab that shows the repository. An empty active tab is reused, like a new tab in a browser.
+    /// Returns the index of the tab that shows the repository.
     private func showRepository(at root: String) -> Int {
         store.noteOpened(root)
-        if let existing = tabs.firstIndex(where: { $0.repository?.repositoryPath == root }) { return existing }
-        let tab = makeTab(for: root)
-        if tabs.indices.contains(activeIndex), tabs[activeIndex].welcome != nil {
-            tabs[activeIndex] = tab
-            return activeIndex
-        }
-        tabs.append(tab)
-        return tabs.count - 1
+        if let existing = tabs.index(showing: root) { return existing }
+        return tabs.add(makeTab(for: root))
     }
 
-    private func makeTab(for root: String) -> Tab {
+    private func makeTab(for root: String) -> WindowTab {
         let controller = RepositoryViewController(repositoryPath: root)
-        let tab = Tab(repository: controller)
+        let tab = WindowTab(repository: controller)
         controller.onLoaded = { [weak self, weak tab] in
             tab?.isLoaded = true
             self?.captureIfRequested()
         }
         controller.onNameChanged = { [weak self] in self?.refreshTabBar() }
         controller.onSwitchWorktree = { [weak self, weak tab] path in
-            guard let self, let tab, let index = tabs.firstIndex(where: { $0 === tab }) else { return }
+            guard let self, let tab, let index = tabs.index(of: tab) else { return }
             showWorktree(at: path, inTab: index)
         }
         return tab
@@ -156,7 +110,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     /// The tab and everything loaded in it stay; only HEAD and the working directory change. A tab that already shows that worktree wins.
     private func showWorktree(at path: String, inTab index: Int) {
-        if let existing = tabs.firstIndex(where: { $0.repository?.repositoryPath == path }) {
+        if let existing = tabs.index(showing: path) {
             activate(existing)
             return
         }
@@ -164,35 +118,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         refreshTabBar()
     }
 
-    private func reportNotARepository(_ path: String) {
-        guard ScreenshotHarness.outputPath == nil, let window else { return }
-        let alert = NSAlert()
-        alert.messageText = "Kein Git-Repository"
-        alert.informativeText = "\((path as NSString).abbreviatingWithTildeInPath) liegt in keinem Repository."
-        alert.beginSheetModal(for: window)
-    }
-
     private func chooseFolder() {
         guard let window else { return }
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = true
-        panel.prompt = "Öffnen"
-        panel.message = "Ordner eines Repositorys wählen. Ein Unterordner genügt."
-        panel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK else { return }
-            let paths = panel.urls.map(\.path)
-            self?.open(paths: paths, activate: paths.count - 1)
-        }
+        opener.chooseFolders(for: window) { [weak self] paths in self?.open(paths: paths, activate: paths.count - 1) }
     }
 
     // MARK: Tabs
 
     private func activate(_ index: Int) {
-        guard tabs.indices.contains(index) else { return }
-        activeIndex = index
-        let tab = tabs[index]
+        guard let tab = tabs.activate(index) else { return }
         tab.welcome?.recents = store.recentRepositories
         content.show(tab.view)
         if let responder = tab.repository?.preferredFirstResponder { window?.makeFirstResponder(responder) }
@@ -201,44 +135,38 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     private func moveTab(from: Int, to: Int) {
-        guard tabs.indices.contains(from), tabs.indices.contains(to) else { return }
-        tabs.swapAt(from, to)
-        if activeIndex == from { activeIndex = to } else if activeIndex == to { activeIndex = from }
+        guard tabs.move(from: from, to: to) else { return }
         refreshTabBar()
     }
 
     private func close(_ index: Int) {
         guard tabs.indices.contains(index) else { return }
-        tabs.remove(at: index)
-        if tabs.isEmpty {
+        guard let next = tabs.remove(at: index) else {
             newTab(nil)
             return
         }
-        activate(index < activeIndex ? activeIndex - 1 : min(activeIndex, tabs.count - 1))
+        activate(next)
     }
 
     private func refreshTabBar() {
-        tabBar.items = tabs.map { tab in
-            TabBarView.Item(title: tab.title, toolTip: tab.repository.map { ($0.repositoryPath as NSString).abbreviatingWithTildeInPath })
-        }
-        tabBar.activeIndex = activeIndex
-        if tabs.indices.contains(activeIndex) { window?.title = tabs[activeIndex].title }
-        let repositoryIndices = tabs.indices.filter { tabs[$0].repository != nil }
-        store.saveTabs(repositoryIndices.compactMap { tabs[$0].repository?.repositoryPath }, active: repositoryIndices.firstIndex(of: activeIndex) ?? 0)
+        tabBar.items = tabs.barItems
+        tabBar.activeIndex = tabs.activeIndex
+        if let active = tabs.active { window?.title = active.title }
+        let session = tabs.session
+        store.saveTabs(session.paths, active: session.active)
     }
 
     // MARK: Menu actions
 
     @objc func newTab(_ sender: Any?) {
-        if let existing = tabs.firstIndex(where: { $0.welcome != nil }) {
+        if let existing = tabs.welcomeIndex {
             activate(existing)
             return
         }
         let welcome = WelcomeView()
         welcome.onOpenPath = { [weak self] path in self?.open(paths: [path], activate: 0) }
         welcome.onChooseFolder = { [weak self] in self?.chooseFolder() }
-        tabs.append(Tab(welcome: welcome))
-        activate(tabs.count - 1)
+        activate(tabs.append(WindowTab(welcome: welcome)))
     }
 
     @objc func openRepository(_ sender: Any?) {
@@ -256,15 +184,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             window?.performClose(nil)
             return
         }
-        close(activeIndex)
+        close(tabs.activeIndex)
     }
 
     @objc func selectNextTab(_ sender: Any?) {
-        activate((activeIndex + 1) % tabs.count)
+        activate((tabs.activeIndex + 1) % tabs.count)
     }
 
     @objc func selectPreviousTab(_ sender: Any?) {
-        activate((activeIndex + tabs.count - 1) % tabs.count)
+        activate((tabs.activeIndex + tabs.count - 1) % tabs.count)
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
@@ -276,56 +204,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     var recentRepositories: [String] { store.recentRepositories }
 
-    // MARK: Title bar
-
-    /// The tabs start right of the traffic lights. The buttons are left where macOS puts them; in full screen they are gone.
-    private func placeTabsBesideTrafficLights() {
-        guard let window else { return }
-        guard !window.styleMask.contains(.fullScreen), let zoom = window.standardWindowButton(.zoomButton), let container = zoom.superview else {
-            tabBar.leadingInset = Theme.Space.m
-            return
-        }
-        let frame = container.convert(zoom.frame, to: tabBar)
-        tabBar.leadingInset = frame.maxX + Theme.Tabs.afterTrafficLights
-    }
+    // MARK: Window
 
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
-        placeTabsBesideTrafficLights()
+        titlebar.placeBesideTrafficLights()
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
-        mountTabBar()
-        placeTabsBesideTrafficLights()
+        titlebar.followFullScreen()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
-        mountTabBar()
-        placeTabsBesideTrafficLights()
+        titlebar.followFullScreen()
     }
 
     // MARK: Screenshot harness
 
     private func captureIfRequested() {
-        guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.indices.contains(activeIndex), tabs[activeIndex].isLoaded else { return }
-        let environment = ProcessInfo.processInfo.environment
-        // A real click through the window proves that the tab row receives events under the title bar.
-        if let target = environment["GITBONSAI_CLICK_TAB"].flatMap(Int.init), target != activeIndex, let frame = tabBar.frameOfTab(target) {
-            ScreenshotHarness.click(in: window, at: tabBar.convert(CGPoint(x: frame.midX - 10, y: frame.midY), to: nil))
-            if activeIndex != target { FileHandle.standardError.write(Data("click on tab \(target) did not reach the tab row\n".utf8)) }
-            guard tabs[activeIndex].isLoaded else { return }
-        }
-        // `from:to` drags the tab at `from` onto the place of the tab at `to`. Selecting it calls back in here, so the flag keeps the drag from starting twice.
-        if !didDragTab, let spec = environment["GITBONSAI_DRAG_TAB"] {
-            let parts = spec.split(separator: ":").compactMap { Int($0) }
-            if parts.count == 2, let source = tabBar.frameOfTab(parts[0]), let target = tabBar.frameOfTab(parts[1]) {
-                didDragTab = true
-                let start = tabBar.convert(CGPoint(x: source.midX, y: source.midY), to: nil)
-                let end = tabBar.convert(CGPoint(x: target.midX + (parts[1] > parts[0] ? 8 : -8), y: target.midY), to: nil)
-                ScreenshotHarness.drag(in: window, from: start, to: end, steps: 12)
-                FileHandle.standardError.write(Data("tab order after drag: \(tabs.map(\.title).joined(separator: ", ")), active \(tabs[activeIndex].title)\n".utf8))
-            }
-        }
+        guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true else { return }
+        guard ScreenshotHarness.driveTabRow(tabBar, in: window, tabs: { [unowned self] in tabs }) else { return }
         didCapture = true
         ScreenshotHarness.captureAndQuit(window: window)
     }
