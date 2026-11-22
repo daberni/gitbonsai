@@ -7,6 +7,9 @@ import GitEngine
 final class CommitActionsController {
     let prompter = ActionPrompter()
     let interactiveRebase: InteractiveRebaseController
+    private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, prompter: prompter) { [weak self] note, operation in
+        self?.runOperation(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: note, endsRebase: true, operation)
+    }
     private let viewModel: GraphViewModel
     /// Says what a rebase or cherry-pick left out, in a toast.
     var onToast: ((String) -> Void)?
@@ -20,32 +23,35 @@ final class CommitActionsController {
         interactiveRebase = InteractiveRebaseController(viewModel: viewModel, prompter: prompter)
     }
 
-    /// The whole menu of a row: `checkoutItems` first, the commit's actions in groups after them. Stashes and the working directory get only the checkout items.
+    /// The whole menu of a row: `checkoutItems` as the first group, the commit's actions in groups after them. Stashes and the working directory get only the checkout items.
     func menuItems(forRow index: Int, leadingWith checkoutItems: [NSMenuItem]) -> [NSMenuItem] {
         guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .commit || viewModel.kinds[index] == .merge else { return checkoutItems }
         let commit = viewModel.commits[index]
-        let groups = [checkoutItems + [worktreeItem(commit)], historyItems(commit), interactiveRebase.menuItems(for: commit), copyItems(commit), tagItems(commit)].filter { !$0.isEmpty }
+        let groups = [checkoutItems, createItems(commit), historyItems(commit), interactiveRebase.menuItems(for: commit), copyItems(commit), tagItems(commit)].filter { !$0.isEmpty }
         return groups.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
     }
 
     // MARK: Menu
 
-    private func worktreeItem(_ commit: Commit) -> NSMenuItem {
-        ActionMenuItem("Worktree aus diesem Commit anlegen …") { [weak self] in self?.createWorktree(from: commit) }
+    private func createItems(_ commit: Commit) -> [NSMenuItem] {
+        [
+            ActionMenuItem("Worktree anlegen …") { [weak self] in self?.createWorktree(from: commit) },
+            ActionMenuItem("Branch anlegen …") { [weak self] in self?.createBranch(at: commit) },
+        ]
     }
 
-    /// Entries that move or extend the current branch are left out in detached HEAD, and where git would have nothing to do.
+    /// Entries that move the current branch are left out in detached HEAD, and where git would have nothing to do.
     private func historyItems(_ commit: Commit) -> [NSMenuItem] {
-        var items: [NSMenuItem] = [ActionMenuItem("Branch hier anlegen …") { [weak self] in self?.createBranch(at: commit) }]
+        var items: [NSMenuItem] = []
         guard let branch = viewModel.currentBranch else { return items }
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
         if !inBranch {
             items.append(ActionMenuItem("Cherry-pick auf „\(branch)“") { [weak self] in self?.cherryPick(commit) })
-            items.append(ActionMenuItem("„\(branch)“ auf diesen Commit rebasen") { [weak self] in self?.rebase(branch, onto: commit) })
+            items += rebaseOnto.targetItems(branch: branch, target: commit)
         }
         if !isHead {
-            let reset = NSMenuItem(title: "„\(branch)“ hierher zurücksetzen", action: nil, keyEquivalent: "")
+            let reset = NSMenuItem(title: "Reset „\(branch)“ hierher", action: nil, keyEquivalent: "")
             let submenu = NSMenu()
             for (mode, title) in [(ResetMode.soft, "Soft – Änderungen bleiben vorgemerkt"), (.mixed, "Mixed – Änderungen bleiben im Arbeitsverzeichnis"), (.hard, "Hard – Änderungen verwerfen …")] {
                 submenu.addItem(ActionMenuItem(title) { [weak self] in self?.reset(branch, to: commit, mode: mode) })
@@ -54,10 +60,10 @@ final class CommitActionsController {
             items.append(reset)
         }
         if inBranch && !isHead {
-            items.append(ActionMenuItem("Ab hier auf … verschieben") { [weak self] in self?.rebaseOnto(branch, from: commit) })
+            items.append(rebaseOnto.fromHereItem(branch: branch, oldBase: commit))
         }
         if inBranch {
-            items.append(ActionMenuItem("Commit reverten") { [weak self] in self?.revert(commit) })
+            items.append(ActionMenuItem("Revert-Commit anlegen") { [weak self] in self?.revert(commit) })
         }
         return items
     }
@@ -66,15 +72,15 @@ final class CommitActionsController {
         var items: [NSMenuItem] = [ActionMenuItem("SHA kopieren") { Self.copy(commit.id) }]
         // A merge has no patch of its own; format-patch writes nothing for it.
         if commit.parents.count <= 1 {
-            items.append(ActionMenuItem("Als Patch speichern …") { [weak self] in self?.savePatch(commit) })
+            items.append(ActionMenuItem("Patch speichern …") { [weak self] in self?.savePatch(commit) })
         }
         return items
     }
 
     private func tagItems(_ commit: Commit) -> [NSMenuItem] {
         [
-            ActionMenuItem("Tag hier anlegen …") { [weak self] in self?.createTag(at: commit, annotated: false) },
-            ActionMenuItem("Annotierten Tag hier anlegen …") { [weak self] in self?.createTag(at: commit, annotated: true) },
+            ActionMenuItem("Tag anlegen …") { [weak self] in self?.createTag(at: commit, annotated: false) },
+            ActionMenuItem("Annotierten Tag anlegen …") { [weak self] in self?.createTag(at: commit, annotated: true) },
         ]
     }
 
@@ -109,35 +115,6 @@ final class CommitActionsController {
 
     private func revert(_ commit: Commit) {
         run(failure: "Revert fehlgeschlagen", conflict: "Revert mit Konflikten angehalten", note: "git revert") { try await $0.revert(commit) }
-    }
-
-    /// Rewriting published commits is harmless locally; the status line only says that the next push needs `--force-with-lease`, where the push itself asks.
-    private func rebase(_ branch: String, onto commit: Commit) {
-        Task {
-            let hint = await publishedHint(rewrittenBy: commit.id)
-            runOperation(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: Self.note("git rebase", hint), endsRebase: true) { try await $0.rebaseCurrentBranch(onto: commit.id) }
-        }
-    }
-
-    /// Moves the commits of the current branch after `oldBase` onto a base the sheet asks for.
-    private func rebaseOnto(_ branch: String, from oldBase: Commit) {
-        let repository = viewModel.repository
-        let candidates = viewModel.refs.filter { ref in
-            switch ref.kind {
-            case .localBranch: ref.name != branch
-            case .remoteBranch: !ref.name.hasSuffix("/HEAD")
-            case .tag: true
-            default: false
-            }
-        }.map(\.name)
-        let suggestion = ["main", "master", "origin/main", "origin/master"].first { candidates.contains($0) }
-        Task {
-            let moving = (try? await repository.commitCount(from: oldBase.id, to: branch)) ?? 0
-            let hint = await publishedHint(rewrittenBy: oldBase.id)
-            let sheet = RebaseOntoSheet(branch: branch, oldBase: oldBase, moving: moving, candidates: candidates, suggestion: suggestion, hint: hint, repository: repository)
-            guard let newBase = await sheet.ask(using: prompter) else { return }
-            runOperation(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: Self.note("git rebase --onto \(newBase)", hint), endsRebase: true) { try await $0.rebase(onto: newBase, from: oldBase.id, branch: branch) }
-        }
     }
 
     private func reset(_ branch: String, to commit: Commit, mode: ResetMode) {

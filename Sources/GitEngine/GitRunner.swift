@@ -126,10 +126,10 @@ public actor GitRunner {
     }
 
     /// Runs a read-only command to completion. Throws `GitError` on an exit code outside `accepting`;
-    /// `git diff --no-index` for instance exits with 1 when the files differ.
-    public func run(_ arguments: [String], environment: [String: String] = [:], accepting exitCodes: Set<Int32> = [0]) async throws -> GitCommandResult {
+    /// `git diff --no-index` for instance exits with 1 when the files differ. `stdin` feeds filters such as `git patch-id`.
+    public func run(_ arguments: [String], environment: [String: String] = [:], accepting exitCodes: Set<Int32> = [0], stdin: Data? = nil) async throws -> GitCommandResult {
         let startedAt = Date()
-        let result = try await execute(arguments, environment: Self.readEnvironment.merging(environment) { $1 }, stdin: nil)
+        let result = try await execute(arguments, environment: Self.readEnvironment.merging(environment) { $1 }, stdin: stdin)
         record(result, startedAt: startedAt)
         guard exitCodes.contains(result.exitCode) else {
             throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr)

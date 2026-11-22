@@ -126,12 +126,13 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event through the window. AppKit shows that menu on screen above other apps for a moment. While the menu is open its entries go to stderr
     /// and `GITBONSAI_MENU_SHOT=<png>` captures the menu's window. `GITBONSAI_MENU_PICK=<title>`, or `<title>/<title>` in a submenu, then chooses an entry.
-    /// `GITBONSAI_MENU_LIST=<row>` only prints the entries of a row's menu, without opening it on screen.
+    /// `GITBONSAI_MENU_LIST=<row>` only prints the entries of a row's menu, without opening it on screen, once its entries have had time to search.
     static func openCommitMenu(on tab: RepositoryViewController) {
         if let row = environment["GITBONSAI_MENU_LIST"].flatMap(Int.init), let items = tab.history.menuItems?(row) {
             let menu = NSMenu()
             items.forEach(menu.addItem)
-            FileHandle.standardError.write(Data("menu: \(describe(menu))\n".utf8))
+            // Entries that search the repository, such as the detected rebase base, update their titles once they know more.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { FileHandle.standardError.write(Data("menu: \(describe(menu))\n".utf8)) }
         }
         guard let row = environment["GITBONSAI_COMMIT_MENU"].flatMap(Int.init) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -160,7 +161,8 @@ extension ScreenshotHarness {
     }
 
     static func describe(_ menu: NSMenu) -> String {
-        menu.items.map { item in
+        // Hidden entries are left out, as on screen.
+        menu.items.filter { !$0.isHidden }.map { item in
             if item.isSeparatorItem { return "|" }
             return item.submenu.map { "\(item.title) [\(describe($0))]" } ?? item.title
         }.joined(separator: "; ")
@@ -168,7 +170,8 @@ extension ScreenshotHarness {
 
     static func choose(_ path: String, in menu: NSMenu) {
         var current = menu
-        let titles = path.split(separator: "/").map(String.init)
+        // Titles with branch names contain slashes themselves; a whole path that names an entry is that entry.
+        let titles = menu.items.contains { $0.title.hasPrefix(path) } ? [path] : path.split(separator: "/").map(String.init)
         for (depth, title) in titles.enumerated() {
             guard let index = current.items.firstIndex(where: { $0.title.hasPrefix(title) }) else {
                 FileHandle.standardError.write(Data("menu has no entry \(title)\n".utf8))

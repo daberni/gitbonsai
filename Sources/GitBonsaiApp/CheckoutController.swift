@@ -72,15 +72,12 @@ final class CheckoutController: NSObject {
     }
 
     func menuItems(forRow index: Int) -> [NSMenuItem] {
-        var items: [NSMenuItem] = []
-        for (offset, choice) in choices(forRow: index).enumerated() {
-            if case .commit = choice.target, offset > 0 { items.append(.separator()) }
+        choices(forRow: index).map { choice in
             let item = NSMenuItem(title: choice.title, action: #selector(performFromMenu(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = MenuChoice(choice)
-            items.append(item)
+            return item
         }
-        return items
     }
 
     /// Branches from the sidebar come in here too.
