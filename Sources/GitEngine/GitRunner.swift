@@ -51,7 +51,7 @@ public struct GitCommandLogEntry: Sendable, Identifiable {
 
 /// Runs the native `git` binary for one repository.
 ///
-/// Reads may run concurrently; writes are serialized through `runWrite`. Every invocation gets
+/// Reads may run concurrently. Writes, and reads that git may turn into an index write, are serialized per working tree through `IndexLockQueue`. Every invocation gets
 /// `GIT_TERMINAL_PROMPT=0` and neutralizing `-c` options so user configuration cannot change the
 /// machine-readable output formats the parsers rely on.
 public actor GitRunner {
@@ -78,12 +78,13 @@ public actor GitRunner {
     public static let commandLogCapacity = 500
 
     private var log: [GitCommandLogEntry] = []
-    /// Tail of the write chain; each write waits for the previous one before launching git.
-    private var writeTail: Task<Void, Never>?
+    /// Shared with every other runner of the same working tree, so that a second tab or a view model that just moved to another worktree cannot write next to this one.
+    private nonisolated let indexQueue: IndexLockQueue
 
     public init(repositoryPath: String, gitPath: String = GitRunner.defaultGitPath()) {
         self.repositoryPath = repositoryPath
         self.gitPath = gitPath
+        self.indexQueue = IndexLockQueue.shared(for: repositoryPath)
     }
 
     private static let preferredPath = Mutex<String?>(nil)
@@ -136,17 +137,24 @@ public actor GitRunner {
         return result
     }
 
-    /// Runs a mutating command. Write commands never overlap each other.
-    public func runWrite(_ arguments: [String], environment: [String: String] = [:], stdin: Data? = nil) async throws -> GitCommandResult {
-        let previous = writeTail
-        let mergedEnvironment = Self.writeEnvironment.merging(environment) { $1 }
-        let task = Task { () throws -> GitCommandResult in
-            await previous?.value
-            return try await self.execute(arguments, environment: mergedEnvironment, stdin: stdin)
-        }
-        writeTail = Task { _ = try? await task.value }
+    /// Runs a read-only command that compares the working tree with the index, such as `git diff` without `--cached`.
+    /// git rewrites the index under `index.lock` when it finds stale stat information and ignores `GIT_OPTIONAL_LOCKS` there, so these reads wait for writes and writes wait for them.
+    public func runRefreshingIndex(_ arguments: [String], accepting exitCodes: Set<Int32> = [0]) async throws -> GitCommandResult {
+        let environment = Self.readEnvironment
         let startedAt = Date()
-        let result = try await task.value
+        let result = try await indexQueue.enqueue { try await self.execute(arguments, environment: environment, stdin: nil) }
+        record(result, startedAt: startedAt)
+        guard exitCodes.contains(result.exitCode) else {
+            throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr)
+        }
+        return result
+    }
+
+    /// Runs a mutating command. Write commands on one working tree never overlap each other, whichever runner starts them.
+    public func runWrite(_ arguments: [String], environment: [String: String] = [:], stdin: Data? = nil) async throws -> GitCommandResult {
+        let mergedEnvironment = Self.writeEnvironment.merging(environment) { $1 }
+        let startedAt = Date()
+        let result = try await indexQueue.enqueue { try await self.execute(arguments, environment: mergedEnvironment, stdin: stdin) }
         record(result, startedAt: startedAt)
         guard result.exitCode == 0 else {
             // Some commands, `git stash pop` with a conflict among them, explain the failure only on stdout.
@@ -207,6 +215,35 @@ public actor GitRunner {
         let collector = DataCollector()
         let outcome = try await execution.run { chunk in collector.append(chunk) }
         return GitCommandResult(arguments: arguments, stdout: collector.data, stderr: outcome.stderr, exitCode: outcome.exitCode, duration: outcome.duration)
+    }
+}
+
+/// Runs the commands that take one working tree's index lock one after another.
+/// There is one queue per working tree path for the whole process; linked worktrees have their own index and their own queue.
+actor IndexLockQueue {
+    private static let queues = Mutex<[String: IndexLockQueue]>([:])
+
+    static func shared(for path: String) -> IndexLockQueue {
+        let key = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        return queues.withLock { queues in
+            if let queue = queues[key] { return queue }
+            let queue = IndexLockQueue()
+            queues[key] = queue
+            return queue
+        }
+    }
+
+    /// Tail of the chain; each operation waits for the previous one before it starts.
+    private var tail: Task<Void, Never>?
+
+    func enqueue<Result: Sendable>(_ operation: @escaping @Sendable () async throws -> Result) async throws -> Result {
+        let previous = tail
+        let task = Task {
+            await previous?.value
+            return try await operation()
+        }
+        tail = Task { _ = try? await task.value }
+        return try await task.value
     }
 }
 

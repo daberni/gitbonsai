@@ -1,6 +1,6 @@
 # Git operations
 
-Which git command each operation in the app runs. Every call goes through `GitRunner` with `GIT_TERMINAL_PROMPT=0`, `LC_ALL=C`, `-c core.quotepath=off` and `-c color.ui=never`; reads also get `GIT_OPTIONAL_LOCKS=0`. Writes run one at a time per runner.
+Which git command each operation in the app runs. Every call goes through `GitRunner` with `GIT_TERMINAL_PROMPT=0`, `LC_ALL=C`, `-c core.quotepath=off` and `-c color.ui=never`; reads also get `GIT_OPTIONAL_LOCKS=0`. Writes run one at a time per working tree, whichever runner or tab starts them. Reads that compare the working tree with the index (marked "Index queue") wait in the same queue: `git diff` rewrites stale stat information under `index.lock` and ignores `GIT_OPTIONAL_LOCKS`, which made concurrent checkouts fail.
 
 Keep this file in step with `Sources/GitEngine`: a change that adds or changes a git call updates its row here.
 
@@ -22,9 +22,9 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Files of a commit | `git diff --name-status -M -z <parent> <commit>`; root commit `git diff-tree -r --root --no-commit-id --name-status -M -z <commit>` | Plus `--numstat` for the counts |
 | Diff of a file in a commit | `git diff -p --no-color --no-ext-diff -M <parent> <commit> -- <paths>` | Full file view adds `--unified=<max>` |
-| Diff of unstaged / staged changes | `git diff -p … -- <paths>` / `git diff --cached -p … -- <paths>` | |
+| Diff of unstaged / staged changes | `git diff -p … -- <paths>` / `git diff --cached -p … -- <paths>` | Unstaged: index queue |
 | Diff of an untracked file | `git diff --no-index -p … -- /dev/null <path>` | |
-| Counts in the file lists | `git diff [--cached] --numstat -M -z` | |
+| Counts in the file lists | `git diff [--cached] --numstat -M -z` | Without `--cached`: index queue |
 | Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| --cached] -- <paths>` | |
 | Restore a file from a commit | `git restore --source=<commit> --worktree -- <path>` | Asks first when local changes would be overwritten |
 | Save a commit as patch | `git format-patch -1 --stdout <commit>` | |
@@ -57,7 +57,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Set / unset upstream | `git branch --set-upstream-to=<upstream> <branch>` / `git branch --unset-upstream <branch>` | |
 | Delete | `git branch -d <branch>`; `-D` after asking | |
 | Delete on the remote | `git push <remote> --delete <branch>` | Asks first |
-| Merge into the current branch | `git merge --no-edit <ref>` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` |
+| Merge into the current branch | `git merge --no-edit <ref>` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
 | Reset the current branch | `git reset --soft\|--mixed\|--hard <commit>` | |
 
 ## History rewriting

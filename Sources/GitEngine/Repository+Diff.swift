@@ -31,7 +31,7 @@ extension Repository {
                 result = try await runner.run(["diff-tree", "-r", "--root", "--no-commit-id"] + diffOptions + [commit.id, "--"] + paths)
             }
         case .unstaged:
-            result = try await runner.run(["diff"] + diffOptions + ["--"] + paths)
+            result = try await runner.runRefreshingIndex(["diff"] + diffOptions + ["--"] + paths)
         case .staged:
             result = try await runner.run(["diff", "--cached"] + diffOptions + ["--"] + paths)
         case .untracked:
@@ -46,7 +46,7 @@ extension Repository {
 
     /// Lines added and removed per path for the working tree (`staged: false`) or the index (`staged: true`).
     public func workingStats(staged: Bool) async throws -> [String: DiffStat] {
-        let result = try await runner.run(["diff"] + (staged ? ["--cached"] : []) + ["--numstat", "-M", "-z"])
+        let result = staged ? try await runner.run(["diff", "--cached", "--numstat", "-M", "-z"]) : try await runner.runRefreshingIndex(["diff", "--numstat", "-M", "-z"])
         return DiffParser.parseNumstat(result.stdout)
     }
 
