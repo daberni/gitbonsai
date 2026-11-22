@@ -10,15 +10,20 @@ final class ActionPrompter {
     /// The form's values, or nil when it was cancelled.
     func ask(_ form: ActionForm) async -> ActionForm.Values? {
         form.prepare()
-        if ScreenshotHarness.isActive { return ScreenshotHarness.answer(form) }
+        if ScreenshotHarness.keysSheets { ScreenshotHarness.pressKey(on: form) } else if ScreenshotHarness.isActive { return ScreenshotHarness.answer(form) }
         guard await present(form.alert) == .alertFirstButtonReturn else { return nil }
         return form.values
     }
 
     /// True when the first button was chosen.
     func confirm(_ alert: NSAlert) async -> Bool {
-        if ScreenshotHarness.isActive, !ScreenshotHarness.clicksSheets { return ScreenshotHarness.answer(alert) }
-        if ScreenshotHarness.clicksSheets { ScreenshotHarness.clickSheet(alert) }
+        if ScreenshotHarness.keysSheets {
+            ScreenshotHarness.pressKey(on: alert)
+        } else if ScreenshotHarness.clicksSheets {
+            ScreenshotHarness.clickSheet(alert)
+        } else if ScreenshotHarness.isActive {
+            return ScreenshotHarness.answer(alert)
+        }
         return await present(alert) == .alertFirstButtonReturn
     }
 
@@ -64,8 +69,41 @@ final class ActionPrompter {
 
     private func present(_ alert: NSAlert) async -> NSApplication.ModalResponse {
         guard let window = window?() else { return .cancel }
-        return await withCheckedContinuation { continuation in
-            alert.beginSheetModal(for: window) { continuation.resume(returning: $0) }
-        }
+        return await alert.beginSheet(on: window)
     }
+}
+
+extension NSAlert {
+    /// The button Esc presses: "Abbrechen", otherwise the last button, which is where an alert puts the choice that changes nothing.
+    var cancelButton: NSButton? {
+        buttons.first { $0.title == "Abbrechen" } ?? buttons.last
+    }
+
+    /// Shows the alert as a sheet on which Esc presses `cancelButton`, as macOS dialogs do.
+    /// NSAlert gives Esc only to a button titled "Cancel". A key equivalent is one key per button, so a cancel button that already holds ⏎, as in destructive confirmations and one-button reports, gets Esc from a key monitor for as long as the sheet is up.
+    func beginSheet(on window: NSWindow) async -> NSApplication.ModalResponse {
+        // An alert without buttons gets its "OK" only when it is shown; added here, it takes part in the Esc handling.
+        if buttons.isEmpty { addButton(withTitle: "OK") }
+        var monitor: Any?
+        if let cancel = cancelButton, !buttons.contains(where: { $0.keyEquivalent == Self.escape }) {
+            if cancel.keyEquivalent.isEmpty {
+                cancel.keyEquivalent = Self.escape
+            } else {
+                let sheet = self.window
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                    guard event.window === sheet, event.charactersIgnoringModifiers == Self.escape, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else { return event }
+                    cancel.performClick(nil)
+                    return nil
+                }
+            }
+        }
+        let response = await withCheckedContinuation { continuation in
+            beginSheetModal(for: window) { continuation.resume(returning: $0) }
+        }
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        ScreenshotHarness.sheetEnded(self, with: response)
+        return response
+    }
+
+    private static let escape = "\u{1b}"
 }

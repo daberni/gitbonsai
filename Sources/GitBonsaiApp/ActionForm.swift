@@ -127,6 +127,26 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     func controlTextDidChange(_ notification: Notification) { updateConfirm() }
     func textDidChange(_ notification: Notification) { updateConfirm() }
 
+    /// A focused field gets Esc and Return before the alert's key equivalents, so the form presses the buttons itself: Esc cancels with the text kept as typed, Return in a single-line field confirms.
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)), let confirm = alert.buttons.first, confirm.isEnabled {
+            confirm.performClick(nil)
+            return true
+        }
+        return cancels(commandSelector)
+    }
+
+    /// The multi-line message keeps Return for new lines.
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        cancels(commandSelector)
+    }
+
+    private func cancels(_ commandSelector: Selector) -> Bool {
+        guard commandSelector == #selector(NSResponder.cancelOperation(_:)), let cancel = alert.cancelButton else { return false }
+        cancel.performClick(nil)
+        return true
+    }
+
     private func updateConfirm() {
         alert.buttons.first?.isEnabled = isComplete
     }

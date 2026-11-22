@@ -1,0 +1,62 @@
+import AppKit
+
+/// Harness switches for the keyboard on sheets: Esc and Return pressed on a real sheet.
+@MainActor
+extension ScreenshotHarness {
+    /// `GITBONSAI_SHEET_KEY=escape|return` shows forms and confirmations as real sheets and presses that key on them once they are up; `GITBONSAI_FORM` fills a form first and `GITBONSAI_SHEET_FOCUS=message` puts the focus into its multi-line message.
+    /// Needs `GITBONSAI_FOREGROUND=1`: AppKit gives Return to the default button only in the key window.
+    static var keysSheets: Bool { isActive && sheetKey != nil }
+
+    private static var sheetKey: (name: String, characters: String, keyCode: UInt16)? {
+        switch environment["GITBONSAI_SHEET_KEY"] {
+        case "escape": ("escape", "\u{1b}", 53)
+        case "return": ("return", "\r", 36)
+        default: nil
+        }
+    }
+
+    static func pressKey(on form: ActionForm) {
+        var answers: [String: String] = [:]
+        for pair in (environment["GITBONSAI_FORM"] ?? "").split(separator: ";") {
+            let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+            if parts.count == 2 { answers[parts[0]] = parts[1] }
+        }
+        form.fill(answers)
+        pressKey(on: form.alert)
+    }
+
+    /// Posts key down and up to the event queue once the sheet is up, so they take the path of a key typed on the keyboard; prints what had focus and how the sheet ended.
+    static func pressKey(on alert: NSAlert) {
+        guard let key = sheetKey else { return }
+        let sheet = alert.window
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            // A foreground run launched from a shell is not always activated; a sheet that is not key loses its default button's Return.
+            NSApp.activate()
+            sheet.makeKey()
+            if environment["GITBONSAI_SHEET_FOCUS"] == "message", let message = views(of: NSTextView.self, in: sheet).first(where: { $0.isEditable && !$0.isFieldEditor }) { sheet.makeFirstResponder(message) }
+            let responder = sheet.firstResponder.map { String(describing: type(of: $0)) } ?? "none"
+            let keys = alert.buttons.map { button in "\(button.title) \(["\r": "⏎", "\u{1b}": "esc"][button.keyEquivalent] ?? "-")" }
+            sheetLog("sheet \(alert.messageText): \(key.name) pressed, sheet is key \(sheet.isKeyWindow), focus \(responder), buttons \(keys)")
+            for type in [NSEvent.EventType.keyDown, .keyUp] {
+                guard let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: sheet.windowNumber, context: nil, characters: key.characters, charactersIgnoringModifiers: key.characters, isARepeat: false, keyCode: key.keyCode) else { continue }
+                NSApp.postEvent(event, atStart: false)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let fields = views(of: NSTextField.self, in: sheet).filter(\.isEditable).map(\.stringValue)
+                let texts = views(of: NSTextView.self, in: sheet).filter { $0.isEditable && !$0.isFieldEditor }.map { $0.string.replacingOccurrences(of: "\n", with: "\\n") }
+                sheetLog("sheet \(alert.messageText): \(sheet.sheetParent == nil ? "closed" : "still open"), fields \(fields), texts \(texts)")
+            }
+        }
+    }
+
+    /// Prints which button ended a sheet that a harness key was pressed on.
+    static func sheetEnded(_ alert: NSAlert, with response: NSApplication.ModalResponse) {
+        guard keysSheets else { return }
+        let index = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        sheetLog("sheet \(alert.messageText): answered \(alert.buttons.indices.contains(index) ? "„\(alert.buttons[index].title)“" : "response \(response.rawValue)")")
+    }
+
+    private static func sheetLog(_ line: String) {
+        FileHandle.standardError.write(Data((line + "\n").utf8))
+    }
+}

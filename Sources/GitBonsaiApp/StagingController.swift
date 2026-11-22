@@ -80,7 +80,7 @@ final class StagingController {
         confirm(title: "„\(name)“ löschen?", text: "Die ungetrackte Datei „\(path)“ wird gelöscht. Git kennt sie nicht, sie lässt sich nicht wiederherstellen.", then: perform)
     }
 
-    /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard.
+    /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard, and Esc cancels too.
     private func confirm(title: String, text: String, then perform: @escaping () -> Void) {
         guard let window = window?() else { return }
         let alert = NSAlert()
@@ -92,10 +92,10 @@ final class StagingController {
         discard.keyEquivalent = ""
         let cancel = alert.addButton(withTitle: "Abbrechen")
         cancel.keyEquivalent = "\r"
-        alert.beginSheetModal(for: window) { response in
-            if response == .alertFirstButtonReturn { perform() }
+        if ScreenshotHarness.keysSheets { ScreenshotHarness.pressKey(on: alert) } else { ScreenshotHarness.answerDiscardSheet(alert) }
+        Task {
+            if await alert.beginSheet(on: window) == .alertFirstButtonReturn { perform() }
         }
-        ScreenshotHarness.answerDiscardSheet(alert)
     }
 
     // MARK: Running
