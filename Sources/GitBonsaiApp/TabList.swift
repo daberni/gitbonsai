@@ -43,6 +43,8 @@ struct TabList {
         tabs.firstIndex { $0.repository?.repositoryPath == repositoryPath }
     }
 
+    var repositoryPaths: Set<String> { Set(tabs.compactMap { $0.repository?.repositoryPath }) }
+
     var welcomeIndex: Int? { tabs.firstIndex { $0.welcome != nil } }
 
     /// Makes the tab at `index` the active one and returns it.

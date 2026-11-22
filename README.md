@@ -41,6 +41,8 @@ Window and tabs:
 
 - `GITBONSAI_APPEARANCE=light|dark` forces the appearance, `GITBONSAI_SELECT_ROW=n` selects a history row first.
 - `GITBONSAI_NEW_TAB=1` shows the empty tab with the recently used repositories, `GITBONSAI_CLICK_TAB=n` switches tabs with a real click first.
+- `GITBONSAI_REPOSITORY_FOLDERS=<folder>:<folder>` stores the repository folders in the harness defaults (empty for none); the empty tab is captured once their first scan finished, and each scan prints its duration and counts.
+- `GITBONSAI_WELCOME_SEARCH=<text>` types into the empty tab's search and `GITBONSAI_WELCOME_KEYS=down,up,return,cmd-return` presses those keys there with real key events; the list is printed after each, and `GITBONSAI_PRINT_WELCOME=1` prints it alone.
 - `GITBONSAI_DRAG_TAB=from:to` drags a tab onto another tab's place with real mouse events and prints the resulting order.
 
 History:

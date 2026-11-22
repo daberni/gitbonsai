@@ -1,52 +1,81 @@
 import AppKit
 
-/// What a tab shows before it has a repository: the recently used repositories and the way to open another folder.
-final class WelcomeView: NSView {
-    var recents: [String] = [] { didSet { needsDisplay = true } }
-    var onOpenPath: ((String) -> Void)?
+/// What a tab shows before it has a repository: a search over the recently used repositories and those found in the repository folders, and the way to open another folder.
+final class WelcomeView: NSView, NSSearchFieldDelegate {
+    var recents: [String] = [] { didSet { if recents != oldValue { rebuild() } } }
+    /// Repositories already open in a tab; their rows are marked.
+    var openPaths: Set<String> = [] { didSet { if openPaths != oldValue { rebuild() } } }
+    var onOpenPath: ((_ path: String, _ background: Bool) -> Void)?
     var onChooseFolder: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
 
+    let searchField = NSSearchField()
+    let listView = WelcomeListView()
     private typealias M = Theme.Welcome
     private let openButton = NSButton(title: "Ordner öffnen …", target: nil, action: nil)
-    private var hoveredRow: Int? { didSet { if hoveredRow != oldValue { needsDisplay = true } } }
-    private var tracking: NSTrackingArea?
+    private let scrollView = NSScrollView()
+    private let discovery = RepositoryDiscoveryStore.shared
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        searchField.placeholderString = "Repositories durchsuchen"
+        searchField.controlSize = .large
+        searchField.delegate = self
         openButton.bezelStyle = .rounded
-        openButton.keyEquivalent = "\r"
+        openButton.controlSize = .large
         openButton.bezelColor = Theme.moss
         openButton.target = self
         openButton.action = #selector(chooseFolder(_:))
-        addSubview(openButton)
+        scrollView.documentView = listView
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        listView.onOpen = { [weak self] path, background in self?.onOpenPath?(path, background) }
+        listView.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
+        for view in [searchField, openButton, scrollView] as [NSView] { addSubview(view) }
+        NotificationCenter.default.addObserver(forName: RepositoryDiscoveryStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.rebuild() }
+        }
+        NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.rebuild() }
+        }
+        rebuild()
     }
 
     required init?(coder: NSCoder) { nil }
 
     override var isFlipped: Bool { true }
 
-    private var visibleRecents: [String] { Array(recents.prefix(M.maximumRows)) }
+    /// Shows the cached result at once and scans the folders again in the background.
+    func refresh() {
+        rebuild()
+        discovery.refresh()
+    }
+
+    private func rebuild() {
+        let configured = Set(AppSettings.repositoryFolders)
+        let folders = discovery.folders.filter { configured.contains($0.path) }
+        listView.showsFolderHint = configured.isEmpty
+        listView.list = WelcomeList(recents: recents, folders: folders, openPaths: openPaths, filter: searchField.stringValue, recentLimit: M.maximumRows)
+    }
+
+    // MARK: Layout
+
     private var columnX: CGFloat { max((bounds.width - M.columnWidth) / 2, Theme.Space.xl) }
     private var columnWidth: CGFloat { min(M.columnWidth, bounds.width - 2 * Theme.Space.xl) }
-    private var listTop: CGFloat { max(bounds.height * M.topShare, M.minimumTop) + Theme.Window.toolbar + M.introHeight }
-
-    private func rowFrame(_ index: Int) -> CGRect {
-        CGRect(x: columnX, y: listTop + CGFloat(index) * M.rowHeight, width: columnWidth, height: M.rowHeight)
-    }
+    private var introTop: CGFloat { max(bounds.height * M.topShare, M.minimumTop) + Theme.Window.toolbar }
+    private var searchTop: CGFloat { introTop + M.introHeight - M.searchHeight - M.searchGap }
 
     override func layout() {
         super.layout()
-        let rows = max(visibleRecents.count, 1)
         openButton.sizeToFit()
-        openButton.setFrameOrigin(CGPoint(x: columnX + M.textInset, y: listTop + CGFloat(rows) * M.rowHeight + M.buttonGap))
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
-        addTrackingArea(area)
-        tracking = area
+        let buttonWidth = openButton.frame.width
+        openButton.frame = CGRect(x: columnX + columnWidth - buttonWidth, y: searchTop, width: buttonWidth, height: M.searchHeight)
+        searchField.frame = CGRect(x: columnX, y: searchTop, width: columnWidth - buttonWidth - Theme.Space.s, height: M.searchHeight)
+        let listTop = searchTop + M.searchHeight + M.searchGap
+        scrollView.frame = CGRect(x: columnX, y: listTop, width: columnWidth, height: max(bounds.height - listTop - Theme.Space.xl, 0))
+        listView.frame = CGRect(x: 0, y: 0, width: scrollView.contentSize.width, height: listView.frame.height)
+        listView.setFrameSize(NSSize(width: scrollView.contentSize.width, height: listView.frame.height))
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -58,47 +87,36 @@ final class WelcomeView: NSView {
         CGRect(x: 0, y: 0, width: bounds.width, height: Theme.Window.toolbar).fill()
         Theme.hairline.setFill()
         CGRect(x: 0, y: Theme.Window.toolbar - Theme.Stroke.hairline, width: bounds.width, height: Theme.Stroke.hairline).fill()
-        let top = listTop - M.introHeight
-        Glyph.bonsaiMain.draw(in: CGRect(x: columnX + M.textInset, y: top, width: M.mark, height: M.mark), color: Theme.moss, context: context)
-        NSAttributedString(string: "Repository öffnen", attributes: [.font: Theme.heading, .foregroundColor: Theme.ink]).draw(at: CGPoint(x: columnX + M.textInset, y: top + M.titleOffset))
-        NSAttributedString(string: "ZULETZT VERWENDET", attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern]).draw(at: CGPoint(x: columnX + M.textInset, y: listTop - Theme.Space.xl))
+        Glyph.bonsaiMain.draw(in: CGRect(x: columnX + M.textInset, y: introTop, width: M.mark, height: M.mark), color: Theme.moss, context: context)
+        NSAttributedString(string: "Repository öffnen", attributes: [.font: Theme.heading, .foregroundColor: Theme.ink]).draw(at: CGPoint(x: columnX + M.textInset, y: introTop + M.titleOffset))
+    }
 
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byTruncatingMiddle
-        if visibleRecents.isEmpty {
-            NSAttributedString(string: "Noch nichts geöffnet. Ein Ordner lässt sich auch auf das Fenster ziehen.", attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted]).draw(at: CGPoint(x: columnX + M.textInset, y: listTop + M.emptyTextOffset))
+    // MARK: Keys
+
+    func controlTextDidChange(_ notification: Notification) {
+        rebuild()
+    }
+
+    /// The arrow keys move through the list while the search field keeps the focus; ⏎ opens the selection, Esc clears the search.
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        switch selector {
+        case #selector(NSResponder.moveDown(_:)): listView.moveSelection(by: 1)
+        case #selector(NSResponder.moveUp(_:)): listView.moveSelection(by: -1)
+        case #selector(NSResponder.insertNewline(_:)): listView.openSelection(background: NSApp.currentEvent?.modifierFlags.contains(.command) == true)
+        case #selector(NSResponder.cancelOperation(_:)):
+            searchField.stringValue = ""
+            rebuild()
+        default: return false
         }
-        for (index, path) in visibleRecents.enumerated() {
-            let frame = rowFrame(index)
-            if hoveredRow == index {
-                Theme.surfaceSelected.setFill()
-                NSBezierPath(roundedRect: frame, xRadius: M.rowRadius, yRadius: M.rowRadius).fill()
-            } else if index > 0, hoveredRow != index - 1 {
-                Theme.hairline.setFill()
-                CGRect(x: frame.minX + M.textInset, y: frame.minY, width: frame.width - 2 * M.textInset, height: Theme.Stroke.hairline).fill()
-            }
-            let name = URL(fileURLWithPath: path).lastPathComponent
-            let folder = (URL(fileURLWithPath: path).deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
-            NSAttributedString(string: name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink, .paragraphStyle: paragraph]).draw(in: CGRect(x: frame.minX + M.textInset, y: frame.minY + M.nameLine.top, width: frame.width - 2 * M.textInset, height: M.nameLine.height))
-            NSAttributedString(string: folder, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted, .paragraphStyle: paragraph]).draw(in: CGRect(x: frame.minX + M.textInset, y: frame.minY + M.folderLine.top, width: frame.width - 2 * M.textInset, height: M.folderLine.height))
-        }
+        return true
     }
 
-    private func row(at point: CGPoint) -> Int? {
-        visibleRecents.indices.first { rowFrame($0).contains(point) }
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        hoveredRow = row(at: convert(event.locationInWindow, from: nil))
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        hoveredRow = nil
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard let index = row(at: convert(event.locationInWindow, from: nil)) else { return }
-        onOpenPath?(visibleRecents[index])
+    /// ⌘⏎ reaches the window as a key equivalent before the search field sees it, and opens the selection in the background.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let isReturn = event.keyCode == 36 || event.keyCode == 76
+        guard isReturn, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, window?.firstResponder === searchField.currentEditor() else { return super.performKeyEquivalent(with: event) }
+        listView.openSelection(background: true)
+        return true
     }
 
     @objc private func chooseFolder(_ sender: Any?) {

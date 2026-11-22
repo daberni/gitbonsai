@@ -85,9 +85,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     /// All folders are resolved before the first tab is added, so the tab row changes once.
     private func open(_ paths: [String], activate index: Int) async -> [String] {
         let locations = await opener.locations(containing: paths)
-        let opened = locations.compactMap { $0 }.map(showRepository(at:))
+        let opened = locations.compactMap { $0 }.map { showRepository(at: $0) }
         if !opened.isEmpty { activate(opened[min(max(index, 0), opened.count - 1)]) }
         return zip(paths, locations).filter { $0.1 == nil }.map(\.0)
+    }
+
+    /// Adds the repository as a tab behind the others and keeps the active tab, so the empty tab can open several repositories in a row.
+    private func openInBackground(_ path: String) {
+        Task {
+            guard let location = await opener.locations(containing: [path]).first ?? nil else { return reportNotARepository([path]) }
+            _ = showRepository(at: location, replacingEmptyTab: false)
+            refreshTabBar()
+            tabs.active?.welcome?.openPaths = tabs.repositoryPaths
+            tabs.active?.welcome?.recents = store.recentRepositories
+        }
     }
 
     private func reportNotARepository(_ paths: [String]) {
@@ -96,10 +107,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     /// Returns the index of the tab that shows the repository.
-    private func showRepository(at location: RepositoryLocation) -> Int {
+    private func showRepository(at location: RepositoryLocation, replacingEmptyTab: Bool = true) -> Int {
         store.noteOpened(location.root)
         if let existing = tabs.index(showing: location.root) { return existing }
-        return tabs.add(makeTab(for: location))
+        let tab = makeTab(for: location)
+        return replacingEmptyTab ? tabs.add(tab) : tabs.append(tab)
     }
 
     private func makeTab(for location: RepositoryLocation) -> WindowTab {
@@ -135,9 +147,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     private func activate(_ index: Int) {
         guard let tab = tabs.activate(index) else { return }
-        tab.welcome?.recents = store.recentRepositories
+        if let welcome = tab.welcome {
+            welcome.recents = store.recentRepositories
+            welcome.openPaths = tabs.repositoryPaths
+            welcome.refresh()
+        }
         content.show(tab.view)
-        if let responder = tab.repository?.preferredFirstResponder { window?.makeFirstResponder(responder) }
+        if let responder = tab.repository?.preferredFirstResponder ?? tab.welcome?.searchField { window?.makeFirstResponder(responder) }
         refreshTabBar()
         captureIfRequested()
     }
@@ -173,9 +189,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             return
         }
         let welcome = WelcomeView()
-        welcome.onOpenPath = { [weak self] path in self?.open(paths: [path], activate: 0) }
+        welcome.onOpenPath = { [weak self] path, background in
+            if background { self?.openInBackground(path) } else { self?.open(paths: [path], activate: 0) }
+        }
         welcome.onChooseFolder = { [weak self] in self?.chooseFolder() }
-        activate(tabs.append(WindowTab(welcome: welcome)))
+        welcome.onOpenSettings = { SettingsWindowController.shared.show(.general) }
+        let tab = WindowTab(welcome: welcome)
+        ScreenshotHarness.waitForDiscovery(tab) { [weak self] in self?.captureIfRequested() }
+        activate(tabs.append(tab))
     }
 
     @objc func openRepository(_ sender: Any?) {
@@ -245,6 +266,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true else { return }
         guard ScreenshotHarness.driveTabRow(tabBar, in: window, tabs: { [unowned self] in tabs }) else { return }
         didCapture = true
+        if let welcome = tabs.active?.welcome { ScreenshotHarness.driveWelcome(welcome, in: window) }
         ScreenshotHarness.captureAndQuit(window: window)
     }
 }

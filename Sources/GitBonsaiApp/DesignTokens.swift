@@ -216,8 +216,19 @@ enum Theme {
         /// Top and height of the name and folder lines in a list row.
         static let nameLine: (top: CGFloat, height: CGFloat) = (7, 17)
         static let folderLine: (top: CGFloat, height: CGFloat) = (25, 14)
-        static let emptyTextOffset: CGFloat = 14
-        static let buttonGap: CGFloat = 20
+        static let searchHeight: CGFloat = 32
+        static let searchGap = Space.m
+        static let captionHeight: CGFloat = 30
+        /// Distance from the bottom of a group caption to its text's top.
+        static let captionBaseline: CGFloat = 22
+        static let sectionGap = Space.m
+        static let messageHeight: CGFloat = 30
+        static let messageTextOffset: CGFloat = 6
+        /// The branch and the open mark on the right of a row.
+        static let sideColumn: CGFloat = 150
+        static let branchShift: CGFloat = 1
+        static let worktreeIndent = Space.xl
+        static let worktreeGlyph = Icon.small
     }
 
     /// File lists in the detail panel.
@@ -514,6 +525,9 @@ enum Theme {
         static let pathFieldWidth: CGFloat = 260
         static let captionWidth: CGFloat = 340
         static let appIcon = Icon.regular
+        static let folderRowHeight: CGFloat = 22
+        /// Room for five folders before the list scrolls.
+        static let folderListHeight: CGFloat = 112
     }
 }
 

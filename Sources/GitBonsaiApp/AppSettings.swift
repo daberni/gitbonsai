@@ -54,6 +54,16 @@ enum AppSettings {
         set { store(newValue, forKey: "autoFetchMinutes") }
     }
 
+    /// Folders searched for repositories to suggest on the empty tab. Until the user edits the list it holds `~/Developer` when that folder exists.
+    static var repositoryFolders: [String] {
+        get {
+            if let stored = defaults.stringArray(forKey: "repositoryFolders") { return stored }
+            let developer = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Developer").path
+            return FileManager.default.fileExists(atPath: developer) ? [developer] : []
+        }
+        set { store(newValue, forKey: "repositoryFolders") }
+    }
+
     /// Light or dark for every window, or whatever the system uses.
     static var appearance: Appearance {
         get { defaults.string(forKey: "appearance").flatMap(Appearance.init) ?? .system }

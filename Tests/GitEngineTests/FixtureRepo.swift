@@ -6,8 +6,13 @@ final class FixtureRepo {
     let url: URL
     var path: String { url.path }
 
-    init(name: String = "fixture") throws {
-        url = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-\(name)-\(UUID().uuidString)", isDirectory: true)
+    convenience init(name: String = "fixture") throws {
+        try self.init(at: FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-\(name)-\(UUID().uuidString)", isDirectory: true))
+    }
+
+    /// A repository in a given folder, for tests that lay out several repositories in one tree.
+    init(at url: URL) throws {
+        self.url = url
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         try git("init", "-q", "-b", "main")
         try git("config", "user.name", "Fixture")

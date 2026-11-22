@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !ScreenshotHarness.runsInBackground { NSApp.activate(ignoringOtherApps: true) }
         AppSettings.apply()
         ScreenshotHarness.applyAppearance()
+        ScreenshotHarness.applyRepositoryFolders()
         NSApp.mainMenu = makeMenu()
         let controller = MainWindowController(store: SessionStore.standard())
         windowController = controller

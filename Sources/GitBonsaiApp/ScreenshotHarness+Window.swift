@@ -49,4 +49,68 @@ extension ScreenshotHarness {
         }
         return true
     }
+
+    // MARK: Empty tab
+
+    /// `GITBONSAI_REPOSITORY_FOLDERS=<folder>:<folder>` stores the repository folders in the harness defaults before anything reads them; an empty value stores an empty list.
+    static func applyRepositoryFolders() {
+        guard isActive, let value = environment["GITBONSAI_REPOSITORY_FOLDERS"] else { return }
+        AppSettings.repositoryFolders = value.split(separator: ":").map(String.init)
+    }
+
+    /// The empty tab counts as loaded once the first scan finished, so the capture shows found repositories and not only the cache.
+    static func waitForDiscovery(_ tab: WindowTab, then capture: @escaping @MainActor () -> Void) {
+        let discovery = RepositoryDiscoveryStore.shared
+        guard isActive, !discovery.hasScanned else { return }
+        tab.isLoaded = false
+        discovery.whenScanned {
+            tab.isLoaded = true
+            capture()
+        }
+    }
+
+    static func traceDiscovery(_ folders: [RepositoryDiscoveryStore.Folder], duration: Duration) {
+        guard isActive else { return }
+        let counts = folders.map { "\(($0.path as NSString).abbreviatingWithTildeInPath): \($0.repositories.count) repositories, \($0.repositories.map(\.worktrees.count).reduce(0, +)) linked worktrees" }
+        FileHandle.standardError.write(Data("discovery scan took \(duration): \(counts.joined(separator: "; "))\n".utf8))
+    }
+
+    /// `GITBONSAI_WELCOME_SEARCH=<text>` types into the empty tab's search field with real key events and `GITBONSAI_WELCOME_KEYS=down,up,return,cmd-return` presses those keys there.
+    /// The visible list is printed after the typing and after each key, with the selected row marked.
+    static func driveWelcome(_ welcome: WelcomeView, in window: NSWindow) {
+        let text = environment["GITBONSAI_WELCOME_SEARCH"] ?? ""
+        let keys = environment["GITBONSAI_WELCOME_KEYS"]?.split(separator: ",").map(String.init) ?? []
+        guard !text.isEmpty || !keys.isEmpty || environment["GITBONSAI_PRINT_WELCOME"] != nil else { return }
+        window.makeKey()
+        window.makeFirstResponder(welcome.searchField)
+        for character in text {
+            let string = String(character)
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: string, charactersIgnoringModifiers: string, isARepeat: false, keyCode: 0) else { continue }
+            window.sendEvent(event)
+        }
+        func report(_ step: String) {
+            let list = welcome.listView
+            var lines = ["welcome \(step): field \"\(welcome.searchField.stringValue)\""]
+            var index = 0
+            for section in list.list.sections {
+                lines.append("  \(section.title)")
+                for entry in section.entries {
+                    let marks = [entry.branch.map { "[\($0)]" }, entry.isOpen ? "open" : nil].compactMap { $0 }.joined(separator: " ")
+                    lines.append("  \(index == list.selection ? ">" : " ") \(entry.isWorktree ? "  " : "")\(entry.name) — \(entry.detail) \(marks)")
+                    index += 1
+                }
+            }
+            FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+        }
+        report("typed")
+        for key in keys {
+            // The application offers a key with ⌘ to the window as a key equivalent before it becomes a key press, so the harness does the same.
+            if key.hasPrefix("cmd-"), key.hasSuffix("return"), let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36), window.performKeyEquivalent(with: event) {
+                report(key)
+                continue
+            }
+            press(key: key, in: window)
+            report(key)
+        }
+    }
 }
