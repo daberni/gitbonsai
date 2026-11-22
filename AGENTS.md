@@ -14,7 +14,12 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 
 - `Sources/GitEngine` — process runner, models, parsers, `Repository` facade. Pure Swift, no AppKit. Fully testable against real repos created in tests.
 - `Sources/GraphLayout` — incremental lane layout for the commit graph. Pure functions over `Commit` values.
-- `Sources/GitBonsaiApp` — the app (`swift run GitBonsaiApp <repo>`): `DesignTokens.swift` mirrors `docs/design/tokens.json`, `MainWindowController` owns the window with the tab row (`TabBarView`) and one `RepositoryViewController` per tab, `WelcomeView` is the empty tab, `SessionStore` remembers tabs and recent repositories, `GraphRowView` draws a history row, `SidebarView` the five-column sidebar grid, `DetailView` the selection panel. Check UI changes with the screenshot harness (see README) in light and dark.
+- `Sources/GitBonsaiApp` — the app (`swift run GitBonsaiApp <repo>`). One type per responsibility:
+  - Window: `MainWindowController` (tabs, opening, title bar), `TabBarView`, `WelcomeView`, `SessionStore`.
+  - Repository tab: `RepositoryViewController` only assembles the parts and routes `GraphViewModel` changes to them; `RepositoryToolbar`, `SidebarView`, `DetailView`, `CheckoutController`.
+  - History: `HistoryViewController` (table, selection, search), `HistoryColumnsController` (widths, visibility, graph scroll, column menu), `HistoryColumns` (layout math and `ColumnStore`), `HistoryViews` (header, table, hover guide), `HistoryRowModel` (row and label models), `GraphRowView` (drawing).
+  - Shared: `DesignTokens.swift` mirrors `docs/design/tokens.json`, `Glyphs`, `ChromeViews`. `ScreenshotHarness` holds all verification switches.
+  - When a type starts mixing responsibilities or passes about 300 lines, split it before adding more.
 - `Tests/` — XCTest. Fixture repos are built on the fly with `git` in a temp dir (see `GitEngineTests/FixtureRepo.swift`).
 - `docs/` — product and architecture docs, design language.
 - `scripts/` — fixture and benchmark helpers.

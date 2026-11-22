@@ -290,36 +290,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     private func captureIfRequested() {
         guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.indices.contains(activeIndex), tabs[activeIndex].isLoaded else { return }
+        let environment = ProcessInfo.processInfo.environment
         // A real click through the window proves that the tab row receives events under the title bar.
-        if let target = ProcessInfo.processInfo.environment["GITBONSAI_CLICK_TAB"].flatMap(Int.init), target != activeIndex, let frame = tabBar.frameOfTab(target) {
-            let point = tabBar.convert(CGPoint(x: frame.midX - 10, y: frame.midY), to: nil)
-            // The tab row follows the button until it comes up, so the release is queued before the press is delivered.
-            if let up = mouseEvent(.leftMouseUp, at: point, in: window) { NSApp.postEvent(up, atStart: false) }
-            if let down = mouseEvent(.leftMouseDown, at: point, in: window) { window.sendEvent(down) }
+        if let target = environment["GITBONSAI_CLICK_TAB"].flatMap(Int.init), target != activeIndex, let frame = tabBar.frameOfTab(target) {
+            ScreenshotHarness.click(in: window, at: tabBar.convert(CGPoint(x: frame.midX - 10, y: frame.midY), to: nil))
             if activeIndex != target { FileHandle.standardError.write(Data("click on tab \(target) did not reach the tab row\n".utf8)) }
             guard tabs[activeIndex].isLoaded else { return }
         }
-        // A real drag through the window: `from:to` moves the tab at `from` onto the place of the tab at `to`.
-        // Selecting the dragged tab calls back into this method; the flag keeps the drag from starting again.
-        if !didDragTab, let spec = ProcessInfo.processInfo.environment["GITBONSAI_DRAG_TAB"], let parts = Optional(spec.split(separator: ":").compactMap { Int($0) }), parts.count == 2, let source = tabBar.frameOfTab(parts[0]), let target = tabBar.frameOfTab(parts[1]) {
-            didDragTab = true
-            let start = tabBar.convert(CGPoint(x: source.midX, y: source.midY), to: nil)
-            let end = tabBar.convert(CGPoint(x: target.midX + (parts[1] > parts[0] ? 8 : -8), y: target.midY), to: nil)
-            let steps = 12
-            for step in 1...steps {
-                let fraction = CGFloat(step) / CGFloat(steps)
-                if let drag = mouseEvent(.leftMouseDragged, at: CGPoint(x: start.x + (end.x - start.x) * fraction, y: start.y), in: window) { NSApp.postEvent(drag, atStart: false) }
+        // `from:to` drags the tab at `from` onto the place of the tab at `to`. Selecting it calls back in here, so the flag keeps the drag from starting twice.
+        if !didDragTab, let spec = environment["GITBONSAI_DRAG_TAB"] {
+            let parts = spec.split(separator: ":").compactMap { Int($0) }
+            if parts.count == 2, let source = tabBar.frameOfTab(parts[0]), let target = tabBar.frameOfTab(parts[1]) {
+                didDragTab = true
+                let start = tabBar.convert(CGPoint(x: source.midX, y: source.midY), to: nil)
+                let end = tabBar.convert(CGPoint(x: target.midX + (parts[1] > parts[0] ? 8 : -8), y: target.midY), to: nil)
+                ScreenshotHarness.drag(in: window, from: start, to: end, steps: 12)
+                FileHandle.standardError.write(Data("tab order after drag: \(tabs.map(\.title).joined(separator: ", ")), active \(tabs[activeIndex].title)\n".utf8))
             }
-            if let up = mouseEvent(.leftMouseUp, at: end, in: window) { NSApp.postEvent(up, atStart: false) }
-            if let down = mouseEvent(.leftMouseDown, at: start, in: window) { window.sendEvent(down) }
-            FileHandle.standardError.write(Data("tab order after drag: \(tabs.map(\.title).joined(separator: ", ")), active \(tabs[activeIndex].title)\n".utf8))
         }
         didCapture = true
         alignTitleBar()
         ScreenshotHarness.captureAndQuit(window: window)
-    }
-
-    private func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in window: NSWindow) -> NSEvent? {
-        NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
     }
 }
