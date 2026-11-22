@@ -7,10 +7,12 @@ let package = Package(
     products: [
         .library(name: "GitEngine", targets: ["GitEngine"]),
         .library(name: "GraphLayout", targets: ["GraphLayout"]),
+        .executable(name: "GitBonsaiApp", targets: ["GitBonsaiApp"]),
     ],
     targets: [
         .target(name: "GitEngine"),
         .target(name: "GraphLayout", dependencies: ["GitEngine"]),
+        .executableTarget(name: "GitBonsaiApp", dependencies: ["GitEngine", "GraphLayout"]),
         .testTarget(name: "GitEngineTests", dependencies: ["GitEngine"]),
         .testTarget(name: "GraphLayoutTests", dependencies: ["GraphLayout", "GitEngine"]),
     ],

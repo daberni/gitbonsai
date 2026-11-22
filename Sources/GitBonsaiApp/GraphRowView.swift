@@ -1,0 +1,289 @@
+import AppKit
+import GitEngine
+import GraphLayout
+
+struct PillModel: Hashable {
+    let name: String
+    let glyphs: [Glyph]
+    let isHead: Bool
+}
+
+/// Draws one history row: ref labels, strands and node, commit text, author and date.
+///
+/// Strands are drawn per transition between two rows. Each cell draws its own row's edges down to the next row and the previous row's edges down to itself; both are clipped to the cell, so a lane change is one continuous S across the boundary.
+final class GraphRowView: NSView {
+    struct Model {
+        var commit: Commit
+        var row: GraphRow
+        var previous: GraphRow?
+        var next: GraphRow?
+        var kind: GraphViewModel.RowKind
+        var previousKind: GraphViewModel.RowKind?
+        var pills: [PillModel]
+        var isHead: Bool
+        var dimmed: Bool
+        var isSelected: Bool
+        var subject: String
+        var wipCounts: (changed: Int, staged: Int, untracked: Int)?
+        var graphWidth: CGFloat
+    }
+
+    var model: Model? { didSet { needsDisplay = true } }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        formatter.locale = Locale(identifier: "de_DE")
+        return formatter
+    }()
+    static let exactFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.dateFormat = "EEE, d. MMM yyyy, HH:mm"
+        return formatter
+    }()
+
+    override var isFlipped: Bool { true }
+
+    private typealias G = Theme.Graph
+
+    private func laneX(_ lane: Int) -> CGFloat {
+        G.labelColumn + G.firstLane + CGFloat(lane) * G.lane
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let model, let context = NSGraphicsContext.current?.cgContext else { return }
+        let height = bounds.height
+        let midY = height / 2
+        let strand = Theme.strand(model.row.color)
+        let graphRect = CGRect(x: G.labelColumn, y: 0, width: model.graphWidth, height: height)
+        let textX = graphRect.maxX + 10
+        let nodeX = laneX(model.row.lane)
+
+        if model.isSelected {
+            Theme.surfaceSelected.setFill()
+            bounds.fill()
+        }
+
+        // Band from the node to the strand bar of the text column, with a gap above and below so rows stay separate.
+        let bandColor: NSColor = model.kind == .wip ? Theme.inkMuted : strand
+        if nodeX < graphRect.maxX {
+            context.setFillColor(bandColor.withAlphaComponent(model.isHead ? 0.26 : 0.13).cgColor)
+            context.fill(CGRect(x: nodeX, y: G.bandInset, width: textX - 6 - nodeX, height: height - 2 * G.bandInset))
+        }
+        context.setFillColor(bandColor.cgColor)
+        context.fill(CGRect(x: textX - 6, y: G.bandInset, width: 2, height: height - 2 * G.bandInset))
+
+        context.saveGState()
+        context.clip(to: graphRect)
+        context.setLineWidth(G.strandWidth)
+        context.setLineCap(.round)
+        if let previous = model.previous {
+            for edge in previous.edges where edge.kind != .fromChild {
+                let target = Self.targetLane(of: edge, nextRow: model.row)
+                let dashed = Self.isParked(model.previousKind) && edge.fromLane == previous.lane
+                stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY - height, color: Self.color(of: edge, kind: model.previousKind, row: previous), dashed: dashed)
+            }
+        }
+        for edge in model.row.edges where edge.kind != .fromChild {
+            let target = Self.targetLane(of: edge, nextRow: model.next)
+            let dashed = Self.isParked(model.kind) && edge.fromLane == model.row.lane
+            stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY, color: Self.color(of: edge, kind: model.kind, row: model.row), dashed: dashed)
+        }
+        drawNode(context, at: CGPoint(x: nodeX, y: midY), strand: strand, model: model)
+        context.restoreGState()
+
+        let nodeEdge = nodeX - Self.nodeExtent(model.kind)
+        let pillsEnd = drawPills(context, model: model, strand: strand, midY: midY)
+        if let pillsEnd, nodeEdge > pillsEnd {
+            context.setStrokeColor(strand.cgColor)
+            context.setLineWidth(1)
+            context.setLineDash(phase: 0, lengths: [])
+            context.beginPath()
+            context.move(to: CGPoint(x: pillsEnd, y: midY))
+            context.addLine(to: CGPoint(x: min(nodeEdge, graphRect.maxX), y: midY))
+            context.strokePath()
+        }
+
+        drawText(context, model: model, textX: textX, midY: midY)
+    }
+
+    // MARK: Strands
+
+    private static func isParked(_ kind: GraphViewModel.RowKind?) -> Bool {
+        kind == .stash || kind == .wip
+    }
+
+    private static func color(of edge: GraphEdge, kind: GraphViewModel.RowKind?, row: GraphRow) -> NSColor {
+        kind == .wip && edge.fromLane == row.lane ? Theme.inkMuted : Theme.strand(edge.color)
+    }
+
+    private static func nodeExtent(_ kind: GraphViewModel.RowKind) -> CGFloat {
+        switch kind {
+        case .commit: G.nodeRadius
+        case .merge: G.mergeRadius
+        case .stash: G.stashHalf
+        case .wip: G.wipRadius
+        }
+    }
+
+    /// A strand that the next row collapses into its node (`fromChild`) bends toward that node, so both halves of the curve agree on one end point.
+    private static func targetLane(of edge: GraphEdge, nextRow: GraphRow?) -> Int {
+        guard let nextRow, nextRow.edges.contains(where: { $0.kind == .fromChild && $0.fromLane == edge.toLane }) else { return edge.toLane }
+        return nextRow.lane
+    }
+
+    /// One transition from a row centre at `startY` to the next row centre: straight on the lane, an S inside the elbow window around the row boundary, straight again.
+    private func stroke(_ context: CGContext, from x0: CGFloat, to x1: CGFloat, startY: CGFloat, color: NSColor, dashed: Bool) {
+        let height = bounds.height
+        let boundary = startY + height / 2
+        context.setStrokeColor(color.cgColor)
+        context.setLineDash(phase: 0, lengths: dashed ? [3, 3] : [])
+        context.beginPath()
+        context.move(to: CGPoint(x: x0, y: startY))
+        if x0 == x1 {
+            context.addLine(to: CGPoint(x: x1, y: startY + height))
+        } else {
+            let half = G.elbow / 2
+            context.addLine(to: CGPoint(x: x0, y: boundary - half))
+            context.addCurve(to: CGPoint(x: x1, y: boundary + half), control1: CGPoint(x: x0, y: boundary), control2: CGPoint(x: x1, y: boundary))
+            context.addLine(to: CGPoint(x: x1, y: startY + height))
+        }
+        context.strokePath()
+        context.setLineDash(phase: 0, lengths: [])
+    }
+
+    // MARK: Node
+
+    private func drawNode(_ context: CGContext, at center: CGPoint, strand: NSColor, model: Model) {
+        switch model.kind {
+        case .commit:
+            let rect = CGRect(x: center.x - G.nodeRadius, y: center.y - G.nodeRadius, width: G.nodeRadius * 2, height: G.nodeRadius * 2)
+            // Opaque disc: strands end at the ring, none runs through the avatar.
+            context.setFillColor(Theme.surface1.cgColor)
+            context.fillEllipse(in: rect)
+            context.setStrokeColor(strand.cgColor)
+            context.setLineWidth(G.strandWidth)
+            context.strokeEllipse(in: rect.insetBy(dx: 1, dy: 1))
+            let initials = Self.initials(model.commit.authorName)
+            let text = NSAttributedString(string: initials, attributes: [.font: NSFont.systemFont(ofSize: 8.5, weight: .semibold), .foregroundColor: Theme.inkMuted])
+            let size = text.size()
+            text.draw(at: CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))
+        case .merge:
+            context.setFillColor(strand.cgColor)
+            context.fillEllipse(in: CGRect(x: center.x - G.mergeRadius, y: center.y - G.mergeRadius, width: G.mergeRadius * 2, height: G.mergeRadius * 2))
+        case .stash:
+            let rect = CGRect(x: center.x - G.stashHalf, y: center.y - G.stashHalf, width: G.stashHalf * 2, height: G.stashHalf * 2)
+            let path = CGPath(roundedRect: rect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+            context.setFillColor(Theme.surface0.cgColor)
+            context.addPath(path)
+            context.fillPath()
+            context.setStrokeColor(strand.cgColor)
+            context.setLineWidth(1.5)
+            context.setLineDash(phase: 0, lengths: [2.5, 2])
+            context.addPath(path)
+            context.strokePath()
+            context.setLineDash(phase: 0, lengths: [])
+        case .wip:
+            let rect = CGRect(x: center.x - G.wipRadius, y: center.y - G.wipRadius, width: G.wipRadius * 2, height: G.wipRadius * 2)
+            context.setFillColor(Theme.surface0.cgColor)
+            context.fillEllipse(in: rect)
+            context.setStrokeColor(Theme.inkMuted.cgColor)
+            context.setLineWidth(G.strandWidth)
+            context.setLineDash(phase: 0, lengths: [2.5, 2])
+            context.strokeEllipse(in: rect)
+            context.setLineDash(phase: 0, lengths: [])
+        }
+    }
+
+    static func initials(_ name: String) -> String {
+        let parts = name.split(whereSeparator: { $0 == " " || $0 == "." || $0 == "-" || $0 == "_" })
+        let letters = parts.prefix(2).compactMap(\.first)
+        return String(letters).uppercased()
+    }
+
+    // MARK: Labels
+
+    /// Draws the pills right-aligned in the label column and returns the right edge of the last pill, where the connector starts.
+    private func drawPills(_ context: CGContext, model: Model, strand: NSColor, midY: CGFloat) -> CGFloat? {
+        guard !model.pills.isEmpty else { return nil }
+        let rightEdge = G.labelColumn - 14
+        let pillHeight: CGFloat = 20
+        let glyphSize: CGFloat = 13
+        var right = rightEdge
+        var drawn = 0
+        for pill in model.pills {
+            let font = pill.isHead ? Theme.pillStrong : Theme.pill
+            let remaining = model.pills.count - drawn
+            let reserve: CGFloat = remaining > 1 ? 34 : 0
+            let available = right - 6 - reserve
+            let glyphsWidth = CGFloat(pill.glyphs.count) * (glyphSize + 4)
+            let chrome = 6 + glyphsWidth + 2 + 8
+            guard available - chrome > 24 else { break }
+            let title = NSAttributedString(string: pill.name, attributes: [.font: font, .foregroundColor: Theme.ink])
+            let textWidth = min(title.size().width, available - chrome)
+            let rect = CGRect(x: right - chrome - textWidth, y: midY - pillHeight / 2, width: chrome + textWidth, height: pillHeight)
+            let path = CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerWidth: pillHeight / 2 - 0.5, cornerHeight: pillHeight / 2 - 0.5, transform: nil)
+            // The ground is opaque (strand mixed into the surface) so the connector never shows through.
+            context.setFillColor(strand.mixed(into: Theme.surface0, fraction: pill.isHead ? 0.30 : 0.16).cgColor)
+            context.addPath(path)
+            context.fillPath()
+            context.setStrokeColor(strand.withAlphaComponent(pill.isHead ? 0.75 : 0.55).cgColor)
+            context.setLineWidth(1)
+            context.addPath(path)
+            context.strokePath()
+            var x = rect.minX + 6
+            for glyph in pill.glyphs {
+                glyph.draw(in: CGRect(x: x, y: midY - glyphSize / 2, width: glyphSize, height: glyphSize), color: Theme.ink, context: context)
+                x += glyphSize + 4
+            }
+            let textRect = CGRect(x: x + 2, y: midY - title.size().height / 2, width: textWidth, height: title.size().height)
+            title.draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            if drawn == 0 { /* the first pill is the rightmost one */ }
+            right = rect.minX - 4
+            drawn += 1
+        }
+        if drawn < model.pills.count {
+            let more = NSAttributedString(string: "+\(model.pills.count - drawn)", attributes: [.font: Theme.pill, .foregroundColor: Theme.inkMuted])
+            more.draw(at: CGPoint(x: right - more.size().width, y: midY - more.size().height / 2))
+        }
+        return drawn > 0 ? rightEdge : nil
+    }
+
+    // MARK: Text
+
+    private func drawText(_ context: CGContext, model: Model, textX: CGFloat, midY: CGFloat) {
+        let dateX = bounds.width - G.dateColumn
+        let showsAuthor = bounds.width >= G.authorMinimumWidth
+        let authorX = showsAuthor ? dateX - G.authorColumn : dateX
+        let subjectWidth = max(authorX - textX - 12, 40)
+
+        if let counts = model.wipCounts {
+            var x = textX + 2
+            let items: [(Glyph, Int, String)] = [(.pencil, counts.changed, "geändert"), (.staged, counts.staged, "staged"), (.plus, counts.untracked, "untracked")]
+            for (glyph, count, _) in items where count > 0 {
+                glyph.draw(in: CGRect(x: x, y: midY - 7, width: 14, height: 14), color: Theme.inkMuted, context: context)
+                let text = NSAttributedString(string: "\(count)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular), .foregroundColor: Theme.ink])
+                text.draw(at: CGPoint(x: x + 19, y: midY - text.size().height / 2))
+                x += 19 + text.size().width + 14
+            }
+            return
+        }
+
+        let color = model.dimmed ? Theme.inkFaint : Theme.ink
+        var font = model.isHead ? Theme.bodyStrong : Theme.body
+        if model.kind == .stash { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
+        let subject = NSAttributedString(string: model.subject, attributes: [.font: font, .foregroundColor: color])
+        let subjectHeight = subject.size().height
+        subject.draw(with: CGRect(x: textX + 2, y: midY - subjectHeight / 2, width: subjectWidth, height: subjectHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+
+        let muted: [NSAttributedString.Key: Any] = [.font: Theme.caption, .foregroundColor: Theme.inkMuted]
+        if showsAuthor {
+            let author = NSAttributedString(string: model.commit.authorName, attributes: muted)
+            author.draw(with: CGRect(x: authorX, y: midY - author.size().height / 2, width: G.authorColumn - 8, height: author.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+        }
+        let relative = Self.relativeFormatter.localizedString(for: model.commit.authorDate, relativeTo: Date())
+        let date = NSAttributedString(string: relative, attributes: muted)
+        date.draw(at: CGPoint(x: bounds.width - 12 - date.size().width, y: midY - date.size().height / 2))
+    }
+}
