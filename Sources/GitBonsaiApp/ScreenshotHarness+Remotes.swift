@@ -48,7 +48,7 @@ extension ScreenshotHarness {
                 FileHandle.standardError.write(Data("auto-fetch step \(step)\n".utf8))
                 switch step {
                 case "activate": NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
-                case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab(nil)
+                case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab()
                 default: break
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {

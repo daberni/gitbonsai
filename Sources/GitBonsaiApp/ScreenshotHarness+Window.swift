@@ -208,7 +208,7 @@ extension ScreenshotHarness {
                     switch part {
                     case "print": tabs.forEach(printReturnState)
                     case "outside": runOutsideScript(in: tabs.first { $0.view.window == nil })
-                    case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab(nil)
+                    case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab()
                     case "activate": NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
                     case "fetch": tabs.first { $0.view.window != nil }?.fetchController.fetch(.allRemotes)
                     default: break

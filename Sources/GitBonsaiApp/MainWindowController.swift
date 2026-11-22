@@ -3,7 +3,7 @@ import GitEngine
 
 /// The one app window: the tab row in the title bar, and below it the content of the active tab.
 /// It coordinates the tab list, the repository opener and the title bar row, and answers the window's menu actions.
-final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
+final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let store: SessionStore
     private let opener = RepositoryOpener()
     private let cloner = CloneController()
@@ -65,7 +65,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         titlebar.mount()
         tabBar.onSelect = { [weak self] index in self?.activate(index) }
         tabBar.onClose = { [weak self] index in self?.close(index) }
-        tabBar.onNew = { [weak self] in self?.newTab(nil) }
+        tabBar.onNew = { [weak self] in self?.newTab() }
         tabBar.onMove = { [weak self] from, to in self?.moveTab(from: from, to: to) }
         content.onDropFolders = { [weak self] paths in self?.open(paths: paths, activate: paths.count - 1) }
         // A clone below a repository folder belongs in the suggestions at once, not only after the next scan.
@@ -84,8 +84,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let active = arguments.isEmpty ? store.activeTab : 0
         Task {
             let failed = await open(paths, activate: active)
-            if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab(nil) }
-            if ScreenshotHarness.wantsClone { cloneRepository(nil) }
+            if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab() }
+            if ScreenshotHarness.wantsClone { cloneRepository() }
             if let welcome = tabs.active?.welcome { ScreenshotHarness.clickCloneIfAsked(on: welcome) }
             // The window appears once, with all tabs, their final names and the saved tab active.
             showWindow(nil)
@@ -189,7 +189,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         guard tabs.indices.contains(index) else { return }
         tabs[index].repository?.closed()
         guard let next = tabs.remove(at: index) else {
-            newTab(nil)
+            newTab()
             return
         }
         activate(next)
@@ -205,7 +205,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     // MARK: Menu actions
 
-    @objc func newTab(_ sender: Any?) {
+    func newTab() {
         if let existing = tabs.welcomeIndex {
             activate(existing)
             return
@@ -215,18 +215,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             if background { self?.openInBackground(path) } else { self?.open(paths: [path], activate: 0) }
         }
         welcome.onChooseFolder = { [weak self] in self?.chooseFolder() }
-        welcome.onClone = { [weak self] in self?.cloneRepository(nil) }
+        welcome.onClone = { [weak self] in self?.cloneRepository() }
         welcome.onOpenSettings = { SettingsWindowController.shared.show(.general) }
         let tab = WindowTab(welcome: welcome)
         ScreenshotHarness.waitForDiscovery(tab) { [weak self] in self?.captureIfRequested() }
         activate(tabs.append(tab))
     }
 
-    @objc func openRepository(_ sender: Any?) {
+    func openRepository() {
         chooseFolder()
     }
 
-    @objc func cloneRepository(_ sender: Any?) {
+    func cloneRepository() {
         guard let window else { return }
         cloner.show(on: window)
         ScreenshotHarness.driveClone(cloner)
@@ -237,7 +237,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         open(paths: [path], activate: 0)
     }
 
-    @objc func closeTab(_ sender: Any?) {
+    func closeTab() {
         // The last empty tab has nothing left to close but the window.
         if tabs.count == 1, tabs[0].welcome != nil {
             window?.performClose(nil)
@@ -246,19 +246,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         close(tabs.activeIndex)
     }
 
-    @objc func selectNextTab(_ sender: Any?) {
+    func selectNextTab() {
         activate((tabs.activeIndex + 1) % tabs.count)
     }
 
-    @objc func selectPreviousTab(_ sender: Any?) {
+    func selectPreviousTab() {
         activate((tabs.activeIndex + tabs.count - 1) % tabs.count)
-    }
-
-    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        switch menuItem.action {
-        case #selector(selectNextTab(_:)), #selector(selectPreviousTab(_:)): tabs.count > 1
-        default: true
-        }
     }
 
     var recentRepositories: [String] { store.recentRepositories }

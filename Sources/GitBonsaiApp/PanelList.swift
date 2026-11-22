@@ -145,7 +145,6 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         tableView.selectionHighlightStyle = .regular
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.target = self
         let menu = NSMenu()
         menu.delegate = self
         tableView.menu = menu

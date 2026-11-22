@@ -117,21 +117,9 @@ enum AppSettings {
 
     /// Hands the stored choices to AppKit and the git engine; called once at launch, before the first window.
     static func apply() {
-        migrateSingleApps()
         NSApp.appearance = appearance.nsAppearance
         GitRunner.preferredGitPath = gitPath
         ScreenshotHarness.applyAvatarSwitches()
-    }
-
-    /// The single `externalEditor` and `terminalApp` of earlier versions become the defaults, added to the list when the app does not find them.
-    private static func migrateSingleApps() {
-        for (key, kind) in [("externalEditor", ExternalApps.Kind.editor), ("terminalApp", .terminal)] {
-            guard let old = defaults.url(forKey: key) else { continue }
-            defaults.removeObject(forKey: key)
-            guard let app = ExternalApps.app(at: old) else { continue }
-            if !ExternalApps.choices(kind).contains(where: { $0.app.bundleID == app.bundleID }) { setAddedApps(addedApps(kind) + [old], kind) }
-            setDefaultApp(app.bundleID, kind)
-        }
     }
 
     private static func store(_ value: Any?, forKey key: String) {

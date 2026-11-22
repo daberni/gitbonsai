@@ -36,8 +36,6 @@ final class HistorySearchController {
         self.viewModel = viewModel
     }
 
-    var isActive: Bool { search != nil }
-
     /// Whether a row stays at full strength: always without a search, otherwise only for a match.
     func isMatch(row: Int) -> Bool {
         guard search != nil, row < viewModel.commits.count else { return true }

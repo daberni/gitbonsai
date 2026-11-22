@@ -7,12 +7,12 @@ extension MainWindowController: CommandProvider {
         let (titles, active) = commandTabs
         let several: LocalizedStringResource? = titles.count > 1 ? nil : LocalizedStringResource("window.tabs.onlyOne", defaultValue: "Only one tab is open", bundle: .module)
         return [
-            Command(.newTab) { [weak self] in self?.newTab(nil) },
-            Command(.openRepository) { [weak self] in self?.openRepository(nil) },
-            Command(.clone) { [weak self] in self?.cloneRepository(nil) },
-            Command(.closeTab, context: titles.indices.contains(active) ? titles[active] : nil) { [weak self] in self?.closeTab(nil) },
-            Command(.nextTab, disabledReason: several) { [weak self] in self?.selectNextTab(nil) },
-            Command(.previousTab, disabledReason: several) { [weak self] in self?.selectPreviousTab(nil) },
+            Command(.newTab) { [weak self] in self?.newTab() },
+            Command(.openRepository) { [weak self] in self?.openRepository() },
+            Command(.clone) { [weak self] in self?.cloneRepository() },
+            Command(.closeTab, context: titles.indices.contains(active) ? titles[active] : nil) { [weak self] in self?.closeTab() },
+            Command(.nextTab, disabledReason: several) { [weak self] in self?.selectNextTab() },
+            Command(.previousTab, disabledReason: several) { [weak self] in self?.selectPreviousTab() },
             Command(.switchTab, disabledReason: several, action: .choose(placeholder: LocalizedStringResource("window.tabs.searchPlaceholder", defaultValue: "Search tabs", bundle: .module)) { [weak self] in
                 titles.enumerated().map { index, title in
                     Command(id: "tab.\(index)", title: .verbatim(title), glyph: .symbol("square"), scope: .app, context: index == active ? String(localized: "window.tabs.active", defaultValue: "Active", bundle: .module, comment: "Marks the current tab in the command bar's tab list.") : nil) { self?.showTab(at: index) }

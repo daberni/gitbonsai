@@ -80,7 +80,7 @@ final class DetailView: NSView {
         commitFiles = nil
         fileList = nil
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let header = label(title.uppercased(with: AppLanguage.locale), font: Theme.label, color: Theme.inkMuted)
+        let header = label("", font: Theme.label, color: Theme.inkMuted)
         header.attributedStringValue = NSAttributedString(string: title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
         let box = NSView()
         box.translatesAutoresizingMaskIntoConstraints = false

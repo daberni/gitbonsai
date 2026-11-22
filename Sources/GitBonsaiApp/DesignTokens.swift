@@ -77,8 +77,6 @@ enum Theme {
         static let l: CGFloat = 16
         /// space-6
         static let xl: CGFloat = 24
-        /// space-8
-        static let xxl: CGFloat = 32
     }
 
     enum Radius {
@@ -427,7 +425,6 @@ enum Theme {
         static let previewNode: CGFloat = 6
         static let previewStrandX: CGFloat = 18
         static let previewTextX: CGFloat = 36
-        static let markGap = Space.xs
     }
 
     /// The banner above the history while git is mid-rebase, cherry-pick or revert: clay-soft, persimmon-soft with conflicts.
