@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The interactive rebase sheet: "von <old base> nach <target>" at the top, the steps oldest first and the resulting history side by side on one grid, the message of the selected step
+/// The interactive rebase sheet: "from <old base> to <target>" at the top, the steps oldest first and the resulting history side by side on one grid, the message of the selected step
 /// below both, hints and options at the bottom. Sizes come from `Theme.InteractiveRebase` and hold through Auto Layout at any size between the sheet's limits. It returns the plan to run, or nil when cancelled.
 @MainActor
 final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {

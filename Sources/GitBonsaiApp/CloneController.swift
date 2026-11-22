@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// "Repository klonen": asks for source, destination and options in a sheet, runs `git clone` with its progress and hands the new repository on.
+/// "Clone Repository": asks for source, destination and options in a sheet, runs `git clone` with its progress and hands the new repository on.
 /// The URL comes from the pasteboard when it holds one; the destination follows the URL inside the first repository folder until the user edits it.
 @MainActor
 final class CloneController {
@@ -137,7 +137,7 @@ final class CloneController {
         }
     }
 
-    /// Abbrechen while git runs stops it, and `Repository.clone` removes what it wrote; the sheet closes once git has exited.
+    /// Cancel while git runs stops it, and `Repository.clone` removes what it wrote; the sheet closes once git has exited.
     @objc func cancel(_ sender: Any?) {
         if let clone {
             ScreenshotHarness.traceClone("cancelling")

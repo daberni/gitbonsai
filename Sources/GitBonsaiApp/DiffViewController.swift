@@ -2,7 +2,7 @@ import AppKit
 import GitEngine
 
 /// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged, and unstaged or untracked hunks discarded.
-/// The "Datei" mode shows the whole file with the changes in place instead; hunks are staged in the "Diff" mode only.
+/// The "Whole file" mode shows the whole file with the changes in place instead; hunks are staged in the "Diff" mode only.
 @MainActor
 final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     private enum Row {

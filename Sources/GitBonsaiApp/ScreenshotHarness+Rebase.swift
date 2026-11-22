@@ -86,8 +86,8 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_PRINT_SELECTION=<seconds>,…` prints whether the toast shows, the selected history row, whether it is HEAD and whether a diff covers the history after each delay.
     /// `GITBONSAI_REBASE_MENU=<row>,<row>` prints the interactive rebase entries of those rows with the reason a disabled one gives.
-    /// `GITBONSAI_EDIT_AMEND=<subject>` at an edit stop clicks "Commit ändern …" in the banner, types the subject into the commit form, clicks Amend and then Fortsetzen, all with real events.
-    /// `GITBONSAI_REBASE_UNDO=1` clicks "Rückgängig" in the status line; the question is answered by `GITBONSAI_CONFIRM=1`.
+    /// `GITBONSAI_EDIT_AMEND=<subject>` at an edit stop clicks "Amend Commit…" in the banner, types the subject into the commit form, clicks Amend and then Continue, all with real events.
+    /// `GITBONSAI_REBASE_UNDO=1` clicks "Undo…" in the status line; the question is answered by `GITBONSAI_CONFIRM=1`.
     static func driveRebase(on tab: RepositoryViewController) {
         if let script = environment["GITBONSAI_REWORD_SCRIPT"] {
             let steps = script.split(separator: ";").map(String.init)
@@ -118,7 +118,7 @@ extension ScreenshotHarness {
         }
     }
 
-    /// `GITBONSAI_REWORD_SCRIPT=<step>;<step>…` edits a commit message in place in the detail panel. Steps: `select:<row>` (selects the history row), `menu` (runs "Nachricht bearbeiten" from the selected row's commit menu),
+    /// `GITBONSAI_REWORD_SCRIPT=<step>;<step>…` edits a commit message in place in the detail panel. Steps: `select:<row>` (selects the history row), `menu` (runs "Edit Message" from the selected row's commit menu),
     /// `dblclick` (a real double click on the subject), `pencil` (a real click on the pencil), `cmd-e` (⌘E through the main menu: its validation, then its action),
     /// `subject:<text>` and `body:<text>` (typed, `\n` for a new line), `key:<key>` (`escape`, `cmd-return`, `return`, a letter), `save`, `cancel` (real clicks), `print`, `shot:<png>`, `wait:<seconds>`.
     private static func runRewordSteps(_ steps: ArraySlice<String>, on tab: RepositoryViewController) {

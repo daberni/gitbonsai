@@ -25,7 +25,7 @@ enum AppSettings {
         ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
     }
 
-    /// Bundle id of the editor or terminal "Im Editor öffnen" and "Im Terminal öffnen" use; nil takes the first shown one. `ExternalApps.preferred(_:)` resolves it.
+    /// Bundle id of the editor or terminal "Open in editor" and "Open in terminal" use; nil takes the first shown one. `ExternalApps.preferred(_:)` resolves it.
     static func defaultApp(_ kind: ExternalApps.Kind) -> String? {
         defaults.string(forKey: "default\(kind.settingsKey)")
     }
@@ -34,7 +34,7 @@ enum AppSettings {
         store(id, forKey: "default\(kind.settingsKey)")
     }
 
-    /// Bundle ids the command bar leaves out of "Im Editor öffnen mit …" and "Im Terminal öffnen mit …".
+    /// Bundle ids the command bar leaves out of "Open in editor with…" and "Open in terminal with…".
     static func hiddenApps(_ kind: ExternalApps.Kind) -> [String] {
         defaults.stringArray(forKey: "hidden\(kind.settingsKey)s") ?? []
     }

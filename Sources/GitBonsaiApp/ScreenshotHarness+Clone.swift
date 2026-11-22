@@ -1,10 +1,10 @@
 import AppKit
 import GitEngine
 
-/// Harness switches for "Repository klonen".
+/// Harness switches for "Clone Repository".
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_CLONE=1` opens the clone sheet once the window is up; `GITBONSAI_CLONE_CLICK=1` opens it with a real click on the empty tab's "Klonen …" instead.
+    /// `GITBONSAI_CLONE=1` opens the clone sheet once the window is up; `GITBONSAI_CLONE_CLICK=1` opens it with a real click on the empty tab's "Clone…" instead.
     static var wantsClone: Bool { environment["GITBONSAI_CLONE"] != nil && environment["GITBONSAI_CLONE_CLICK"] == nil }
 
     /// Harness runs read a pasteboard of their own, which `GITBONSAI_CLONE_PASTE=<text>` fills, so they never read or change the user's.
@@ -35,8 +35,8 @@ extension ScreenshotHarness {
     }
 
     /// `GITBONSAI_CLONE_FORM=url=…;path=…;branch=…;submodules=1;shallow=1` fills the sheet, `GITBONSAI_CLONE_SHOT=<png>` renders it filled,
-    /// `GITBONSAI_CLONE_RUN=1` clicks "Klonen" with a real click, `GITBONSAI_CLONE_SHOT_DURING=<png>` renders it once receiving passes a third,
-    /// and `GITBONSAI_CLONE_CANCEL_AT=<fraction>` clicks "Abbrechen" once the progress passes that fraction. Without RUN the sheet is cancelled after the shot.
+    /// `GITBONSAI_CLONE_RUN=1` clicks "Clone" with a real click, `GITBONSAI_CLONE_SHOT_DURING=<png>` renders it once receiving passes a third,
+    /// and `GITBONSAI_CLONE_CANCEL_AT=<fraction>` clicks "Cancel" once the progress passes that fraction. Without RUN the sheet is cancelled after the shot.
     static func driveClone(_ cloner: CloneController) {
         guard isActive, let sheet = cloner.sheet else { return }
         if let pasted = clonePasteboard.string(forType: .string) { traceClone("pasteboard \"\(pasted)\", URL field \"\(sheet.urlField.stringValue)\"") }

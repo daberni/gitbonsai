@@ -1,6 +1,6 @@
 import AppKit
 
-/// A way forward that a failure sheet offers, such as "Änderungen stashen und erneut versuchen". The first one is the sheet's default button.
+/// A way forward that a failure sheet offers, such as "Stash changes and try again". The first one is the sheet's default button.
 struct FailureAction {
     let title: String
     let isDestructive: Bool
@@ -14,7 +14,7 @@ struct FailureAction {
 }
 
 /// The sheet of a failed git command: a title, one sentence of what happened, the ways forward as buttons and git's output collapsed below.
-/// Without a way forward it has only "OK"; with one, "Abbrechen" closes it and the first action is the default button.
+/// Without a way forward it has only "OK"; with one, "Cancel" closes it and the first action is the default button.
 @MainActor
 final class FailureSheet {
     private typealias M = Theme.Failure

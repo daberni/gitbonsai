@@ -116,7 +116,7 @@ enum ExternalApps {
         return found.map { Choice(app: $0.0, url: $0.1, isShown: !hidden.contains($0.0.bundleID)) }
     }
 
-    /// The apps the command bar lists under "Im Editor öffnen mit …" and "Im Terminal öffnen mit …".
+    /// The apps the command bar lists under "Open in editor with…" and "Open in terminal with…".
     static func shown(_ kind: Kind) -> [Choice] {
         choices(kind).filter(\.isShown)
     }

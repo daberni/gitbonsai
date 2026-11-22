@@ -122,13 +122,13 @@ final class CommandBarPanel: NSView {
         ])
     }
 
-    /// The label above the field while a second step is open, such as "Branch auschecken".
+    /// The label above the field while a second step is open, such as "Checkout Branch…".
     func showStep(_ title: String?) {
         stepLabel.attributedStringValue = NSAttributedString(string: title?.uppercased() ?? "", attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
         stepHeight.constant = title == nil ? 0 : C.stepHeight
     }
 
-    /// Sizes the list to its rows, up to the visible maximum; an empty list keeps one row for "Keine passenden Befehle".
+    /// Sizes the list to its rows, up to the visible maximum; an empty list keeps one row for "No matching commands".
     func showRows(_ count: Int) {
         listHeight.constant = CGFloat(max(min(count, C.maxVisibleRows), 1)) * C.rowHeight
         emptyLabel.isHidden = count > 0

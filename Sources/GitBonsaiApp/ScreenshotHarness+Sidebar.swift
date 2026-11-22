@@ -76,7 +76,7 @@ extension ScreenshotHarness {
     }
 }
 
-/// Harness switches for the "Neuer Branch" sheet once `GITBONSAI_NEW_BRANCH` opened it.
+/// Harness switches for the "New Branch" sheet once `GITBONSAI_NEW_BRANCH` opened it.
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_FULL_KEYBOARD_ACCESS=1` lets the app's own controls act as with full keyboard access on, which AppKit reads from the system setting only; system buttons keep the setting.

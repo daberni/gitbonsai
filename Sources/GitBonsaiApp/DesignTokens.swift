@@ -343,7 +343,7 @@ enum Theme {
         static let commitRing: CGFloat = 4.5
     }
 
-    /// The "Neuer Branch" sheet.
+    /// The "New Branch" sheet.
     enum NewBranch {
         static let width: CGFloat = 460
         static let padding = Space.xl
@@ -366,7 +366,7 @@ enum Theme {
         static let fade: TimeInterval = 0.25
     }
 
-    /// The "Repository klonen" sheet.
+    /// The "Clone Repository" sheet.
     enum Clone {
         static let width: CGFloat = 460
         static let minimumHeight: CGFloat = 200

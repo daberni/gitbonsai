@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The form of "Repository klonen": source, destination, options, and while git runs its progress. `CloneController` fills and reads it.
+/// The form of "Clone Repository": source, destination, options, and while git runs its progress. `CloneController` fills and reads it.
 @MainActor
 final class CloneSheet: NSObject, NSTextFieldDelegate {
     let window: NSWindow

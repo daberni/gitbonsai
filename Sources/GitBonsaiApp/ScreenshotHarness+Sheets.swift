@@ -62,7 +62,7 @@ extension ScreenshotHarness {
 
     // MARK: Failure sheets
 
-    /// `GITBONSAI_REPORT_CLICK=<button>` shows failure sheets as real sheets and clicks that button with real events once they are up; `GITBONSAI_REPORT_DETAILS=1` first opens "Git-Ausgabe" with a click.
+    /// `GITBONSAI_REPORT_CLICK=<button>` shows failure sheets as real sheets and clicks that button with real events once they are up; `GITBONSAI_REPORT_DETAILS=1` first opens "Git Output" with a click.
     static var clicksReports: Bool { isActive && environment["GITBONSAI_REPORT_CLICK"] != nil }
 
     /// Without `GITBONSAI_REPORT_CLICK` a failure sheet is not shown; `GITBONSAI_REPORT_SHOT=<png>` renders it with its details open.

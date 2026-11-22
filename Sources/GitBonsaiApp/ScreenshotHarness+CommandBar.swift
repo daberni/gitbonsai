@@ -76,7 +76,7 @@ extension ScreenshotHarness {
             let handled = keyEvent(key, code: 0, flags: flags, in: window).map { NSApp.mainMenu?.performKeyEquivalent(with: $0) ?? false } ?? false
             report("shortcut \(argument) \(handled ? "handled by the main menu" : "not handled")")
         case "pick":
-            // `pick:Branch/Branch auschecken …` chooses a menu bar item the way a click does, after AppKit's update and validation.
+            // `pick:Branch/Checkout Branch…` chooses a menu bar item the way a click does, after AppKit's update and validation.
             let path = argument.split(separator: "/", maxSplits: 1).map(String.init)
             guard path.count == 2, let menu = NSApp.mainMenu?.items.first(where: { $0.title == path[0] })?.submenu else {
                 report("menu: no menu \(argument)")
