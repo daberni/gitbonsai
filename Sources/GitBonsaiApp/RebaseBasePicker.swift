@@ -1,30 +1,28 @@
 import AppKit
 import GitEngine
 
-/// "von <old base> nach <target>" at the top of the interactive rebase sheet. The old base is a combo box: detected candidates first, then branches and tags, or any commit typed.
-/// Each edit that names a commit asks `changeBase` to load the new range; only the latest edit may answer.
+/// "von <old base> nach <target>" at the top of the interactive rebase sheet. The old base is a `RefPicker`: the detected candidates under "Vorschläge", then branches, remote branches and tags, or any commit typed.
+/// Each choice asks `changeBase` to load the new range; only the latest choice may answer.
 @MainActor
-final class RebaseBasePicker: NSObject, NSComboBoxDelegate {
+final class RebaseBasePicker {
     private typealias M = Theme.InteractiveRebase
 
-    /// An entry of the pick list; `title` may describe the commit `revision` names.
-    struct Candidate {
-        let title: String
-        let revision: String
-    }
-
     let view: NSStackView
-    let field = NSComboBox()
+    let picker: RefPicker
     private let status = NSTextField(labelWithString: "")
-    private var candidates: [Candidate]
     private var current: String
     private var check = 0
     /// Loads the range from the base `revision` names; returns why it cannot, or nil when the sheet now shows it.
     var changeBase: ((String) async -> String?)?
 
-    init(base: Candidate, target: String, candidates: [Candidate], note: String?) {
-        self.candidates = candidates
+    /// `base` is chosen first; `catalog` lists it with the other candidates under its current section.
+    init(base: RefCatalog.Item, target: String, catalog: RefCatalog, repository: Repository, note: String?) {
         current = base.revision
+        picker = RefPicker(repository: repository)
+        picker.sectionTitles[.current] = "Vorschläge"
+        picker.setCatalog(catalog, selection: base)
+        picker.button.toolTip = "Die bisherige Basis: ihre Commits und alles davor bleiben zurück"
+        picker.button.setAccessibilityLabel("Bisherige Basis")
         let from = Self.caption("von")
         let to = Self.caption("nach")
         let targetLabel = NSTextField(labelWithString: target)
@@ -33,25 +31,16 @@ final class RebaseBasePicker: NSObject, NSComboBoxDelegate {
         targetLabel.lineBreakMode = .byTruncatingTail
         targetLabel.toolTip = target
         targetLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        field.addItems(withObjectValues: candidates.map(\.title))
-        field.completes = true
-        field.numberOfVisibleItems = M.visibleBaseChoices
-        field.placeholderString = "Branch, Tag oder Commit"
-        field.stringValue = base.title
-        field.font = Theme.body
-        field.toolTip = "Die bisherige Basis: ihre Commits und alles davor bleiben zurück"
-        field.setAccessibilityLabel("Bisherige Basis")
         status.font = Theme.caption
         status.lineBreakMode = .byTruncatingTail
         status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        view = NSStackView(views: [from, field, to, targetLabel, status])
+        view = NSStackView(views: [from, picker.button, to, targetLabel, status])
         view.orientation = .horizontal
-        view.alignment = .firstBaseline
+        view.alignment = .centerY
         view.spacing = Theme.Space.s
         view.setCustomSpacing(Theme.Space.l, after: targetLabel)
-        super.init()
-        field.delegate = self
-        field.widthAnchor.constraint(equalToConstant: M.baseFieldWidth).isActive = true
+        picker.button.widthAnchor.constraint(equalToConstant: M.baseFieldWidth).isActive = true
+        picker.onChange = { [weak self] item in Task { await self?.baseChosen(item.revision) } }
         show(note, isProblem: false)
     }
 
@@ -68,24 +57,15 @@ final class RebaseBasePicker: NSObject, NSComboBoxDelegate {
         status.textColor = isProblem ? Theme.persimmon : Theme.inkMuted
     }
 
-    func controlTextDidChange(_ notification: Notification) { Task { await baseEdited() } }
-    func comboBoxSelectionDidChange(_ notification: Notification) {
-        // The field shows the picked value only after this notification returns.
-        DispatchQueue.main.async { Task { await self.baseEdited() } }
-    }
-
-    /// Under the harness `GITBONSAI_ONTO=<base>` and the `base:` step type the base.
+    /// Under the harness `GITBONSAI_ONTO=<base>` and the `base:` step choose the base by name or revision, as picking it in the list would.
     func type(_ text: String) async {
-        field.stringValue = text
-        await baseEdited()
+        guard let item = await picker.choose(text.trimmingCharacters(in: .whitespaces)) else { return show("„\(text)“ ist kein Commit", isProblem: true) }
+        await baseChosen(item.revision)
     }
 
-    private func baseEdited() async {
+    private func baseChosen(_ revision: String) async {
         check += 1
         let edit = check
-        let typed = field.stringValue.trimmingCharacters(in: .whitespaces)
-        let revision = candidates.first { $0.title == typed }?.revision ?? typed
-        guard !typed.isEmpty else { return show("Noch keine Basis gewählt", isProblem: true) }
         guard revision != current else { return }
         let problem = await changeBase?(revision)
         guard edit == check else { return }

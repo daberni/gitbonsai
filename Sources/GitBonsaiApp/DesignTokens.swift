@@ -359,7 +359,6 @@ enum Theme {
         static let foldIndent = Space.l
         static let messageHeight: CGFloat = 132
         static let baseFieldWidth: CGFloat = 300
-        static let visibleBaseChoices = 12
         static let previewNode: CGFloat = 6
         static let previewStrandX: CGFloat = 18
         static let previewTextX: CGFloat = 36

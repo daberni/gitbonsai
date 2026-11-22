@@ -27,22 +27,25 @@ public struct RefCatalog: Sendable {
         /// What git is given for it.
         public let revision: String
         public let commit: CommitSummary
+        /// Why a commit is offered, such as "Merge-Base"; shown and searched next to its subject.
+        public let note: String?
 
         public var id: String { "\(kind)|\(revision)" }
 
-        public init(kind: Kind, title: String, revision: String, commit: CommitSummary) {
+        public init(kind: Kind, title: String, revision: String, commit: CommitSummary, note: String? = nil) {
             self.kind = kind
             self.title = title
             self.revision = revision
             self.commit = commit
+            self.note = note
         }
 
         public static func head(branch: String?, commit: CommitSummary) -> Item {
             Item(kind: .head(branch: branch), title: branch ?? commit.shortID, revision: "HEAD", commit: commit)
         }
 
-        public static func commit(_ commit: CommitSummary) -> Item {
-            Item(kind: .commit, title: commit.shortID, revision: commit.sha, commit: commit)
+        public static func commit(_ commit: CommitSummary, note: String? = nil) -> Item {
+            Item(kind: .commit, title: commit.shortID, revision: commit.sha, commit: commit, note: note)
         }
     }
 
@@ -103,6 +106,12 @@ public struct RefCatalog: Sendable {
         return groups
     }
 
+    /// The item whose title is exactly `query`, ignoring surrounding whitespace.
+    public func item(titled query: String) -> Item? {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (current + locals + remotes.flatMap(\.items) + tags).first { $0.title == text }
+    }
+
     /// Whether `query` could name a commit by its SHA, so it is worth asking git.
     public static func looksLikeSHA(_ query: String) -> Bool {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -116,7 +125,7 @@ public struct RefCatalog: Sendable {
         if !ranges.isEmpty { return Match(item: item, titleRanges: ranges) }
         if case .head = item.kind, "HEAD".range(of: text, options: .caseInsensitive) != nil { return Match(item: item, titleRanges: []) }
         if looksLikeSHA(text), item.commit.sha.hasPrefix(text.lowercased()) { return Match(item: item, titleRanges: []) }
-        if case .commit = item.kind, item.commit.subject.range(of: text, options: .caseInsensitive) != nil { return Match(item: item, titleRanges: []) }
+        if case .commit = item.kind, ([item.commit.subject] + [item.note].compactMap { $0 }).contains(where: { $0.range(of: text, options: .caseInsensitive) != nil }) { return Match(item: item, titleRanges: []) }
         return nil
     }
 

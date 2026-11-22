@@ -80,7 +80,6 @@ final class InteractiveRebaseController {
         let repository = viewModel.repository
         let hasLocalChanges = viewModel.status?.entries.contains { !$0.isUntracked && !$0.isIgnored } ?? false
         let upstream = viewModel.status?.branch.upstream
-        let refs = viewModel.refs.filter { $0.kind == .localBranch && $0.name != branch || $0.kind == .tag }.map { RebaseBasePicker.Candidate(title: $0.name, revision: $0.name) }
         Task {
             do {
                 let range = try await repository.rebaseRange(onto: target.id, detection: detection)
@@ -88,11 +87,9 @@ final class InteractiveRebaseController {
                 let branches = await repository.stackedBranches(in: range.commits)
                 let published = await repository.publishedCommitCount(rewrittenBy: range.base)
                 let model = InteractiveRebaseModel(branch: branch, range: range, base: base, target: targetCommit, targetName: targetName, branches: branches, published: published, hasLocalChanges: hasLocalChanges)
-                let found = Self.candidates(of: detection, inPlace: range.isInPlace)
-                let mergeBase = range.isInPlace ? nil : await repository.mergeBase(target.id, "HEAD")
-                let mergeBaseCandidate = mergeBase.map { [RebaseBasePicker.Candidate(title: "\($0.prefix(7)) – Merge-Base", revision: $0)] } ?? []
-                let initial = found.first { $0.revision == range.base } ?? mergeBaseCandidate.first { $0.revision == range.base } ?? RebaseBasePicker.Candidate(title: range.isInPlace ? targetName : String(range.base.prefix(7)), revision: range.base)
-                let picker = RebaseBasePicker(base: initial, target: "\(targetName) · \(targetCommit.shortID) „\(targetCommit.subject)“", candidates: found + mergeBaseCandidate.filter { $0.revision != found.first?.revision } + refs, note: Self.note(for: detection, range: range))
+                let suggestions = await Self.suggestions(of: detection, range: range, target: target.id, targetName: targetName, in: repository)
+                let tips = ((try? await repository.refTips()) ?? []).filter { !($0.kind == .localBranch && $0.name == branch) }
+                let picker = RebaseBasePicker(base: suggestions.initial, target: "\(targetName) · \(targetCommit.shortID) „\(targetCommit.subject)“", catalog: RefCatalog(tips: tips, current: suggestions.items), repository: repository, note: Self.note(for: detection, range: range))
                 // The sheet owns the picker and goes away when it closes, which ends this reference to the controller.
                 picker.changeBase = { [weak model] revision in
                     guard let model else { return nil }
@@ -140,15 +137,26 @@ final class InteractiveRebaseController {
         }
     }
 
-    /// The detected candidates for the base field, described by why they were found.
-    private static func candidates(of detection: RebaseBaseDetection, inPlace: Bool) -> [RebaseBasePicker.Candidate] {
-        guard !inPlace else { return [] }
-        let bases: [RebaseBase] = switch detection {
-        case .detected(let base): [base]
-        case .tie(let bases): bases
-        case .plain: []
+    /// The bases the picker suggests: the detected ones described by why they were found, then the merge base; `initial` is the base the range starts from, listed among them.
+    private static func suggestions(of detection: RebaseBaseDetection, range: RebaseRange, target: String, targetName: String, in repository: Repository) async -> (items: [RefCatalog.Item], initial: RefCatalog.Item) {
+        var items: [RefCatalog.Item] = []
+        if !range.isInPlace {
+            let bases: [RebaseBase] = switch detection {
+            case .detected(let base): [base]
+            case .tie(let bases): bases
+            case .plain: []
+            }
+            for base in bases {
+                if let commit = await repository.commitSummary(base.commit) { items.append(.commit(commit, note: RebaseOntoController.without(base.reason))) }
+            }
+            if let mergeBase = await repository.mergeBase(target, "HEAD"), !items.contains(where: { $0.revision == mergeBase }), let commit = await repository.commitSummary(mergeBase) {
+                items.append(.commit(commit, note: "Merge-Base"))
+            }
         }
-        return bases.map { RebaseBasePicker.Candidate(title: "\($0.commit.prefix(7)) – \(RebaseOntoController.without($0.reason))", revision: $0.commit) }
+        if let initial = items.first(where: { $0.revision == range.base }) { return (items, initial) }
+        let commit = await repository.commitSummary(range.base) ?? CommitSummary(sha: range.base, date: Date(), subject: "")
+        let initial = RefCatalog.Item.commit(commit, note: range.isInPlace ? targetName : nil)
+        return ([initial] + items, initial)
     }
 
     private static func note(for detection: RebaseBaseDetection, range: RebaseRange) -> String {

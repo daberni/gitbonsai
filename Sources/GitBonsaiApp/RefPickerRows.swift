@@ -40,6 +40,11 @@ enum RefItemStyle {
         }
     }
 
+    /// The muted text after a commit's SHA: why it is offered, then its subject.
+    static func commitText(of item: RefCatalog.Item) -> String {
+        ([item.note].compactMap { $0 } + [item.commit.subject]).joined(separator: " · ")
+    }
+
     static func sectionTitle(_ section: RefCatalog.Section) -> String {
         switch section {
         case .current: "Aktuell"
@@ -100,7 +105,7 @@ final class RefPickerRowView: NSView {
             Self.draw(title, x: textLeft, width: titleWidth, midY: midY)
             let subjectLeft = textLeft + titleWidth + R.detailGap
             if item.kind == .commit, trailing - R.detailGap > subjectLeft {
-                let subject = NSAttributedString(string: item.commit.subject, attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted, .paragraphStyle: Self.truncating])
+                let subject = NSAttributedString(string: RefItemStyle.commitText(of: item), attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted, .paragraphStyle: Self.truncating])
                 Self.draw(subject, x: subjectLeft, width: trailing - R.detailGap - subjectLeft, midY: midY)
             }
         }

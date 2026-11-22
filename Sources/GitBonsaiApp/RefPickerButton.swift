@@ -72,7 +72,7 @@ final class RefPickerButton: NSControl {
         RefPickerRowView.draw(title, x: textLeft, width: titleWidth, midY: midY)
         // A commit names itself by its SHA, so its subject follows; a ref shows where it points.
         let parts = RefItemStyle.detail(of: item)
-        let detailText = item.kind == .commit ? item.commit.subject : ([parts.sha].compactMap { $0 } + [parts.rest]).joined(separator: " · ")
+        let detailText = item.kind == .commit ? RefItemStyle.commitText(of: item) : ([parts.sha].compactMap { $0 } + [parts.rest]).joined(separator: " · ")
         let detailLeft = textLeft + titleWidth + R.detailGap
         let detailWidth = chevron.minX - R.detailGap - detailLeft
         guard detailWidth > 0 else { return }

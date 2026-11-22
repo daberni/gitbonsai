@@ -28,6 +28,8 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
         didSet { button.item = selection }
     }
     var onChange: ((RefCatalog.Item) -> Void)?
+    /// Section headers that read differently here than the defaults, such as "Vorschläge" for the current section.
+    var sectionTitles: [RefCatalog.Section: String] = [:]
 
     var isOpen: Bool { popover.isShown }
     /// The window AppKit hosts the dropdown in, while it is open.
@@ -130,7 +132,8 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
         let text = query
         resolved = nil
         reload(keepingSelection: false)
-        guard RefCatalog.looksLikeSHA(text) else { return }
+        // Any revision git understands can be typed, such as a SHA or HEAD~2; a name the list already shows needs no lookup.
+        guard !text.isEmpty, catalog.item(titled: text) == nil else { return }
         Task {
             let commit = await repository.commitSummary(text)
             guard current == lookup, let commit else { return }
@@ -199,13 +202,29 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
         onChange?(match.item)
     }
 
+    /// Chooses the item titled `text`, or else the commit it names, as picking it in the list would; nil when it names nothing.
+    func choose(_ text: String) async -> RefCatalog.Item? {
+        if let item = catalog.item(titled: text) {
+            selection = item
+            return item
+        }
+        guard let commit = await repository.commitSummary(text) else { return nil }
+        let item = RefCatalog.Item.commit(commit)
+        selection = item
+        return item
+    }
+
+    private func title(of section: RefCatalog.Section) -> String {
+        sectionTitles[section] ?? RefItemStyle.sectionTitle(section)
+    }
+
     /// The items the list shows, in order, for the harness.
     var visibleItems: [(section: String, title: String, selected: Bool)] {
         var section = ""
         return rows.enumerated().compactMap { index, row in
             switch row {
             case .header(let value):
-                section = RefItemStyle.sectionTitle(value)
+                section = title(of: value)
                 return nil
             case .item(let match):
                 return (section, match.item.title, index == table.selectedRow)
@@ -232,7 +251,7 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let view = RefPickerRowView()
         switch rows[row] {
-        case .header(let section): view.content = .header(RefItemStyle.sectionTitle(section))
+        case .header(let section): view.content = .header(title(of: section))
         case .item(let match): view.content = .item(match)
         }
         view.onPress = { [weak self] in self?.pick(row: row) }
