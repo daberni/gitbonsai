@@ -8,6 +8,7 @@ enum HistoryRowModel {
         let commit = viewModel.commits[index]
         let kind = viewModel.kinds[index]
         let refs = viewModel.refsByCommit[commit.id] ?? []
+        let isDetachedHead = kind != .wip && viewModel.currentBranch == nil && commit.id == viewModel.headSHA
         let stash = viewModel.stashesByCommit[commit.id]
         var wipCounts: (changed: Int, staged: Int, untracked: Int)?
         if kind == .wip, let status = viewModel.status {
@@ -23,8 +24,8 @@ enum HistoryRowModel {
             previousKind: index > 0 ? viewModel.kinds[index - 1] : nil,
             wipLaneAbove: viewModel.wipStrand.flatMap { index >= 1 && index <= $0.headRow ? $0.lane : nil },
             wipLaneBelow: viewModel.wipStrand.flatMap { index < $0.headRow ? $0.lane : nil },
-            pills: pills(for: refs, branchesElsewhere: viewModel.branchesInOtherWorktrees),
-            isHead: refs.contains(where: \.isHead),
+            pills: pills(for: refs, branchesElsewhere: viewModel.branchesInOtherWorktrees, detachedHead: isDetachedHead),
+            isHead: isDetachedHead || refs.contains(where: \.isHead),
             dimmed: kind != .stash && !viewModel.isReachableFromHead(commit.id),
             isSelected: isSelected,
             subject: stash.map { "\($0.selector): \($0.message)" } ?? commit.subject,
@@ -34,7 +35,8 @@ enum HistoryRowModel {
     }
 
     /// A local branch and its same-named remote branches share one label. The first glyph says where the branch stands: checked out here, checked out in another worktree, or just local.
-    static func pills(for refs: [Ref], branchesElsewhere elsewhere: [String: Worktree]) -> [PillModel] {
+    /// A detached HEAD has no branch to carry that mark, so the commit gets a "HEAD" label of its own in front of its other labels.
+    static func pills(for refs: [Ref], branchesElsewhere elsewhere: [String: Worktree], detachedHead: Bool) -> [PillModel] {
         var order: [String] = []
         var local: [String: Ref] = [:]
         var remoteCount: [String: Int] = [:]
@@ -69,6 +71,7 @@ enum HistoryRowModel {
             return PillModel(name: name, glyphs: glyphs, isHead: local[name]?.isHead ?? false)
         }
         // The pill list is drawn right to left, so the most important label comes first.
-        return branches.sorted { $0.isHead && !$1.isHead } + others
+        let head = detachedHead ? [PillModel(name: "HEAD", glyphs: [.check, .laptop], isHead: true)] : []
+        return head + branches.sorted { $0.isHead && !$1.isHead } + others
     }
 }
