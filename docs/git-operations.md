@@ -54,7 +54,10 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Reset a diverged local branch to its remote branch | `git switch -C <branch> <remote>/<branch>` | Asks first, naming the local commits that are lost |
 | Check out a commit | `git switch --detach <commit>` | |
 | Carry local changes through any checkout | `git status --porcelain -z --untracked-files=normal --ignore-submodules=all`; with changes `git stash push --include-untracked -m "GitBonsai: Änderungen beim Wechsel zu <target>"`, the switch, `git stash pop --index` (retried as `git stash pop` when git cannot restore the index) | `git rev-parse --verify --quiet refs/stash` before and after the push tells whether a stash was made. A failed switch pops at once; a conflicting pop keeps the stash and lists `git diff --name-only -z --diff-filter=U` (index queue) |
-| New branch | `git switch -c <name> <start>` or `git branch <name> <start>` | |
+| New branch | `git switch -c <name> <start>` or `git branch <name> <start>`; in a new worktree `git worktree add -b <name> <path> <start>` | From a remote branch git sets it as upstream (`branch.autoSetupMerge`) |
+| Validate a new branch name | `git check-ref-format --branch <name>` | Live while typing; valid only when git returns the name unchanged, so shorthands like `@{-1}` are refused. Existing names are checked against the loaded local branches |
+| Start points for the ref picker | `git for-each-ref --format=%(refname)%1f%(objectname)%1f%(committerdate:unix)%1f%(subject)%1f%(*objectname)%1f%(*committerdate:unix)%1f%(*subject)%1e refs/heads refs/remotes refs/tags` | Annotated tags peeled to their commit; remote `HEAD` and tags of trees or blobs left out |
+| HEAD and a typed SHA in the ref picker | `git log -1 --format=%H%x1f%ct%x1f%s --end-of-options <revision>^{commit} --` | For HEAD when the sheet opens, and for a query of 4 to 40 hex digits |
 | Rename | `git branch -m <old> <new>` | |
 | Set / unset upstream | `git branch --set-upstream-to=<upstream> <branch>` / `git branch --unset-upstream <branch>` | |
 | Delete | `git branch -d <branch>`; `-D` after asking | |

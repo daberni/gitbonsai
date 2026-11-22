@@ -40,7 +40,7 @@ extension ScreenshotHarness {
     }
 }
 
-/// Harness switches for the sidebar's context menus and the new-branch sheet. Sheets they raise are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`.
+/// Harness switches for the sidebar's context menus and for opening the new-branch sheet. Sheets the menus raise are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`.
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_SIDEBAR_MENU_LIST=<subject>` prints the entries of a sidebar row's menu without opening it; subjects are `branch:<name>` (also `branch:origin/main`) and `worktree:<folder>`.
@@ -91,5 +91,127 @@ extension ScreenshotHarness {
                 FileHandle.standardError.write(Data("GITBONSAI_NEW_BRANCH takes plus or toolbar\n".utf8))
             }
         }
+    }
+}
+
+/// Harness switches for the "Neuer Branch" sheet once `GITBONSAI_NEW_BRANCH` opened it.
+@MainActor
+extension ScreenshotHarness {
+    /// `GITBONSAI_NEW_BRANCH_SCRIPT=<step>;…` drives the sheet with real clicks and keys, one step every 0.35 s:
+    /// `click:name|picker|worktree|checkout|path|create|cancel`, `click:row:<n>` (n-th entry of the open picker), `type:<text>` into the focused field,
+    /// `key:return|escape|up|down|delete`, `print` (the form's state and the picker's entries) and `shot:<png>` (the sheet with the open picker beside it).
+    static func driveNewBranchSheet(_ sheet: NewBranchSheet) {
+        guard let script = environment["GITBONSAI_NEW_BRANCH_SCRIPT"] else { return }
+        let steps = script.split(separator: ";").map(String.init)
+        for (index, step) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + 0.35 * Double(index)) {
+                runNewBranchStep(step, on: sheet)
+            }
+        }
+    }
+
+    private static func runNewBranchStep(_ step: String, on sheet: NewBranchSheet) {
+        let form = sheet.form
+        let picker = form.picker
+        // Keys and clicks go to the open picker while it is shown, otherwise to the sheet.
+        let target = picker.panelWindow ?? sheet.window
+        let (verb, argument) = step.firstIndex(of: ":").map { (String(step[..<$0]), String(step[step.index(after: $0)...])) } ?? (step, "")
+        switch verb {
+        case "click":
+            if argument.hasPrefix("row:"), let n = Int(argument.dropFirst(4)), let window = picker.panelWindow {
+                let rows = (0..<picker.table.numberOfRows).filter { picker.table.delegate?.tableView?(picker.table, shouldSelectRow: $0) ?? false }
+                guard rows.indices.contains(n) else { return newBranchLog("no picker row \(n)") }
+                let rect = picker.table.rect(ofRow: rows[n])
+                click(in: window, at: picker.table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil))
+                return
+            }
+            let views: [String: NSView] = [
+                "name": form.nameInput,
+                "picker": picker.button,
+                "worktree": form.worktreeBox,
+                "checkout": form.checkoutBox,
+                "path": form.pathInput,
+                "create": form.createButton,
+                "cancel": form.cancelButton,
+            ]
+            guard let view = views[argument], !view.isHiddenOrHasHiddenAncestor, let window = view.window else { return newBranchLog("no visible \(argument)") }
+            click(in: window, at: view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil))
+        case "type":
+            for character in argument {
+                sendNewBranchKey(String(character), code: 0, to: target)
+            }
+        case "key":
+            let keys: [String: (String, UInt16)] = [
+                "return": ("\r", 36),
+                "escape": ("\u{1b}", 53),
+                "up": (String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)), 126),
+                "down": (String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), 125),
+                "delete": ("\u{7f}", 51),
+            ]
+            guard let (characters, code) = keys[argument] else { return newBranchLog("unknown key \(argument)") }
+            sendNewBranchKey(characters, code: code, to: target)
+        case "print":
+            let start = picker.selection.map { "\($0.title) (\($0.revision))" } ?? "none"
+            let mode = form.worktreeBox.isOn ? "worktree \(form.pathInput.stringValue)" : form.checkoutBox.isOn ? "checkout" : "stay"
+            let message = form.nameMessage.isHidden ? "none" : form.nameMessage.stringValue
+            newBranchLog("new branch: sheet open \(sheet.window.isVisible || sheet.window.sheetParent != nil), name \"\(form.nameInput.stringValue)\", error \(message), start \(start), \(mode), create enabled \(form.createButton.isEnabled), picker open \(picker.isOpen)")
+            if picker.isOpen {
+                let entries = picker.visibleItems.map { "\($0.selected ? ">" : "")\($0.section): \($0.title)" }
+                newBranchLog("picker query \"\(picker.search.stringValue)\": " + entries.joined(separator: " | "))
+            }
+        case "shot":
+            renderNewBranch(sheet, to: argument)
+        default:
+            newBranchLog("unknown step \(step)")
+        }
+    }
+
+    private static func sendNewBranchKey(_ characters: String, code: UInt16, to window: NSWindow) {
+        let flags: NSEvent.ModifierFlags = code == 125 || code == 126 ? [.function, .numericPad] : []
+        for type in [NSEvent.EventType.keyDown, .keyUp] {
+            guard let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code) else { continue }
+            window.sendEvent(event)
+        }
+    }
+
+    /// Renders the sheet and, while it is open, the picker's dropdown where it lies on screen, onto one image.
+    private static func renderNewBranch(_ sheet: NewBranchSheet, to path: String) {
+        let windows = [sheet.window, sheet.form.picker.panelWindow].compactMap { $0 }
+        let union = windows.map(\.frame).reduce(NSRect.null) { $0.union($1) }
+        let scale = sheet.window.backingScaleFactor
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(union.width * scale), pixelsHigh: Int(union.height * scale), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        rep.size = union.size
+        for window in windows {
+            // The popover's glass frame does not survive a cached render, so its content goes onto a plain rounded ground instead.
+            let isSheet = window === sheet.window
+            guard let view = isSheet ? window.contentView?.superview ?? window.contentView : window.contentView, let part = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+            window.appearance = NSApp.appearance
+            view.layoutSubtreeIfNeeded()
+            view.cacheDisplay(in: view.bounds, to: part)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
+            let rect = NSRect(origin: NSPoint(x: frame.minX - union.minX, y: frame.minY - union.minY), size: frame.size)
+            // Glass blends with what lies behind it, so a window background goes underneath.
+            window.effectiveAppearance.performAsCurrentDrawingAppearance {
+                NSColor.windowBackgroundColor.setFill()
+                if isSheet {
+                    rect.fill()
+                } else {
+                    let ground = NSBezierPath(roundedRect: rect, xRadius: Theme.Radius.md, yRadius: Theme.Radius.md)
+                    ground.fill()
+                    Theme.hairline.setStroke()
+                    ground.stroke()
+                }
+            }
+            part.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: false, hints: nil)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        newBranchLog("new branch sheet written to \(path)")
+    }
+
+    private static func newBranchLog(_ line: String) {
+        FileHandle.standardError.write(Data("\(line)\n".utf8))
     }
 }

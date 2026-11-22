@@ -1,53 +1,52 @@
 import AppKit
 import GitEngine
 
-/// The "new branch" sheet of the Local header's plus and the toolbar's Branch button: a name, a start point, and what happens after creating it.
+/// The "Neuer Branch" sheet of the Local header's plus and the toolbar's Branch button: loads what the start point picker offers, shows the sheet and runs git with the answer.
 @MainActor
 final class NewBranchController {
-    /// What happens once the branch exists; the raw values are the sheet's choice values.
-    enum Follow: String {
-        case stay, checkout, worktree
-    }
-
     private let runner: SidebarActionRunner
     private var viewModel: GraphViewModel { runner.viewModel }
+    /// The sheet while it is open, for the harness.
+    private(set) var sheet: NewBranchSheet?
 
     init(runner: SidebarActionRunner) {
         self.runner = runner
     }
 
-    /// `startPoint` preselects where the branch starts; HEAD when nil.
-    func show(startPoint: String? = nil) {
-        let form = ActionForm(title: "Neuer Branch", info: "Startpunkt ist ein Branch, ein Tag oder ein Commit.", confirm: "Anlegen")
-        form.addField(key: "name", label: "Name", placeholder: "feature/…")
-        form.addComboField(key: "start", label: "Startpunkt", value: startPoint ?? "HEAD", suggestions: ["HEAD"] + startPointSuggestions())
-        form.addChoice(key: "follow", label: "Danach", options: [
-            (Follow.checkout.rawValue, "Branch auschecken"),
-            (Follow.worktree.rawValue, "Als neuen Worktree anlegen"),
-            (Follow.stay.rawValue, "Nur anlegen"),
-        ], selected: Follow.checkout.rawValue)
-        form.addField(key: "path", label: "Ordner des Worktrees (leer: neben dem Repository)", required: false)
+    /// `commit` is offered under "Aktuell" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
+    func show(commit: Commit? = nil) {
+        guard sheet == nil, let parent = runner.prompter.window?() else { return }
+        let repository = viewModel.repository
         Task {
-            guard let values = await runner.prompter.ask(form), let name = values.value("name") else { return }
-            let start = values.value("start") ?? "HEAD"
-            switch Follow(rawValue: values.text["follow"] ?? "") ?? .checkout {
-            case .stay:
-                await runner.run(failure: "Branch nicht angelegt", note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
-            case .checkout:
-                await runner.run(failure: "Branch nicht angelegt", note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
-            case .worktree:
-                let folder = values.value("path").map { ($0 as NSString).expandingTildeInPath } ?? runner.defaultWorktreePath(suffix: name)
-                await runner.run(failure: "Worktree nicht angelegt", note: "git worktree add -b") { try await $0.addWorktree(at: folder, commit: start, newBranch: name) }
-            }
+            let tips = (try? await repository.refTips()) ?? []
+            let headBranch = viewModel.refs.first { $0.kind == .localBranch && $0.isHead }?.name
+            let headCommit = await repository.commitSummary("HEAD")
+            var current: [RefCatalog.Item] = headCommit.map { [.head(branch: headBranch, commit: $0)] } ?? []
+            let picked = commit.map { RefCatalog.Item.commit(CommitSummary(sha: $0.id, date: $0.committerDate, subject: $0.subject)) }
+            if let picked { current.append(picked) }
+            let picker = RefPicker(repository: repository)
+            picker.setCatalog(RefCatalog(tips: tips, current: current), selection: picked ?? current.first)
+            let existing = Set(tips.filter { $0.kind == .localBranch }.map(\.name))
+            let form = NewBranchViewController(repository: repository, existingBranches: existing, picker: picker) { [runner] name in runner.defaultWorktreePath(suffix: name) }
+            let sheet = NewBranchSheet(form: form)
+            self.sheet = sheet
+            ScreenshotHarness.driveNewBranchSheet(sheet)
+            let request = await sheet.run(on: parent)
+            self.sheet = nil
+            if let request { await create(request) }
         }
     }
 
-    /// Local branches first, then remote branches and tags.
-    private func startPointSuggestions() -> [String] {
-        let refs = viewModel.refs
-        let locals = refs.filter { $0.kind == .localBranch }.map(\.name).sorted()
-        let remotes = refs.filter { if case .remoteBranch = $0.kind { !$0.name.hasSuffix("/HEAD") } else { false } }.map(\.name).sorted()
-        let tags = refs.filter { $0.kind == .tag }.map(\.name).sorted()
-        return locals + remotes + tags
+    private func create(_ request: NewBranchRequest) async {
+        let name = request.name
+        let start = request.start
+        switch request.follow {
+        case .stay:
+            await runner.run(failure: "Branch nicht angelegt", note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
+        case .checkout:
+            await runner.run(failure: "Branch nicht angelegt", note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
+        case .worktree(let path):
+            await runner.run(failure: "Worktree nicht angelegt", note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
+        }
     }
 }

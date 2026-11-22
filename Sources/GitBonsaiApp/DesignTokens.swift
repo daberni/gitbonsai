@@ -240,10 +240,10 @@ enum Theme {
     enum CommitForm {
         static let padding = Space.m
         static let spacing = Space.s
-        static let subjectHeight: CGFloat = 30
+        static let subjectHeight = TextField.height
         static let bodyHeight: CGFloat = 64
         /// Text inset inside the fields, and the room the subject keeps free for its counter.
-        static let fieldInset = NSSize(width: Space.s + 2, height: Space.xs + 2)
+        static let fieldInset = TextField.inset
         static let counterWidth: CGFloat = 26
         /// The subject counter turns ochre and then persimmon past these lengths.
         static let subjectWarning = 50
@@ -269,6 +269,47 @@ enum Theme {
         static let labelSpacing = Space.xs
         /// Rows a ref suggestion list shows before it scrolls.
         static let visibleSuggestions = 12
+    }
+
+    /// The app's one text field: a `FieldBox` with a borderless field, as in the commit form.
+    enum TextField {
+        static let height: CGFloat = 30
+        /// Text inset inside the box.
+        static let inset = NSSize(width: Space.s + 2, height: Space.xs + 2)
+        /// Between the text and a glyph or button inside the box.
+        static let accessoryGap = Space.xs
+        static let accessory = Icon.regular
+        /// Point size of an SF Symbol in an accessory; matches the drawn glyphs at `accessory`.
+        static let accessorySymbol: CGFloat = 12.5
+        /// Between a field's caption above it and the field, and between the field and its message below.
+        static let captionGap = Space.xs
+    }
+
+    /// The ref picker: a popup-like control and the dropdown with search and sections.
+    enum RefPicker {
+        static let height = TextField.height
+        static let glyph = Icon.regular
+        static let glyphGap = Space.s
+        static let chevron: CGFloat = 10
+        /// Between the name and the muted SHA, date or subject after it.
+        static let detailGap = Space.s
+        static let panelWidth: CGFloat = 420
+        static let panelPadding = Space.s
+        static let rowHeight: CGFloat = 28
+        static let headerHeight: CGFloat = 24
+        static let rowPadding = Space.s
+        static let maxVisibleRows = 11
+        /// The commit glyph: a ring like a graph node, at icon size.
+        static let commitRing: CGFloat = 4.5
+    }
+
+    /// The "Neuer Branch" sheet.
+    enum NewBranch {
+        static let width: CGFloat = 460
+        static let padding = Space.xl
+        /// Between the groups of the form: name, start point, what happens afterwards, buttons.
+        static let groupSpacing = Space.l
+        static let buttonGap = Space.s
     }
 
     /// The note at the bottom of the history pane that fades out by itself.

@@ -1,8 +1,9 @@
 import AppKit
 
-/// A rounded field background in `surface-2` with a hairline border that turns moss while its field has focus.
+/// A rounded field background in `surface-2` with a hairline border that turns moss while its field has focus, and persimmon while its value is invalid.
 final class FieldBox: NSView {
     var isFocused = false { didSet { needsDisplay = true } }
+    var isInvalid = false { didSet { needsDisplay = true } }
 
     override func draw(_ dirtyRect: NSRect) {
         typealias C = Theme.Control
@@ -10,7 +11,7 @@ final class FieldBox: NSView {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: inset, dy: inset), xRadius: C.radius, yRadius: C.radius)
         Theme.surface2.setFill()
         path.fill()
-        (isFocused ? Theme.moss : Theme.hairline).setStroke()
+        (isInvalid ? Theme.persimmon : isFocused ? Theme.moss : Theme.hairline).setStroke()
         path.lineWidth = isFocused ? C.focusWidth : Theme.Stroke.hairline
         path.stroke()
     }
@@ -137,6 +138,53 @@ final class PrimaryButton: NSControl {
     }
 }
 
+/// The quiet button beside `PrimaryButton`, such as Cancel: `surface-2` with a hairline and ink text.
+final class SecondaryButton: NSControl {
+    let title: String
+    private var isPressed = false { didSet { needsDisplay = true } }
+
+    init(title: String) {
+        self.title = title
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    private var attributedTitle: NSAttributedString {
+        NSAttributedString(string: title, attributes: [.font: Theme.body, .foregroundColor: Theme.ink])
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: attributedTitle.size().width + 2 * Theme.Control.padding, height: Theme.Control.height)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let inset = Theme.Stroke.hairline / 2
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: inset, dy: inset), xRadius: Theme.Control.radius, yRadius: Theme.Control.radius)
+        (isPressed ? Theme.surface2.blended(withFraction: Theme.Wash.pressed, of: Theme.ink) ?? Theme.surface2 : Theme.surface2).setFill()
+        path.fill()
+        Theme.hairline.setStroke()
+        path.stroke()
+        let text = attributedTitle
+        let size = text.size()
+        text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled else { return }
+        isPressed = true
+        while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            let inside = bounds.contains(convert(next.locationInWindow, from: nil))
+            if next.type == .leftMouseUp {
+                isPressed = false
+                if inside { sendAction(action, to: target) }
+                return
+            }
+            isPressed = inside
+        }
+    }
+}
+
 /// A label followed by a rounded box that fills with moss and a check when on.
 final class LabeledCheckbox: NSControl {
     var isOn = false { didSet { needsDisplay = true } }
@@ -171,6 +219,11 @@ final class LabeledCheckbox: NSControl {
         path.stroke()
         if isOn { Glyph.check.draw(in: box.insetBy(dx: Theme.Stroke.icon * 2, dy: Theme.Stroke.icon * 2), color: Theme.onMoss, context: context) }
     }
+
+    /// Like a system checkbox, a click toggles it also while its window is not key.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {}
 
     override func mouseUp(with event: NSEvent) {
         guard isEnabled, bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
