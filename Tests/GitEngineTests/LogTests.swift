@@ -60,6 +60,29 @@ final class LogTests: XCTestCase {
         }
     }
 
+    func testOnlyBranchesTagsAndOwnHeadMakeTheHistory() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let base = try fixture.commit("Base")
+        let worktree = fixture.url.deletingLastPathComponent().appendingPathComponent("gitbonsai-wt-\(UUID().uuidString)").path
+        defer { try? FileManager.default.removeItem(atPath: worktree) }
+        try fixture.git("worktree", "add", "-q", "--detach", worktree)
+        try fixture.git("-C", worktree, "commit", "-q", "--allow-empty", "-m", "Only in the worktree")
+        let detached = try fixture.git("-C", worktree, "rev-parse", "HEAD")
+        try fixture.git("commit", "-q", "--allow-empty", "-m", "Tool snapshot")
+        try fixture.git("update-ref", "refs/codex/snapshots/one", "HEAD")
+        try fixture.git("reset", "-q", "--hard", base)
+
+        let commits = try await fixture.repository.collectLog()
+        XCTAssertEqual(commits.map(\.id), [base])
+        let count = try await fixture.repository.commitCount()
+        XCTAssertEqual(count, 1)
+
+        // From inside that worktree its own HEAD belongs to the history.
+        let fromWorktree = try await Repository(path: worktree).collectLog()
+        XCTAssertEqual(fromWorktree.map(\.id), [detached, base])
+    }
+
     func testEmptyRepositoryYieldsNoCommits() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }

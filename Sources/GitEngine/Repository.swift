@@ -1,7 +1,8 @@
 import Foundation
 
 public struct LogOptions: Sendable, Hashable {
-    /// `--all` (every ref) versus only HEAD.
+    /// Branches, remote branches, tags and this worktree's HEAD, versus only HEAD.
+    /// Other namespaces stay out: tools keep snapshots and backups under their own refs (`refs/codex/…`), and other worktrees' HEADs are theirs.
     public var allRefs: Bool = true
     public var topoOrder: Bool = true
     public var limit: Int? = nil
@@ -14,10 +15,15 @@ public struct LogOptions: Sendable, Hashable {
 
     public init() {}
 
-    var arguments: [String] {
+    static let historyRefs = ["--branches", "--remotes", "--tags"]
+
+    var arguments: [String] { arguments(includingHead: true) }
+
+    /// An unborn HEAD (no commit yet) would make git fail, so it is only named when it exists.
+    func arguments(includingHead: Bool) -> [String] {
         var args = ["log", LogFormat.formatArgument]
         if topoOrder { args.append("--topo-order") }
-        if allRefs { args.append("--all") }
+        if allRefs { args.append(contentsOf: Self.historyRefs + (includingHead ? ["HEAD"] : [])) }
         if let limit { args.append("-n\(limit)") }
         if let skip { args.append("--skip=\(skip)") }
         if let grep { args.append("--grep=\(grep)") }
@@ -84,11 +90,13 @@ public final class Repository: Sendable {
     /// Streams commits in the order git emits them (topological by default, children before parents).
     /// A repository without any commits yields an empty stream instead of git's "does not have any commits" error.
     public func log(_ options: LogOptions = LogOptions()) -> AsyncThrowingStream<Commit, Error> {
-        let chunks = runner.stream(options.arguments)
+        let runner = runner
         return AsyncThrowingStream { continuation in
             let task = Task {
                 var parser = LogParser()
                 do {
+                    let headExists = await Self.headExists(runner)
+                    let chunks = runner.stream(options.arguments(includingHead: headExists))
                     for try await chunk in chunks {
                         for commit in parser.feed(chunk) { continuation.yield(commit) }
                     }
@@ -102,6 +110,10 @@ public final class Repository: Sendable {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    private static func headExists(_ runner: GitRunner) async -> Bool {
+        (try? await runner.run(["rev-parse", "--verify", "--quiet", "HEAD"])) != nil
     }
 
     public func refs() async throws -> [Ref] {
@@ -159,9 +171,9 @@ public final class Repository: Sendable {
         return files
     }
 
-    /// Total number of commits reachable from all refs (`rev-list --all --count`).
+    /// Total number of commits in the history: reachable from branches, remote branches, tags and this worktree's HEAD.
     public func commitCount() async throws -> Int {
-        let result = try await runner.run(["rev-list", "--all", "--count"])
+        let result = try await runner.run(["rev-list"] + LogOptions.historyRefs + (await Self.headExists(runner) ? ["HEAD"] : []) + ["--count"])
         return Int(result.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
     }
 

@@ -137,8 +137,9 @@ final class GraphViewModel {
         status = await newStatus
         _ = await (stashesTask, refsTask, worktreesTask)
         isRefreshing = false
-        guard Set(stashesByCommit.keys) == knownStashes else {
-            // A new or dropped stash changes the set of commits; that needs the log.
+        // A new or dropped stash changes the set of commits, and so does a worktree whose HEAD no branch contains; both need the log.
+        let headIsLoaded = headSHA.map { commitIndexByID[$0] != nil } ?? true
+        guard Set(stashesByCommit.keys) == knownStashes, headIsLoaded else {
             reload()
             return
         }
