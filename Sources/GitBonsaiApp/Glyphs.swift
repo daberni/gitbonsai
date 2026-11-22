@@ -2,7 +2,7 @@ import AppKit
 
 /// Monochrome glyphs: SF Symbols for the generic ones, hand-drawn paths on a 24 pt grid for the bonsai family.
 enum Glyph: Hashable {
-    case check, laptop, cloud, tag, chevronRight, chevronDown, plus, pencil, staged, branch
+    case check, laptop, cloud, tag, chevronRight, chevronDown, plus, pencil, staged, branch, xmark
     case bonsaiMain, bonsaiLinked, bonsaiLocked, bonsaiDetached, bonsaiPrunable, stashBowl
 
     private var symbolName: String? {
@@ -14,6 +14,7 @@ enum Glyph: Hashable {
         case .chevronRight: "chevron.right"
         case .chevronDown: "chevron.down"
         case .plus: "plus"
+        case .xmark: "xmark"
         case .pencil: "pencil"
         case .staged: "checkmark.circle"
         case .branch: "arrow.triangle.branch"

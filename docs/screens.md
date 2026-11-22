@@ -198,7 +198,8 @@ Quellen: Branch-Labels im Graph, Branch-Einträge der Sidebar, Commit-Zeilen. Zi
 | Kürzel | Aktion |
 |---|---|
 | ⌘O / ⌘⇧N | Öffnen / Klonen |
-| ⌘T / ⌘W | Neues Repo-Tab / Tab schließen (V1) |
+| ⌘T / ⌘W | Neuer Tab / Tab schließen |
+| ⌘⇧] / ⌘⇧[ | Nächster / vorheriger Tab |
 | ⌘1 ⌘2 ⌘3 | Detail-Tabs |
 | ⌘⌥S | Sidebar ein/aus; ⌘⌥D Detail-Panel ein/aus; ⌘⌥L Kommando-Log |
 | ⌘K | Command Palette (V1): jede Aktion per Text |

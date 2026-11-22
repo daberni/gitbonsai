@@ -14,7 +14,7 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 
 - `Sources/GitEngine` — process runner, models, parsers, `Repository` facade. Pure Swift, no AppKit. Fully testable against real repos created in tests.
 - `Sources/GraphLayout` — incremental lane layout for the commit graph. Pure functions over `Commit` values.
-- `Sources/GitBonsaiApp` — the app (`swift run GitBonsaiApp <repo>`): `DesignTokens.swift` mirrors `docs/design/tokens.json`, `GraphRowView` draws a history row, `SidebarView` the five-column sidebar grid, `DetailView` the selection panel. Check UI changes with the screenshot harness (see README) in light and dark.
+- `Sources/GitBonsaiApp` — the app (`swift run GitBonsaiApp <repo>`): `DesignTokens.swift` mirrors `docs/design/tokens.json`, `MainWindowController` owns the window with the tab row (`TabBarView`) and one `RepositoryViewController` per tab, `WelcomeView` is the empty tab, `SessionStore` remembers tabs and recent repositories, `GraphRowView` draws a history row, `SidebarView` the five-column sidebar grid, `DetailView` the selection panel. Check UI changes with the screenshot harness (see README) in light and dark.
 - `Tests/` — XCTest. Fixture repos are built on the fly with `git` in a temp dir (see `GitEngineTests/FixtureRepo.swift`).
 - `docs/` — product and architecture docs, design language.
 - `scripts/` — fixture and benchmark helpers.

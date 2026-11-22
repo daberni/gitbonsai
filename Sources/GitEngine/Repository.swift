@@ -41,6 +41,12 @@ public final class Repository: Sendable {
         self.runner = GitRunner(repositoryPath: path, gitPath: gitPath)
     }
 
+    /// Root of the working tree that contains `path`, which may be any folder inside it. Throws `GitError` when the folder is not inside a repository.
+    public static func root(containing path: String, gitPath: String = GitRunner.defaultGitPath()) async throws -> String {
+        let result = try await GitRunner(repositoryPath: path, gitPath: gitPath).run(["rev-parse", "--show-toplevel"])
+        return String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .newlines)
+    }
+
     /// Streams commits in the order git emits them (topological by default, children before parents).
     /// A repository without any commits yields an empty stream instead of git's "does not have any commits" error.
     public func log(_ options: LogOptions = LogOptions()) -> AsyncThrowingStream<Commit, Error> {

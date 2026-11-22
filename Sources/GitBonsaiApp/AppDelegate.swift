@@ -1,46 +1,81 @@
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var windowController: MainWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.activate(ignoringOtherApps: true)
         ScreenshotHarness.applyAppearance()
-        NSApp.mainMenu = Self.makeMenu()
-        if let path = CommandLine.arguments.dropFirst().first {
-            open(path: path)
-        } else {
-            askForRepository()
-        }
+        NSApp.mainMenu = makeMenu()
+        let controller = MainWindowController(store: SessionStore.standard())
+        windowController = controller
+        controller.showWindow(nil)
+        controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()))
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    private func askForRepository() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.prompt = "Open Repository"
-        guard panel.runModal() == .OK, let url = panel.url else {
-            NSApp.terminate(nil)
-            return
+    // MARK: Menu
+
+    private func makeMenu() -> NSMenu {
+        func item(_ title: String, _ action: Selector?, _ key: String, _ modifiers: NSEvent.ModifierFlags = .command) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = modifiers
+            return item
         }
-        open(path: url.path)
-    }
+        func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
+            let menu = NSMenu(title: title)
+            items.forEach(menu.addItem)
+            let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            holder.submenu = menu
+            return holder
+        }
 
-    private func open(path: String) {
-        let controller = MainWindowController(repositoryPath: path)
-        controller.showWindow(nil)
-        windowController = controller
-    }
+        let recent = submenu("Zuletzt verwendet", [])
+        recent.submenu?.delegate = self
 
-    private static func makeMenu() -> NSMenu {
         let menu = NSMenu()
-        let appItem = NSMenuItem()
-        let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Quit GitBonsai", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        appItem.submenu = appMenu
-        menu.addItem(appItem)
+        menu.addItem(submenu("GitBonsai", [
+            item("GitBonsai ausblenden", #selector(NSApplication.hide(_:)), "h"),
+            .separator(),
+            item("GitBonsai beenden", #selector(NSApplication.terminate(_:)), "q"),
+        ]))
+        menu.addItem(submenu("Ablage", [
+            item("Neuer Tab", #selector(MainWindowController.newTab(_:)), "t"),
+            item("Repository öffnen …", #selector(MainWindowController.openRepository(_:)), "o"),
+            recent,
+            .separator(),
+            item("Tab schließen", #selector(MainWindowController.closeTab(_:)), "w"),
+        ]))
+        menu.addItem(submenu("Bearbeiten", [
+            item("Ausschneiden", #selector(NSText.cut(_:)), "x"),
+            item("Kopieren", #selector(NSText.copy(_:)), "c"),
+            item("Einsetzen", #selector(NSText.paste(_:)), "v"),
+            item("Alles auswählen", #selector(NSText.selectAll(_:)), "a"),
+        ]))
+        let window = submenu("Fenster", [
+            item("Im Dock ablegen", #selector(NSWindow.performMiniaturize(_:)), "m"),
+            .separator(),
+            item("Nächster Tab", #selector(MainWindowController.selectNextTab(_:)), "}"),
+            item("Vorheriger Tab", #selector(MainWindowController.selectPreviousTab(_:)), "{"),
+        ])
+        menu.addItem(window)
+        NSApp.windowsMenu = window.submenu
         return menu
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let paths = windowController?.recentRepositories ?? []
+        for path in paths {
+            let item = NSMenuItem(title: (path as NSString).abbreviatingWithTildeInPath, action: #selector(MainWindowController.openRecent(_:)), keyEquivalent: "")
+            item.representedObject = path
+            menu.addItem(item)
+        }
+        if paths.isEmpty {
+            let empty = NSMenuItem(title: "Noch nichts geöffnet", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            menu.addItem(empty)
+        }
     }
 }
