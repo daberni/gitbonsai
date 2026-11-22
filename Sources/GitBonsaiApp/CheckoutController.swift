@@ -41,7 +41,7 @@ final class CheckoutController: NSObject {
             let worktree = elsewhere["refs/heads/\(checkout.branch)"]
             if let worktree {
                 let folder = (worktree.path as NSString).lastPathComponent
-                return Choice(title: RefString("Switch to Worktree \(RefName.worktree(folder)) (\(RefName.branch(checkout.branch)))"), target: .localBranch(checkout.branch), worktreePath: worktree.path)
+                return Choice(title: RefString(LocalizedStringResource("checkout.choice.switchWorktree", defaultValue: "Switch to Worktree \(RefName.worktree(folder)) (\(RefName.branch(checkout.branch)))", bundle: .module)), target: .localBranch(checkout.branch), worktreePath: worktree.path)
             }
             var choice = Choice(title: title(of: checkout), target: checkout.target, worktreePath: nil)
             if case .diverged(let upstream, let lost) = checkout.kind {
@@ -50,7 +50,7 @@ final class CheckoutController: NSObject {
             return choice
         }
         if commit.id != viewModel.headSHA || viewModel.currentBranch != nil {
-            choices.append(Choice(title: RefString("Checkout Commit \(RefName.commit(commit.id)) (Detached HEAD)"), target: .commit(commit.id), worktreePath: nil))
+            choices.append(Choice(title: RefString(LocalizedStringResource("checkout.choice.commit", defaultValue: "Checkout Commit \(RefName.commit(commit.id)) (Detached HEAD)", bundle: .module)), target: .commit(commit.id), worktreePath: nil))
         }
         return choices
     }
@@ -58,12 +58,12 @@ final class CheckoutController: NSObject {
     private func title(of checkout: BranchCheckout) -> RefString {
         let branch = RefName.branch(checkout.branch)
         let title: LocalizedStringResource = switch checkout.kind {
-        case .local: "Checkout \(branch)"
-        case .fastForward(let upstream) where checkout.branch == viewModel.currentBranch: "Fast-Forward \(branch) to \(RefName.remoteBranch(upstream))"
-        case .fastForward(let upstream): "Checkout \(branch) and Fast-Forward to \(RefName.remoteBranch(upstream))"
-        case .diverged(let upstream, _) where checkout.branch == viewModel.currentBranch: "Reset \(branch) to \(RefName.remoteBranch(upstream))…"
-        case .diverged(let upstream, _): "Checkout \(branch) (diverged from \(RefName.remoteBranch(upstream)))…"
-        case .createTracking(let remote): "Checkout \(RefName.remoteBranch("\(remote)/\(checkout.branch)")) as local Branch"
+        case .local: LocalizedStringResource("checkout.action.branch", defaultValue: "Checkout \(branch)", bundle: .module)
+        case .fastForward(let upstream) where checkout.branch == viewModel.currentBranch: LocalizedStringResource("checkout.choice.fastForward", defaultValue: "Fast-Forward \(branch) to \(RefName.remoteBranch(upstream))", bundle: .module)
+        case .fastForward(let upstream): LocalizedStringResource("checkout.choice.checkoutAndFastForward", defaultValue: "Checkout \(branch) and Fast-Forward to \(RefName.remoteBranch(upstream))", bundle: .module)
+        case .diverged(let upstream, _) where checkout.branch == viewModel.currentBranch: LocalizedStringResource("checkout.choice.reset", defaultValue: "Reset \(branch) to \(RefName.remoteBranch(upstream))…", bundle: .module)
+        case .diverged(let upstream, _): LocalizedStringResource("checkout.choice.diverged", defaultValue: "Checkout \(branch) (diverged from \(RefName.remoteBranch(upstream)))…", bundle: .module)
+        case .createTracking(let remote): LocalizedStringResource("checkout.action.asLocalBranch", defaultValue: "Checkout \(RefName.remoteBranch("\(remote)/\(checkout.branch)")) as local Branch", bundle: .module)
         }
         return RefString(title)
     }
@@ -106,11 +106,11 @@ final class CheckoutController: NSObject {
         let alert = NSAlert()
         let branch = RefName.branch(offer.branch)
         let upstream = RefName.remoteBranch(offer.upstream)
-        alert.setText("\(branch) and \(upstream) have diverged", info: "\(branch) cannot be fast-forwarded. Resetting it to \(upstream) drops \(offer.lostCommits) local commits; the reflog keeps them for a while.")
+        alert.setText(LocalizedStringResource("branch.diverged.title", defaultValue: "\(branch) and \(upstream) have diverged", bundle: .module), info: LocalizedStringResource("checkout.diverged.info", defaultValue: "\(branch) cannot be fast-forwarded. Resetting it to \(upstream) drops \(offer.lostCommits) local commits; the reflog keeps them for a while.", bundle: .module))
         // Buttons take plain text only, so the name stands bare there.
-        alert.addButton(withTitle: String(localized: "Reset to \(offer.upstream)", bundle: .module))
-        if !offer.isCurrent { alert.addButton(withTitle: String(localized: "Just Checkout", bundle: .module)) }
-        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+        alert.addButton(withTitle: String(localized: "checkout.diverged.resetTo", defaultValue: "Reset to \(offer.upstream)", bundle: .module))
+        if !offer.isCurrent { alert.addButton(withTitle: String(localized: "checkout.diverged.justCheckout", defaultValue: "Just Checkout", bundle: .module)) }
+        alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = true
         if ScreenshotHarness.isActive { return ScreenshotHarness.answerReset(alert) }
         guard let window = window?() else { return .cancel }
@@ -136,16 +136,16 @@ final class CheckoutController: NSObject {
                 alert.alertStyle = .warning
                 let stash = conflict.stashMessage
                 let info: LocalizedStringResource = if conflict.conflictedPaths.isEmpty {
-                    "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted."
+                    LocalizedStringResource("checkout.conflict.info", defaultValue: "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted.", bundle: .module)
                 } else {
-                    "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted.\n\n\(RefName.paths(conflict.conflictedPaths, separator: "\n"))"
+                    LocalizedStringResource("checkout.conflict.infoWithDetails", defaultValue: "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted.\n\n\(RefName.paths(conflict.conflictedPaths, separator: "\n"))", bundle: .module)
                 }
-                alert.setText("Switched, but the carried-over changes conflict", info: info)
+                alert.setText(LocalizedStringResource("checkout.conflict.title", defaultValue: "Switched, but the carried-over changes conflict", bundle: .module), info: info)
                 present(alert) { _ in }
             case .failed(let message):
                 let alert = NSAlert()
                 alert.alertStyle = .warning
-                alert.messageText = String(localized: "Switch failed", bundle: .module)
+                alert.messageText = String(localized: "failure.checkout.switchFailed", defaultValue: "Switch failed", bundle: .module)
                 alert.informativeText = message
                 present(alert) { _ in }
             }
@@ -171,6 +171,6 @@ final class CheckoutController: NSObject {
 extension CheckoutTarget {
     /// The message of the stash that carries uncommitted changes across this checkout, in the interface's language like everything the app writes into a repository.
     var stashMessage: String {
-        String(localized: "GitBonsai: changes when switching to \(label)", bundle: .module, comment: "Message of the stash that carries local changes across a checkout; the argument is the branch or commit switched to.")
+        String(localized: "stash.message.switching", defaultValue: "GitBonsai: changes when switching to \(label)", bundle: .module, comment: "Message of the stash that carries local changes across a checkout; the argument is the branch or commit switched to.")
     }
 }

@@ -27,21 +27,21 @@ final class FetchController {
     func menu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(item("Fetch all Remotes", .allRemotes))
+        menu.addItem(item(LocalizedStringResource("fetch.action.all", defaultValue: "Fetch all Remotes", bundle: .module), .allRemotes))
         if !remotes.isEmpty { menu.addItem(.separator()) }
         for remote in remotes {
-            menu.addItem(item("Fetch \(RefName.remote(remote))", .remote(remote, prune: false)))
-            menu.addItem(item("Fetch \(RefName.remote(remote)) and Prune deleted Branches", .remote(remote, prune: true)))
+            menu.addItem(item(LocalizedStringResource("fetch.action.remote", defaultValue: "Fetch \(RefName.remote(remote))", bundle: .module), .remote(remote, prune: false)))
+            menu.addItem(item(LocalizedStringResource("fetch.action.remotePrune", defaultValue: "Fetch \(RefName.remote(remote)) and Prune deleted Branches", bundle: .module), .remote(remote, prune: true)))
         }
         menu.addItem(.separator())
-        menu.addItem(item("Fetch Tags from all Remotes", .tags))
+        menu.addItem(item(LocalizedStringResource("fetch.action.tags", defaultValue: "Fetch Tags from all Remotes", bundle: .module), .tags))
         return menu
     }
 
     func fetch(_ variant: FetchVariant) {
         Task {
             if let error = await viewModel.fetch(variant) {
-                prompter.report(error, title: "Fetch failed")
+                prompter.report(error, title: LocalizedStringResource("failure.fetch.failed", defaultValue: "Fetch failed", bundle: .module))
             }
         }
     }

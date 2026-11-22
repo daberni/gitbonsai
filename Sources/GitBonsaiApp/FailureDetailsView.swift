@@ -118,12 +118,12 @@ final class FailureDetailsView: NSView {
 
     @objc private func copy(_ sender: Any?) {
         ActionRunner.copy(details)
-        setCopyTitle(String(localized: "Copied", bundle: .module, comment: "Shown briefly after git's output was copied."))
+        setCopyTitle(String(localized: "common.copied", defaultValue: "Copied", bundle: .module, comment: "Shown briefly after git's output was copied."))
         DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Detail.copiedFeedback) { [weak self] in self?.setCopyTitle(Self.copyTitle) }
     }
 
-    private static let outputTitle = String(localized: "Git Output", bundle: .module, comment: "Disclosure that shows git's own output under a failure.")
-    private static let copyTitle = String(localized: "Copy", bundle: .module, comment: "Copies git's output.")
+    private static let outputTitle = String(localized: "failure.details.output", defaultValue: "Git Output", bundle: .module, comment: "Disclosure that shows git's own output under a failure.")
+    private static let copyTitle = String(localized: "failure.details.copy", defaultValue: "Copy", bundle: .module, comment: "Copies git's output.")
 
     private func setCopyTitle(_ title: String) {
         copyButton.attributedTitle = NSAttributedString(string: title, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])

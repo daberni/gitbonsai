@@ -50,11 +50,11 @@ final class StagingController {
         let first = changed.min() ?? hunk.newStart
         let last = changed.max() ?? first
         let text: LocalizedStringResource = if first == last {
-            "The changes in line \(first) of \(RefName.path(file.path)) are lost. This cannot be undone."
+            LocalizedStringResource("files.discardHunk.infoLine", defaultValue: "The changes in line \(first) of \(RefName.path(file.path)) are lost. This cannot be undone.", bundle: .module)
         } else {
-            "The changes in lines \(first)–\(last) of \(RefName.path(file.path)) are lost. This cannot be undone."
+            LocalizedStringResource("files.discardHunk.infoLines", defaultValue: "The changes in lines \(first)–\(last) of \(RefName.path(file.path)) are lost. This cannot be undone.", bundle: .module)
         }
-        confirm(title: "Discard hunk?", text: text) { [weak self] in
+        confirm(title: LocalizedStringResource("files.discardHunk.title", defaultValue: "Discard hunk?", bundle: .module), text: text) { [weak self] in
             self?.run(failure: Self.discardFailure) { try await $0.discard(hunk, of: file) }
         }
     }
@@ -64,7 +64,7 @@ final class StagingController {
         let path = selection.path
         switch selection.source {
         case .unstaged:
-            confirm(title: "Discard changes to \(RefName.path(selection.name))?", text: "All unstaged changes to \(RefName.path(path)) are lost. Staged changes stay. This cannot be undone.") { [weak self] in
+            confirm(title: LocalizedStringResource("files.discard.title", defaultValue: "Discard changes to \(RefName.path(selection.name))?", bundle: .module), text: LocalizedStringResource("files.discard.info", defaultValue: "All unstaged changes to \(RefName.path(path)) are lost. Staged changes stay. This cannot be undone.", bundle: .module)) { [weak self] in
                 self?.run(failure: Self.discardFailure) { try await $0.discardUnstagedChanges([path]) }
             }
         case .untracked:
@@ -76,12 +76,12 @@ final class StagingController {
         }
     }
 
-    private static let discardFailure: LocalizedStringResource = "Changes not discarded"
+    private static let discardFailure: LocalizedStringResource = LocalizedStringResource("failure.files.notDiscarded", defaultValue: "Changes not discarded", bundle: .module)
 
     /// Git has never seen an untracked file, so the sheet says plainly that it is gone for good.
     private func confirmDeletion(of path: String, then perform: @escaping () -> Void) {
         let name = (path as NSString).lastPathComponent
-        confirm(title: "Delete \(RefName.path(name))?", text: "The untracked file \(RefName.path(path)) is deleted. Git does not know it, so it cannot be restored.", then: perform)
+        confirm(title: LocalizedStringResource("files.deleteUntracked.title", defaultValue: "Delete \(RefName.path(name))?", bundle: .module), text: LocalizedStringResource("files.deleteUntracked.info", defaultValue: "The untracked file \(RefName.path(path)) is deleted. Git does not know it, so it cannot be restored.", bundle: .module), then: perform)
     }
 
     /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard, and Esc cancels too.
@@ -90,10 +90,10 @@ final class StagingController {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.setText(title, info: text)
-        let discard = alert.addButton(withTitle: String(localized: "Discard", bundle: .module))
+        let discard = alert.addButton(withTitle: String(localized: "common.discard", defaultValue: "Discard", bundle: .module))
         discard.hasDestructiveAction = true
         discard.keyEquivalent = ""
-        let cancel = alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+        let cancel = alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         cancel.keyEquivalent = "\r"
         if ScreenshotHarness.keysSheets { ScreenshotHarness.pressKey(on: alert) } else { ScreenshotHarness.answerDiscardSheet(alert) }
         Task {
@@ -103,7 +103,7 @@ final class StagingController {
 
     // MARK: Running
 
-    private func run(failure: LocalizedStringResource = "Index not changed", _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    private func run(failure: LocalizedStringResource = LocalizedStringResource("failure.files.indexNotChanged", defaultValue: "Index not changed", bundle: .module), _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         let repository = viewModel.repository
         Task { [weak self] in
             do {

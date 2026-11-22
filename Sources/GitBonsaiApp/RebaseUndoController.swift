@@ -4,7 +4,7 @@ import GitEngine
 /// "Undo…" in the status line after an interactive rebase of the app has finished. It resets the branch to `ORIG_HEAD` after asking, and is offered only while HEAD is still where the rebase left it.
 @MainActor
 final class RebaseUndoController {
-    let button = NSButton(title: String(localized: "Undo…", bundle: .module, comment: "Status line button that asks to undo the last rebase."), target: nil, action: nil)
+    let button = NSButton(title: String(localized: "rebase.undo.button", defaultValue: "Undo…", bundle: .module, comment: "Status line button that asks to undo the last rebase."), target: nil, action: nil)
     private let viewModel: GraphViewModel
     private let prompter: ActionPrompter
     private var undo: RebaseUndo?
@@ -42,7 +42,7 @@ final class RebaseUndoController {
         button.isHidden = undo == nil
         guard let undo else { return }
         let sha = String(undo.before.prefix(RefString.shortSHA))
-        button.toolTip = String(localized: "Resets \(undo.shortBranch ?? "HEAD") to where it was before the rebase (ORIG_HEAD \(sha))", bundle: .module)
+        button.toolTip = String(localized: "rebase.undo.toolTip", defaultValue: "Resets \(undo.shortBranch ?? "HEAD") to where it was before the rebase (ORIG_HEAD \(sha))", bundle: .module)
     }
 
     @objc private func pressed() {
@@ -51,16 +51,16 @@ final class RebaseUndoController {
         let before = RefName.commit(undo.before)
         let stacked = undo.stacked.compactMap { $0.after == nil ? nil : $0.ref.replacingOccurrences(of: "refs/heads/", with: "") }
         let info: LocalizedStringResource = if stacked.isEmpty {
-            "\(branch) goes back to \(before), where it was before the rebase (git reset --keep ORIG_HEAD). Local changes stay."
+            LocalizedStringResource("rebase.undo.info", defaultValue: "\(branch) goes back to \(before), where it was before the rebase (git reset --keep ORIG_HEAD). Local changes stay.", bundle: .module)
         } else {
-            "\(branch) goes back to \(before), where it was before the rebase (git reset --keep ORIG_HEAD). Local changes stay.\n\nBranches moved along go back as well: \(stacked.map(RefName.branch).joined(separator: ", "))."
+            LocalizedStringResource("rebase.undo.infoWithBranches", defaultValue: "\(branch) goes back to \(before), where it was before the rebase (git reset --keep ORIG_HEAD). Local changes stay.\n\nBranches moved along go back as well: \(stacked.map(RefName.branch).joined(separator: ", ")).", bundle: .module)
         }
         Task {
-            let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Undo Rebase?", info: info, button: "Undo Rebase")
+            let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm(LocalizedStringResource("rebase.undo.title", defaultValue: "Undo Rebase?", bundle: .module), info: info, button: LocalizedStringResource("rebase.undo.confirm", defaultValue: "Undo Rebase", bundle: .module))
             guard confirmed else { return }
             self.undo = nil
             show()
-            ActionRunner(viewModel: viewModel, prompter: prompter).run(failure: "Rebase not undone", note: "git reset --keep ORIG_HEAD") { try await $0.undoRebase(undo) }
+            ActionRunner(viewModel: viewModel, prompter: prompter).run(failure: LocalizedStringResource("failure.rebase.notUndone", defaultValue: "Rebase not undone", bundle: .module), note: "git reset --keep ORIG_HEAD") { try await $0.undoRebase(undo) }
         }
     }
 }

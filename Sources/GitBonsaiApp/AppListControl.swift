@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private let table = NSTableView()
-    private let addButton = NSButton(title: String(localized: "Add other app…", bundle: .module), target: nil, action: nil)
+    private let addButton = NSButton(title: String(localized: "settings.apps.addOther", defaultValue: "Add other app…", bundle: .module), target: nil, action: nil)
     let defaultPicker = NSPopUpButton(frame: .zero, pullsDown: false)
     private let kind: ExternalApps.Kind
     private var choices: [ExternalApps.Choice] = []
@@ -66,7 +66,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
 
     private func rebuildDefaultPicker() {
         defaultPicker.removeAllItems()
-        let first = NSMenuItem(title: kind == .editor ? String(localized: "First checked editor", bundle: .module) : String(localized: "First checked terminal", bundle: .module), action: nil, keyEquivalent: "")
+        let first = NSMenuItem(title: kind == .editor ? String(localized: "settings.apps.firstCheckedEditor", defaultValue: "First checked editor", bundle: .module) : String(localized: "settings.apps.firstCheckedTerminal", defaultValue: "First checked terminal", bundle: .module), action: nil, keyEquivalent: "")
         defaultPicker.menu?.addItem(first)
         let shown = choices.filter(\.isShown)
         if !shown.isEmpty { defaultPicker.menu?.addItem(.separator()) }
@@ -101,7 +101,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
         name.lineBreakMode = .byTruncatingTail
         var views: [NSView] = [box, icon, name]
         if choice.app.bundleID == ExternalApps.preferred(kind)?.app.bundleID {
-            let mark = NSTextField(labelWithString: String(localized: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals."))
+            let mark = NSTextField(labelWithString: String(localized: "common.default", defaultValue: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals."))
             mark.font = Theme.caption
             mark.textColor = Theme.inkMuted
             views.append(mark)
@@ -131,7 +131,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.prompt = String(localized: "Add", bundle: .module, comment: "The open panel's confirm button for adding an app or folder.")
+        panel.prompt = String(localized: "common.add", defaultValue: "Add", bundle: .module, comment: "The open panel's confirm button for adding an app or folder.")
         guard let window else { return }
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .OK, let url = panel.url, ExternalApps.app(at: url) != nil else { return }

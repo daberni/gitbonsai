@@ -138,7 +138,7 @@ extension ScreenshotHarness {
             guard let items = tab.history.menuItems?(row) else { break }
             let menu = NSMenu()
             items.forEach(menu.addItem)
-            let editMessage = String(localized: "Edit Message", bundle: .module)
+            let editMessage = String(localized: "commit.action.editMessage", defaultValue: "Edit Message", bundle: .module)
             if let item = items.first(where: { $0.title.hasPrefix(editMessage) }), item.action == nil {
                 log("menu entry „\(item.title)“ disabled: \(item.toolTip ?? "")")
                 break

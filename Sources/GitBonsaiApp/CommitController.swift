@@ -46,7 +46,7 @@ final class CommitController {
         } else {
             hasSubject && stagedCount > 0
         }
-        form.show(signing: signing, canCommit: canCommit && !isCommitting, buttonTitle: form.isAmend ? LocalizedStringResource("Amend", comment: "Button that amends the last commit.") : LocalizedStringResource("Commit", comment: "Button that commits."))
+        form.show(signing: signing, canCommit: canCommit && !isCommitting, buttonTitle: form.isAmend ? LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit.") : LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
     }
 
     /// Ticks amend and loads the last message, for an edit stop of an interactive rebase.
@@ -82,10 +82,10 @@ final class CommitController {
             guard let self else { return }
             guard await viewModel.repository.headIsPushed() else { run(amend: true); return }
             let alert = NSAlert()
-            alert.messageText = String(localized: "Requires a force push", bundle: .module)
-            alert.informativeText = String(localized: "The last commit is already in the upstream. After the amend, the local and the remote branch differ, and a push only works with force.", bundle: .module)
-            alert.addButton(withTitle: String(localized: "Amend anyway", bundle: .module))
-            alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+            alert.messageText = String(localized: "commit.amendPushed.title", defaultValue: "Requires a force push", bundle: .module)
+            alert.informativeText = String(localized: "commit.amendPushed.info", defaultValue: "The last commit is already in the upstream. After the amend, the local and the remote branch differ, and a push only works with force.", bundle: .module)
+            alert.addButton(withTitle: String(localized: "commit.amendPushed.confirm", defaultValue: "Amend anyway", bundle: .module))
+            alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
             present(alert) { [weak self] response in
                 if response == .alertFirstButtonReturn { self?.run(amend: true) }
             }
@@ -104,7 +104,7 @@ final class CommitController {
             } catch {
                 let alert = NSAlert()
                 alert.alertStyle = .warning
-                alert.messageText = amend ? String(localized: "Amend failed", bundle: .module) : String(localized: "Commit failed", bundle: .module)
+                alert.messageText = amend ? String(localized: "failure.commit.amendFailed", defaultValue: "Amend failed", bundle: .module) : String(localized: "failure.commit.failed", defaultValue: "Commit failed", bundle: .module)
                 alert.informativeText = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
                 self?.present(alert) { _ in }
             }

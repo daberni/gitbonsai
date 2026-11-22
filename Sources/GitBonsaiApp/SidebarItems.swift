@@ -97,20 +97,20 @@ struct SidebarOutline {
             for (name, ref) in leaves.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 0) }
         }
 
-        if section("worktrees", title: String(localized: "Worktrees", bundle: .module, comment: "Sidebar section."), count: model.worktrees.count, icon: .bonsaiMain, plus: true) {
+        if section("worktrees", title: String(localized: "sidebar.section.worktrees", defaultValue: "Worktrees", bundle: .module, comment: "Sidebar section."), count: model.worktrees.count, icon: .bonsaiMain, plus: true) {
             for info in model.worktrees {
                 result.append(.worktree(info, isCurrent: model.isCurrent(info.worktree)))
             }
         }
         let tags = model.refs.filter { $0.kind == .tag }
-        result.append(.row(text: String(localized: "Tags", bundle: .module, comment: "Sidebar row that opens the tag list."), value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.tags.target, linkedWorktree: nil, checkout: nil))
+        result.append(.row(text: String(localized: "sidebar.row.tags", defaultValue: "Tags", bundle: .module, comment: "Sidebar row that opens the tag list."), value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.tags.target, linkedWorktree: nil, checkout: nil))
 
         let locals = model.refs.filter { $0.kind == .localBranch }
-        if section("local", title: String(localized: "Local", bundle: .module, comment: "Sidebar section of local branches."), count: locals.count, icon: .laptop, plus: true) {
+        if section("local", title: String(localized: "sidebar.section.local", defaultValue: "Local", bundle: .module, comment: "Sidebar section of local branches."), count: locals.count, icon: .laptop, plus: true) {
             // The uncommitted changes of this worktree; a click selects their row in the history, or HEAD when there are none.
             let changes = model.status?.entries.count ?? 0
-            result.append(.row(text: String(localized: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"), value: "\(changes)", expander: nil, icon: .pencil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: changes > 0 ? GraphViewModel.wipID : model.headSHA, linkedWorktree: nil, checkout: nil))
-            result.append(.row(text: String(localized: "Stashes", bundle: .module, comment: "Sidebar row that opens the stash list."), value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.stashes.target, linkedWorktree: nil, checkout: nil))
+            result.append(.row(text: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"), value: "\(changes)", expander: nil, icon: .pencil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: changes > 0 ? GraphViewModel.wipID : model.headSHA, linkedWorktree: nil, checkout: nil))
+            result.append(.row(text: String(localized: "sidebar.row.stashes", defaultValue: "Stashes", bundle: .module, comment: "Sidebar row that opens the stash list."), value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.stashes.target, linkedWorktree: nil, checkout: nil))
             branches(locals, display: { $0.name }, section: "local")
         }
 
@@ -124,7 +124,7 @@ struct SidebarOutline {
                 branches(refs, display: { String($0.name.dropFirst(remote.count + 1)) }, section: "remote:" + remote)
             }
         }
-        result.append(.row(text: String(localized: "Add Remote…", bundle: .module), value: "", expander: .plus, icon: nil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: true, target: nil, linkedWorktree: nil, checkout: nil))
+        result.append(.row(text: String(localized: "sidebar.row.addRemote", defaultValue: "Add Remote…", bundle: .module), value: "", expander: .plus, icon: nil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: true, target: nil, linkedWorktree: nil, checkout: nil))
 
         return result
     }

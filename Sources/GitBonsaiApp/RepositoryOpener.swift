@@ -22,8 +22,8 @@ struct RepositoryOpener {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
-        panel.prompt = String(localized: "Open", bundle: .module, comment: "The open panel's confirm button.")
-        panel.message = String(localized: "Choose a repository folder. A subfolder is enough.", bundle: .module)
+        panel.prompt = String(localized: "repository.open.prompt", defaultValue: "Open", bundle: .module, comment: "The open panel's confirm button.")
+        panel.message = String(localized: "repository.open.message", defaultValue: "Choose a repository folder. A subfolder is enough.", bundle: .module)
         panel.beginSheetModal(for: window) { response in
             guard response == .OK else { return }
             open(panel.urls.map(\.path))
@@ -33,8 +33,8 @@ struct RepositoryOpener {
     func reportNotARepository(_ path: String, on window: NSWindow) {
         guard ScreenshotHarness.outputPath == nil else { return }
         let alert = NSAlert()
-        alert.messageText = String(localized: "Not a Git Repository", bundle: .module)
-        alert.informativeText = String(localized: "\((path as NSString).abbreviatingWithTildeInPath) isn't inside a repository.", bundle: .module)
+        alert.messageText = String(localized: "repository.open.notRepositoryTitle", defaultValue: "Not a Git Repository", bundle: .module)
+        alert.informativeText = String(localized: "repository.open.notRepositoryInfo", defaultValue: "\((path as NSString).abbreviatingWithTildeInPath) isn't inside a repository.", bundle: .module)
         alert.beginSheetModal(for: window)
     }
 }

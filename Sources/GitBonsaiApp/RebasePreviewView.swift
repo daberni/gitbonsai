@@ -29,11 +29,11 @@ final class RebasePreviewView: NSView {
     }
 
     private static func baseText(_ sha: String) -> String {
-        String(localized: "Base \(sha)", bundle: .module, comment: "Rebase preview: the commit the steps land on, followed by its short SHA.")
+        String(localized: "rebase.preview.base", defaultValue: "Base \(sha)", bundle: .module, comment: "Rebase preview: the commit the steps land on, followed by its short SHA.")
     }
 
     private var droppedText: String {
-        String(localized: "Dropped: \(dropped.joined(separator: ", "))", bundle: .module, comment: "Rebase preview: short SHAs of the dropped commits.")
+        String(localized: "rebase.preview.dropped", defaultValue: "Dropped: \(dropped.joined(separator: ", "))", bundle: .module, comment: "Rebase preview: short SHAs of the dropped commits.")
     }
 
     func show(_ model: InteractiveRebaseModel) {
@@ -48,11 +48,11 @@ final class RebasePreviewView: NSView {
             var marks: [(String, NSColor)] = []
             if commit.isMessageChanged {
                 let squashed = commit.folded.contains { $0.action == .squash }
-                marks.append((squashed ? String(localized: "messages joined", bundle: .module, comment: "Rebase preview mark: a squash joins the messages.") : String(localized: "reworded", bundle: .module, comment: "Rebase preview mark: the message changes."), Theme.sky))
+                marks.append((squashed ? String(localized: "rebase.preview.messagesJoined", defaultValue: "messages joined", bundle: .module, comment: "Rebase preview mark: a squash joins the messages.") : String(localized: "rebase.preview.reworded", defaultValue: "reworded", bundle: .module, comment: "Rebase preview mark: the message changes."), Theme.sky))
             }
-            if !commit.folded.isEmpty { marks.append((String(localized: "+\(commit.folded.count) combined", bundle: .module, comment: "Rebase preview mark: how many commits squash or fixup into this one."), Theme.moss)) }
-            if commit.stopsForEdit { marks.append((String(localized: "stops for editing", bundle: .module, comment: "Rebase preview mark: the rebase stops at this commit (edit)."), Theme.ochre)) }
-            if inOriginalOrder[offset] != commit.head.id { marks.append((String(localized: "moved", bundle: .module, comment: "Rebase preview mark: the commit changed its place."), Theme.clay)) }
+            if !commit.folded.isEmpty { marks.append((String(localized: "rebase.preview.combined", defaultValue: "+\(commit.folded.count) combined", bundle: .module, comment: "Rebase preview mark: how many commits squash or fixup into this one."), Theme.moss)) }
+            if commit.stopsForEdit { marks.append((String(localized: "rebase.preview.stopsForEditing", defaultValue: "stops for editing", bundle: .module, comment: "Rebase preview mark: the rebase stops at this commit (edit)."), Theme.ochre)) }
+            if inOriginalOrder[offset] != commit.head.id { marks.append((String(localized: "rebase.preview.moved", defaultValue: "moved", bundle: .module, comment: "Rebase preview mark: the commit changed its place."), Theme.clay)) }
             var branches = commit.branches.map { $0.hasPrefix("refs/heads/") ? String($0.dropFirst("refs/heads/".count)) : $0 }
             if offset == result.count - 1 { branches.insert(model.branch, at: 0) }
             rows.append(Row(subject: commit.subject, sha: commit.head.shortID, marks: marks, branches: branches, isBase: false))

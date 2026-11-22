@@ -21,7 +21,7 @@ final class TagsController {
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
-        popover = PanelPopover(list: PanelListView(title: "Tags", empty: "No tags", noMatch: "No matching tags", filterPlaceholder: "Filter tags"))
+        popover = PanelPopover(list: PanelListView(title: LocalizedStringResource("tag.panel.title", defaultValue: "Tags", bundle: .module), empty: LocalizedStringResource("tag.panel.empty", defaultValue: "No tags", bundle: .module), noMatch: LocalizedStringResource("tag.panel.noMatch", defaultValue: "No matching tags", bundle: .module), filterPlaceholder: LocalizedStringResource("tag.panel.filter", defaultValue: "Filter tags", bundle: .module)))
         let list = popover.list
         list.onSelect = { [weak self] name in self?.jump(to: name) }
         list.onActivate = { [weak self] name in
@@ -33,18 +33,18 @@ final class TagsController {
         // A tag only on a remote can only be fetched; the buttons for a local tag make room for "Fetch Tag".
         let isLocal: (String?) -> Bool = { [weak self] name in name.map { self?.tag($0) != nil } ?? true }
         list.actions = [
-            PanelAction("Checkout", isShown: isLocal) { [weak self] name in self?.checkout(name) },
+            PanelAction(LocalizedStringResource("tag.action.checkout", defaultValue: "Checkout", bundle: .module), isShown: isLocal) { [weak self] name in self?.checkout(name) },
             PanelAction(Self.pushButton, isEnabled: { [weak self] _ in self?.remotes.isEmpty == false }, isShown: isLocal) { [weak self] name in self?.pushFromButton(name) },
             PanelAction(Self.fetchButton, isShown: { !isLocal($0) }) { [weak self] name in self?.fetchFromButton(name) },
-            PanelAction("Delete…", isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
-            PanelAction("Copy Tag name") { name in ActionRunner.copy(name) },
+            PanelAction(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module), isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
+            PanelAction(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { name in ActionRunner.copy(name) },
         ]
         remoteTags.onChange = { [weak self] in self?.render() }
     }
 
     /// The footer buttons are found again by their title when several remotes need a menu below them.
-    private static let pushButton: LocalizedStringResource = "Push Tag"
-    private static let fetchButton: LocalizedStringResource = "Fetch Tag"
+    private static let pushButton: LocalizedStringResource = LocalizedStringResource("tag.action.push", defaultValue: "Push Tag", bundle: .module)
+    private static let fetchButton: LocalizedStringResource = LocalizedStringResource("tag.action.fetch", defaultValue: "Fetch Tag", bundle: .module)
 
     func show(relativeTo rect: NSRect, of view: NSView) {
         Task {
@@ -97,23 +97,23 @@ final class TagsController {
 
     func menuItems(for name: String) -> [NSMenuItem] {
         guard let tag = tag(name) else {
-            let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Fetch from \(RefName.remote(remote))") { [weak self] in self?.fetch(name, from: remote) } }
-            let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Delete on \(RefName.remote(remote))…") { [weak self] in self?.deleteRemotely(name, on: remote) } }
-            return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem("Copy Tag name") { ActionRunner.copy(name) }]
+            let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.fetchFrom", defaultValue: "Fetch from \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.fetch(name, from: remote) } }
+            let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) } }
+            return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }]
         }
-        let jump: [NSMenuItem] = [ActionMenuItem("Jump to Commit") { [weak self] in self?.jump(to: name) }]
+        let jump: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }]
         return ([jump] + localTagGroups(name, commit: tag.commitID)).joinedWithSeparators
     }
 
     /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history.
     func localTagGroups(_ name: String, commit: String) -> [[NSMenuItem]] {
         [
-            [ActionMenuItem("Checkout (Detached HEAD)") { [weak self] in self?.checkout(commit: commit) }],
-            remotes.map { remote in ActionMenuItem("Push to \(RefName.remote(remote))") { [weak self] in self?.push(name, to: remote) } },
-            [ActionMenuItem("Delete…") { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
-                ActionMenuItem("Delete on \(RefName.remote(remote))…") { [weak self] in self?.deleteRemotely(name, on: remote) }
+            [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }],
+            remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } },
+            [ActionMenuItem(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
+                ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
             },
-            [ActionMenuItem("Copy Tag name") { ActionRunner.copy(name) }],
+            [ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }],
         ]
     }
 
@@ -135,11 +135,11 @@ final class TagsController {
     }
 
     private func pushFromButton(_ name: String) {
-        chooseRemote(from: Self.pushButton, among: rows.remotesPreferredForPush(name, all: remotes), title: { "To \(RefName.remote($0))" }) { [weak self] remote in self?.push(name, to: remote) }
+        chooseRemote(from: Self.pushButton, among: rows.remotesPreferredForPush(name, all: remotes), title: { LocalizedStringResource("tag.menu.to", defaultValue: "To \(RefName.remote($0))", bundle: .module) }) { [weak self] remote in self?.push(name, to: remote) }
     }
 
     private func fetchFromButton(_ name: String) {
-        chooseRemote(from: Self.fetchButton, among: rows.remotesOnlyHaving(name), title: { "From \(RefName.remote($0))" }) { [weak self] remote in self?.fetch(name, from: remote) }
+        chooseRemote(from: Self.fetchButton, among: rows.remotesOnlyHaving(name), title: { LocalizedStringResource("tag.menu.from", defaultValue: "From \(RefName.remote($0))", bundle: .module) }) { [weak self] remote in self?.fetch(name, from: remote) }
     }
 
     /// With one remote the button acts at once; with several it asks which one in a menu below itself.
@@ -154,24 +154,24 @@ final class TagsController {
     }
 
     func fetch(_ name: String, from remote: String) {
-        runner.run(failure: "Tag not fetched", note: "git fetch --no-tags \(remote) refs/tags/\(name):refs/tags/\(name)") { try await $0.fetchTag(name, from: remote) }
+        runner.run(failure: LocalizedStringResource("failure.tag.notFetched", defaultValue: "Tag not fetched", bundle: .module), note: "git fetch --no-tags \(remote) refs/tags/\(name):refs/tags/\(name)") { try await $0.fetchTag(name, from: remote) }
     }
 
     func push(_ name: String, to remote: String) {
-        runner.run(failure: "Tag not pushed", note: "git push \(remote) refs/tags/\(name)") { try await $0.pushTag(name, to: remote) }
+        runner.run(failure: LocalizedStringResource("failure.tag.notPushed", defaultValue: "Tag not pushed", bundle: .module), note: "git push \(remote) refs/tags/\(name)") { try await $0.pushTag(name, to: remote) }
     }
 
     func deleteLocally(_ name: String) {
         Task {
-            guard await confirm("Delete tag \(RefName.tag(name))?", info: "The tag is deleted in this repository. The commit and tags on remotes stay.", button: "Delete") else { return }
-            runner.run(failure: "Tag not deleted", note: "git tag --delete \(name)") { try await $0.deleteTag(name) }
+            guard await confirm(LocalizedStringResource("tag.delete.title", defaultValue: "Delete tag \(RefName.tag(name))?", bundle: .module), info: LocalizedStringResource("tag.delete.info", defaultValue: "The tag is deleted in this repository. The commit and tags on remotes stay.", bundle: .module), button: LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module)) else { return }
+            runner.run(failure: LocalizedStringResource("failure.tag.notDeleted", defaultValue: "Tag not deleted", bundle: .module), note: "git tag --delete \(name)") { try await $0.deleteTag(name) }
         }
     }
 
     func deleteRemotely(_ name: String, on remote: String) {
         Task {
-            guard await confirm("Delete tag \(RefName.tag(name)) on \(RefName.remote(remote))?", info: "The tag disappears for everyone who fetches from \(RefName.remote(remote)). The local tag stays.", button: "Delete on \(remote)") else { return }
-            runner.run(failure: "Tag not deleted on \(RefName.remote(remote))", note: "git push \(remote) --delete refs/tags/\(name)") { try await $0.deleteRemoteTag(name, on: remote) }
+            guard await confirm(LocalizedStringResource("tag.deleteRemote.title", defaultValue: "Delete tag \(RefName.tag(name)) on \(RefName.remote(remote))?", bundle: .module), info: LocalizedStringResource("tag.deleteRemote.info", defaultValue: "The tag disappears for everyone who fetches from \(RefName.remote(remote)). The local tag stays.", bundle: .module), button: LocalizedStringResource("tag.deleteRemote.confirm", defaultValue: "Delete on \(remote)", bundle: .module)) else { return }
+            runner.run(failure: LocalizedStringResource("failure.tag.notDeletedOnRemote", defaultValue: "Tag not deleted on \(RefName.remote(remote))", bundle: .module), note: "git push \(remote) --delete refs/tags/\(name)") { try await $0.deleteRemoteTag(name, on: remote) }
         }
     }
 

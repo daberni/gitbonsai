@@ -237,7 +237,7 @@ final class FileListView: NSStackView {
                 addFull(row)
             }
             if section.rows.count > Theme.Detail.maximumFiles {
-                addFull(Self.caption(String(localized: "… and \(section.rows.count - Theme.Detail.maximumFiles) more", bundle: .module, comment: "Below a cut-off file list")))
+                addFull(Self.caption(String(localized: "files.list.andMore", defaultValue: "… and \(section.rows.count - Theme.Detail.maximumFiles) more", bundle: .module, comment: "Below a cut-off file list")))
             }
         }
     }

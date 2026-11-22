@@ -16,7 +16,7 @@ struct DiffChange {
         if selection.source == .untracked {
             letter = "?"
             color = Theme.inkMuted
-            word = String(localized: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
+            word = String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
         } else if let state {
             letter = String(state.rawValue)
             color = state.tint
@@ -32,29 +32,29 @@ struct DiffChange {
         } else {
             lines.append(selection.path)
         }
-        if let diff, diff.modeChanged, let oldMode = diff.oldMode, let newMode = diff.newMode { lines.append(String(localized: "File mode \("\(oldMode) → \(newMode)")", bundle: .module, comment: "e.g. File mode 100644 → 100755")) }
+        if let diff, diff.modeChanged, let oldMode = diff.oldMode, let newMode = diff.newMode { lines.append(String(localized: "diff.fileMode", defaultValue: "File mode \("\(oldMode) → \(newMode)")", bundle: .module, comment: "e.g. File mode 100644 → 100755")) }
         description = lines.joined(separator: "\n")
     }
 
     /// A path with an old path was renamed unless git says it was copied.
     private static func move(copied: Bool, from oldPath: String, to path: String, similarity: Int?) -> String {
         switch (copied, similarity) {
-        case (true, let similarity?): String(localized: "copied from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
-        case (true, nil): String(localized: "copied from \(oldPath) to \(path)", bundle: .module)
-        case (false, let similarity?): String(localized: "renamed from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
-        case (false, nil): String(localized: "renamed from \(oldPath) to \(path)", bundle: .module)
+        case (true, let similarity?): String(localized: "diff.header.copiedSimilarity", defaultValue: "copied from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
+        case (true, nil): String(localized: "diff.header.copied", defaultValue: "copied from \(oldPath) to \(path)", bundle: .module)
+        case (false, let similarity?): String(localized: "diff.header.renamedSimilarity", defaultValue: "renamed from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
+        case (false, nil): String(localized: "diff.header.renamed", defaultValue: "renamed from \(oldPath) to \(path)", bundle: .module)
         }
     }
 
     private static func word(for state: FileState) -> String {
         switch state {
-        case .added: String(localized: "added", bundle: .module, comment: "What happened to a file")
-        case .deleted: String(localized: "deleted", bundle: .module, comment: "What happened to a file")
-        case .renamed: String(localized: "renamed", bundle: .module, comment: "What happened to a file")
-        case .copied: String(localized: "copied", bundle: .module, comment: "What happened to a file")
-        case .typeChanged: String(localized: "type changed", bundle: .module, comment: "What happened to a file")
-        case .unmerged: String(localized: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts")
-        case .modified, .unmodified: String(localized: "modified", bundle: .module, comment: "What happened to a file")
+        case .added: String(localized: "files.state.added", defaultValue: "added", bundle: .module, comment: "What happened to a file")
+        case .deleted: String(localized: "files.state.deleted", defaultValue: "deleted", bundle: .module, comment: "What happened to a file")
+        case .renamed: String(localized: "files.state.renamed", defaultValue: "renamed", bundle: .module, comment: "What happened to a file")
+        case .copied: String(localized: "files.state.copied", defaultValue: "copied", bundle: .module, comment: "What happened to a file")
+        case .typeChanged: String(localized: "files.state.typeChanged", defaultValue: "type changed", bundle: .module, comment: "What happened to a file")
+        case .unmerged: String(localized: "files.state.conflict", defaultValue: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts")
+        case .modified, .unmodified: String(localized: "files.state.modified", defaultValue: "modified", bundle: .module, comment: "What happened to a file")
         }
     }
 }

@@ -35,7 +35,7 @@ struct WelcomeList {
             Entry(path: path, name: Self.name(path), detail: Self.abbreviated((path as NSString).deletingLastPathComponent), branch: RepositoryDiscovery.branch(ofWorkingTree: path), isOpen: openPaths.contains(path), isWorktree: false)
         }
         let shownRecents = Array(recentEntries.filter(matches).prefix(recentLimit))
-        sections.append(Section(title: String(localized: "Recent", bundle: .module, comment: "Welcome page section of recently opened repositories."), entries: shownRecents, isRecents: true))
+        sections.append(Section(title: String(localized: "welcome.section.recent", defaultValue: "Recent", bundle: .module, comment: "Welcome page section of recently opened repositories."), entries: shownRecents, isRecents: true))
         for folder in folders {
             let root = RealPath.of(folder.path)
             var entries: [Entry] = []
@@ -51,7 +51,7 @@ struct WelcomeList {
                 entries.append(main)
                 entries.append(contentsOf: shownWorktrees)
             }
-            if !entries.isEmpty || query.isEmpty { sections.append(Section(title: String(localized: "In \(Self.abbreviated(folder.path))", bundle: .module, comment: "Welcome page section of the repositories found in a folder."), entries: entries, isRecents: false)) }
+            if !entries.isEmpty || query.isEmpty { sections.append(Section(title: String(localized: "welcome.section.folder", defaultValue: "In \(Self.abbreviated(folder.path))", bundle: .module, comment: "Welcome page section of the repositories found in a folder."), entries: entries, isRecents: false)) }
         }
         // While filtering, an empty recents group only stays when nothing else matched, to say so.
         if !query.isEmpty, shownRecents.isEmpty, sections.count > 1 { sections.removeFirst() }

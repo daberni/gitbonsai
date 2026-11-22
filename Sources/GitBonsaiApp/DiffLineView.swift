@@ -51,7 +51,7 @@ final class DiffLineView: NSView {
             x = draw(run, at: x, top: top, emphasis: tint)
         }
         if line.missingNewline {
-            let note = NSAttributedString(string: "  " + String(localized: "⏎ missing at end of file", bundle: .module, comment: "Marks a last line without a newline"), attributes: [.font: Theme.caption, .foregroundColor: Theme.inkFaint])
+            let note = NSAttributedString(string: "  " + String(localized: "diff.noNewlineAtEnd", defaultValue: "⏎ missing at end of file", bundle: .module, comment: "Marks a last line without a newline"), attributes: [.font: Theme.caption, .foregroundColor: Theme.inkFaint])
             note.draw(at: CGPoint(x: x, y: bounds.midY - note.size().height / 2))
         }
     }

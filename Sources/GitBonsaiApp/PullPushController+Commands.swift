@@ -18,7 +18,7 @@ extension PullPushController: CommandProvider {
             commands.append(Command(id: "pull.\(mode)", title: Self.commandTitle(of: mode), glyph: .symbol("arrow.down"), context: context, blocker: blocker) { [weak self] in self?.pull(PullVariant(mode: mode)) })
         }
         if blocker == .noUpstream {
-            let noCandidates: LocalizedStringResource? = remoteBranches().isEmpty ? "No remote branches" : nil
+            let noCandidates: LocalizedStringResource? = remoteBranches().isEmpty ? LocalizedStringResource("pull.command.noRemoteBranches", defaultValue: "No remote branches", bundle: .module) : nil
             commands.append(Command(.setUpstreamAndPull, context: state.branch, disabledReason: noCandidates) { [weak self] in self?.setUpstreamAndPull() })
         }
         return commands
@@ -26,11 +26,11 @@ extension PullPushController: CommandProvider {
 
     /// Push to the upstream, or the first push that sets one; then the tags for each remote.
     private func pushCommands(_ state: RepositoryCommandState) -> [Command] {
-        let pushContext = upstream?.name ?? state.upstream ?? (state.branch == nil ? nil : String(localized: "Set upstream", bundle: .module, comment: "Command bar context of Push for a branch without upstream."))
+        let pushContext = upstream?.name ?? state.upstream ?? (state.branch == nil ? nil : String(localized: "pull.command.setUpstream", defaultValue: "Set upstream", bundle: .module, comment: "Command bar context of Push for a branch without upstream."))
         var commands = [Command(.push, context: pushContext, blocker: CommandRules.push(state)) { [weak self] in self?.pushCurrentBranch() }]
         let tagRemotes = state.remotes.isEmpty ? [nil] : state.remotes.map(Optional.some)
         for remote in tagRemotes {
-            commands.append(Command(id: "push.tags.\(remote ?? "")", title: "Push Tags", keywords: Command.searchWords("push, upload, publish"), glyph: .glyph(.tag), context: remote, blocker: CommandRules.pushTags(state)) { [weak self] in
+            commands.append(Command(id: "push.tags.\(remote ?? "")", title: LocalizedStringResource("push.command.tags", defaultValue: "Push Tags", bundle: .module), keywords: Command.searchWords(LocalizedStringResource("command.push.keywords", defaultValue: "push, upload, publish", bundle: .module)), glyph: .glyph(.tag), context: remote, blocker: CommandRules.pushTags(state)) { [weak self] in
                 guard let remote else { return }
                 self?.pushTags(.tags(remote: remote))
             })
@@ -45,17 +45,17 @@ extension PullPushController: CommandProvider {
 
     private static func label(of mode: PullMode) -> String {
         switch mode {
-        case .fastForwardOnly: String(localized: "Fast-Forward", bundle: .module, comment: "Pull mode.")
-        case .merge: String(localized: "Merge", bundle: .module, comment: "Pull mode.")
-        case .rebase: String(localized: "Rebase", bundle: .module, comment: "Pull mode.")
+        case .fastForwardOnly: String(localized: "pull.mode.fastForward", defaultValue: "Fast-Forward", bundle: .module, comment: "Pull mode.")
+        case .merge: String(localized: "pull.mode.merge", defaultValue: "Merge", bundle: .module, comment: "Pull mode.")
+        case .rebase: String(localized: "pull.mode.rebase", defaultValue: "Rebase", bundle: .module, comment: "Pull mode.")
         }
     }
 
     private static func commandTitle(of mode: PullMode) -> LocalizedStringResource {
         switch mode {
-        case .fastForwardOnly: "Pull with fast-forward"
-        case .merge: "Pull with merge"
-        case .rebase: "Pull with rebase"
+        case .fastForwardOnly: LocalizedStringResource("pull.command.fastForward", defaultValue: "Pull with fast-forward", bundle: .module)
+        case .merge: LocalizedStringResource("pull.command.merge", defaultValue: "Pull with merge", bundle: .module)
+        case .rebase: LocalizedStringResource("pull.command.rebase", defaultValue: "Pull with rebase", bundle: .module)
         }
     }
 }

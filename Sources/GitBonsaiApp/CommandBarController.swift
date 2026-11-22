@@ -50,7 +50,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         panel.table.delegate = self
         panel.search.onChange = { [weak self] text in self?.queryChanged(text) }
         panel.search.onCommand = { [weak self] command in self?.handle(command) ?? false }
-        steps = [Step(title: nil, placeholder: String(localized: "Search commands", bundle: .module), commands: commands)]
+        steps = [Step(title: nil, placeholder: String(localized: "commandBar.search.placeholder", defaultValue: "Search commands", bundle: .module), commands: commands)]
         if let step, case .choose(let placeholder, let build) = step.action {
             steps.append(Step(title: step.title, placeholder: placeholder.text, commands: build()))
         }

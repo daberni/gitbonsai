@@ -23,7 +23,7 @@ struct DiffLineStyle {
     }
 
     var notice: String? {
-        lineEndingConversion.map { String(localized: "Line endings: \($0.from.rawValue) → \($0.to.rawValue)", bundle: .module, comment: "Notice above a diff in which every line only changed its line ending, e.g. Line endings: LF → CRLF") }
+        lineEndingConversion.map { String(localized: "diff.lineEndings", defaultValue: "Line endings: \($0.from.rawValue) → \($0.to.rawValue)", bundle: .module, comment: "Notice above a diff in which every line only changed its line ending, e.g. Line endings: LF → CRLF") }
     }
 
     func content(ofHunk hunk: Int, line: Int, in diff: FileDiff) -> DiffLineView.Content {

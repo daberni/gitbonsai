@@ -44,7 +44,7 @@ final class GraphRowView: NSView {
         let formatter = DateFormatter()
         formatter.locale = AppLanguage.locale
         // A pattern per language rather than a template, so the German pattern stays exactly the one the history has always shown.
-        formatter.dateFormat = String(localized: "EEE, MMM d, yyyy, HH:mm", bundle: .module, comment: "Date format pattern (Unicode/ICU) for a commit's exact date in tooltips")
+        formatter.dateFormat = String(localized: "history.row.dateFormat", defaultValue: "EEE, MMM d, yyyy, HH:mm", bundle: .module, comment: "Date format pattern (Unicode/ICU) for a commit's exact date in tooltips")
         return formatter
     }()
 

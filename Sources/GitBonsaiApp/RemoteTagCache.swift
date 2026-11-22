@@ -70,16 +70,16 @@ final class RemoteTagCache {
 
     /// A quiet line for the list: still asking, or which remotes did not answer. Nil when every remote answered.
     func note(for remotes: [String]) -> String? {
-        if remotes.isEmpty { return String(localized: "No remote to compare with", bundle: .module) }
-        if !pending.isDisjoint(with: remotes) { return String(localized: "Comparing with remote…", bundle: .module) }
+        if remotes.isEmpty { return String(localized: "tag.remoteStatus.noRemote", defaultValue: "No remote to compare with", bundle: .module) }
+        if !pending.isDisjoint(with: remotes) { return String(localized: "tag.remoteStatus.comparing", defaultValue: "Comparing with remote…", bundle: .module) }
         let failed = remotes.compactMap { remote -> (String, GitError?)? in
             guard case .failed(let error)? = lookups[remote] else { return nil }
             return (remote, error)
         }
         guard let (remote, error) = failed.first else { return nil }
-        guard failed.count == 1 else { return String(localized: "\(failed.count) remotes not reachable", bundle: .module) }
-        if error?.isTimeout == true { return String(localized: "\(remote) does not answer", bundle: .module) }
-        return String(localized: "\(remote) not reachable", bundle: .module)
+        guard failed.count == 1 else { return String(localized: "tag.remoteStatus.unreachableCount", defaultValue: "\(failed.count) remotes not reachable", bundle: .module) }
+        if error?.isTimeout == true { return String(localized: "tag.remoteStatus.timeout", defaultValue: "\(remote) does not answer", bundle: .module) }
+        return String(localized: "tag.remoteStatus.unreachable", defaultValue: "\(remote) not reachable", bundle: .module)
     }
 
     private func isStale(repository: Repository, remotes: [String]) async -> Bool {

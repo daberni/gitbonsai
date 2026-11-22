@@ -5,7 +5,7 @@ import GitEngine
 extension MainWindowController: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         let (titles, active) = commandTabs
-        let several: LocalizedStringResource? = titles.count > 1 ? nil : "Only one tab is open"
+        let several: LocalizedStringResource? = titles.count > 1 ? nil : LocalizedStringResource("window.tabs.onlyOne", defaultValue: "Only one tab is open", bundle: .module)
         return [
             Command(.newTab) { [weak self] in self?.newTab(nil) },
             Command(.openRepository) { [weak self] in self?.openRepository(nil) },
@@ -13,9 +13,9 @@ extension MainWindowController: CommandProvider {
             Command(.closeTab, context: titles.indices.contains(active) ? titles[active] : nil) { [weak self] in self?.closeTab(nil) },
             Command(.nextTab, disabledReason: several) { [weak self] in self?.selectNextTab(nil) },
             Command(.previousTab, disabledReason: several) { [weak self] in self?.selectPreviousTab(nil) },
-            Command(.switchTab, disabledReason: several, action: .choose(placeholder: "Search tabs") { [weak self] in
+            Command(.switchTab, disabledReason: several, action: .choose(placeholder: LocalizedStringResource("window.tabs.searchPlaceholder", defaultValue: "Search tabs", bundle: .module)) { [weak self] in
                 titles.enumerated().map { index, title in
-                    Command(id: "tab.\(index)", title: .verbatim(title), glyph: .symbol("square"), scope: .app, context: index == active ? String(localized: "Active", bundle: .module, comment: "Marks the current tab in the command bar's tab list.") : nil) { self?.showTab(at: index) }
+                    Command(id: "tab.\(index)", title: .verbatim(title), glyph: .symbol("square"), scope: .app, context: index == active ? String(localized: "window.tabs.active", defaultValue: "Active", bundle: .module, comment: "Marks the current tab in the command bar's tab list.") : nil) { self?.showTab(at: index) }
                 }
             }),
             Command(.settings) { SettingsWindowController.shared.show() },

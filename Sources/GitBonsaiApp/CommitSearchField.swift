@@ -16,7 +16,7 @@ final class CommitSearchField: NSSearchField, NSSearchFieldDelegate {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        placeholderString = String(localized: "Search Commits", bundle: .module)
+        placeholderString = String(localized: "history.search.title", defaultValue: "Search Commits", bundle: .module)
         controlSize = .large
         sendsWholeSearchString = true
         delegate = self

@@ -207,28 +207,28 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     /// What to say instead of lines, or nil when the diff has lines to show. A rename or mode change without content change says so rather than "no changes".
     private static func emptyContent(for diff: FileDiff?, encoding: WideTextEncoding?) -> EmptyStateView.Content? {
-        guard let diff else { return EmptyStateView.Content(title: String(localized: "No changes", bundle: .module)) }
+        guard let diff else { return EmptyStateView.Content(title: String(localized: "diff.empty.noChanges", defaultValue: "No changes", bundle: .module)) }
         if diff.isBinary, let encoding {
             let attribute = "\(diff.path) working-tree-encoding=\(encoding.workingTreeEncoding)"
             let detail = [
-                String(localized: "git treats this file as binary and shows no text comparison.", bundle: .module, comment: "Detail for a UTF-16 text file in the diff"),
-                String(localized: "To compare it as text, add this line to .gitattributes:", bundle: .module, comment: "Followed by a .gitattributes line with working-tree-encoding"),
+                String(localized: "diff.binary.info", defaultValue: "git treats this file as binary and shows no text comparison.", bundle: .module, comment: "Detail for a UTF-16 text file in the diff"),
+                String(localized: "diff.binary.hint", defaultValue: "To compare it as text, add this line to .gitattributes:", bundle: .module, comment: "Followed by a .gitattributes line with working-tree-encoding"),
                 attribute,
             ]
-            return EmptyStateView.Content(title: String(localized: "\(encoding.name) Text", bundle: .module, comment: "Title for a text file in a wide encoding git treats as binary, e.g. UTF-16 LE Text"), detail: detail, toolTip: attribute)
+            return EmptyStateView.Content(title: String(localized: "diff.binary.textTitle", defaultValue: "\(encoding.name) Text", bundle: .module, comment: "Title for a text file in a wide encoding git treats as binary, e.g. UTF-16 LE Text"), detail: detail, toolTip: attribute)
         }
-        if diff.isBinary { return EmptyStateView.Content(title: String(localized: "Binary File", bundle: .module), detail: [String(localized: "No text comparison possible", bundle: .module)]) }
+        if diff.isBinary { return EmptyStateView.Content(title: String(localized: "diff.binary.title", defaultValue: "Binary File", bundle: .module), detail: [String(localized: "diff.binary.detail", defaultValue: "No text comparison possible", bundle: .module)]) }
         guard diff.hunks.isEmpty else { return nil }
         let modes = diff.modeChanged ? diff.oldMode.flatMap { old in diff.newMode.map { "\(old) → \($0)" } } : nil
         if let oldPath = diff.oldPath {
-            let title = diff.isCopy ? String(localized: "Copied, content unchanged", bundle: .module) : String(localized: "Renamed, content unchanged", bundle: .module)
-            let detail = [oldPath, "→ \(diff.path)"] + (modes.map { [String(localized: "File mode \($0)", bundle: .module, comment: "e.g. File mode 100644 → 100755")] } ?? [])
+            let title = diff.isCopy ? String(localized: "diff.empty.copied", defaultValue: "Copied, content unchanged", bundle: .module) : String(localized: "diff.empty.renamed", defaultValue: "Renamed, content unchanged", bundle: .module)
+            let detail = [oldPath, "→ \(diff.path)"] + (modes.map { [String(localized: "diff.fileMode", defaultValue: "File mode \($0)", bundle: .module, comment: "e.g. File mode 100644 → 100755")] } ?? [])
             return EmptyStateView.Content(title: title, detail: detail, detailIsCode: true, toolTip: "\(oldPath) → \(diff.path)")
         }
-        if let modes { return EmptyStateView.Content(title: String(localized: "Only the file mode changed", bundle: .module), detail: [modes], detailIsCode: true) }
-        if diff.isNew { return EmptyStateView.Content(title: String(localized: "Empty file added", bundle: .module)) }
-        if diff.isDeleted { return EmptyStateView.Content(title: String(localized: "Empty file deleted", bundle: .module)) }
-        return EmptyStateView.Content(title: String(localized: "No changes", bundle: .module))
+        if let modes { return EmptyStateView.Content(title: String(localized: "diff.empty.modeOnly", defaultValue: "Only the file mode changed", bundle: .module), detail: [modes], detailIsCode: true) }
+        if diff.isNew { return EmptyStateView.Content(title: String(localized: "diff.empty.added", defaultValue: "Empty file added", bundle: .module)) }
+        if diff.isDeleted { return EmptyStateView.Content(title: String(localized: "diff.empty.deleted", defaultValue: "Empty file deleted", bundle: .module)) }
+        return EmptyStateView.Content(title: String(localized: "diff.empty.noChanges", defaultValue: "No changes", bundle: .module))
     }
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.
@@ -323,7 +323,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         case .hunk(let index):
             let view = (tableView.makeView(withIdentifier: .init("hunk"), owner: nil) as? DiffHunkView) ?? DiffHunkView()
             view.identifier = .init("hunk")
-            let title: String? = selection?.isUnstageable == true ? String(localized: "Unstage Hunk", bundle: .module) : selection?.isStageable == true ? String(localized: "Stage Hunk", bundle: .module) : nil
+            let title: String? = selection?.isUnstageable == true ? String(localized: "diff.hunk.unstage", defaultValue: "Unstage Hunk", bundle: .module) : selection?.isStageable == true ? String(localized: "diff.hunk.stage", defaultValue: "Stage Hunk", bundle: .module) : nil
             if let diff { view.show(diff.hunks[index], actionTitle: title, canDiscard: selection?.isStageable == true) }
             view.onAction = { [weak self] in self?.runHunkAction(index) }
             view.onDiscard = { [weak self] in self?.discardHunk(index) }

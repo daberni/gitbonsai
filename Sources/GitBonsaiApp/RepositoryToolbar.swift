@@ -9,19 +9,19 @@ final class RepositoryToolbar: BarView {
     var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
     var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
     /// The variants in the fetch button's menu, the first enabled one its default; without them the button only runs `onFetch`.
-    var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : String(localized: "Fetch all remotes; more options behind the arrow", bundle: .module) } }
+    var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : String(localized: "toolbar.fetch.toolTip", defaultValue: "Fetch all remotes; more options behind the arrow", bundle: .module) } }
     /// The menus of Pull and Push, the first enabled entry each button's default; the buttons start disabled until `showUpstream` enables them.
     var pullMenu: (() -> NSMenu)?
     var pushMenu: (() -> NSMenu)?
     /// The Stash menu, its first entry stashing everything at once; the button is enabled while it is set.
     var stashMenu: (() -> NSMenu)? { didSet { stash.isEnabled = stashMenu != nil } }
 
-    private lazy var fetchButton = MenuButton(LocalizedStringResource("Fetch", comment: "Toolbar button."), "arrow.down.to.line", enabled: true) { [weak self] in self?.fetchMenu?() ?? self?.singleFetchMenu() ?? NSMenu() }
-    private lazy var pull = MenuButton(LocalizedStringResource("Pull", comment: "Toolbar button."), "arrow.down", enabled: false) { [weak self] in self?.pullMenu?() ?? NSMenu() }
-    private lazy var push = MenuButton(LocalizedStringResource("Push", comment: "Toolbar button."), "arrow.up", enabled: false) { [weak self] in self?.pushMenu?() ?? NSMenu() }
-    private lazy var branch = button(LocalizedStringResource("Branch", comment: "Toolbar button that creates a branch."), "arrow.triangle.branch", #selector(runBranch(_:)))
-    private lazy var stash = MenuButton(LocalizedStringResource("Stash", comment: "Toolbar button, the verb."), "tray.and.arrow.down", enabled: false) { [weak self] in self?.stashMenu?() ?? NSMenu() }
-    private lazy var pop = button(LocalizedStringResource("Pop", comment: "Toolbar button that pops the latest stash."), "tray.and.arrow.up", #selector(runPop(_:)))
+    private lazy var fetchButton = MenuButton(LocalizedStringResource("toolbar.fetch.title", defaultValue: "Fetch", bundle: .module, comment: "Toolbar button."), "arrow.down.to.line", enabled: true) { [weak self] in self?.fetchMenu?() ?? self?.singleFetchMenu() ?? NSMenu() }
+    private lazy var pull = MenuButton(LocalizedStringResource("toolbar.pull.title", defaultValue: "Pull", bundle: .module, comment: "Toolbar button."), "arrow.down", enabled: false) { [weak self] in self?.pullMenu?() ?? NSMenu() }
+    private lazy var push = MenuButton(LocalizedStringResource("toolbar.push.title", defaultValue: "Push", bundle: .module, comment: "Toolbar button."), "arrow.up", enabled: false) { [weak self] in self?.pushMenu?() ?? NSMenu() }
+    private lazy var branch = button(LocalizedStringResource("toolbar.branch.title", defaultValue: "Branch", bundle: .module, comment: "Toolbar button that creates a branch."), "arrow.triangle.branch", #selector(runBranch(_:)))
+    private lazy var stash = MenuButton(LocalizedStringResource("toolbar.stash.title", defaultValue: "Stash", bundle: .module, comment: "Toolbar button, the verb."), "tray.and.arrow.down", enabled: false) { [weak self] in self?.stashMenu?() ?? NSMenu() }
+    private lazy var pop = button(LocalizedStringResource("toolbar.pop.title", defaultValue: "Pop", bundle: .module, comment: "Toolbar button that pops the latest stash."), "tray.and.arrow.up", #selector(runPop(_:)))
 
     /// Commits to pull and to push as badges on their buttons; the push badge also warns of a missing upstream.
     private let behindBadge = CornerBadge()
@@ -92,7 +92,7 @@ final class RepositoryToolbar: BarView {
         pull.toolTip = upstream.flatMap { up in up.behind.map { Self.behind($0, up.name) } }
         if lacksUpstream {
             aheadBadge.show(.symbol("exclamationmark"), tone: .danger)
-            push.toolTip = String(localized: "No upstream: the first push creates the branch on the remote and sets it as upstream.", bundle: .module)
+            push.toolTip = String(localized: "toolbar.push.noUpstreamToolTip", defaultValue: "No upstream: the first push creates the branch on the remote and sets it as upstream.", bundle: .module)
         } else {
             aheadBadge.show(upstream?.ahead.map(CornerBadge.Content.count))
             push.toolTip = upstream.flatMap { up in up.ahead.map { Self.ahead($0, up.name) } }
@@ -100,15 +100,15 @@ final class RepositoryToolbar: BarView {
     }
 
     private static func behind(_ count: Int, _ upstream: String) -> String {
-        count == 0 ? upToDate(upstream) : String(localized: "\(count) commits behind \(upstream)", bundle: .module)
+        count == 0 ? upToDate(upstream) : String(localized: "toolbar.pull.behind", defaultValue: "\(count) commits behind \(upstream)", bundle: .module)
     }
 
     private static func ahead(_ count: Int, _ upstream: String) -> String {
-        count == 0 ? upToDate(upstream) : String(localized: "\(count) commits ahead of \(upstream)", bundle: .module)
+        count == 0 ? upToDate(upstream) : String(localized: "toolbar.push.ahead", defaultValue: "\(count) commits ahead of \(upstream)", bundle: .module)
     }
 
     private static func upToDate(_ upstream: String) -> String {
-        String(localized: "Up to date with \(upstream)", bundle: .module)
+        String(localized: "toolbar.sync.upToDate", defaultValue: "Up to date with \(upstream)", bundle: .module)
     }
 
     /// The badges as shown, for harness output: "↓1 ↑2", with "-" for a hidden badge and "!" for the missing upstream.
@@ -127,9 +127,9 @@ final class RepositoryToolbar: BarView {
     }
 
     func showFetchState(hasRemote: Bool, lastFetch: Date?) {
-        let remote = hasRemote ? "origin" : String(localized: "no remote", bundle: .module, comment: "Start of the toolbar's fetch status, in place of the remote name.")
+        let remote = hasRemote ? "origin" : String(localized: "toolbar.fetch.noRemote", defaultValue: "no remote", bundle: .module, comment: "Start of the toolbar's fetch status, in place of the remote name.")
         guard let lastFetch else {
-            let state = String(localized: "not fetched yet", bundle: .module, comment: "The toolbar's fetch status after the remote name.")
+            let state = String(localized: "toolbar.fetch.notFetched", defaultValue: "not fetched yet", bundle: .module, comment: "The toolbar's fetch status after the remote name.")
             fetchLabel.stringValue = "\(remote) · \(state)"
             fetchLabel.toolTip = nil
             return
@@ -137,15 +137,15 @@ final class RepositoryToolbar: BarView {
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = AppLanguage.locale
         let relative = formatter.localizedString(for: lastFetch, relativeTo: Date())
-        let state = String(localized: "fetched \(relative)", bundle: .module, comment: "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.")
+        let state = String(localized: "toolbar.fetch.fetched", defaultValue: "fetched \(relative)", bundle: .module, comment: "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.")
         fetchLabel.stringValue = "\(remote) · \(state)"
         let exact = GraphRowView.exactFormatter.string(from: lastFetch)
-        fetchLabel.toolTip = String(localized: "Last fetch: \(exact)", bundle: .module)
+        fetchLabel.toolTip = String(localized: "toolbar.fetch.lastFetchToolTip", defaultValue: "Last fetch: \(exact)", bundle: .module)
     }
 
     private func singleFetchMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(ActionMenuItem(LocalizedStringResource("Fetch", comment: "Menu item that fetches the only remote.")) { [weak self] in self?.onFetch?() })
+        menu.addItem(ActionMenuItem(LocalizedStringResource("toolbar.fetch.title", defaultValue: "Fetch", bundle: .module, comment: "Menu item that fetches the only remote.")) { [weak self] in self?.onFetch?() })
         return menu
     }
 }
@@ -170,7 +170,7 @@ final class MenuButton: NSButton, NSMenuDelegate {
         action = #selector(runDefault(_:))
         isEnabled = enabled
 
-        chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: String(localized: "Options", bundle: .module, comment: "The chevron part of a toolbar split button."))
+        chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: String(localized: "toolbar.menu.options", defaultValue: "Options", bundle: .module, comment: "The chevron part of a toolbar split button."))
         chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Toolbar.chevronSize, weight: .semibold)
         chevron.contentTintColor = Theme.inkMuted
         for view in [divider, chevron] {

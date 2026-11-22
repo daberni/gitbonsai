@@ -13,7 +13,7 @@ final class SettingsForm {
 
     /// A control with its label; nil leaves the label column free.
     func addRow(_ label: LocalizedStringResource?, _ control: NSView) {
-        let title = NSTextField(labelWithString: label.map { String(localized: "\($0.text):", bundle: .module, comment: "A settings label in front of its control.") } ?? "")
+        let title = NSTextField(labelWithString: label.map { String(localized: "settings.form.label", defaultValue: "\($0.text):", bundle: .module, comment: "A settings label in front of its control.") } ?? "")
         title.alignment = .right
         let row = grid.addRow(with: [title, control])
         row.rowAlignment = .firstBaseline

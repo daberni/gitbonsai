@@ -162,22 +162,22 @@ final class InteractiveRebaseModel {
     /// Why the plan cannot start, in the sheet's words.
     var problemText: RefString? {
         switch plan.problem {
-        case let .nothingToFoldInto(commit)?: RefString("\(RefName.commit(commit.id)) can’t fold into the commit above: no commit stays above it.")
-        case let .emptyMessage(commit)?: RefString("The commit from \(RefName.commit(commit.id)) needs a message.")
+        case let .nothingToFoldInto(commit)?: RefString(LocalizedStringResource("rebase.error.cannotFold", defaultValue: "\(RefName.commit(commit.id)) can’t fold into the commit above: no commit stays above it.", bundle: .module))
+        case let .emptyMessage(commit)?: RefString(LocalizedStringResource("rebase.error.emptyMessage", defaultValue: "The commit from \(RefName.commit(commit.id)) needs a message.", bundle: .module))
         case nil: nil
         }
     }
 
     /// "3 commits afterwards, 1 dropped"; for an unchanged list onto another commit, how many move there.
     var summary: RefString {
-        if isUnchanged, plan.movesBase { return RefString("\(original.count) commits move onto \(targetName.marked)") }
+        if isUnchanged, plan.movesBase { return RefString(LocalizedStringResource("rebase.summary.moveOnto", defaultValue: "\(original.count) commits move onto \(targetName.marked)", bundle: .module)) }
         let dropped = plan.steps.filter { $0.action == .drop }.count
         let resulting = plan.result.count
         // Each count is a complete item of its own, listed like a status line.
-        var parts = [String(localized: "\(resulting) commits afterwards", bundle: .module, comment: "Rebase sheet summary: how many commits the branch has after the rebase.")]
-        if dropped > 0 { parts.append(String(localized: "\(dropped) dropped", bundle: .module, comment: "Rebase sheet summary: how many commits are dropped.")) }
+        var parts = [String(localized: "rebase.summary.commitsAfterwards", defaultValue: "\(resulting) commits afterwards", bundle: .module, comment: "Rebase sheet summary: how many commits the branch has after the rebase.")]
+        if dropped > 0 { parts.append(String(localized: "rebase.summary.dropped", defaultValue: "\(dropped) dropped", bundle: .module, comment: "Rebase sheet summary: how many commits are dropped.")) }
         let folded = plan.steps.filter { $0.action.foldsIntoPrevious }.count
-        if folded > 0 { parts.append(String(localized: "\(folded) combined", bundle: .module, comment: "Rebase sheet summary: how many commits squash or fixup into the commit above.")) }
+        if folded > 0 { parts.append(String(localized: "rebase.summary.combined", defaultValue: "\(folded) combined", bundle: .module, comment: "Rebase sheet summary: how many commits squash or fixup into the commit above.")) }
         return RefString(verbatim: parts.joined(separator: ", "))
     }
 }

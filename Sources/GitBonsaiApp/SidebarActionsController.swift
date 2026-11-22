@@ -69,34 +69,34 @@ final class SidebarActionRunner {
         alert.alertStyle = style
         alert.setText(title, info: info)
         alert.addButton(withTitle: button.text)
-        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+        alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = destructive
         return await prompter.confirm(alert)
     }
 
     /// Deletes a local branch; when git refuses it as unmerged, shows git's message and offers to delete it anyway.
     func deleteBranch(_ name: String) async {
-        guard let error = await run(failure: "Branch not deleted", note: "git branch -d", report: false, { try await $0.deleteBranch(name, force: false) }) else { return }
+        guard let error = await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -d", report: false, { try await $0.deleteBranch(name, force: false) }) else { return }
         guard error.isUnmergedBranch else {
-            prompter.report(error, title: "Branch not deleted")
+            prompter.report(error, title: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module))
             return
         }
         let message = Self.gitMessage(error)
-        guard await confirm("\(RefName.branch(name)) is not fully merged", info: "\(message)\n\nCommits that are only on this branch can then only be reached through the reflog.", button: "Delete anyway", destructive: true, style: .warning) else { return }
-        await run(failure: "Branch not deleted", note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
+        guard await confirm(LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "\(RefName.branch(name)) is not fully merged", bundle: .module), info: LocalizedStringResource("branch.deleteUnmerged.info", defaultValue: "\(message)\n\nCommits that are only on this branch can then only be reached through the reflog.", bundle: .module), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module), destructive: true, style: .warning) else { return }
+        await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
     }
 
     /// Removes a worktree; when git refuses it for modified or untracked files, shows git's message and offers to remove it anyway. True when it is gone.
     func removeWorktree(at path: String) async -> Bool {
-        guard let error = await run(failure: "Worktree not removed", note: "git worktree remove", report: false, { try await $0.removeWorktree(at: path, force: false) }) else { return true }
+        guard let error = await run(failure: LocalizedStringResource("failure.worktree.notRemoved", defaultValue: "Worktree not removed", bundle: .module), note: "git worktree remove", report: false, { try await $0.removeWorktree(at: path, force: false) }) else { return true }
         guard error.isDirtyWorktree else {
-            prompter.report(error, title: "Worktree not removed")
+            prompter.report(error, title: LocalizedStringResource("failure.worktree.notRemoved", defaultValue: "Worktree not removed", bundle: .module))
             return false
         }
         let name = (path as NSString).lastPathComponent
         let message = Self.gitMessage(error)
-        guard await confirm("\(RefName.worktree(name)) has uncommitted changes", info: "\(message)\n\nThe changes and untracked files in this folder will be lost.", button: "Remove anyway", destructive: true, style: .warning) else { return false }
-        return await run(failure: "Worktree not removed", note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
+        guard await confirm(LocalizedStringResource("worktree.removeDirty.title", defaultValue: "\(RefName.worktree(name)) has uncommitted changes", bundle: .module), info: LocalizedStringResource("worktree.removeDirty.info", defaultValue: "\(message)\n\nThe changes and untracked files in this folder will be lost.", bundle: .module), button: LocalizedStringResource("worktree.removeDirty.confirm", defaultValue: "Remove anyway", bundle: .module), destructive: true, style: .warning) else { return false }
+        return await run(failure: LocalizedStringResource("failure.worktree.notRemoved", defaultValue: "Worktree not removed", bundle: .module), note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
     }
 
     /// git's own words, without the hint lines that suggest commands.

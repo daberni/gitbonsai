@@ -341,7 +341,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             return
         }
         let menu = NSMenu()
-        for (index, title) in ([String(localized: "All", bundle: .module, comment: "Filter scope of a panel list that searches every field.")] + scopes.map(\.title)).enumerated() {
+        for (index, title) in ([String(localized: "panel.filter.all", defaultValue: "All", bundle: .module, comment: "Filter scope of a panel list that searches every field.")] + scopes.map(\.title)).enumerated() {
             let item = NSMenuItem(title: title, action: #selector(scopeChosen(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index - 1

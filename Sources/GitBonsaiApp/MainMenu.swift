@@ -32,47 +32,47 @@ final class MainMenu: NSObject, NSMenuDelegate {
 
     static let sections: [Section] = [
         Section(title: .verbatim("GitBonsai"), entries: [
-            .standard("About GitBonsai", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), nil),
+            .standard(LocalizedStringResource("menu.app.about", defaultValue: "About GitBonsai", bundle: .module), #selector(NSApplication.orderFrontStandardAboutPanel(_:)), nil),
             .separator,
             .command(.settings),
             .separator,
             .services,
             .separator,
-            .standard("Hide GitBonsai", #selector(NSApplication.hide(_:)), CommandShortcut("h")),
-            .standard("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), CommandShortcut("h", [.command, .option])),
-            .standard("Show All", #selector(NSApplication.unhideAllApplications(_:)), nil),
+            .standard(LocalizedStringResource("menu.app.hide", defaultValue: "Hide GitBonsai", bundle: .module), #selector(NSApplication.hide(_:)), CommandShortcut("h")),
+            .standard(LocalizedStringResource("menu.app.hideOthers", defaultValue: "Hide Others", bundle: .module), #selector(NSApplication.hideOtherApplications(_:)), CommandShortcut("h", [.command, .option])),
+            .standard(LocalizedStringResource("menu.app.showAll", defaultValue: "Show All", bundle: .module), #selector(NSApplication.unhideAllApplications(_:)), nil),
             .separator,
-            .standard("Quit GitBonsai", #selector(NSApplication.terminate(_:)), CommandShortcut("q")),
+            .standard(LocalizedStringResource("menu.app.quit", defaultValue: "Quit GitBonsai", bundle: .module), #selector(NSApplication.terminate(_:)), CommandShortcut("q")),
         ]),
-        Section(title: LocalizedStringResource("File", comment: "The File menu."), entries: [
+        Section(title: LocalizedStringResource("menu.file.title", defaultValue: "File", bundle: .module, comment: "The File menu."), entries: [
             .command(.newTab),
             .command(.openRepository),
             .command(.clone),
             .recent,
             .separator,
             .command(.closeTab),
-            .standard("Close Window", #selector(NSWindow.performClose(_:)), CommandShortcut("w", [.command, .shift])),
+            .standard(LocalizedStringResource("menu.file.closeWindow", defaultValue: "Close Window", bundle: .module), #selector(NSWindow.performClose(_:)), CommandShortcut("w", [.command, .shift])),
         ]),
-        Section(title: "Edit", entries: [
-            .standard("Undo", Selector(("undo:")), CommandShortcut("z")),
-            .standard("Redo", Selector(("redo:")), CommandShortcut("z", [.command, .shift])),
+        Section(title: LocalizedStringResource("menu.edit.title", defaultValue: "Edit", bundle: .module), entries: [
+            .standard(LocalizedStringResource("menu.edit.undo", defaultValue: "Undo", bundle: .module), Selector(("undo:")), CommandShortcut("z")),
+            .standard(LocalizedStringResource("menu.edit.redo", defaultValue: "Redo", bundle: .module), Selector(("redo:")), CommandShortcut("z", [.command, .shift])),
             .separator,
-            .standard("Cut", #selector(NSText.cut(_:)), CommandShortcut("x")),
-            .standard("Copy", #selector(NSText.copy(_:)), CommandShortcut("c")),
-            .standard("Paste", #selector(NSText.paste(_:)), CommandShortcut("v")),
-            .standard("Select All", #selector(NSText.selectAll(_:)), CommandShortcut("a")),
+            .standard(LocalizedStringResource("menu.edit.cut", defaultValue: "Cut", bundle: .module), #selector(NSText.cut(_:)), CommandShortcut("x")),
+            .standard(LocalizedStringResource("menu.edit.copy", defaultValue: "Copy", bundle: .module), #selector(NSText.copy(_:)), CommandShortcut("c")),
+            .standard(LocalizedStringResource("menu.edit.paste", defaultValue: "Paste", bundle: .module), #selector(NSText.paste(_:)), CommandShortcut("v")),
+            .standard(LocalizedStringResource("menu.edit.selectAll", defaultValue: "Select All", bundle: .module), #selector(NSText.selectAll(_:)), CommandShortcut("a")),
             .separator,
             .command(.search),
         ]),
-        Section(title: LocalizedStringResource("View", comment: "The View menu."), entries: [
+        Section(title: LocalizedStringResource("menu.view.title", defaultValue: "View", bundle: .module, comment: "The View menu."), entries: [
             .commandBar,
             .separator,
             .command(.toggleSidebar),
             .command(.toggleDetail),
             .separator,
-            .standard("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), CommandShortcut("f", [.command, .control])),
+            .standard(LocalizedStringResource("menu.view.enterFullScreen", defaultValue: "Enter Full Screen", bundle: .module), #selector(NSWindow.toggleFullScreen(_:)), CommandShortcut("f", [.command, .control])),
         ]),
-        Section(title: LocalizedStringResource("Repository", comment: "The Repository menu."), entries: [
+        Section(title: LocalizedStringResource("menu.repository.title", defaultValue: "Repository", bundle: .module, comment: "The Repository menu."), entries: [
             .command(.fetchAll),
             .family("fetch."),
             .command(.fetchTags),
@@ -105,7 +105,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.copyBranch),
             .command(.copyHead),
         ]),
-        Section(title: LocalizedStringResource("Branch", comment: "The Branch menu."), entries: [
+        Section(title: LocalizedStringResource("menu.branch.title", defaultValue: "Branch", bundle: .module, comment: "The Branch menu."), entries: [
             .command(.newBranch),
             .command(.checkout),
             .command(.switchWorktree),
@@ -113,17 +113,17 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.rebaseInteractive),
             .family("operation."),
         ]),
-        Section(title: "Window", role: .window, entries: [
-            .standard("Minimize", #selector(NSWindow.performMiniaturize(_:)), CommandShortcut("m")),
-            .standard("Zoom", #selector(NSWindow.performZoom(_:)), nil),
+        Section(title: LocalizedStringResource("menu.window.title", defaultValue: "Window", bundle: .module), role: .window, entries: [
+            .standard(LocalizedStringResource("menu.window.minimize", defaultValue: "Minimize", bundle: .module), #selector(NSWindow.performMiniaturize(_:)), CommandShortcut("m")),
+            .standard(LocalizedStringResource("menu.window.zoom", defaultValue: "Zoom", bundle: .module), #selector(NSWindow.performZoom(_:)), nil),
             .separator,
             .command(.nextTab),
             .command(.previousTab),
             .command(.switchTab),
             .separator,
-            .standard("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)), nil),
+            .standard(LocalizedStringResource("menu.window.bringAllToFront", defaultValue: "Bring All to Front", bundle: .module), #selector(NSApplication.arrangeInFront(_:)), nil),
         ]),
-        Section(title: "Help", role: .help, entries: []),
+        Section(title: LocalizedStringResource("menu.help.title", defaultValue: "Help", bundle: .module), role: .help, entries: []),
     ]
 
     /// Ids placed on their own somewhere; a family leaves them out.
@@ -140,7 +140,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
     private let runAction: Selector
     private let commandBarAction: Selector
     private var menus: [ObjectIdentifier: Section] = [:]
-    private let recentMenu = NSMenu(title: String(localized: "Open Recent", bundle: .module))
+    private let recentMenu = NSMenu(title: String(localized: "menu.file.openRecent", defaultValue: "Open Recent", bundle: .module))
 
     /// `target` receives `runAction` with the command id as the item's `representedObject`, and `commandBarAction`.
     init(target: AnyObject, runAction: Selector, commandBarAction: Selector, commands: @escaping () -> [Command], recents: @escaping () -> [String]) {
@@ -233,13 +233,13 @@ final class MainMenu: NSObject, NSMenuDelegate {
                 holder.submenu = recentMenu
                 items.append(holder)
             case .services:
-                let services = NSMenu(title: String(localized: "Services", bundle: .module, comment: "The Services submenu of the app menu."))
+                let services = NSMenu(title: String(localized: "menu.app.services", defaultValue: "Services", bundle: .module, comment: "The Services submenu of the app menu."))
                 NSApp.servicesMenu = services
                 let holder = NSMenuItem(title: services.title, action: nil, keyEquivalent: "")
                 holder.submenu = services
                 items.append(holder)
             case .commandBar:
-                let entry = NSMenuItem(title: String(localized: "Command bar…", bundle: .module), action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
+                let entry = NSMenuItem(title: String(localized: "menu.view.commandBar", defaultValue: "Command bar…", bundle: .module), action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
                 entry.keyEquivalentModifierMask = CommandShortcut.commandBar.modifiers
                 entry.target = target
                 items.append(entry)
@@ -291,7 +291,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             recentMenu.addItem(item)
         }
         if paths.isEmpty {
-            let empty = NSMenuItem(title: String(localized: "Nothing opened yet", bundle: .module, comment: "The empty Open Recent menu."), action: nil, keyEquivalent: "")
+            let empty = NSMenuItem(title: String(localized: "menu.file.noRecents", defaultValue: "Nothing opened yet", bundle: .module, comment: "The empty Open Recent menu."), action: nil, keyEquivalent: "")
             empty.isEnabled = false
             recentMenu.addItem(empty)
         }

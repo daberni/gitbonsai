@@ -83,10 +83,10 @@ extension ScreenshotHarness {
     private static func runPullOrPush(on tab: RepositoryViewController) {
         // The switch is named in English; the button is found by the title it shows.
         let buttons = [
-            ("Fetch", String(localized: "Fetch", bundle: .module)),
-            ("Pull", String(localized: "Pull", bundle: .module)),
-            ("Push", String(localized: "Push", bundle: .module)),
-            ("Stash", String(localized: "Stash", bundle: .module)),
+            ("Fetch", String(localized: "toolbar.fetch.title", defaultValue: "Fetch", bundle: .module)),
+            ("Pull", String(localized: "toolbar.pull.title", defaultValue: "Pull", bundle: .module)),
+            ("Push", String(localized: "toolbar.push.title", defaultValue: "Push", bundle: .module)),
+            ("Stash", String(localized: "toolbar.stash.title", defaultValue: "Stash", bundle: .module)),
         ]
         for (title, shown) in buttons {
             guard let pick = environment["GITBONSAI_\(title.uppercased())"] else { continue }

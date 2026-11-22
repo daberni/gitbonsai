@@ -42,11 +42,11 @@ final class NewBranchController {
         let start = request.start
         switch request.follow {
         case .stay:
-            await runner.run(failure: "Branch not created", note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
+            await runner.run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
         case .checkout:
-            await runner.run(failure: "Branch not created", note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
+            await runner.run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
         case .worktree(let path):
-            await runner.run(failure: "Worktree not created", note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
+            await runner.run(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
         }
     }
 }

@@ -31,9 +31,9 @@ struct TagRows {
         let differing = Set(byName.filter { _, states in states.contains { if case .differs = $0.state { true } else { false } } }.keys)
         let onlyRemote = Set(remoteOnly.keys)
         scopes = [
-            PanelScope(title: String(localized: "Local only", bundle: .module, comment: "Tag filter: tags no remote has."), empty: String(localized: "No local-only tags", bundle: .module)) { onlyLocal.contains($0) },
-            PanelScope(title: String(localized: "Differing", bundle: .module, comment: "Tag filter: tags that point elsewhere on a remote."), empty: String(localized: "No differing tags", bundle: .module)) { differing.contains($0) },
-            PanelScope(title: String(localized: "Remote only", bundle: .module, comment: "Tag filter: tags only a remote has."), empty: String(localized: "No remote-only tags", bundle: .module)) { onlyRemote.contains($0) },
+            PanelScope(title: String(localized: "tag.scope.localOnly", defaultValue: "Local only", bundle: .module, comment: "Tag filter: tags no remote has."), empty: String(localized: "tag.scope.localOnlyEmpty", defaultValue: "No local-only tags", bundle: .module)) { onlyLocal.contains($0) },
+            PanelScope(title: String(localized: "tag.scope.differing", defaultValue: "Differing", bundle: .module, comment: "Tag filter: tags that point elsewhere on a remote."), empty: String(localized: "tag.scope.differingEmpty", defaultValue: "No differing tags", bundle: .module)) { differing.contains($0) },
+            PanelScope(title: String(localized: "tag.scope.remoteOnly", defaultValue: "Remote only", bundle: .module, comment: "Tag filter: tags only a remote has."), empty: String(localized: "tag.scope.remoteOnlyEmpty", defaultValue: "No remote-only tags", bundle: .module)) { onlyRemote.contains($0) },
         ]
     }
 
@@ -51,7 +51,7 @@ struct TagRows {
     // MARK: Rows
 
     private static func row(_ tag: Tag, states: [(remote: String, state: TagSyncState)], labelled: Bool) -> PanelRow {
-        let notes = (tag.isAnnotated ? [String(localized: "Annotated tag", bundle: .module)] : []) + states.map { describe($0.state, of: tag.name, on: $0.remote) }
+        let notes = (tag.isAnnotated ? [String(localized: "tag.row.annotated", defaultValue: "Annotated tag", bundle: .module)] : []) + states.map { describe($0.state, of: tag.name, on: $0.remote) }
         let differs = states.contains { if case .differs = $0.state { true } else { false } }
         var row = PanelRow(id: tag.name, glyph: .tag, title: tag.name, marker: tag.isAnnotated ? "◆" : nil, tooltip: notes.isEmpty ? nil : notes.joined(separator: "\n"), detail: tag.subject, date: tag.date, sha: String(tag.commitID.prefix(7)), searchText: tag.subject)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
@@ -64,7 +64,7 @@ struct TagRows {
         let target = having.first?.target
         let isAnnotated = target.map { $0.objectID != $0.commitID } ?? false
         let remotes = having.map(\.remote).joined(separator: ", ")
-        let detail = String(localized: "Only on \(remotes), not fetched yet", bundle: .module, comment: "A tag only on the listed remotes.")
+        let detail = String(localized: "tag.status.onlyRemote", defaultValue: "Only on \(remotes), not fetched yet", bundle: .module, comment: "A tag only on the listed remotes.")
         var row = PanelRow(id: name, glyph: .tag, title: name, marker: isAnnotated ? "◆" : nil, tooltip: states.map { describe($0.state, of: name, on: $0.remote) }.joined(separator: "\n"), detail: detail, date: nil, sha: String((target?.commitID ?? "").prefix(7)), searchText: detail)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
         row.isDimmed = true
@@ -83,26 +83,26 @@ struct TagRows {
     private static func describe(_ state: TagSyncState, of name: String, on remote: String) -> String {
         switch state {
         case .same:
-            return String(localized: "On \(remote)", bundle: .module, comment: "Tooltip of a tag the remote has too.")
+            return String(localized: "tag.status.on", defaultValue: "On \(remote)", bundle: .module, comment: "Tooltip of a tag the remote has too.")
         case .localOnly:
-            return String(localized: "Only local, not on \(remote)", bundle: .module)
+            return String(localized: "tag.status.onlyLocal", defaultValue: "Only local, not on \(remote)", bundle: .module)
         case .remoteOnly(let target):
             let commit = String(target.commitID.prefix(RefString.shortSHA))
-            return String(localized: "Only on \(remote) (\(commit)), not fetched yet", bundle: .module)
+            return String(localized: "tag.status.onlyRemoteCommit", defaultValue: "Only on \(remote) (\(commit)), not fetched yet", bundle: .module)
         case .differs(let local, let other):
             let here = String(local.commitID.prefix(RefString.shortSHA))
             guard local.commitID == other.commitID else {
                 let there = String(other.commitID.prefix(RefString.shortSHA))
-                return String(localized: "Differs from \(remote): \(here) here, \(there) there", bundle: .module)
+                return String(localized: "tag.status.differentCommits", defaultValue: "Differs from \(remote): \(here) here, \(there) there", bundle: .module)
             }
             // Same commit, so the tags differ in kind, or both are annotated with different tag objects.
             switch (isAnnotated(local), isAnnotated(other)) {
             case (false, true):
-                return String(localized: "Differs from \(remote): same commit \(here), but a lightweight tag here and an annotated tag there", bundle: .module)
+                return String(localized: "tag.status.lightweightHere", defaultValue: "Differs from \(remote): same commit \(here), but a lightweight tag here and an annotated tag there", bundle: .module)
             case (true, false):
-                return String(localized: "Differs from \(remote): same commit \(here), but an annotated tag here and a lightweight tag there", bundle: .module)
+                return String(localized: "tag.status.annotatedHere", defaultValue: "Differs from \(remote): same commit \(here), but an annotated tag here and a lightweight tag there", bundle: .module)
             default:
-                return String(localized: "Differs from \(remote): same commit \(here), but different annotated tags here and there", bundle: .module)
+                return String(localized: "tag.status.differentAnnotated", defaultValue: "Differs from \(remote): same commit \(here), but different annotated tags here and there", bundle: .module)
             }
         }
     }

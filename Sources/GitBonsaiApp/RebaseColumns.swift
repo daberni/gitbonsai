@@ -10,10 +10,10 @@ struct RebaseColumns: Equatable {
 
         var title: String {
             switch self {
-            case .action: String(localized: "Action", bundle: .module, comment: "Column header in the rebase sheet: pick, reword, squash …")
-            case .sha: String(localized: "SHA", bundle: .module)
-            case .subject: String(localized: "Message", bundle: .module, comment: "Caption above the commit message editor; also a column header.")
-            case .branches: String(localized: "Branches", bundle: .module, comment: "Column header in the rebase sheet.")
+            case .action: String(localized: "rebase.column.action", defaultValue: "Action", bundle: .module, comment: "Column header in the rebase sheet: pick, reword, squash …")
+            case .sha: String(localized: "rebase.column.sha", defaultValue: "SHA", bundle: .module)
+            case .subject: String(localized: "rebase.column.message", defaultValue: "Message", bundle: .module, comment: "Caption above the commit message editor; also a column header.")
+            case .branches: String(localized: "rebase.column.branches", defaultValue: "Branches", bundle: .module, comment: "Column header in the rebase sheet.")
             }
         }
 

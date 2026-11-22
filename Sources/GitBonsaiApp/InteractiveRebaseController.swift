@@ -37,17 +37,17 @@ final class InteractiveRebaseController {
         let parent = commit.parents.first.flatMap { viewModel.rowIndex(of: $0) }.map { viewModel.commits[$0] }
 
         let ownStep = reason ?? (commit.parents.isEmpty ? Self.rootReason : ownRangeHasMerge ? Self.mergeReason : nil)
-        let up = ownStep ?? (isHead ? String(localized: "Already the topmost commit", bundle: .module) : nil)
-        let down = ownStep ?? (parent == nil ? String(localized: "The commit below is not loaded", bundle: .module) : parent!.parents.isEmpty ? String(localized: "Only the repository’s first commit lies below", bundle: .module) : parent!.parents.count > 1 ? Self.mergeReason : nil)
+        let up = ownStep ?? (isHead ? String(localized: "rebase.disabled.topmost", defaultValue: "Already the topmost commit", bundle: .module) : nil)
+        let down = ownStep ?? (parent == nil ? String(localized: "rebase.disabled.belowNotLoaded", defaultValue: "The commit below is not loaded", bundle: .module) : parent!.parents.isEmpty ? String(localized: "rebase.disabled.onlyRootBelow", defaultValue: "Only the repository’s first commit lies below", bundle: .module) : parent!.parents.count > 1 ? Self.mergeReason : nil)
 
-        let reword = item("Edit Message", disabledBecause: ownStep) { [weak self] in self?.onReword?(commit) }
+        let reword = item(LocalizedStringResource("commit.action.editMessage", defaultValue: "Edit Message", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.onReword?(commit) }
         reword.keyEquivalent = CommandShortcut.editMessage.key
         reword.keyEquivalentModifierMask = CommandShortcut.editMessage.modifiers
         return [
             reword,
-            item("Move up", disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
-            item("Move down", disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
-            item("Drop Commit…", disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
+            item(LocalizedStringResource("rebase.menu.moveUp", defaultValue: "Move up", bundle: .module), disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
+            item(LocalizedStringResource("rebase.menu.moveDown", defaultValue: "Move down", bundle: .module), disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
+            item(LocalizedStringResource("rebase.menu.drop", defaultValue: "Drop Commit…", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
         ]
     }
 
@@ -61,15 +61,15 @@ final class InteractiveRebaseController {
     /// Why an in-place rebase from `commit`, an ancestor of HEAD, is not offered; nil when it is.
     func inPlaceReason(for commit: Commit) -> String? {
         guard let line = firstParentLine(to: commit.id) else { return Self.offLineReason(viewModel.currentBranch ?? "HEAD") }
-        if commit.id == viewModel.headSHA { return String(localized: "Nothing lies above this commit", bundle: .module) }
+        if commit.id == viewModel.headSHA { return String(localized: "rebase.disabled.nothingAbove", defaultValue: "Nothing lies above this commit", bundle: .module) }
         return line.dropLast().contains { $0.parents.count > 1 } ? Self.mergeReason : nil
     }
 
-    private static var mergeReason: String { String(localized: "A merge lies in between", bundle: .module) }
-    private static var rootReason: String { String(localized: "The repository’s first commit has no parent", bundle: .module) }
+    private static var mergeReason: String { String(localized: "rebase.disabled.merge", defaultValue: "A merge lies in between", bundle: .module) }
+    private static var rootReason: String { String(localized: "rebase.disabled.root", defaultValue: "The repository’s first commit has no parent", bundle: .module) }
 
     private static func offLineReason(_ branch: String) -> String {
-        String(localized: "Not on the line of \(branch)", bundle: .module, comment: "Tooltip of a disabled rebase entry: the commit is not on the first-parent line of this branch.")
+        String(localized: "rebase.disabled.notOnLine", defaultValue: "Not on the line of \(branch)", bundle: .module, comment: "Tooltip of a disabled rebase entry: the commit is not on the first-parent line of this branch.")
     }
 
     private func item(_ title: LocalizedStringResource, disabledBecause reason: String?, _ handler: @escaping () -> Void) -> NSMenuItem {
@@ -110,7 +110,7 @@ final class InteractiveRebaseController {
                 let model = InteractiveRebaseModel(branch: branch, range: range, base: base, target: targetCommit, targetName: targetName, branches: branches, published: published, hasLocalChanges: hasLocalChanges)
                 let suggestions = await Self.suggestions(of: detection, range: range, target: target.id, targetName: targetName, in: repository)
                 let tips = ((try? await repository.refTips()) ?? []).filter { !($0.kind == .localBranch && $0.name == branch) }
-                let picker = RebaseBasePicker(base: suggestions.initial, target: RefString("\(targetName.marked) · \(RefName.commit(targetCommit.id)) “\(targetCommit.subject)”"), catalog: RefCatalog(tips: tips, current: suggestions.items), repository: repository, note: Self.note(for: detection, range: range))
+                let picker = RebaseBasePicker(base: suggestions.initial, target: RefString(LocalizedStringResource("rebase.sheet.target", defaultValue: "\(targetName.marked) · \(RefName.commit(targetCommit.id)) “\(targetCommit.subject)”", bundle: .module)), catalog: RefCatalog(tips: tips, current: suggestions.items), repository: repository, note: Self.note(for: detection, range: range))
                 // The sheet owns the picker and goes away when it closes, which ends this reference to the controller.
                 picker.changeBase = { [weak model] revision in
                     guard let model else { return nil }
@@ -125,13 +125,13 @@ final class InteractiveRebaseController {
                 self.sheet = nil
                 guard let plan else { return }
                 if plan.dropsEverything {
-                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Drop all commits?", info: "\(RefName.branch(branch)) will be reset to \(RefName.commit(model.targetCommit.id)) “\(model.targetCommit.subject)”. Undo from the status line.", button: "Drop Commits")
+                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all commits?", bundle: .module), info: LocalizedStringResource("rebase.dropAll.info", defaultValue: "\(RefName.branch(branch)) will be reset to \(RefName.commit(model.targetCommit.id)) “\(model.targetCommit.subject)”. Undo from the status line.", bundle: .module), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
                     guard confirmed else { return }
                 }
                 let hint = CommitActionsController.publishedHint(model.published, upstream: upstream)
                 start(plan, note: CommitActionsController.note(Self.command(plan), hint))
             } catch {
-                report(error, title: "Interactive rebase not possible")
+                report(error, title: LocalizedStringResource("failure.rebase.interactiveNotPossible", defaultValue: "Interactive rebase not possible", bundle: .module))
             }
         }
     }
@@ -144,7 +144,7 @@ final class InteractiveRebaseController {
     /// Loads the range from another old base into the open sheet; returns why it cannot.
     private func changeBase(of model: InteractiveRebaseModel, to revision: String, onto target: String) async -> String? {
         let repository = viewModel.repository
-        guard let base = await repository.rebaseCommit(revision) else { return String(localized: "“\(revision)” is not a commit", bundle: .module) }
+        guard let base = await repository.rebaseCommit(revision) else { return String(localized: "rebase.base.notACommit", defaultValue: "“\(revision)” is not a commit", bundle: .module) }
         do {
             let range = try await repository.rebaseRange(from: base.id, onto: target)
             let branches = await repository.stackedBranches(in: range.commits)
@@ -171,7 +171,7 @@ final class InteractiveRebaseController {
                 if let commit = await repository.commitSummary(base.commit) { items.append(.commit(commit, note: RebaseOntoController.without(base.reason).plain)) }
             }
             if let mergeBase = await repository.mergeBase(target, "HEAD"), !items.contains(where: { $0.revision == mergeBase }), let commit = await repository.commitSummary(mergeBase) {
-                items.append(.commit(commit, note: String(localized: "merge base", bundle: .module, comment: "Why the base picker offers a commit: it is the merge base.")))
+                items.append(.commit(commit, note: String(localized: "rebase.base.mergeBase", defaultValue: "merge base", bundle: .module, comment: "Why the base picker offers a commit: it is the merge base.")))
             }
         }
         if let initial = items.first(where: { $0.revision == range.base }) { return (items, initial) }
@@ -183,14 +183,14 @@ final class InteractiveRebaseController {
     private static func note(for detection: RebaseBaseDetection, range: RebaseRange) -> String {
         if range.isInPlace { return inPlaceNote }
         return switch detection {
-        case .detected: String(localized: "detected", bundle: .module, comment: "Next to the old base of an interactive rebase: the app found it.")
-        case .tie: String(localized: "ambiguous: please check the base", bundle: .module)
-        case .plain: String(localized: "merge base, nothing better detected", bundle: .module)
+        case .detected: String(localized: "rebase.base.detected", defaultValue: "detected", bundle: .module, comment: "Next to the old base of an interactive rebase: the app found it.")
+        case .tie: String(localized: "rebase.base.ambiguous", defaultValue: "ambiguous: please check the base", bundle: .module)
+        case .plain: String(localized: "rebase.base.plain", defaultValue: "merge base, nothing better detected", bundle: .module)
         }
     }
 
     private static var inPlaceNote: String {
-        String(localized: "in place", bundle: .module, comment: "Next to the old base of an interactive rebase: the commits stay on their base and only the list is edited.")
+        String(localized: "rebase.base.inPlace", defaultValue: "in place", bundle: .module, comment: "Next to the old base of an interactive rebase: the commits stay on their base and only the list is edited.")
     }
 
     // MARK: Single steps
@@ -204,21 +204,21 @@ final class InteractiveRebaseController {
                 // Only dropping asks: it takes the commit's changes out of the branch. Moving is undone from the status line.
                 if step == .drop {
                     let alert = NSAlert()
-                    alert.setText(RefString("Drop \(RefName.commit(commit.id)) “\(commit.subject)”?"), info: Self.rewriteNote(plan, branch: branch, hint: hint))
-                    alert.addButton(withTitle: String(localized: "Drop Commit", bundle: .module))
-                    alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+                    alert.setText(RefString(LocalizedStringResource("rebase.drop.title", defaultValue: "Drop \(RefName.commit(commit.id)) “\(commit.subject)”?", bundle: .module)), info: Self.rewriteNote(plan, branch: branch, hint: hint))
+                    alert.addButton(withTitle: String(localized: "rebase.drop.confirm", defaultValue: "Drop Commit", bundle: .module))
+                    alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
                     alert.buttons.first?.hasDestructiveAction = true
                     guard await prompter.confirm(alert) else { return }
                 }
                 // The status line names the step inside the command; drop is git's own todo verb.
                 let verb = switch step {
                 case .drop: "drop"
-                case .moveUp: String(localized: "move up", bundle: .module, comment: "Status line, inside “git rebase -i (move up 1a2b3c4)”: the commit was moved up one step.")
-                default: String(localized: "move down", bundle: .module, comment: "Status line, inside “git rebase -i (move down 1a2b3c4)”: the commit was moved down one step.")
+                case .moveUp: String(localized: "rebase.move.up", defaultValue: "move up", bundle: .module, comment: "Status line, inside “git rebase -i (move up 1a2b3c4)”: the commit was moved up one step.")
+                default: String(localized: "rebase.move.down", defaultValue: "move down", bundle: .module, comment: "Status line, inside “git rebase -i (move down 1a2b3c4)”: the commit was moved down one step.")
                 }
                 start(plan, note: CommitActionsController.note("git rebase -i (\(verb) \(commit.shortID))", hint))
             } catch {
-                report(error, title: "Rebase not possible")
+                report(error, title: LocalizedStringResource("failure.rebase.notPossible", defaultValue: "Rebase not possible", bundle: .module))
             }
         }
     }
@@ -226,7 +226,7 @@ final class InteractiveRebaseController {
     /// "Rewrites 3 commits of main. Undo from the status line." and the hint about published commits, each its own paragraph.
     private static func rewriteNote(_ plan: RebasePlan, branch: String, hint: RefString?) -> RefString {
         let count = plan.steps.count
-        let note = RefString("Rewrites \(count) commits of \(RefName.branch(branch)). Undo from the status line.")
+        let note = RefString(LocalizedStringResource("rebase.move.note", defaultValue: "Rewrites \(count) commits of \(RefName.branch(branch)). Undo from the status line.", bundle: .module))
         return RefString(marked: ([note] + [hint].compactMap { $0 }).map(\.marked).joined(separator: "\n\n"))
     }
 
@@ -249,12 +249,12 @@ final class InteractiveRebaseController {
                 case let .stopped(progress, output):
                     // A conflict or an edit stop is a state the banner shows; only a failed command is worth a message.
                     if case let .exec(command)? = progress.stop {
-                        prompter.report(GitError(arguments: ["rebase"], exitCode: 1, stderr: output), title: "“\(command)” failed, rebase stopped")
+                        prompter.report(GitError(arguments: ["rebase"], exitCode: 1, stderr: output), title: LocalizedStringResource("failure.rebase.execStopped", defaultValue: "“\(command)” failed, rebase stopped", bundle: .module))
                     }
                 }
             } catch {
                 await viewModel.refresh(note: nil)
-                report(error, title: "Rebase failed")
+                report(error, title: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module))
             }
         }
     }
@@ -266,14 +266,14 @@ final class InteractiveRebaseController {
 
     static func describe(_ error: RebasePlanError) -> String {
         switch error {
-        case .baseNotInHistory: String(localized: "The commit is not in the history of the current branch.", bundle: .module)
-        case .mergeInRange: String(localized: "A merge lies between the commit and HEAD; an interactive rebase would flatten it.", bundle: .module)
-        case .nothingToRebase: String(localized: "Nothing lies above this commit that could be rewritten.", bundle: .module)
-        case .notOnCurrentBranch: String(localized: "The commit is not on the line of the current branch.", bundle: .module)
-        case .rootCommit: String(localized: "The repository’s first commit has no parent the rebase could start from.", bundle: .module)
-        case .nothingAbove: String(localized: "No commit lies above this one to swap with.", bundle: .module)
-        case let .invalidPlan(.nothingToFoldInto(commit)): String(localized: "\(commit.shortID) has no commit above it to fold into.", bundle: .module)
-        case let .invalidPlan(.emptyMessage(commit)): String(localized: "The commit from \(commit.shortID) needs a message.", bundle: .module)
+        case .baseNotInHistory: String(localized: "rebase.error.baseNotInHistory", defaultValue: "The commit is not in the history of the current branch.", bundle: .module)
+        case .mergeInRange: String(localized: "rebase.error.mergeInRange", defaultValue: "A merge lies between the commit and HEAD; an interactive rebase would flatten it.", bundle: .module)
+        case .nothingToRebase: String(localized: "rebase.error.nothingToRebase", defaultValue: "Nothing lies above this commit that could be rewritten.", bundle: .module)
+        case .notOnCurrentBranch: String(localized: "rebase.error.notOnCurrentBranch", defaultValue: "The commit is not on the line of the current branch.", bundle: .module)
+        case .rootCommit: String(localized: "rebase.error.rootCommit", defaultValue: "The repository’s first commit has no parent the rebase could start from.", bundle: .module)
+        case .nothingAbove: String(localized: "rebase.error.nothingAbove", defaultValue: "No commit lies above this one to swap with.", bundle: .module)
+        case let .invalidPlan(.nothingToFoldInto(commit)): String(localized: "rebase.error.nothingToFoldInto", defaultValue: "\(commit.shortID) has no commit above it to fold into.", bundle: .module)
+        case let .invalidPlan(.emptyMessage(commit)): String(localized: "rebase.error.emptyMessage", defaultValue: "The commit from \(commit.shortID) needs a message.", bundle: .module)
         }
     }
 }

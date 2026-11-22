@@ -7,12 +7,12 @@ struct HistoryColumns: Equatable {
 
         var title: String {
             switch self {
-            case .label: String(localized: "Branch / Tag", bundle: .module, comment: "History column header")
-            case .graph: String(localized: "Graph", bundle: .module, comment: "History column header")
-            case .commit: String(localized: "Commit", bundle: .module, comment: "History column header: the commit message")
-            case .author: String(localized: "Author", bundle: .module, comment: "History column header")
-            case .sha: String(localized: "SHA", bundle: .module, comment: "History column header")
-            case .date: String(localized: "Date", bundle: .module, comment: "History column header")
+            case .label: String(localized: "history.column.label", defaultValue: "Branch / Tag", bundle: .module, comment: "History column header")
+            case .graph: String(localized: "history.column.graph", defaultValue: "Graph", bundle: .module, comment: "History column header")
+            case .commit: String(localized: "history.column.commit", defaultValue: "Commit", bundle: .module, comment: "History column header: the commit message")
+            case .author: String(localized: "history.column.author", defaultValue: "Author", bundle: .module, comment: "History column header")
+            case .sha: String(localized: "history.column.sha", defaultValue: "SHA", bundle: .module, comment: "History column header")
+            case .date: String(localized: "history.column.date", defaultValue: "Date", bundle: .module, comment: "History column header")
             }
         }
 

@@ -14,7 +14,7 @@ final class RefPickerButton: KeyboardControl {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setAccessibilityRole(.popUpButton)
-        setAccessibilityLabel(String(localized: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit."))
+        setAccessibilityLabel(String(localized: "branch.new.startPoint", defaultValue: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit."))
     }
 
     required init?(coder: NSCoder) { nil }

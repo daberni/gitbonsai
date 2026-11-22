@@ -136,19 +136,19 @@ extension CommandBlocker {
     /// The short reason a disabled command shows, in the bar's muted text.
     var reason: LocalizedStringResource {
         switch self {
-        case .detachedHead: "Detached HEAD"
-        case .noCommits: "No commits yet"
-        case .noRemote: "No remote"
-        case .noUpstream: "No upstream"
-        case .nothingStaged: "Nothing staged"
-        case .nothingToStage: "Nothing to stage"
-        case .nothingToUnstage: "Nothing staged to unstage"
-        case .noTrackedChanges: "No changes to tracked files"
-        case .noChanges: "No changes"
-        case .noStash: "No stash"
-        case .conflicts: "Unresolved conflicts"
-        case .operationInProgress(let kind): "\(kind.label) in progress"
-        case .noOperation: "Nothing in progress"
+        case .detachedHead: LocalizedStringResource("common.detachedHead", defaultValue: "Detached HEAD", bundle: .module)
+        case .noCommits: LocalizedStringResource("command.blocker.noCommits", defaultValue: "No commits yet", bundle: .module)
+        case .noRemote: LocalizedStringResource("command.blocker.noRemote", defaultValue: "No remote", bundle: .module)
+        case .noUpstream: LocalizedStringResource("command.blocker.noUpstream", defaultValue: "No upstream", bundle: .module)
+        case .nothingStaged: LocalizedStringResource("command.blocker.nothingStaged", defaultValue: "Nothing staged", bundle: .module)
+        case .nothingToStage: LocalizedStringResource("command.blocker.nothingToStage", defaultValue: "Nothing to stage", bundle: .module)
+        case .nothingToUnstage: LocalizedStringResource("command.blocker.nothingToUnstage", defaultValue: "Nothing staged to unstage", bundle: .module)
+        case .noTrackedChanges: LocalizedStringResource("command.blocker.noTrackedChanges", defaultValue: "No changes to tracked files", bundle: .module)
+        case .noChanges: LocalizedStringResource("command.blocker.noChanges", defaultValue: "No changes", bundle: .module)
+        case .noStash: LocalizedStringResource("command.blocker.noStash", defaultValue: "No stash", bundle: .module)
+        case .conflicts: LocalizedStringResource("command.blocker.conflicts", defaultValue: "Unresolved conflicts", bundle: .module)
+        case .operationInProgress(let kind): LocalizedStringResource("command.blocker.operationInProgress", defaultValue: "\(kind.label) in progress", bundle: .module)
+        case .noOperation: LocalizedStringResource("command.blocker.noOperation", defaultValue: "Nothing in progress", bundle: .module)
         }
     }
 }

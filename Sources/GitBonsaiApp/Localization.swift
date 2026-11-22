@@ -45,7 +45,7 @@ extension LocalizedStringResource {
 
     /// Text that is shown as it is, such as git's output, a commit subject or text already localized and put together elsewhere.
     static func verbatim(_ text: String) -> LocalizedStringResource {
-        LocalizedStringResource("\(text)", comment: "Shown as is: git output, a commit subject or text localized elsewhere. Never translated.")
+        LocalizedStringResource("common.verbatim", defaultValue: "\(text)", bundle: .module, comment: "Shown as is: git output, a commit subject or text localized elsewhere. Never translated.")
     }
 
     /// Text built from a `RefString`, for an API that takes a resource; its names stay pills.

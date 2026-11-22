@@ -8,20 +8,20 @@ enum GitFailureText {
         guard let gitError = error as? GitError else { return RefString(verbatim: error.localizedDescription) }
         let resource: LocalizedStringResource
         switch GitFailure(output: gitError.stderr) {
-        case let .couldNotApply(commit, subject) where subject.isEmpty: resource = "Commit \(RefName.commit(commit)) could not be applied."
-        case let .couldNotApply(commit, subject): resource = "Commit \(RefName.commit(commit)) “\(subject)” could not be applied."
-        case let .couldNotRevert(commit, subject) where subject.isEmpty: resource = "Commit \(RefName.commit(commit)) could not be reverted."
-        case let .couldNotRevert(commit, subject): resource = "Commit \(RefName.commit(commit)) “\(subject)” could not be reverted."
-        case let .conflicts(paths) where paths.count > shownPaths: resource = "Conflicts in \(listed(paths)) and \(paths.count - shownPaths) more."
-        case let .conflicts(paths): resource = "Conflicts in \(listed(paths))."
-        case let .localChangesInTheWay(paths) where paths.isEmpty: resource = "Local changes would be overwritten."
-        case let .localChangesInTheWay(paths) where paths.count > shownPaths: resource = "Local changes would be overwritten: \(listed(paths)) and \(paths.count - shownPaths) more."
-        case let .localChangesInTheWay(paths): resource = "Local changes would be overwritten: \(listed(paths))."
-        case .uncommittedChanges: resource = "Uncommitted changes are in the way; commit or stash them first."
-        case .emptyStep: resource = "The step is empty; there is nothing to commit."
-        case .unreachable: resource = "The server cannot be reached. Check the network connection and the remote address."
-        case .authenticationFailed: resource = "Signing in to the server failed. GitBonsai does not ask for passwords: store the credentials in the credential helper or load the SSH key into the SSH agent."
-        case let .message(text) where text.isEmpty: resource = "git reports an error (exit code \(Int(gitError.exitCode)))."
+        case let .couldNotApply(commit, subject) where subject.isEmpty: resource = LocalizedStringResource("failure.reason.couldNotApply", defaultValue: "Commit \(RefName.commit(commit)) could not be applied.", bundle: .module)
+        case let .couldNotApply(commit, subject): resource = LocalizedStringResource("failure.reason.couldNotApplySubject", defaultValue: "Commit \(RefName.commit(commit)) “\(subject)” could not be applied.", bundle: .module)
+        case let .couldNotRevert(commit, subject) where subject.isEmpty: resource = LocalizedStringResource("failure.reason.couldNotRevert", defaultValue: "Commit \(RefName.commit(commit)) could not be reverted.", bundle: .module)
+        case let .couldNotRevert(commit, subject): resource = LocalizedStringResource("failure.reason.couldNotRevertSubject", defaultValue: "Commit \(RefName.commit(commit)) “\(subject)” could not be reverted.", bundle: .module)
+        case let .conflicts(paths) where paths.count > shownPaths: resource = LocalizedStringResource("failure.reason.conflictsMore", defaultValue: "Conflicts in \(listed(paths)) and \(paths.count - shownPaths) more.", bundle: .module)
+        case let .conflicts(paths): resource = LocalizedStringResource("failure.reason.conflicts", defaultValue: "Conflicts in \(listed(paths)).", bundle: .module)
+        case let .localChangesInTheWay(paths) where paths.isEmpty: resource = LocalizedStringResource("failure.reason.localChanges", defaultValue: "Local changes would be overwritten.", bundle: .module)
+        case let .localChangesInTheWay(paths) where paths.count > shownPaths: resource = LocalizedStringResource("failure.reason.localChangesPathsMore", defaultValue: "Local changes would be overwritten: \(listed(paths)) and \(paths.count - shownPaths) more.", bundle: .module)
+        case let .localChangesInTheWay(paths): resource = LocalizedStringResource("failure.reason.localChangesPaths", defaultValue: "Local changes would be overwritten: \(listed(paths)).", bundle: .module)
+        case .uncommittedChanges: resource = LocalizedStringResource("failure.reason.uncommittedChanges", defaultValue: "Uncommitted changes are in the way; commit or stash them first.", bundle: .module)
+        case .emptyStep: resource = LocalizedStringResource("failure.reason.emptyStep", defaultValue: "The step is empty; there is nothing to commit.", bundle: .module)
+        case .unreachable: resource = LocalizedStringResource("failure.reason.unreachable", defaultValue: "The server cannot be reached. Check the network connection and the remote address.", bundle: .module)
+        case .authenticationFailed: resource = LocalizedStringResource("failure.reason.authenticationFailed", defaultValue: "Signing in to the server failed. GitBonsai does not ask for passwords: store the credentials in the credential helper or load the SSH key into the SSH agent.", bundle: .module)
+        case let .message(text) where text.isEmpty: resource = LocalizedStringResource("failure.reason.exitCode", defaultValue: "git reports an error (exit code \(Int(gitError.exitCode))).", bundle: .module)
         case let .message(text): return RefString(verbatim: text.prefix(1).uppercased() + text.dropFirst())
         }
         return RefString(resource)
@@ -54,9 +54,9 @@ enum GitFailureText {
         guard let report else { return nil }
         let skipped = report.alreadyApplied
         switch (skipped > 0, report.skippedEmptyStep) {
-        case (true, true): return RefString("Skipped \(skipped) already applied commits and an empty step")
-        case (true, false): return RefString("Skipped \(skipped) already applied commits")
-        case (false, true): return RefString("Skipped an empty step")
+        case (true, true): return RefString(LocalizedStringResource("rebase.skipped.commitsAndEmptyStep", defaultValue: "Skipped \(skipped) already applied commits and an empty step", bundle: .module))
+        case (true, false): return RefString(LocalizedStringResource("rebase.skipped.commits", defaultValue: "Skipped \(skipped) already applied commits", bundle: .module))
+        case (false, true): return RefString(LocalizedStringResource("rebase.skipped.emptyStep", defaultValue: "Skipped an empty step", bundle: .module))
         case (false, false): return nil
         }
     }

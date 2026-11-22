@@ -18,7 +18,7 @@ final class WindowTab {
         isLoaded = true
     }
 
-    var title: String { repository?.name ?? String(localized: "New tab", bundle: .module) }
+    var title: String { repository?.name ?? String(localized: "window.tabs.untitled", defaultValue: "New tab", bundle: .module) }
     var view: NSView { repository?.view ?? welcome ?? NSView() }
 }
 

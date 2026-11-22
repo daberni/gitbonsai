@@ -64,8 +64,8 @@ final class ActionPrompter {
         let sentence = summary.map(RefString.init) ?? GitFailureText.summary(of: error)
         let details = GitFailureText.details(of: error).flatMap { $0 == sentence.plain ? nil : $0 }
         if actions.isEmpty, GitFailureText.isPassing(error), let onToast {
-            let more = details.map { _ in ToastAction(title: "Details") { [weak self] in self?.showSheet(title: .verbatim(title), summary: .verbatim(sentence), details: details, actions: []) } }
-            onToast(RefString(LocalizedStringResource("\(title.marked): \(sentence.marked)", comment: "Toast of a failure: what failed, then git's reason.")), more)
+            let more = details.map { _ in ToastAction(title: LocalizedStringResource("failure.toast.details", defaultValue: "Details", bundle: .module)) { [weak self] in self?.showSheet(title: .verbatim(title), summary: .verbatim(sentence), details: details, actions: []) } }
+            onToast(RefString(LocalizedStringResource("failure.toast.summary", defaultValue: "\(title.marked): \(sentence.marked)", bundle: .module, comment: "Toast of a failure: what failed, then git's reason.")), more)
             return
         }
         showSheet(title: .verbatim(title), summary: .verbatim(sentence), details: details, actions: actions)
@@ -77,7 +77,7 @@ final class ActionPrompter {
         if (error as? GitError)?.stoppedOnConflict == true {
             if await repository.operationInProgress() != nil { return }
             if let onToast {
-                onToast(RefString(title), onShowConflicts.map { show in ToastAction(title: "Show conflicts") { show() } })
+                onToast(RefString(title), onShowConflicts.map { show in ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { show() } })
                 return
             }
         }
@@ -86,7 +86,7 @@ final class ActionPrompter {
 
     /// Changes set aside for a command conflicted when they came back: the working directory shows the conflicts, and the stash named `stash` stays.
     func reportConflictingReturn(of stash: String) {
-        onToast?(RefString("Local changes conflict on their way back; the stash “\(stash)” stays"), onShowConflicts.map { show in ToastAction(title: "Show conflicts") { show() } })
+        onToast?(RefString(LocalizedStringResource("failure.toast.stashConflict", defaultValue: "Local changes conflict on their way back; the stash “\(stash)” stays", bundle: .module)), onShowConflicts.map { show in ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { show() } })
     }
 
     /// The sheet of a failure, also for a decision that a failure leads to, such as a rejected push. The chosen action runs once the sheet is gone.
@@ -115,7 +115,7 @@ final class ActionPrompter {
 extension NSAlert {
     /// The button Esc presses: Cancel, otherwise the last button, which is where an alert puts the choice that changes nothing.
     var cancelButton: NSButton? {
-        buttons.first { $0.title == String(localized: "Cancel", bundle: .module) } ?? buttons.last
+        buttons.first { $0.title == String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module) } ?? buttons.last
     }
 
     /// Shows the alert as a sheet on which Esc presses `cancelButton`, as macOS dialogs do.

@@ -21,10 +21,10 @@ final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
         self.identifier = identifier
-        grip.image = NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: String(localized: "Drag to move", bundle: .module))
+        grip.image = NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: String(localized: "rebase.step.drag", defaultValue: "Drag to move", bundle: .module))
         grip.contentTintColor = Theme.inkFaint
         grip.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .regular)
-        fold.image = NSImage(systemSymbolName: "arrow.turn.left.up", accessibilityDescription: String(localized: "folds into the commit above", bundle: .module))
+        fold.image = NSImage(systemSymbolName: "arrow.turn.left.up", accessibilityDescription: String(localized: "rebase.step.foldsIntoAbove", defaultValue: "folds into the commit above", bundle: .module))
         fold.contentTintColor = Theme.moss
         fold.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
         for action in RebaseAction.commitActions {
@@ -97,7 +97,7 @@ final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
         subject.bezelStyle = .roundedBezel
         subject.drawsBackground = rewording
         subject.focusRingType = rewording ? .default : .none
-        subject.toolTip = rewording ? String(localized: "New message; the full message is below", bundle: .module) : step.commit?.message
+        subject.toolTip = rewording ? String(localized: "rebase.step.rewordToolTip", defaultValue: "New message; the full message is below", bundle: .module) : step.commit?.message
         // A subject being typed keeps its text and cursor.
         if subject.currentEditor() == nil {
             let text = model.subject(at: index)
@@ -115,9 +115,9 @@ final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
         let names = model.branches(at: index)
         let applied = model.isAlreadyOnTarget(index)
         let target = model.targetName.plain
-        branches.stringValue = applied ? String(localized: "already on \(target)", bundle: .module, comment: "Rebase row: the commit's changes are already on the target branch.") : names.joined(separator: ", ")
+        branches.stringValue = applied ? String(localized: "rebase.step.alreadyOn", defaultValue: "already on \(target)", bundle: .module, comment: "Rebase row: the commit's changes are already on the target branch.") : names.joined(separator: ", ")
         branches.textColor = applied ? Theme.ochre : Theme.moss
-        branches.toolTip = applied ? String(localized: "This commit’s changes are already on \(target) (same patch-id), so it starts as drop.", bundle: .module) : names.joined(separator: "\n")
+        branches.toolTip = applied ? String(localized: "rebase.step.alreadyOnToolTip", defaultValue: "This commit’s changes are already on \(target) (same patch-id), so it starts as drop.", bundle: .module) : names.joined(separator: "\n")
         branches.isHidden = names.isEmpty && !applied
         setAccessibilityLabel("\(Self.label(step.action)) \(step.commit?.shortID ?? "") \(model.subject(at: index))")
     }
@@ -125,25 +125,25 @@ final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
     /// The action as the pop-up names it. The todo verb written to git is always `rawValue`.
     static func label(_ action: RebaseAction) -> String {
         switch action {
-        case .pick: String(localized: "pick", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
-        case .reword: String(localized: "reword", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
-        case .edit: String(localized: "edit", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
-        case .squash: String(localized: "squash", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
-        case .fixup: String(localized: "fixup", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
-        case .drop: String(localized: "drop", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
-        case .exec: String(localized: "exec", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .pick: String(localized: "rebase.action.pick", defaultValue: "pick", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .reword: String(localized: "rebase.action.reword", defaultValue: "reword", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .edit: String(localized: "rebase.action.edit", defaultValue: "edit", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .squash: String(localized: "rebase.action.squash", defaultValue: "squash", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .fixup: String(localized: "rebase.action.fixup", defaultValue: "fixup", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .drop: String(localized: "rebase.action.drop", defaultValue: "drop", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
+        case .exec: String(localized: "rebase.action.exec", defaultValue: "exec", bundle: .module, comment: "Rebase action in the step pop-up; git's todo verb.")
         }
     }
 
     static func explanation(_ action: RebaseAction) -> String {
         switch action {
-        case .pick: String(localized: "Use the commit", bundle: .module)
-        case .reword: String(localized: "Use the commit, change its message", bundle: .module)
-        case .edit: String(localized: "Use the commit and stop to amend it", bundle: .module)
-        case .squash: String(localized: "Combine with the commit above, join the messages", bundle: .module)
-        case .fixup: String(localized: "Fold into the commit above, discard its message", bundle: .module)
-        case .drop: String(localized: "Remove the commit", bundle: .module)
-        case .exec: String(localized: "Run a command", bundle: .module)
+        case .pick: String(localized: "rebase.action.pickHelp", defaultValue: "Use the commit", bundle: .module)
+        case .reword: String(localized: "rebase.action.rewordHelp", defaultValue: "Use the commit, change its message", bundle: .module)
+        case .edit: String(localized: "rebase.action.editHelp", defaultValue: "Use the commit and stop to amend it", bundle: .module)
+        case .squash: String(localized: "rebase.action.squashHelp", defaultValue: "Combine with the commit above, join the messages", bundle: .module)
+        case .fixup: String(localized: "rebase.action.fixupHelp", defaultValue: "Fold into the commit above, discard its message", bundle: .module)
+        case .drop: String(localized: "rebase.action.dropHelp", defaultValue: "Remove the commit", bundle: .module)
+        case .exec: String(localized: "rebase.action.execHelp", defaultValue: "Run a command", bundle: .module)
         }
     }
 

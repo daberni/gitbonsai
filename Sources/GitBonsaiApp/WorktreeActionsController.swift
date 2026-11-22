@@ -19,22 +19,22 @@ final class WorktreeActionsController {
         let exists = !worktree.isPrunable
         var switchGroup: [NSMenuItem] = []
         if !isCurrent, exists, !worktree.isBare {
-            switchGroup.append(ActionMenuItem("Switch to this Worktree") { [weak self] in self?.switchWorktree(path) })
+            switchGroup.append(ActionMenuItem(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.switchWorktree(path) })
         }
         let openGroup: [NSMenuItem] = exists ? [
-            ActionMenuItem("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) },
-            ActionMenuItem("Open in terminal") { Self.openInTerminal(path) },
+            ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) },
+            ActionMenuItem(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { Self.openInTerminal(path) },
         ] : []
         var manageGroup: [NSMenuItem] = []
         if !worktree.isMain {
             manageGroup.append(worktree.isLocked
-                ? ActionMenuItem("Unlock") { [weak self] in self?.unlock(path) }
-                : ActionMenuItem("Lock…") { [weak self] in self?.lock(path) })
+                ? ActionMenuItem(LocalizedStringResource("worktree.menu.unlock", defaultValue: "Unlock", bundle: .module)) { [weak self] in self?.unlock(path) }
+                : ActionMenuItem(LocalizedStringResource("worktree.menu.lock", defaultValue: "Lock…", bundle: .module)) { [weak self] in self?.lock(path) })
             if !isCurrent {
-                manageGroup.append(ActionMenuItem("Remove…") { [weak self] in self?.remove(worktree) })
+                manageGroup.append(ActionMenuItem(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module)) { [weak self] in self?.remove(worktree) })
             }
         }
-        let pruneGroup: [NSMenuItem] = [ActionMenuItem("Prune missing Worktrees") { [weak self] in self?.prune() }]
+        let pruneGroup: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("worktree.menu.prune", defaultValue: "Prune missing Worktrees", bundle: .module)) { [weak self] in self?.prune() }]
         return [switchGroup, openGroup, manageGroup, pruneGroup]
     }
 
@@ -45,25 +45,25 @@ final class WorktreeActionsController {
     }
 
     private func lock(_ path: String) {
-        let form = ActionForm(title: "Lock \(RefName.worktree((path as NSString).lastPathComponent))", info: "A locked worktree is not pruned, moved or removed, for example when it lives on a drive that is not always connected.", confirm: "Lock")
-        form.addField(key: "reason", label: "Reason (optional)", required: false)
+        let form = ActionForm(title: LocalizedStringResource("worktree.lock.title", defaultValue: "Lock \(RefName.worktree((path as NSString).lastPathComponent))", bundle: .module), info: LocalizedStringResource("worktree.lock.info", defaultValue: "A locked worktree is not pruned, moved or removed, for example when it lives on a drive that is not always connected.", bundle: .module), confirm: LocalizedStringResource("worktree.lock.confirm", defaultValue: "Lock", bundle: .module))
+        form.addField(key: "reason", label: LocalizedStringResource("worktree.lock.reason", defaultValue: "Reason (optional)", bundle: .module), required: false)
         Task {
             guard let values = await runner.prompter.ask(form) else { return }
             let reason = values.value("reason")
-            await runner.run(failure: "Worktree not locked", note: "git worktree lock") { try await $0.lockWorktree(at: path, reason: reason) }
+            await runner.run(failure: LocalizedStringResource("failure.worktree.notLocked", defaultValue: "Worktree not locked", bundle: .module), note: "git worktree lock") { try await $0.lockWorktree(at: path, reason: reason) }
         }
     }
 
     private func unlock(_ path: String) {
-        Task { await runner.run(failure: "Worktree not unlocked", note: "git worktree unlock") { try await $0.unlockWorktree(at: path) } }
+        Task { await runner.run(failure: LocalizedStringResource("failure.worktree.notUnlocked", defaultValue: "Worktree not unlocked", bundle: .module), note: "git worktree unlock") { try await $0.unlockWorktree(at: path) } }
     }
 
     /// Asks first, with the choice to delete the worktree's branch as well; the branch goes only once the worktree is gone.
     private func remove(_ worktree: Worktree) {
         let folder = (worktree.path as NSString).lastPathComponent
         let shownPath = (worktree.path as NSString).abbreviatingWithTildeInPath
-        let form = ActionForm(title: "Remove Worktree \(RefName.worktree(folder))?", info: "The folder \(RefName.path(shownPath)) will be deleted. Commits stay in the repository.", confirm: "Remove")
-        if let branch = worktree.branchName { form.addCheckbox("Also delete branch \(RefName.branch(branch))", checked: false) }
+        let form = ActionForm(title: LocalizedStringResource("worktree.remove.title", defaultValue: "Remove Worktree \(RefName.worktree(folder))?", bundle: .module), info: LocalizedStringResource("worktree.remove.info", defaultValue: "The folder \(RefName.path(shownPath)) will be deleted. Commits stay in the repository.", bundle: .module), confirm: LocalizedStringResource("worktree.remove.confirm", defaultValue: "Remove", bundle: .module))
+        if let branch = worktree.branchName { form.addCheckbox(LocalizedStringResource("worktree.remove.deleteBranch", defaultValue: "Also delete branch \(RefName.branch(branch))", bundle: .module), checked: false) }
         form.alert.buttons.first?.hasDestructiveAction = true
         Task {
             guard let values = await runner.prompter.ask(form) else { return }
@@ -73,6 +73,6 @@ final class WorktreeActionsController {
     }
 
     private func prune() {
-        Task { await runner.run(failure: "Pruning failed", note: "git worktree prune") { try await $0.pruneWorktrees() } }
+        Task { await runner.run(failure: LocalizedStringResource("failure.worktree.pruneFailed", defaultValue: "Pruning failed", bundle: .module), note: "git worktree prune") { try await $0.pruneWorktrees() } }
     }
 }

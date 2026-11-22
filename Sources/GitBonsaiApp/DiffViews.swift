@@ -18,7 +18,7 @@ final class DiffHeaderView: BarView {
     let modes = NSSegmentedControl(labels: DiffMode.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
     /// Options of how a diff is shown; word diff and ignoring whitespace are to join "Show invisible characters" here.
     let optionsButton = NSPopUpButton(frame: .zero, pullsDown: true)
-    private let invisiblesItem = NSMenuItem(title: String(localized: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), action: nil, keyEquivalent: "")
+    private let invisiblesItem = NSMenuItem(title: String(localized: "diff.options.invisibles", defaultValue: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), action: nil, keyEquivalent: "")
     private var options = DiffOptions()
     private let previous = NSButton()
     let next = NSButton()
@@ -27,7 +27,7 @@ final class DiffHeaderView: BarView {
 
     init() {
         super.init(edge: .bottom)
-        back.title = String(localized: "Graph", bundle: .module, comment: "Button back from a diff to the history graph")
+        back.title = String(localized: "diff.toolbar.back", defaultValue: "Graph", bundle: .module, comment: "Button back from a diff to the history graph")
         back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: nil)
         back.imagePosition = .imageLeading
         back.bezelStyle = .rounded
@@ -42,7 +42,7 @@ final class DiffHeaderView: BarView {
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         indicator.font = Theme.monoStrong
         indicator.setContentCompressionResistancePriority(.required, for: .horizontal)
-        for (button, symbol, action, tip) in [(previous, "chevron.up", #selector(goPrevious(_:)), String(localized: "Previous Hunk", bundle: .module)), (next, "chevron.down", #selector(goNext(_:)), String(localized: "Next Hunk", bundle: .module))] {
+        for (button, symbol, action, tip) in [(previous, "chevron.up", #selector(goPrevious(_:)), String(localized: "diff.toolbar.previousHunk", defaultValue: "Previous Hunk", bundle: .module)), (next, "chevron.down", #selector(goNext(_:)), String(localized: "diff.toolbar.nextHunk", defaultValue: "Next Hunk", bundle: .module))] {
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tip)
             button.bezelStyle = .rounded
             button.target = self
@@ -51,12 +51,12 @@ final class DiffHeaderView: BarView {
         }
         modes.target = self
         modes.action = #selector(changeMode(_:))
-        modes.toolTip = String(localized: "Show only the changes or the whole file", bundle: .module)
+        modes.toolTip = String(localized: "diff.toolbar.modeToolTip", defaultValue: "Show only the changes or the whole file", bundle: .module)
         configureOptions()
         let closeSymbol = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
-        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close", bundle: .module))?.withSymbolConfiguration(closeSymbol)
+        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "diff.toolbar.close", defaultValue: "Close", bundle: .module))?.withSymbolConfiguration(closeSymbol)
         close.bezelStyle = .rounded
-        close.toolTip = String(localized: "Close (Esc)", bundle: .module)
+        close.toolTip = String(localized: "diff.toolbar.closeToolTip", defaultValue: "Close (Esc)", bundle: .module)
         close.target = self
         close.action = #selector(goBack(_:))
         fileAction.bezelStyle = .rounded
@@ -89,7 +89,7 @@ final class DiffHeaderView: BarView {
     private func configureOptions() {
         optionsButton.bezelStyle = .rounded
         optionsButton.imagePosition = .imageOnly
-        optionsButton.toolTip = String(localized: "Diff Options", bundle: .module, comment: "Tooltip of the menu with options of how a diff is shown")
+        optionsButton.toolTip = String(localized: "diff.toolbar.options", defaultValue: "Diff Options", bundle: .module, comment: "Tooltip of the menu with options of how a diff is shown")
         let face = NSMenuItem()
         face.image = NSImage(systemSymbolName: "slider.horizontal.3", accessibilityDescription: optionsButton.toolTip)
         optionsButton.menu?.addItem(face)
@@ -116,9 +116,9 @@ final class DiffHeaderView: BarView {
         switch selection.source {
         case .commit: badge.text = nil
         case .revisions(let base, let target): badge.text = "\(base.prefix(7)) → \(target.prefix(7))"
-        case .unstaged: badge.text = String(localized: "unstaged", bundle: .module, comment: "Badge on a diff of unstaged changes")
-        case .staged: badge.text = String(localized: "staged", bundle: .module, comment: "Badge on a diff of staged changes")
-        case .untracked: badge.text = String(localized: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
+        case .unstaged: badge.text = String(localized: "files.state.unstaged", defaultValue: "unstaged", bundle: .module, comment: "Badge on a diff of unstaged changes")
+        case .staged: badge.text = String(localized: "files.state.staged", defaultValue: "staged", bundle: .module, comment: "Badge on a diff of staged changes")
+        case .untracked: badge.text = String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
         }
         stat.attributedStringValue = diff.map { FileRowView.statText($0.stat) } ?? NSAttributedString()
         // Binary files and files without changes have nothing to show in full.
@@ -131,7 +131,7 @@ final class DiffHeaderView: BarView {
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
         fileAction.isHidden = !(selection.isStageable || selection.isUnstageable) || diff == nil
-        fileAction.title = selection.isUnstageable ? String(localized: "Unstage file", bundle: .module) : String(localized: "Stage file", bundle: .module)
+        fileAction.title = selection.isUnstageable ? String(localized: "diff.toolbar.unstageFile", defaultValue: "Unstage file", bundle: .module) : String(localized: "diff.toolbar.stageFile", defaultValue: "Stage file", bundle: .module)
     }
 
     /// The change letter, the path as shown and its tooltip; harness checks print them.
@@ -193,7 +193,7 @@ final class DiffHunkView: NSView {
         action.action = #selector(run(_:))
         discard.bezelStyle = .rounded
         discard.controlSize = .small
-        discard.title = String(localized: "Discard Hunk", bundle: .module)
+        discard.title = String(localized: "diff.hunk.discard", defaultValue: "Discard Hunk", bundle: .module)
         discard.target = self
         discard.action = #selector(runDiscard(_:))
         label.translatesAutoresizingMaskIntoConstraints = false

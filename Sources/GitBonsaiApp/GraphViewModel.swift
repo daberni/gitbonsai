@@ -35,7 +35,7 @@ final class GraphViewModel {
     let repositoryName: String
     private(set) var lastFetch: Date?
     private(set) var isFetching = false
-    private var statusLine = StatusLine(summary: String(localized: "Loading…", bundle: .module))
+    private var statusLine = StatusLine(summary: String(localized: "history.status.loading", defaultValue: "Loading…", bundle: .module))
     var statusText: String { statusLine.text }
     private(set) var isLoading = false
     private(set) var maxLaneCount = 1
@@ -60,7 +60,7 @@ final class GraphViewModel {
     private var isRefreshing = false
     private var loadDuration = ""
     /// Counted live, because a refresh can drop commits and lay them out again.
-    private var loadedSummary: String { [String(localized: "\(history.commitCount) commits", bundle: .module), String(localized: "\(maxLaneCount) lanes", bundle: .module, comment: "Status line: lanes of the commit graph"), String(localized: "\(stashes.count) stashes", bundle: .module), String(localized: "loaded in \(loadDuration)", bundle: .module, comment: "Status line: how long reading the history took, e.g. 26 ms")].joined(separator: " · ") }
+    private var loadedSummary: String { [String(localized: "common.commitCount", defaultValue: "\(history.commitCount) commits", bundle: .module), String(localized: "history.status.lanes", defaultValue: "\(maxLaneCount) lanes", bundle: .module, comment: "Status line: lanes of the commit graph"), String(localized: "history.status.stashes", defaultValue: "\(stashes.count) stashes", bundle: .module), String(localized: "history.status.loadedIn", defaultValue: "loaded in \(loadDuration)", bundle: .module, comment: "Status line: how long reading the history took, e.g. 26 ms")].joined(separator: " · ") }
     private var reachableFromHead: Set<String> = []
     private var sidebarChanges = 0
     private var hasSidebarContent = false
@@ -122,7 +122,7 @@ final class GraphViewModel {
     // MARK: Actions
 
     func checkout(_ target: CheckoutTarget) async -> CheckoutOutcome {
-        setNote(String(localized: "Switching…", bundle: .module, comment: "Status line while checking out"))
+        setNote(String(localized: "history.status.switching", defaultValue: "Switching…", bundle: .module, comment: "Status line while checking out"))
         let start = ContinuousClock.now
         do {
             try await repository.checkout(target, stashMessage: target.stashMessage)
@@ -162,7 +162,7 @@ final class GraphViewModel {
         } catch {
             await loadLastFetch()
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
-            await refresh(note: String(localized: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"))
+            await refresh(note: String(localized: "history.status.failedAfter", defaultValue: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"))
             return error
         }
     }
@@ -296,7 +296,7 @@ final class GraphViewModel {
         if historyMoved { computeReachability() }
         onRowsRebuilt?(rowDiff(from: shown, to: next), focus)
         onMetadataChanged?()
-        setSummary(loadedSummary + " · " + String(localized: "view \(elapsed(since: start))", bundle: .module, comment: "Status line: how long updating the history view took, e.g. view 3 ms"))
+        setSummary(loadedSummary + " · " + String(localized: "history.status.view", defaultValue: "view \(elapsed(since: start))", bundle: .module, comment: "Status line: how long updating the history view took, e.g. view 3 ms"))
         // The other worktrees' change counters are slow to gather and nothing waits for them.
         Task { await loadWorktreeStatuses() }
     }
@@ -318,7 +318,7 @@ final class GraphViewModel {
         case .cancelled:
             return nil
         case .failed(let error):
-            setSummary(String(localized: "git log failed: \(String(describing: error))", bundle: .module))
+            setSummary(String(localized: "history.status.logFailed", defaultValue: "git log failed: \(String(describing: error))", bundle: .module))
             return nil
         }
     }
@@ -347,7 +347,7 @@ final class GraphViewModel {
                 if history.wipRow != nil { onRowsShifted?() }
             }
         }, onProgress: {
-            setSummary(String(localized: "\(commits.count) commits", bundle: .module) + " · " + elapsed(since: start))
+            setSummary(String(localized: "common.commitCount", defaultValue: "\(commits.count) commits", bundle: .module) + " · " + elapsed(since: start))
         })
         switch outcome {
         case .finished:
@@ -356,7 +356,7 @@ final class GraphViewModel {
         case .cancelled:
             break
         case .failed(let error):
-            setSummary(String(localized: "git log failed: \(String(describing: error))", bundle: .module))
+            setSummary(String(localized: "history.status.logFailed", defaultValue: "git log failed: \(String(describing: error))", bundle: .module))
         }
     }
 
@@ -376,7 +376,7 @@ final class GraphViewModel {
             (refs, refsByCommit) = try await RefLoader.refs(of: repository)
             if !isRefreshing { onMetadataChanged?() }
         } catch {
-            setSummary(String(localized: "Reading refs failed: \(String(describing: error))", bundle: .module))
+            setSummary(String(localized: "history.status.refsFailed", defaultValue: "Reading refs failed: \(String(describing: error))", bundle: .module))
         }
     }
 

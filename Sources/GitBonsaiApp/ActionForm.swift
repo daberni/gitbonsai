@@ -29,7 +29,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         super.init()
         alert.setText(title, info: info)
         alert.addButton(withTitle: confirm.text)
-        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
+        alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Theme.ActionSheet.rowSpacing
@@ -64,7 +64,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     /// A folder field with a button that picks the new folder's place and name in a save panel.
     func addFolderField(key: String, label: LocalizedStringResource, value: String) {
         let field = makeField(key: key, value: value, placeholder: "", required: true)
-        let choose = NSButton(title: String(localized: "Choose …", bundle: .module), target: self, action: #selector(chooseFolder(_:)))
+        let choose = NSButton(title: String(localized: "common.chooseEllipsis", defaultValue: "Choose …", bundle: .module), target: self, action: #selector(chooseFolder(_:)))
         choose.identifier = NSUserInterfaceItemIdentifier(key)
         let row = NSStackView(views: [field, choose])
         row.spacing = Theme.ActionSheet.labelSpacing
@@ -183,8 +183,8 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         guard let field = fields.first(where: { $0.key == sender.identifier?.rawValue })?.field else { return }
         let current = URL(fileURLWithPath: (field.stringValue as NSString).expandingTildeInPath)
         let panel = NSSavePanel()
-        panel.title = String(localized: "Folder for the Worktree", bundle: .module)
-        panel.prompt = String(localized: "Choose", bundle: .module)
+        panel.title = String(localized: "worktree.folderPanel.title", defaultValue: "Folder for the Worktree", bundle: .module)
+        panel.prompt = String(localized: "common.choose", defaultValue: "Choose", bundle: .module)
         panel.canCreateDirectories = true
         panel.directoryURL = current.deletingLastPathComponent()
         panel.nameFieldStringValue = current.lastPathComponent

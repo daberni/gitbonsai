@@ -8,11 +8,11 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
     let urlField = NSTextField()
     let destinationField = NSTextField()
     let branchField = NSTextField()
-    let submodules = NSButton(checkboxWithTitle: String(localized: "Clone submodules too", bundle: .module), target: nil, action: nil)
-    let shallow = NSButton(checkboxWithTitle: String(localized: "Latest snapshot only (--depth 1)", bundle: .module), target: nil, action: nil)
-    let cloneButton = NSButton(title: String(localized: "Clone", bundle: .module, comment: "The clone sheet's confirm button."), target: nil, action: nil)
-    let cancelButton = NSButton(title: String(localized: "Cancel", bundle: .module), target: nil, action: nil)
-    let chooseButton = NSButton(title: String(localized: "Choose …", bundle: .module), target: nil, action: nil)
+    let submodules = NSButton(checkboxWithTitle: String(localized: "clone.sheet.submodules", defaultValue: "Clone submodules too", bundle: .module), target: nil, action: nil)
+    let shallow = NSButton(checkboxWithTitle: String(localized: "clone.sheet.shallow", defaultValue: "Latest snapshot only (--depth 1)", bundle: .module), target: nil, action: nil)
+    let cloneButton = NSButton(title: String(localized: "clone.sheet.clone", defaultValue: "Clone", bundle: .module, comment: "The clone sheet's confirm button."), target: nil, action: nil)
+    let cancelButton = NSButton(title: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module), target: nil, action: nil)
+    let chooseButton = NSButton(title: String(localized: "common.chooseEllipsis", defaultValue: "Choose …", bundle: .module), target: nil, action: nil)
     /// Under the destination: why the folder cannot take the clone.
     let warning = NSTextField(wrappingLabelWithString: "")
     let progressBar = CloneProgressBar()
@@ -32,13 +32,13 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
     }
 
     private func build() {
-        let title = NSTextField(labelWithString: String(localized: "Clone Repository", bundle: .module))
+        let title = NSTextField(labelWithString: String(localized: "clone.sheet.title", defaultValue: "Clone Repository", bundle: .module))
         title.font = Theme.title
-        let info = NSTextField(wrappingLabelWithString: String(localized: "git clone downloads the repository. Sign-in goes through the credential helper or the SSH agent.", bundle: .module))
+        let info = NSTextField(wrappingLabelWithString: String(localized: "clone.sheet.info", defaultValue: "git clone downloads the repository. Sign-in goes through the credential helper or the SSH agent.", bundle: .module))
         info.font = Theme.caption
         info.textColor = .secondaryLabelColor
-        urlField.placeholderString = String(localized: "https://… or git@host:path.git", bundle: .module)
-        branchField.placeholderString = String(localized: "The remote's default branch", bundle: .module)
+        urlField.placeholderString = String(localized: "clone.sheet.urlPlaceholder", defaultValue: "https://… or git@host:path.git", bundle: .module)
+        branchField.placeholderString = String(localized: "clone.sheet.branchPlaceholder", defaultValue: "The remote's default branch", bundle: .module)
         for field in [urlField, destinationField, branchField] {
             field.delegate = self
             field.usesSingleLineMode = true
@@ -76,10 +76,10 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         stack.addArrangedSubview(title)
         stack.addArrangedSubview(info)
         stack.setCustomSpacing(M.sectionGap, after: info)
-        stack.addArrangedSubview(row("URL", urlField))
-        stack.addArrangedSubview(row(LocalizedStringResource("Destination", comment: "Label of the clone sheet's folder field."), destinationRow))
+        stack.addArrangedSubview(row(LocalizedStringResource("clone.sheet.url", defaultValue: "URL", bundle: .module), urlField))
+        stack.addArrangedSubview(row(LocalizedStringResource("clone.sheet.destination", defaultValue: "Destination", bundle: .module, comment: "Label of the clone sheet's folder field."), destinationRow))
         stack.addArrangedSubview(warning)
-        stack.addArrangedSubview(row(LocalizedStringResource("Branch", comment: "Label of the clone sheet's branch field."), branchField))
+        stack.addArrangedSubview(row(LocalizedStringResource("clone.sheet.branch", defaultValue: "Branch", bundle: .module, comment: "Label of the clone sheet's branch field."), branchField))
         stack.addArrangedSubview(submodules)
         stack.addArrangedSubview(shallow)
         stack.setCustomSpacing(M.sectionGap, after: shallow)
@@ -125,7 +125,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         if running {
             failure.isHidden = true
             progressBar.fraction = 0
-            progressLabel.stringValue = String(localized: "Connecting…", bundle: .module)
+            progressLabel.stringValue = String(localized: "clone.progress.connecting", defaultValue: "Connecting…", bundle: .module)
         }
         fitWindow()
     }
@@ -134,7 +134,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         progressBar.fraction = progress.fraction
         let completed = progress.completed.formatted(.number.locale(AppLanguage.locale))
         let total = progress.total.formatted(.number.locale(AppLanguage.locale))
-        progressLabel.stringValue = String(localized: "\(Self.title(of: progress.phase)): \(completed) of \(total)", bundle: .module, comment: "Clone progress: the phase, then objects done and all objects.")
+        progressLabel.stringValue = String(localized: "clone.progress.phase", defaultValue: "\(Self.title(of: progress.phase)): \(completed) of \(total)", bundle: .module, comment: "Clone progress: the phase, then objects done and all objects.")
     }
 
     func showWarning(_ text: String?) {
@@ -169,11 +169,11 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
 
     private static func title(of phase: CloneProgress.Phase) -> String {
         switch phase {
-        case .counting: String(localized: "Counting objects", bundle: .module)
-        case .compressing: String(localized: "Compressing objects", bundle: .module)
-        case .receiving: String(localized: "Receiving objects", bundle: .module)
-        case .resolving: String(localized: "Resolving deltas", bundle: .module)
-        case .updatingFiles: String(localized: "Checking out files", bundle: .module)
+        case .counting: String(localized: "clone.progress.counting", defaultValue: "Counting objects", bundle: .module)
+        case .compressing: String(localized: "clone.progress.compressing", defaultValue: "Compressing objects", bundle: .module)
+        case .receiving: String(localized: "clone.progress.receiving", defaultValue: "Receiving objects", bundle: .module)
+        case .resolving: String(localized: "clone.progress.resolving", defaultValue: "Resolving deltas", bundle: .module)
+        case .updatingFiles: String(localized: "clone.progress.checkingOut", defaultValue: "Checking out files", bundle: .module)
         }
     }
 }

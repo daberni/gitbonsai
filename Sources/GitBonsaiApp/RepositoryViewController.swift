@@ -293,12 +293,12 @@ final class RepositoryViewController: NSObject {
 
     /// Why ⌘E cannot edit the selected commit's message right now; nil when it can.
     var editMessageReason: LocalizedStringResource? {
-        guard let commit = selectedCommitForMessage else { return "No commit selected" }
-        if inlineReword.isEditing { return "Already being edited" }
+        guard let commit = selectedCommitForMessage else { return LocalizedStringResource("commit.editDisabled.noSelection", defaultValue: "No commit selected", bundle: .module) }
+        if inlineReword.isEditing { return LocalizedStringResource("commit.editDisabled.alreadyEditing", defaultValue: "Already being edited", bundle: .module) }
         switch commitActions.interactiveRebase.rewordAccess(for: commit) {
         case .allowed: return nil
         case let .disabled(reason): return .verbatim(reason)
-        case nil: return viewModel.currentBranch.map { "Not in the history of \($0)" } ?? "Detached HEAD"
+        case nil: return viewModel.currentBranch.map { LocalizedStringResource("commit.editDisabled.notInHistory", defaultValue: "Not in the history of \($0)", bundle: .module) } ?? LocalizedStringResource("common.detachedHead", defaultValue: "Detached HEAD", bundle: .module)
         }
     }
 

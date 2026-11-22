@@ -47,11 +47,11 @@ enum RefItemStyle {
 
     static func sectionTitle(_ section: RefCatalog.Section) -> String {
         switch section {
-        case .current: String(localized: "Current", bundle: .module, comment: "Ref picker section with HEAD and the commit the picker was opened for.")
-        case .local: String(localized: "Local Branches", bundle: .module)
-        case .remote(let remote): String(localized: "Remote Branches · \(remote)", bundle: .module)
-        case .tags: String(localized: "Tags", bundle: .module)
-        case .commit: String(localized: "Commit", bundle: .module)
+        case .current: String(localized: "refPicker.section.current", defaultValue: "Current", bundle: .module, comment: "Ref picker section with HEAD and the commit the picker was opened for.")
+        case .local: String(localized: "refPicker.section.local", defaultValue: "Local Branches", bundle: .module)
+        case .remote(let remote): String(localized: "refPicker.section.remote", defaultValue: "Remote Branches · \(remote)", bundle: .module)
+        case .tags: String(localized: "refPicker.section.tags", defaultValue: "Tags", bundle: .module)
+        case .commit: String(localized: "refPicker.section.commit", defaultValue: "Commit", bundle: .module)
         }
     }
 }

@@ -7,10 +7,10 @@ extension OperationBannerController: CommandProvider {
         guard let kind = state.operation else { return [] }
         let label = kind.label
         return [
-            Command(id: "operation.continue", title: "Continue \(label)", keywords: Command.searchWords("continue, resume"), glyph: .symbol("play"), blocker: CommandRules.continueOperation(state)) { [weak self] in self?.perform(.continue) },
+            Command(id: "operation.continue", title: LocalizedStringResource("operation.command.continue", defaultValue: "Continue \(label)", bundle: .module), keywords: Command.searchWords(LocalizedStringResource("operation.command.continueKeywords", defaultValue: "continue, resume", bundle: .module)), glyph: .symbol("play"), blocker: CommandRules.continueOperation(state)) { [weak self] in self?.perform(.continue) },
             // A merge has no --skip.
-            kind == .merge ? nil : Command(id: "operation.skip", title: "Skip \(label)", keywords: Command.searchWords("skip"), glyph: .symbol("forward"), blocker: CommandRules.abortOperation(state)) { [weak self] in self?.perform(.skip) },
-            Command(id: "operation.abort", title: "Abort \(label)…", keywords: Command.searchWords("abort, cancel"), glyph: .glyph(.xmark), blocker: CommandRules.abortOperation(state)) { [weak self] in self?.perform(.abort) },
+            kind == .merge ? nil : Command(id: "operation.skip", title: LocalizedStringResource("operation.command.skip", defaultValue: "Skip \(label)", bundle: .module), keywords: Command.searchWords(LocalizedStringResource("operation.command.skipKeywords", defaultValue: "skip", bundle: .module)), glyph: .symbol("forward"), blocker: CommandRules.abortOperation(state)) { [weak self] in self?.perform(.skip) },
+            Command(id: "operation.abort", title: LocalizedStringResource("operation.command.abort", defaultValue: "Abort \(label)…", bundle: .module), keywords: Command.searchWords(LocalizedStringResource("operation.command.abortKeywords", defaultValue: "abort, cancel", bundle: .module)), glyph: .glyph(.xmark), blocker: CommandRules.abortOperation(state)) { [weak self] in self?.perform(.abort) },
         ].compactMap { $0 }
     }
 }

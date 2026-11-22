@@ -13,7 +13,7 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
     }
 
     let button = RefPickerButton()
-    let search = TextInput(placeholder: String(localized: "Search branch, tag or SHA", bundle: .module))
+    let search = TextInput(placeholder: String(localized: "refPicker.search.placeholder", defaultValue: "Search branch, tag or SHA", bundle: .module))
     let table = NSTableView()
     private let scroll = NSScrollView()
     private let popover = NSPopover()
