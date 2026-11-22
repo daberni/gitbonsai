@@ -17,6 +17,7 @@ final class SidebarView: NSView {
     private var frames: [CGRect] = []
     private var outline = SidebarOutline()
     private var hovered: Int?
+    private var contentHeight: CGFloat = 0
     private weak var model: GraphViewModel?
 
     override var isFlipped: Bool { true }
@@ -25,6 +26,27 @@ final class SidebarView: NSView {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
+        guard let clip = superview else { return }
+        // A taller or shorter visible area can start or stop the scrolling, and with it the room kept for the scroller.
+        clip.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(visibleAreaChanged), name: NSView.frameDidChangeNotification, object: clip)
+    }
+
+    @objc private func visibleAreaChanged() {
+        if !items.isEmpty { layoutItems() }
+    }
+
+    /// Right edge of the status slot column. The overlay scroller lies on the rows while they scroll, so the slot moves out from under it; a legacy scroller narrows the visible area itself.
+    var slotRight: CGFloat {
+        let regular = bounds.width - M.rowInset - Theme.Space.xs
+        guard let scrollView = enclosingScrollView, scrollView.scrollerStyle == .overlay, contentHeight > scrollView.contentSize.height else { return regular }
+        let scrollerWidth = NSScroller.scrollerWidth(for: scrollView.verticalScroller?.controlSize ?? .regular, scrollerStyle: .overlay)
+        return min(regular, bounds.width - scrollerWidth)
     }
 
     func reload(from model: GraphViewModel) {
@@ -45,7 +67,8 @@ final class SidebarView: NSView {
             defer { y += height }
             return CGRect(x: M.rowInset, y: y, width: bounds.width - 2 * M.rowInset, height: height)
         }
-        let total = max(y + Theme.Space.s, enclosingScrollView?.contentSize.height ?? 0)
+        contentHeight = y + Theme.Space.s
+        let total = max(contentHeight, enclosingScrollView?.contentSize.height ?? 0)
         if frame.height != total { setFrameSize(NSSize(width: frame.width, height: total)) }
         needsDisplay = true
     }
@@ -114,11 +137,12 @@ final class SidebarView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         let linkedPath = hoveredWorktreePath
+        let slotRight = slotRight
         for (index, item) in items.enumerated() where frames[index].intersects(dirtyRect) {
             let rect = frames[index]
             let columnA = CGRect(x: rect.minX + M.rowInset, y: rect.midY - M.column / 2, width: M.column, height: M.column)
             let columnB = columnA.offsetBy(dx: M.columnStep, dy: 0)
-            let slot = CGRect(x: rect.maxX - Theme.Space.xs - M.slot, y: rect.midY - M.slot / 2, width: M.slot, height: M.slot)
+            let slot = CGRect(x: slotRight - M.slot, y: rect.midY - M.slot / 2, width: M.slot, height: M.slot)
             let valueRight = slot.minX - M.textGap
             let textX = columnB.maxX + M.textGap
 

@@ -256,6 +256,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.clickFile(on: self)
             ScreenshotHarness.fillCommit(on: self)
             ScreenshotHarness.discard(on: self)
+            ScreenshotHarness.scrollSidebar(sidebar)
         }
         onLoaded?()
     }
