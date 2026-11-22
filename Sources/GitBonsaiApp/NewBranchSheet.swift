@@ -63,9 +63,15 @@ final class NewBranchSheet {
 }
 
 /// A sheet window that answers Esc and ⏎ itself when no control took the key, wherever the focus is.
+/// Tab follows its controls top to bottom and left to right; setting `initialFirstResponder` would otherwise leave it without a key view loop.
 final class SheetWindow: NSWindow {
     var onCancel: (() -> Void)?
     var onReturn: (() -> Void)?
+
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        autorecalculatesKeyViewLoop = true
+    }
 
     override func cancelOperation(_ sender: Any?) {
         onCancel?()

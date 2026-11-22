@@ -104,9 +104,12 @@ extension ScreenshotHarness {
 /// Harness switches for the "Neuer Branch" sheet once `GITBONSAI_NEW_BRANCH` opened it.
 @MainActor
 extension ScreenshotHarness {
+    /// `GITBONSAI_FULL_KEYBOARD_ACCESS=1` lets the app's own controls act as with full keyboard access on, which AppKit reads from the system setting only; system buttons keep the setting.
+    static var simulatesFullKeyboardAccess: Bool { environment["GITBONSAI_FULL_KEYBOARD_ACCESS"] == "1" }
+
     /// `GITBONSAI_NEW_BRANCH_SCRIPT=<step>;…` drives the sheet with real clicks and keys, one step every 0.35 s:
     /// `click:name|picker|worktree|checkout|path|create|cancel`, `click:row:<n>` (n-th entry of the open picker), `type:<text>` into the focused field,
-    /// `key:return|escape|up|down|delete`, `print` (the form's state and the picker's entries) and `shot:<png>` (the sheet with the open picker beside it).
+    /// `key:return|escape|up|down|delete|space|tab|backtab` (Tab and ⇧Tab print the focus they lead to), `focus`, `print` (the form's state and the picker's entries) and `shot:<png>` (the sheet with the open picker beside it).
     static func driveNewBranchSheet(_ sheet: NewBranchSheet) {
         guard let script = environment["GITBONSAI_NEW_BRANCH_SCRIPT"] else { return }
         let steps = script.split(separator: ";").map(String.init)
@@ -145,7 +148,7 @@ extension ScreenshotHarness {
             click(in: window, at: view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil))
         case "type":
             for character in argument {
-                sendNewBranchKey(String(character), code: 0, to: target)
+                sendNewBranchKey(String(character), code: 0, shift: false, to: target)
             }
         case "key":
             let keys: [String: (String, UInt16)] = [
@@ -154,9 +157,15 @@ extension ScreenshotHarness {
                 "up": (String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)), 126),
                 "down": (String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), 125),
                 "delete": ("\u{7f}", 51),
+                "space": (" ", 49),
+                "tab": ("\t", 48),
+                "backtab": ("\u{19}", 48),
             ]
             guard let (characters, code) = keys[argument] else { return newBranchLog("unknown key \(argument)") }
-            sendNewBranchKey(characters, code: code, to: target)
+            sendNewBranchKey(characters, code: code, shift: argument == "backtab", to: target)
+            if argument == "tab" || argument == "backtab" { newBranchLog("\(argument): focus \(focusName(in: sheet))") }
+        case "focus":
+            newBranchLog("focus \(focusName(in: sheet)), full keyboard access \(KeyboardControl.isFullKeyboardAccess)")
         case "print":
             let start = picker.selection.map { "\($0.title) (\($0.revision))" } ?? "none"
             let mode = form.worktreeBox.isOn ? "worktree \(form.pathInput.stringValue)" : form.checkoutBox.isOn ? "checkout" : "stay"
@@ -173,8 +182,9 @@ extension ScreenshotHarness {
         }
     }
 
-    private static func sendNewBranchKey(_ characters: String, code: UInt16, to window: NSWindow) {
-        let flags: NSEvent.ModifierFlags = code == 125 || code == 126 ? [.function, .numericPad] : []
+    private static func sendNewBranchKey(_ characters: String, code: UInt16, shift: Bool, to window: NSWindow) {
+        var flags: NSEvent.ModifierFlags = code == 125 || code == 126 ? [.function, .numericPad] : []
+        if shift { flags.insert(.shift) }
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             guard let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code) else { continue }
             window.sendEvent(event)
@@ -216,6 +226,30 @@ extension ScreenshotHarness {
         }
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
         newBranchLog("new branch sheet written to \(path)")
+    }
+
+    /// The control that has the keyboard focus, named like the `click:` targets, and whether it draws its focus.
+    private static func focusName(in sheet: NewBranchSheet) -> String {
+        let form = sheet.form
+        let window = form.picker.panelWindow ?? sheet.window
+        guard let responder = window.firstResponder else { return "none" }
+        let editor = responder as? NSTextView
+        let owner = (editor?.isFieldEditor == true ? editor?.delegate as? NSView : nil) ?? responder as? NSView
+        let named: [(String, NSView)] = [
+            ("name", form.nameInput.field),
+            ("picker", form.picker.button),
+            ("picker search", form.picker.search.field),
+            ("worktree", form.worktreeBox),
+            ("checkout", form.checkoutBox),
+            ("path", form.pathInput.field),
+            ("folder", form.pathInput.accessory ?? NSView()),
+            ("cancel", form.cancelButton),
+            ("create", form.createButton),
+        ]
+        let name = named.first { $0.1 === owner }?.0 ?? owner.map { String(describing: type(of: $0)) } ?? String(describing: type(of: responder))
+        let drawn = sequence(first: owner, next: { $0?.superview }).lazy.compactMap { $0 as? DrawsOwnFocus }.first
+        let ring = drawn?.showsFocus ?? false
+        return "\(name) (ring \(ring))"
     }
 
     private static func newBranchLog(_ line: String) {

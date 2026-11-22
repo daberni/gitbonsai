@@ -2,12 +2,12 @@ import AppKit
 
 /// The app's one-line text field: a `FieldBox` with a borderless `PlainTextField`, the commit form's style.
 /// An optional accessory, such as a folder button, sits inside the box on the right; the box turns persimmon while `isInvalid`.
-final class TextInput: NSView, NSTextFieldDelegate {
+final class TextInput: NSView, NSTextFieldDelegate, DrawsOwnFocus {
     private typealias T = Theme.TextField
 
     let field = PlainTextField()
     private let box = FieldBox()
-    private var accessory: NSView?
+    private(set) var accessory: NSView?
 
     /// Every edit, with the new text.
     var onChange: ((String) -> Void)?
@@ -28,6 +28,9 @@ final class TextInput: NSView, NSTextFieldDelegate {
         get { field.font }
         set { field.font = newValue }
     }
+
+    /// Whether the box draws its focus border.
+    var showsFocus: Bool { box.isFocused }
 
     var isInvalid: Bool {
         get { box.isInvalid }
@@ -87,7 +90,8 @@ final class TextInput: NSView, NSTextFieldDelegate {
 }
 
 /// A borderless icon button for the accessory of a `TextInput`, such as the folder picker.
-final class FieldIconButton: NSButton {
+/// It follows the field in the key view loop with full keyboard access and shows its focus in moss, like the field.
+final class FieldIconButton: NSButton, DrawsOwnFocus {
     init(symbol: String, label: String, target: AnyObject?, action: Selector) {
         super.init(frame: .zero)
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.TextField.accessorySymbol, weight: .regular)
@@ -96,9 +100,39 @@ final class FieldIconButton: NSButton {
         imagePosition = .imageOnly
         contentTintColor = Theme.inkMuted
         toolTip = label
+        focusRingType = .none
         self.target = target
         self.action = action
     }
 
     required init?(coder: NSCoder) { nil }
+
+    override var acceptsFirstResponder: Bool { isEnabled && KeyboardControl.isFullKeyboardAccess }
+    override var canBecomeKeyView: Bool { acceptsFirstResponder && !isHiddenOrHasHiddenAncestor }
+
+    override func becomeFirstResponder() -> Bool {
+        needsDisplay = true
+        return super.becomeFirstResponder()
+    }
+
+    override func resignFirstResponder() -> Bool {
+        needsDisplay = true
+        return super.resignFirstResponder()
+    }
+
+    var showsFocus: Bool { window?.firstResponder === self }
+
+    override func keyDown(with event: NSEvent) {
+        if !moveFocus(for: event) { super.keyDown(with: event) }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard showsFocus else { return }
+        let width = Theme.Control.focusWidth
+        let ring = NSBezierPath(roundedRect: bounds.insetBy(dx: width / 2, dy: width / 2), xRadius: Theme.Control.radius, yRadius: Theme.Control.radius)
+        ring.lineWidth = width
+        Theme.moss.setStroke()
+        ring.stroke()
+    }
 }

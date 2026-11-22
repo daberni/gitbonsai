@@ -76,7 +76,10 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
     var noteText: String { RefText.plain(note.stringValue) }
 
     /// The subject takes the focus with the cursor at its end.
+    /// The window built its key view loop before the editor existed, so Tab reaches the editor's fields and buttons only once the loop is rebuilt.
     func focus() {
+        window?.contentView?.layoutSubtreeIfNeeded()
+        window?.recalculateKeyViewLoop()
         window?.makeFirstResponder(subject.field)
         subject.field.currentEditor()?.selectedRange = NSRange(location: (subject.stringValue as NSString).length, length: 0)
     }

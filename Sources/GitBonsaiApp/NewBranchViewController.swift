@@ -73,7 +73,7 @@ final class NewBranchViewController: NSViewController {
         createButton.isEnabled = false
         cancelButton.target = self
         cancelButton.action = #selector(cancelPressed(_:))
-        picker.onChange = { [weak self] _ in self?.view.window?.makeFirstResponder(self?.nameInput.field) }
+        picker.onChange = { [weak self] _ in self?.updateState() }
 
         let name = field(caption: String(localized: "Name", bundle: .module, comment: "Caption of the branch name field."), control: nameInput, message: nameMessage)
         let start = field(caption: String(localized: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit."), control: picker.button, message: nil)

@@ -117,9 +117,10 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
         popover.close()
     }
 
+    /// The focus goes back to the button when it can hold it; otherwise the sheet keeps the focus it had, as after a pop-up menu.
     func popoverDidClose(_ notification: Notification) {
         button.isOpen = false
-        button.window?.makeFirstResponder(button)
+        if button.acceptsFirstResponder { button.window?.makeFirstResponder(button) }
     }
 
     // MARK: Filtering

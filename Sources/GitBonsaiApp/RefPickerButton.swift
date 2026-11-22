@@ -2,7 +2,8 @@ import AppKit
 import GitEngine
 
 /// The closed ref picker: a field-like control showing the chosen ref with its glyph, the muted SHA and age or subject, and a chevron. A click or ↓ / Space opens the list.
-final class RefPickerButton: NSControl {
+/// Like a pop-up button it takes the keyboard focus only with full keyboard access.
+final class RefPickerButton: KeyboardControl {
     private typealias R = Theme.RefPicker
 
     var item: RefCatalog.Item? { didSet { needsDisplay = true; setAccessibilityValue(item?.title) } }
@@ -19,14 +20,10 @@ final class RefPickerButton: NSControl {
     required init?(coder: NSCoder) { nil }
 
     override var isFlipped: Bool { true }
-    override var acceptsFirstResponder: Bool { true }
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: R.height) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    override func becomeFirstResponder() -> Bool { needsDisplay = true; return true }
-    override func resignFirstResponder() -> Bool { needsDisplay = true; return true }
-
-    private var showsFocus: Bool { isOpen || window?.firstResponder === self }
+    override var showsFocus: Bool { isOpen || super.showsFocus }
 
     override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
@@ -34,13 +31,15 @@ final class RefPickerButton: NSControl {
     }
 
     override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 49, 125, 126: onOpen?()
-        default: super.keyDown(with: event)
-        }
+        // Space opens it through `performClick`, as it presses any `KeyboardControl`.
+        guard [125, 126].contains(event.keyCode), isEnabled else { return super.keyDown(with: event) }
+        onOpen?()
     }
 
-    override func performClick(_ sender: Any?) { onOpen?() }
+    override func performClick(_ sender: Any?) {
+        guard isEnabled else { return }
+        onOpen?()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }

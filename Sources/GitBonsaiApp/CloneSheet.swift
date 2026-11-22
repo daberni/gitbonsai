@@ -93,6 +93,8 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         warning.preferredMaxLayoutWidth = fieldWidth
         info.preferredMaxLayoutWidth = fieldWidth
         window.contentView = stack
+        // With an initial first responder AppKit builds no key view loop of its own.
+        window.autorecalculatesKeyViewLoop = true
         window.initialFirstResponder = urlField
     }
 
