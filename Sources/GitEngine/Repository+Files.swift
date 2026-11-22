@@ -49,6 +49,8 @@ extension Repository {
             let base: String
             if let parent = commit.parents.first { base = parent } else { base = try await emptyTree() }
             arguments = ["difftool", "--no-prompt", "-M", base, commit.id, "--"] + paths
+        case .revisions(let base, let target):
+            arguments = ["difftool", "--no-prompt", "-M", base, target, "--"] + paths
         case .unstaged:
             arguments = ["difftool", "--no-prompt", "--"] + paths
         case .staged:
@@ -61,7 +63,7 @@ extension Repository {
     }
 
     /// The tree of a root commit's missing parent, in the repository's hash format.
-    private func emptyTree() async throws -> String {
+    func emptyTree() async throws -> String {
         try await runner.run(["hash-object", "-t", "tree", "/dev/null"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

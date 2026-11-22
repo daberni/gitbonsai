@@ -67,7 +67,7 @@ final class StagingController {
             confirmDeletion(of: path) { [weak self] in
                 self?.run(failure: Self.discardFailure) { try await $0.removeUntracked([path]) }
             }
-        case .staged, .commit:
+        case .staged, .commit, .revisions:
             break
         }
     }

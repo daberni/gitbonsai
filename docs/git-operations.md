@@ -25,10 +25,14 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Files of a commit | `git diff --name-status -M -z <parent> <commit>`; root commit `git diff-tree -r --root --no-commit-id --name-status -M -z <commit>` | Plus `--numstat` for the counts |
 | Diff of a file in a commit | `git diff -p --no-color --no-ext-diff -M <parent> <commit> -- <paths>` | Full file view adds `--unified=<max>` |
+| Compare two selected commits | `git merge-base <older> <newer>`; files `git diff --name-status -M -z <older> <newer>` plus `--numstat`; with "seit gemeinsamer Basis" `<merge base>` in place of `<older>`, the same as `<older>...<newer>` | The switch only shows when the merge base is not `<older>`, that is when the commits sit on different branches |
+| Compare a run of selected commits | Files `git diff --name-status -M -z <oldest>^ <newest>` plus `--numstat`; a root commit starts at the empty tree (`git hash-object -t tree /dev/null`) | Whether the commits follow one another on one first-parent line is read from the loaded parents, without git |
+| Compare selected commits with gaps | Files of each commit as for one commit, listed one below the other like `git show <commits>` | |
+| Diff of a file in a comparison | `git diff -p --no-color --no-ext-diff -M <base> <target> -- <paths>` | Full file view adds `--unified=<max>` |
 | Diff of unstaged / staged changes | `git diff -p … -- <paths>` / `git diff --cached -p … -- <paths>` | Unstaged: index queue |
 | Diff of an untracked file | `git diff --no-index -p … -- /dev/null <path>` | |
 | Counts in the file lists | `git diff [--cached] --numstat -M -z` | Without `--cached`: index queue |
-| Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| --cached] -- <paths>` | |
+| Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| -M <base> <target> \| --cached] -- <paths>` | `<base> <target>` for a file of a comparison |
 | Restore a file from a commit | `git restore --source=<commit> --worktree -- <path>` | Asks first when local changes would be overwritten |
 | Save a commit as patch | `git format-patch -1 --stdout <commit>` | |
 

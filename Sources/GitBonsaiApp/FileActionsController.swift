@@ -42,7 +42,7 @@ final class FileActionsController {
             return [ActionMenuItem("Stagen") { [weak self] in self?.staging.stage([path]) }]
         case .staged:
             return [ActionMenuItem("Unstagen") { [weak self] in self?.staging.unstage([path]) }]
-        case .commit:
+        case .commit, .revisions:
             return []
         }
     }
@@ -79,6 +79,8 @@ final class FileActionsController {
         case .commit(let commit):
             let title = file.state == .deleted ? "Version vor diesem Commit wiederherstellen" : "Aus diesem Commit wiederherstellen"
             return [ActionMenuItem(title) { [weak self] in self?.restore(selection.path, of: commit) }]
+        case .revisions:
+            return []
         case .unstaged, .staged, .untracked:
             guard onDisk, !isConflict else { return [] }
             return [ActionMenuItem("In den Papierkorb legen …") { [weak self] in self?.moveToTrash(selection) }]

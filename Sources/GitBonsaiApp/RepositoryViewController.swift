@@ -42,7 +42,10 @@ final class RepositoryViewController: NSObject {
         set { split.widths = newValue }
     }
     private var shownStatus: RepositoryStatus?
-    private var shownCommitID: String?
+    /// The commits the detail panel shows, in history order; a different set is a navigation.
+    private var shownSelection: [String]?
+    /// The detail panel's content while several commits are selected.
+    private(set) var comparison: ComparisonDetail?
     let toolbar = RepositoryToolbar()
     let sidebar = SidebarView()
     private let detail = DetailView()
@@ -94,10 +97,23 @@ final class RepositoryViewController: NSObject {
         }
     }
 
+    /// The diff's close button or Escape: the graph comes back with the focus.
     private func showGraph() {
+        diff.close()
         historyPane.show(history.view)
         detail.selectedFile = nil
         view.window?.makeFirstResponder(history.tableView)
+    }
+
+    /// Navigation closes an open diff. The focus goes to the history when it was in the diff or in the file list that opened it, which the new selection replaces;
+    /// elsewhere, such as in the search field, it stays, so typing goes on.
+    private func closeDiff() {
+        diff.close()
+        guard historyPane.current === diff.view else { return }
+        let focus = view.window?.firstResponder as? NSView
+        let focusFollows = focus.map { $0.isDescendant(of: diff.view) || $0.isDescendant(of: detail) } ?? true
+        historyPane.show(history.view)
+        if focusFollows { view.window?.makeFirstResponder(history.tableView) }
     }
 
     /// Selects the stash in the history, so the detail panel lists its files, and opens the first one's diff.
@@ -196,14 +212,16 @@ final class RepositoryViewController: NSObject {
         operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
         operationBanner.onStateChange = { [weak self] in
             guard let self else { return }
-            rightColumn.showsBar = showsCommitForm(at: history.selectedRow >= 0 ? history.selectedRow : nil)
+            rightColumn.showsBar = showsCommitForm(at: singleSelectedRow)
         }
     }
 
     /// A rebase, cherry-pick, revert or merge is over: the history shows HEAD, and no file or diff of the conflict state stays open.
     /// A rewrite reads the log again, so HEAD may not be a row yet; the selection then waits for the reload.
     private func operationEnded() {
-        showGraph()
+        // The operation moved HEAD on purpose; even an unchanged selection now shows another state.
+        shownSelection = nil
+        selectionChanged(to: history.selectedRows)
         selectsHeadAfterLoad = true
         selectHeadIfLoaded()
     }
@@ -227,14 +245,46 @@ final class RepositoryViewController: NSObject {
         return viewModel.kinds[row] == .wip || operationBanner.isEditStop && viewModel.commits[row].id == viewModel.headSHA
     }
 
-    /// The table clears its selection for a moment while it is rebuilt, and then selects the same row again; neither counts as a change.
-    /// Selecting the same commit again leaves the panel as it is; changes of the working directory reach it through `metadataChanged`.
-    private func selectionChanged(to row: Int?) {
-        guard let row else { return }
-        let id = viewModel.commits[row].id
-        guard id != shownCommitID else { return }
-        shownCommitID = id
-        showDetail(for: row)
+    /// The one rule for every way the history selection moves: a click or arrow key, ⌘- or ⇧-click, the parent link, the sidebar, tags and stashes, the search,
+    /// a checkout or worktree switch, a commit that left the history, the end of a rebase. Another set of selected commits than the one shown closes an open diff and shows the new selection.
+    /// The same commits again, as after staging, leave diff and panel as they are; changes of the working directory reach the panel through `metadataChanged`.
+    /// The table clears its selection for a moment while it is rebuilt; that is no change either.
+    private func selectionChanged(to rows: IndexSet) {
+        guard !rows.isEmpty, let last = rows.last, last < viewModel.commits.count else { return }
+        let ids = rows.map { viewModel.commits[$0].id }
+        guard ids != shownSelection else { return }
+        shownSelection = ids
+        closeDiff()
+        comparison?.cancel()
+        comparison = nil
+        if rows.count == 1 {
+            showDetail(for: last)
+        } else {
+            showComparison(of: rows)
+        }
+    }
+
+    /// The selected row while exactly one is selected.
+    private var singleSelectedRow: Int? {
+        history.selectedRows.count == 1 ? history.selectedRows.first : nil
+    }
+
+    /// The base switch replaces the files; an open diff moves to the same file in the new comparison, or closes when it is not part of it.
+    private func showComparison(of rows: IndexSet) {
+        detail.selectedFile = nil
+        rightColumn.showsBar = false
+        let panel = detail.showComparison(of: rows.map { viewModel.commits[$0] }, repository: viewModel.repository)
+        panel.onFilesReplaced = { [weak self] models in
+            guard let self, let open = detail.selectedFile else { return }
+            if let match = models.first(where: { $0.selection.path == open.path })?.selection {
+                detail.selectedFile = match
+                showDiff(match)
+            } else {
+                detail.selectedFile = nil
+                closeDiff()
+            }
+        }
+        comparison = panel
     }
 
     /// A new selection in the history starts without a chosen file; a redraw of the same one keeps it.
@@ -334,9 +384,16 @@ final class RepositoryViewController: NSObject {
 
     private func bind() {
         viewModel.onRowsAppended = { [weak self] range in self?.history.rowsAppended(range) }
-        viewModel.onReset = { [weak self] focus in self?.history.rowsReset(focus: focus) }
+        // A checkout or worktree switch moves the working tree on purpose: even the same row selected again is a navigation.
+        viewModel.onReset = { [weak self] focus in
+            if focus == .current { self?.shownSelection = nil }
+            self?.history.rowsReset(focus: focus)
+        }
         viewModel.onRowsShifted = { [weak self] in self?.history.rowsShifted() }
-        viewModel.onRowsRebuilt = { [weak self] focus in self?.history.rowsRebuilt(focus: focus) }
+        viewModel.onRowsRebuilt = { [weak self] focus in
+            if focus == .current { self?.shownSelection = nil }
+            self?.history.rowsRebuilt(focus: focus)
+        }
         viewModel.onMetadataChanged = { [weak self] in self?.metadataChanged() }
         viewModel.onStatusChanged = { [weak self] text in self?.statusLabel.stringValue = text }
     }
@@ -349,7 +406,7 @@ final class RepositoryViewController: NSObject {
         history.metadataChanged()
         commitController.update(status: viewModel.status)
         // The working directory lists follow every change of the status, for instance after staging.
-        if let row = history.selectedRow >= 0 ? history.selectedRow : nil, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
+        if let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)
         }
         let hasRemote = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
@@ -369,8 +426,7 @@ final class RepositoryViewController: NSObject {
 
     /// Staging or discarding a hunk can leave the status as it was while the line counts change, so the list is read again regardless.
     private func refreshWorkingDirectoryCounts() {
-        let row = history.selectedRow
-        guard row >= 0, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip else { return }
+        guard let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip else { return }
         showDetail(for: row, keepingFile: true)
     }
 
@@ -399,6 +455,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.driveStashesAndTags(on: self)
             ScreenshotHarness.openSidebarMenu(on: self)
             ScreenshotHarness.driveRebase(on: self)
+            ScreenshotHarness.navigate(on: self)
         }
         autoFetch?.loaded()
         onLoaded?()

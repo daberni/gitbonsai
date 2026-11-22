@@ -97,6 +97,7 @@ final class DiffHeaderView: BarView {
         title.toolTip = change.description
         switch selection.source {
         case .commit: badge.text = nil
+        case .revisions(let base, let target): badge.text = "\(base.prefix(7)) → \(target.prefix(7))"
         case .unstaged: badge.text = "unstaged"
         case .staged: badge.text = "staged"
         case .untracked: badge.text = "untracked"

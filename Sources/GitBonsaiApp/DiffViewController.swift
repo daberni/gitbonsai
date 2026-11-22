@@ -115,6 +115,12 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         }
     }
 
+    /// The history moved on: a diff still loading must not appear, and a later reload has nothing to read again.
+    func close() {
+        loadTask?.cancel()
+        selection = nil
+    }
+
     /// After the index changed: the same file, read again. Once it has no changes left on the side shown, the diff closes.
     func reload() {
         guard let selection else { return }

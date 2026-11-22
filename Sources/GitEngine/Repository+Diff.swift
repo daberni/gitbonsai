@@ -4,6 +4,8 @@ import Foundation
 public enum DiffSource: Sendable, Hashable {
     /// A commit against its first parent, or against nothing for a root commit.
     case commit(Commit)
+    /// Two revisions, such as two selected commits or a merge base and a commit: `git diff <base> <target>`.
+    case revisions(base: String, target: String)
     /// Working tree against the index.
     case unstaged
     /// Index against HEAD.
@@ -30,6 +32,8 @@ extension Repository {
             } else {
                 result = try await runner.run(["diff-tree", "-r", "--root", "--no-commit-id"] + diffOptions + [commit.id, "--"] + paths)
             }
+        case .revisions(let base, let target):
+            result = try await runner.run(["diff"] + diffOptions + [base, target, "--"] + paths)
         case .unstaged:
             result = try await runner.runRefreshingIndex(["diff"] + diffOptions + ["--"] + paths)
         case .staged:

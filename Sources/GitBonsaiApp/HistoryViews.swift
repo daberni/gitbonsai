@@ -86,6 +86,8 @@ final class HistoryTableView: NSTableView {
     var onHover: ((NSPoint?) -> Void)?
     /// A press in the label column; returns true when it was taken, such as a click on a "+n" counter.
     var onPressLabels: ((NSPoint) -> Bool)?
+    /// A click on a row with ⌘ or ⇧; returns true when it changed the selection.
+    var onModifiedClick: ((_ row: Int, _ flags: NSEvent.ModifierFlags) -> Bool)?
     /// Columns, width or the whole content changed, so anything placed over the rows is stale.
     var onLayoutChange: (() -> Void)?
     /// These rows were drawn again from new models.
@@ -151,6 +153,8 @@ final class HistoryTableView: NSTableView {
         let point = convert(event.locationInWindow, from: nil)
         guard let divider = ColumnDividers.hit(point.x, in: dividers) else {
             if event.clickCount == 1, onPressLabels?(point) == true { return }
+            let flags = event.modifierFlags.intersection([.command, .shift])
+            if !flags.isEmpty, row(at: point) >= 0, onModifiedClick?(row(at: point), flags) == true { return }
             super.mouseDown(with: event)
             return
         }

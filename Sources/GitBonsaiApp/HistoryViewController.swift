@@ -7,17 +7,22 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     let view = NSView()
     let tableView = HistoryTableView()
     let columnsController: HistoryColumnsController
+    /// The row selected last; with several selected, the others are in `selectedRows`.
     private(set) var selectedRow = -1
+    /// Several rows when commits are compared (⌘-click, ⇧-click); never the working directory among them.
+    private(set) var selectedRows = IndexSet()
     /// The commit of the selected row. Rows are rebuilt before the table hears of it, so the index alone no longer names the commit then.
     private(set) var selectedID: String?
+    private var multiSelection = HistoryMultiSelection()
+    private var isExtendingRange = false
     /// What a reload shows once it finished: the anchor to restore, or nil for the current row.
     private var focusAfterReload: Anchor?
     let search: HistorySearchController
     private(set) weak var searchField: CommitSearchField?
 
-    /// The selection changed; nil when nothing is selected.
-    var onSelect: ((Int?) -> Void)?
-    /// Double click on a row.
+    /// The selection changed; empty when nothing is selected.
+    var onSelect: ((IndexSet) -> Void)?
+    /// Double click on a row, while no other rows are selected.
     var onActivate: ((Int) -> Void)?
     /// Items for the context menu of a row.
     var menuItems: ((Int) -> [NSMenuItem])?
@@ -38,6 +43,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         refOverlay.activate = { [weak self] row in self?.onActivate?(row) }
         refOverlay.menuItems = { [weak self] row in self?.menuItems?(row) ?? [] }
         columnsController.onChange = { [weak self] in self?.reloadVisibleRows() }
+        tableView.onModifiedClick = { [weak self] row, flags in self?.extendSelection(to: row, flags: flags) ?? false }
         search.onChange = { [weak self] in
             self?.reloadVisibleRows()
             self?.updateSearchCounter()
@@ -61,6 +67,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         tableView.intercellSpacing = .zero
         tableView.backgroundColor = Theme.surface0
         tableView.selectionHighlightStyle = .none
+        tableView.allowsMultipleSelection = true
         tableView.gridStyleMask = []
         tableView.target = self
         tableView.doubleAction = #selector(activateClickedRow(_:))
@@ -116,10 +123,11 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
             focusAfterReload = anchor
         }
         selectedRow = -1
+        selectedRows = []
         selectedID = nil
         tableView.reloadData()
         search.historyChanged()
-        onSelect?(nil)
+        onSelect?([])
     }
 
     func rowsShifted() {
@@ -132,6 +140,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     func rowsRebuilt(focus: GraphViewModel.Focus) {
         let kept = focus == .keepSelection ? anchor() : nil
         selectedRow = -1
+        selectedRows = []
         selectedID = nil
         tableView.deselectAll(nil)
         tableView.reloadData()
@@ -151,21 +160,25 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     // MARK: Keeping the selection
 
-    /// The selected commit and how far its row sat below the top of the visible area.
+    /// The selected commit, the others selected with it, and how far its row sat below the top of the visible area.
     private struct Anchor {
         let id: String
+        let others: [String]
         let offset: CGFloat
     }
 
     private func anchor() -> Anchor? {
         guard let selectedID, selectedRow >= 0 else { return nil }
-        return Anchor(id: selectedID, offset: tableView.rect(ofRow: selectedRow).minY - tableView.visibleRect.minY)
+        let others = selectedRows.filter { $0 != selectedRow && viewModel.commits.indices.contains($0) }.map { viewModel.commits[$0].id }
+        return Anchor(id: selectedID, others: others, offset: tableView.rect(ofRow: selectedRow).minY - tableView.visibleRect.minY)
     }
 
-    /// Selects the anchored commit again and scrolls so that its row sits where it sat before. False when the commit is no longer in the history.
+    /// Selects the anchored commits again and scrolls so that the anchor's row sits where it sat before. False when that commit is no longer in the history; others that left stay unselected.
     private func restore(_ anchor: Anchor?) -> Bool {
         guard let anchor, let row = viewModel.rowIndex(of: anchor.id) else { return false }
-        select(row: row, scroll: false)
+        let others = IndexSet(anchor.others.compactMap { viewModel.rowIndex(of: $0) })
+        // One change for all rows: a passing selection of fewer rows would count as navigation.
+        tableView.selectRowIndexes(others.union(IndexSet(integer: row)), byExtendingSelection: false)
         guard let clip = tableView.enclosingScrollView?.contentView else { return true }
         let maxY = max(tableView.bounds.height - clip.bounds.height, 0)
         let y = min(max(tableView.rect(ofRow: row).minY - anchor.offset, 0), maxY)
@@ -201,6 +214,16 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         if scroll { scrollWithContext(to: row) }
     }
 
+    /// Read from the click's own flags, so the harness's synthesized clicks select the same way as real ones.
+    private func extendSelection(to row: Int, flags: NSEvent.ModifierFlags) -> Bool {
+        guard let rows = multiSelection.rows(afterClickOn: row, flags: flags, selected: tableView.selectedRowIndexes, lastSelected: selectedRow, wipRow: viewModel.kinds.firstIndex(of: .wip)) else { return true }
+        search.userSelected()
+        isExtendingRange = true
+        tableView.selectRowIndexes(rows, byExtendingSelection: false)
+        isExtendingRange = false
+        return true
+    }
+
     /// Leaves a few rows of context above the target.
     private func scrollWithContext(to row: Int) {
         tableView.scrollRowToVisible(min(row + 6, viewModel.rows.count - 1))
@@ -230,9 +253,10 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         searchField?.counterText = search.counter(selectedRow: selectedRow)
     }
 
+    /// While several rows are selected a double click only adds to the comparison: ⌘-clicking quickly must not check anything out.
     @objc private func activateClickedRow(_ sender: Any?) {
         let index = tableView.clickedRow >= 0 ? tableView.clickedRow : selectedRow
-        guard index >= 0 else { return }
+        guard index >= 0, selectedRows.count <= 1 else { return }
         onActivate?(index)
     }
 
@@ -246,22 +270,27 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     func numberOfRows(in tableView: NSTableView) -> Int { viewModel.rows.count }
 
-    /// Asked for clicks and arrow keys only, not for selections made in code.
-    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+    /// Asked for clicks and arrow keys only, not for selections made in code. The working directory is no commit to compare, so it leaves a selection of several rows.
+    func tableView(_ tableView: NSTableView, selectionIndexesForProposedSelection proposed: IndexSet) -> IndexSet {
         search.userSelected()
-        return true
+        guard proposed.count > 1, let wip = viewModel.kinds.firstIndex(of: .wip) else { return proposed }
+        var rows = proposed
+        rows.remove(wip)
+        return rows
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        let previous = selectedRow
+        let previous = selectedRows
         selectedRow = tableView.selectedRow
+        selectedRows = tableView.selectedRowIndexes
         selectedID = viewModel.commits.indices.contains(selectedRow) ? viewModel.commits[selectedRow].id : nil
         // A choice made while a reload runs replaces what the reload would have restored.
         if selectedRow >= 0 { focusAfterReload = nil }
-        let changed = IndexSet([previous, selectedRow].filter { $0 >= 0 && $0 < viewModel.rows.count })
+        if !isExtendingRange { multiSelection.anchor = selectedRow >= 0 ? selectedRow : nil }
+        let changed = previous.symmetricDifference(selectedRows).filteredIndexSet { $0 < viewModel.rows.count }
         tableView.reloadData(forRowIndexes: changed, columnIndexes: IndexSet(integer: 0))
         updateSearchCounter()
-        onSelect?(selectedRow >= 0 ? selectedRow : nil)
+        onSelect?(selectedRows)
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row index: Int) -> NSView? {
@@ -269,7 +298,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         let identifier = NSUserInterfaceItemIdentifier("row")
         let view = (tableView.makeView(withIdentifier: identifier, owner: nil) as? GraphRowView) ?? GraphRowView()
         view.identifier = identifier
-        view.model = HistoryRowModel.make(row: index, in: viewModel, isSelected: index == selectedRow, columns: columnsController.columns, search: search)
+        view.model = HistoryRowModel.make(row: index, in: viewModel, isSelected: selectedRows.contains(index), columns: columnsController.columns, search: search)
         view.toolTip = viewModel.kinds[index] == .wip ? "Uncommittete Änderungen" : GraphRowView.exactFormatter.string(from: viewModel.commits[index].authorDate)
         return view
     }

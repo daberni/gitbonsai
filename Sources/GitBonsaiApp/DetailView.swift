@@ -58,7 +58,7 @@ final class DetailView: NSView {
         bounds.fill()
     }
 
-    private func reset(title: String) {
+    func reset(title: String) {
         isShowingWorkingDirectory = false
         loadTask?.cancel()
         loadingNoteTask?.cancel()
@@ -75,7 +75,7 @@ final class DetailView: NSView {
         stack.addArrangedSubview(box)
     }
 
-    private func label(_ string: String, font: NSFont, color: NSColor, wraps: Bool = false) -> NSTextField {
+    func label(_ string: String, font: NSFont, color: NSColor, wraps: Bool = false) -> NSTextField {
         let field = wraps ? NSTextField(wrappingLabelWithString: string) : NSTextField(labelWithString: string)
         field.font = font
         field.textColor = color
@@ -85,7 +85,7 @@ final class DetailView: NSView {
         return field
     }
 
-    private func divider() -> NSView {
+    func divider() -> NSView {
         let line = NSBox()
         line.boxType = .custom
         line.borderWidth = 0
@@ -95,7 +95,7 @@ final class DetailView: NSView {
         return line
     }
 
-    private func add(_ view: NSView, fill: Bool = true) {
+    func add(_ view: NSView, fill: Bool = true) {
         stack.addArrangedSubview(view)
         if fill { view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true }
     }
@@ -234,7 +234,7 @@ final class DetailView: NSView {
         }
     }
 
-    private func makeFileList() -> FileListView {
+    func makeFileList() -> FileListView {
         let list = FileListView()
         list.selected = selectedFile
         list.onSelect = { [weak self] selection in
