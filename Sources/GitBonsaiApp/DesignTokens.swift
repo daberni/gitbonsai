@@ -121,7 +121,8 @@ enum Theme {
         static let minimumSize = NSSize(width: 900, height: 520)
         /// Same as the compact title bar, so the tabs fill it.
         static let titleRow: CGFloat = 38
-        static let toolbar: CGFloat = 48
+        /// Height of a macOS unified toolbar; its controls use the large control size.
+        static let toolbar: CGFloat = 52
         static let statusBar: CGFloat = 28
         static let columnHeader: CGFloat = 30
         static let sidebarWidth: CGFloat = 264

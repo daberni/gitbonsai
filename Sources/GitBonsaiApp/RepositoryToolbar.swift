@@ -27,6 +27,7 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         actions.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.placeholderString = "Commits durchsuchen"
+        searchField.controlSize = .large
         searchField.delegate = self
         searchField.target = self
         searchField.action = #selector(search(_:))
@@ -52,6 +53,7 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         button.imagePosition = .imageLeading
         button.bezelStyle = .rounded
+        button.controlSize = .large
         button.isEnabled = action != nil
         if action == nil { button.toolTip = "Kommt mit dem MVP" }
         return button
