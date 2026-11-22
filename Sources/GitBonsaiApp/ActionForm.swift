@@ -75,7 +75,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     func addCheckbox(_ title: LocalizedStringResource, checked: Bool) {
         let title = RefString(title)
         let box = NSButton(checkboxWithTitle: title.plain, target: nil, action: nil)
-        if title.containsNames, let font = box.font { box.attributedTitle = RefText.attributed(title, font: font, color: .labelColor) }
+        if title.containsNames, let font = box.font { box.attributedTitle = RefText.attributed(title, font: font, color: Theme.ink) }
         box.state = checked ? .on : .off
         checkbox = box
         stack.addArrangedSubview(box)
@@ -168,28 +168,14 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func addRow(label: LocalizedStringResource, control: NSView) {
-        let caption = NSTextField(labelWithString: label.text)
-        caption.font = Theme.caption
-        caption.textColor = .secondaryLabelColor
-        let row = NSStackView(views: [caption, control])
-        row.orientation = .vertical
-        row.alignment = .leading
-        row.spacing = Theme.ActionSheet.labelSpacing
-        control.widthAnchor.constraint(equalToConstant: Theme.ActionSheet.fieldWidth).isActive = true
-        stack.addArrangedSubview(row)
+        stack.addArrangedSubview(SheetSupport.captionRow(label, control: control, width: Theme.ActionSheet.fieldWidth))
     }
 
     @objc private func chooseFolder(_ sender: NSButton) {
         guard let field = fields.first(where: { $0.key == sender.identifier?.rawValue })?.field else { return }
         let current = URL(fileURLWithPath: (field.stringValue as NSString).expandingTildeInPath)
-        let panel = NSSavePanel()
-        panel.title = String(localized: "worktree.folderPanel.title", defaultValue: "Folder for the Worktree", bundle: .module)
-        panel.prompt = String(localized: "common.choose", defaultValue: "Choose", bundle: .module)
-        panel.canCreateDirectories = true
-        panel.directoryURL = current.deletingLastPathComponent()
-        panel.nameFieldStringValue = current.lastPathComponent
-        panel.beginSheetModal(for: alert.window) { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
+        let title = String(localized: "worktree.folderPanel.title", defaultValue: "Folder for the Worktree", bundle: .module)
+        SheetSupport.chooseFolder(title: title, directory: current.deletingLastPathComponent(), name: current.lastPathComponent, on: alert.window) { [weak self] url in
             field.stringValue = url.path
             self?.updateConfirm()
         }

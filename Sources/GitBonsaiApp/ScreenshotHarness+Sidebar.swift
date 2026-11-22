@@ -42,7 +42,7 @@ extension ScreenshotHarness {
                         FileHandle.standardError.write(Data("sidebar real menu open: \(open)\n".utf8))
                         if let shot = environment["GITBONSAI_MENU_SHOT"] { captureMenuWindow(to: shot) }
                         // Escape closes the menu that the right click opened.
-                        if let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53) { NSApp.postEvent(escape, atStart: true) }
+                        if let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: KeyCode.escape) { NSApp.postEvent(escape, atStart: true) }
                     }
                 }
                 // The entry runs from the menu that the right-clicked row builds, once the one on screen has closed.

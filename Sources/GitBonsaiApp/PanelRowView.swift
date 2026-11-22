@@ -21,13 +21,6 @@ final class PanelRowView: NSView {
     var row: PanelRow? { didSet { needsDisplay = true } }
     var onPress: ((_ clickCount: Int) -> Void)?
 
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        formatter.locale = AppLanguage.locale
-        return formatter
-    }()
-
     init() {
         super.init(frame: .zero)
         identifier = Self.identifier
@@ -56,7 +49,7 @@ final class PanelRowView: NSView {
         row.glyph.draw(in: CGRect(x: left, y: firstLine - Theme.Icon.regular / 2, width: Theme.Icon.regular, height: Theme.Icon.regular), color: row.isDimmed ? Theme.inkFaint : Theme.inkMuted, context: context)
         let textLeft = left + Theme.Icon.regular + Theme.Space.s
 
-        let age = row.date.map { Self.relativeFormatter.localizedString(for: $0, relativeTo: Date()) } ?? ""
+        let age = row.date.map(DateText.shortRelative) ?? ""
         let ageWidth = draw(age, font: Theme.captionDigits, color: Theme.inkMuted, rightEdge: right, midY: firstLine)
         let shaWidth = draw(row.sha, font: Theme.monoSmall, color: Theme.inkFaint, rightEdge: right, midY: secondLine)
 

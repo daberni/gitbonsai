@@ -79,8 +79,8 @@ final class SheetWindow: NSWindow {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53: onCancel?()
-        case 36, 76: onReturn?()
+        case KeyCode.escape: onCancel?()
+        case KeyCode.return, KeyCode.keypadEnter: onReturn?()
         default: super.keyDown(with: event)
         }
     }

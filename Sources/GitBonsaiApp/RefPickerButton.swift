@@ -32,7 +32,7 @@ final class RefPickerButton: KeyboardControl {
 
     override func keyDown(with event: NSEvent) {
         // Space opens it through `performClick`, as it presses any `KeyboardControl`.
-        guard [125, 126].contains(event.keyCode), isEnabled else { return super.keyDown(with: event) }
+        guard [KeyCode.downArrow, KeyCode.upArrow].contains(event.keyCode), isEnabled else { return super.keyDown(with: event) }
         onOpen?()
     }
 

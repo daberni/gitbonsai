@@ -42,14 +42,7 @@ final class ActionPrompter {
     func saveLocation(title: LocalizedStringResource, suggestedName: String) async -> URL? {
         if ScreenshotHarness.isActive { return ScreenshotHarness.saveLocation }
         guard let window = window?() else { return nil }
-        let panel = NSSavePanel()
-        panel.title = title.text
-        panel.nameFieldStringValue = suggestedName
-        panel.canCreateDirectories = true
-        let response = await withCheckedContinuation { continuation in
-            panel.beginSheetModal(for: window) { continuation.resume(returning: $0) }
-        }
-        return response == .OK ? panel.url : nil
+        return await SheetSupport.chooseFile(title: title.text, name: suggestedName, on: window)
     }
 
     /// Where failures that need no answer go, as a toast with an optional action; without it they get the sheet too.

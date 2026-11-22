@@ -53,7 +53,7 @@ struct TagRows {
     private static func row(_ tag: Tag, states: [(remote: String, state: TagSyncState)], labelled: Bool) -> PanelRow {
         let notes = (tag.isAnnotated ? [String(localized: "tag.row.annotated", defaultValue: "Annotated tag", bundle: .module)] : []) + states.map { describe($0.state, of: tag.name, on: $0.remote) }
         let differs = states.contains { if case .differs = $0.state { true } else { false } }
-        var row = PanelRow(id: tag.name, glyph: .tag, title: tag.name, marker: tag.isAnnotated ? "◆" : nil, tooltip: notes.isEmpty ? nil : notes.joined(separator: "\n"), detail: tag.subject, date: tag.date, sha: String(tag.commitID.prefix(7)), searchText: tag.subject)
+        var row = PanelRow(id: tag.name, glyph: .tag, title: tag.name, marker: tag.isAnnotated ? "◆" : nil, tooltip: notes.isEmpty ? nil : notes.joined(separator: "\n"), detail: tag.subject, date: tag.date, sha: String(tag.commitID.prefix(RefString.shortSHA)), searchText: tag.subject)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
         row.isHighlighted = differs
         return row
@@ -65,7 +65,7 @@ struct TagRows {
         let isAnnotated = target.map { $0.objectID != $0.commitID } ?? false
         let remotes = having.map(\.remote).joined(separator: ", ")
         let detail = String(localized: "tag.status.onlyRemote", defaultValue: "Only on \(remotes), not fetched yet", bundle: .module, comment: "A tag only on the listed remotes.")
-        var row = PanelRow(id: name, glyph: .tag, title: name, marker: isAnnotated ? "◆" : nil, tooltip: states.map { describe($0.state, of: name, on: $0.remote) }.joined(separator: "\n"), detail: detail, date: nil, sha: String((target?.commitID ?? "").prefix(7)), searchText: detail)
+        var row = PanelRow(id: name, glyph: .tag, title: name, marker: isAnnotated ? "◆" : nil, tooltip: states.map { describe($0.state, of: name, on: $0.remote) }.joined(separator: "\n"), detail: detail, date: nil, sha: String((target?.commitID ?? "").prefix(RefString.shortSHA)), searchText: detail)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
         row.isDimmed = true
         return row

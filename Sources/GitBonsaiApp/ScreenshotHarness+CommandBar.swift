@@ -102,7 +102,7 @@ extension ScreenshotHarness {
         case "status":
             guard let tab = host.activeRepository else { return 0 }
             let status = tab.viewModel.status
-            report("status: branch \(status?.branch.branch ?? "detached") at \(status?.branch.headSHA?.prefix(7) ?? "-"), upstream \(status?.branch.upstream ?? "none") ↑\(status?.branch.ahead ?? 0) ↓\(status?.branch.behind ?? 0), line \"\(tab.viewModel.statusText)\"")
+            report("status: branch \(status?.branch.branch ?? "detached") at \(status?.branch.headSHA?.prefix(RefString.shortSHA) ?? "-"), upstream \(status?.branch.upstream ?? "none") ↑\(status?.branch.ahead ?? 0) ↓\(status?.branch.behind ?? 0), line \"\(tab.viewModel.statusText)\"")
         case "wait":
             return Double(argument) ?? 1
         case "shot":

@@ -96,7 +96,7 @@ extension ScreenshotHarness {
         report("typed")
         for key in keys {
             // The application offers a key with ⌘ to the window as a key equivalent before it becomes a key press, so the harness does the same.
-            if key.hasPrefix("cmd-"), key.hasSuffix("return"), let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36), window.performKeyEquivalent(with: event) {
+            if key.hasPrefix("cmd-"), key.hasSuffix("return"), let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: KeyCode.return), window.performKeyEquivalent(with: event) {
                 report(key)
                 continue
             }

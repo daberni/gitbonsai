@@ -134,12 +134,10 @@ final class RepositoryToolbar: BarView {
             fetchLabel.toolTip = nil
             return
         }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = AppLanguage.locale
-        let relative = formatter.localizedString(for: lastFetch, relativeTo: Date())
+        let relative = DateText.relative(lastFetch)
         let state = String(localized: "toolbar.fetch.fetched", defaultValue: "fetched \(relative)", bundle: .module, comment: "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.")
         fetchLabel.stringValue = "\(remote) · \(state)"
-        let exact = GraphRowView.exactFormatter.string(from: lastFetch)
+        let exact = DateText.exact(lastFetch)
         fetchLabel.toolTip = String(localized: "toolbar.fetch.lastFetchToolTip", defaultValue: "Last fetch: \(exact)", bundle: .module)
     }
 

@@ -172,7 +172,7 @@ extension ScreenshotHarness {
             replaceText(in: editor.body, with: argument)
         case "key" where argument == "cmd-return":
             // NSApplication offers key equivalents to the key window before its first responder sees the key; a background window is never key, so the harness offers it the same way.
-            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36) else { break }
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: KeyCode.return) else { break }
             traceSaving(on: tab, in: window)
             log("⌘⏎ taken as key equivalent: \(window.performKeyEquivalent(with: event))")
             delay = 2

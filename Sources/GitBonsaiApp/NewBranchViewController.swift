@@ -150,10 +150,10 @@ final class NewBranchViewController: NSViewController {
     private var pathProblem: String? {
         let path = (pathInput.stringValue as NSString).expandingTildeInPath
         guard !path.isEmpty else { return nil }
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { return nil }
-        let isEmptyFolder = isDirectory.boolValue && ((try? FileManager.default.contentsOfDirectory(atPath: path))?.isEmpty ?? false)
-        return isEmptyFolder ? nil : String(localized: "branch.new.folderNotEmpty", defaultValue: "Something is already there. git only creates a worktree in a new or empty folder.", bundle: .module)
+        switch SheetSupport.destination(at: path) {
+        case .missing, .emptyFolder: return nil
+        case .file, .occupiedFolder, .unreadableFolder: return String(localized: "branch.new.folderNotEmpty", defaultValue: "Something is already there. git only creates a worktree in a new or empty folder.", bundle: .module)
+        }
     }
 
     private func show(_ message: RefString?, in label: NSTextField, input: TextInput?) {
@@ -191,15 +191,11 @@ final class NewBranchViewController: NSViewController {
 
     @objc private func choosePath(_ sender: Any?) {
         guard let window = view.window else { return }
-        let panel = NSSavePanel()
-        panel.title = String(localized: "branch.new.folderPanelTitle", defaultValue: "Worktree Folder", bundle: .module)
-        panel.prompt = String(localized: "common.choose", defaultValue: "Choose", bundle: .module)
-        panel.canCreateDirectories = true
+        let title = String(localized: "branch.new.folderPanelTitle", defaultValue: "Worktree Folder", bundle: .module)
         let current = (pathInput.stringValue as NSString).expandingTildeInPath
-        panel.directoryURL = URL(fileURLWithPath: (current as NSString).deletingLastPathComponent)
-        panel.nameFieldStringValue = (current as NSString).lastPathComponent
-        panel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK, let url = panel.url, let self else { return }
+        let directory = URL(fileURLWithPath: (current as NSString).deletingLastPathComponent)
+        SheetSupport.chooseFolder(title: title, directory: directory, name: (current as NSString).lastPathComponent, on: window) { [weak self] url in
+            guard let self else { return }
             pathInput.stringValue = url.path
             pathEdited = true
             updateState()

@@ -4,13 +4,6 @@ import GitEngine
 /// How the ref picker draws an item: the sidebar's and labels' glyphs (check where checked out, laptop, cloud, tag), a ring for a commit.
 @MainActor
 enum RefItemStyle {
-    static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        formatter.locale = AppLanguage.locale
-        return formatter
-    }()
-
     static func drawGlyph(of item: RefCatalog.Item, in rect: CGRect, color: NSColor, context: CGContext) {
         let glyph: Glyph? = switch item.kind {
         case .head(let branch): branch == nil ? .bonsaiDetached : .check
@@ -31,7 +24,7 @@ enum RefItemStyle {
 
     /// The muted text after the name: short SHA and age for refs, subject and age for a commit, whose name already is its SHA.
     static func detail(of item: RefCatalog.Item) -> (sha: String?, rest: String) {
-        let age = relativeFormatter.localizedString(for: item.commit.date, relativeTo: Date())
+        let age = DateText.shortRelative(item.commit.date)
         switch item.kind {
         case .commit: return (nil, age)
         case .head(nil): return (nil, "HEAD · \(age)")

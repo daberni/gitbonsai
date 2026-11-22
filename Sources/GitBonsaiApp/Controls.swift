@@ -70,7 +70,7 @@ class KeyboardControl: NSControl {
 
     override func keyDown(with event: NSEvent) {
         if moveFocus(for: event) { return }
-        guard event.keyCode == 49, isEnabled else { return super.keyDown(with: event) }
+        guard event.keyCode == KeyCode.space, isEnabled else { return super.keyDown(with: event) }
         performClick(nil)
     }
 }
@@ -87,7 +87,7 @@ extension NSView {
     /// Tab and ⇧Tab move along the key view loop; a control that does not edit text has to ask for that itself. True when `event` was one of them.
     func moveFocus(for event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard event.keyCode == 48, modifiers.subtracting(.shift).isEmpty, let window else { return false }
+        guard event.keyCode == KeyCode.tab, modifiers.subtracting(.shift).isEmpty, let window else { return false }
         if modifiers.contains(.shift) { window.selectPreviousKeyView(self) } else { window.selectNextKeyView(self) }
         return true
     }
@@ -179,7 +179,7 @@ final class PrimaryButton: KeyboardControl {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let isCommandReturn = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command && event.keyCode == 36
+        let isCommandReturn = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command && event.keyCode == KeyCode.return
         guard respondsToCommandReturn, isCommandReturn, isEnabled, !isHiddenOrHasHiddenAncestor else { return super.performKeyEquivalent(with: event) }
         sendAction(action, to: target)
         return true

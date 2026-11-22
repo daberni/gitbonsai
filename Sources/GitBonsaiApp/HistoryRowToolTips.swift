@@ -60,7 +60,7 @@ final class HistoryRowToolTips {
         }
         cutOff(model.commit.authorName, in: layout.author, font: Theme.caption)
         if let date = layout.date {
-            tips.append(Tip(range: date, text: GraphRowView.exactFormatter.string(from: model.commit.authorDate)))
+            tips.append(Tip(range: date, text: DateText.exact(model.commit.authorDate)))
         }
         return tips
     }

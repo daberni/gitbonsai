@@ -36,7 +36,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         title.font = Theme.title
         let info = NSTextField(wrappingLabelWithString: String(localized: "clone.sheet.info", defaultValue: "git clone downloads the repository. Sign-in goes through the credential helper or the SSH agent.", bundle: .module))
         info.font = Theme.caption
-        info.textColor = .secondaryLabelColor
+        info.textColor = Theme.inkMuted
         urlField.placeholderString = String(localized: "clone.sheet.urlPlaceholder", defaultValue: "https://… or git@host:path.git", bundle: .module)
         branchField.placeholderString = String(localized: "clone.sheet.branchPlaceholder", defaultValue: "The remote's default branch", bundle: .module)
         for field in [urlField, destinationField, branchField] {
@@ -53,7 +53,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         destinationField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         progressBar.heightAnchor.constraint(equalToConstant: M.barHeight).isActive = true
         progressLabel.font = Theme.captionDigits
-        progressLabel.textColor = .secondaryLabelColor
+        progressLabel.textColor = Theme.inkMuted
         let progress = NSStackView(views: [progressBar, progressLabel])
         progress.orientation = .vertical
         progress.alignment = .leading
@@ -101,15 +101,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
     private var progressRow: NSView?
 
     private func row(_ label: LocalizedStringResource, _ control: NSView) -> NSView {
-        let caption = NSTextField(labelWithString: label.text)
-        caption.font = Theme.caption
-        caption.textColor = .secondaryLabelColor
-        let row = NSStackView(views: [caption, control])
-        row.orientation = .vertical
-        row.alignment = .leading
-        row.spacing = Theme.ActionSheet.labelSpacing
-        control.widthAnchor.constraint(equalToConstant: M.width - 2 * M.padding).isActive = true
-        return row
+        SheetSupport.captionRow(label, control: control, width: M.width - 2 * M.padding)
     }
 
     func controlTextDidChange(_ notification: Notification) {

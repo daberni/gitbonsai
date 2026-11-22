@@ -115,7 +115,7 @@ final class DiffHeaderView: BarView {
         title.toolTip = change.description
         switch selection.source {
         case .commit: badge.text = nil
-        case .revisions(let base, let target): badge.text = "\(base.prefix(7)) → \(target.prefix(7))"
+        case .revisions(let base, let target): badge.text = "\(base.prefix(RefString.shortSHA)) → \(target.prefix(RefString.shortSHA))"
         case .unstaged: badge.text = String(localized: "files.state.unstaged", defaultValue: "unstaged", bundle: .module, comment: "Badge on a diff of unstaged changes")
         case .staged: badge.text = String(localized: "files.state.staged", defaultValue: "staged", bundle: .module, comment: "Badge on a diff of staged changes")
         case .untracked: badge.text = String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")

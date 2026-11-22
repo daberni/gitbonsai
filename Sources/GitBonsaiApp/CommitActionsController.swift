@@ -225,14 +225,14 @@ final class CommitActionsController {
     private func defaultWorktreePath(for commit: Commit) -> String {
         let main = viewModel.worktrees.first { $0.worktree.isMain }?.worktree.path ?? viewModel.repository.path
         let parent = (main as NSString).deletingLastPathComponent
-        return (parent as NSString).appendingPathComponent("\(viewModel.repositoryName)-\(commit.id.prefix(7))")
+        return (parent as NSString).appendingPathComponent("\(viewModel.repositoryName)-\(commit.id.prefix(RefString.shortSHA))")
     }
 
     private static func patchName(for commit: Commit) -> String {
         let allowed = CharacterSet.alphanumerics
         let words = commit.subject.lowercased().unicodeScalars.split { !allowed.contains($0) }.map { String(String.UnicodeScalarView($0)) }
         let slug = words.joined(separator: "-").prefix(52)
-        return slug.isEmpty ? "\(commit.id.prefix(7)).patch" : "\(commit.id.prefix(7))-\(slug).patch"
+        return slug.isEmpty ? "\(commit.id.prefix(RefString.shortSHA)).patch" : "\(commit.id.prefix(RefString.shortSHA))-\(slug).patch"
     }
 
     private static func copy(_ text: String) {

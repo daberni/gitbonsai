@@ -42,7 +42,7 @@ enum HistoryRowModel {
     /// What a match shows of the query: its occurrences in the subject and author, and the SHA prefix it names.
     private static func highlights(of search: CommitSearch?, subject: String, commit: Commit) -> GraphRowView.Highlights {
         guard let search else { return GraphRowView.Highlights() }
-        let shaLength = search.matchesSHA(commit.id) ? min(search.text.utf16.count, GraphRowView.shortSHALength) : 0
+        let shaLength = search.matchesSHA(commit.id) ? min(search.text.utf16.count, RefString.shortSHA) : 0
         return GraphRowView.Highlights(subject: search.occurrences(in: subject), author: search.occurrences(in: commit.authorName), shaPrefix: shaLength)
     }
 

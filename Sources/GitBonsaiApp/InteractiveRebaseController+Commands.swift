@@ -24,7 +24,7 @@ extension InteractiveRebaseController: CommandProvider {
             let commit = viewModel.commits[row]
             let inPlace = viewModel.isReachableFromHead(commit.id)
             let reason = inPlace ? inPlaceReason(for: commit) : nil
-            return Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(glyph), context: String(commit.id.prefix(7)), disabledReason: reason.map { .verbatim($0) }) { [weak self] in
+            return Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(glyph), context: String(commit.id.prefix(RefString.shortSHA)), disabledReason: reason.map { .verbatim($0) }) { [weak self] in
                 self?.openSheet(branch: branch, onto: commit, ref: ref, inPlace: inPlace)
             }
         }

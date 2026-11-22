@@ -142,7 +142,7 @@ final class FileActionsController {
                     guard await prompter.confirm(alert) else { return }
                 }
                 try await repository.restore(path, of: commit)
-                await viewModel.refresh(note: "git restore --source=\(revision.prefix(7))")
+                await viewModel.refresh(note: "git restore --source=\(revision.prefix(RefString.shortSHA))")
             } catch {
                 prompter.report(error, title: LocalizedStringResource("failure.file.notRestored", defaultValue: "Couldn’t Restore File", bundle: .module))
                 await viewModel.refresh(note: nil)

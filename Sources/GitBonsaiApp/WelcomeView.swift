@@ -122,7 +122,7 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
 
     /// ⌘⏎ reaches the window as a key equivalent before the search field sees it, and opens the selection in the background.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let isReturn = event.keyCode == 36 || event.keyCode == 76
+        let isReturn = event.keyCode == KeyCode.return || event.keyCode == KeyCode.keypadEnter
         guard isReturn, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, window?.firstResponder === searchField.currentEditor() else { return super.performKeyEquivalent(with: event) }
         listView.openSelection(background: true)
         return true

@@ -127,20 +127,19 @@ final class SidebarView: NSView {
             } else if let head = info.worktree.headSHA {
                 onSelectCommit?(head)
             }
-        case .row(_, _, _, _, _, _, _, _, _, _, let target?, let linked, let checkout, _):
-            if event.clickCount == 2, let checkout {
-                onCheckout?(checkout, linked)
+        case .row(let row):
+            guard let target = row.target else { break }
+            if event.clickCount == 2, let checkout = row.checkout {
+                onCheckout?(checkout, row.linkedWorktree)
             } else if let panel = SidebarPanel(target: target) {
                 onOpenPanel?(panel, frames[index])
             } else if target.hasPrefix("folder:") {
-                let key = String(target.dropFirst(7))
+                let key = String(target.dropFirst("folder:".count))
                 outline.toggle(key)
                 reload(from: model)
             } else {
                 onSelectCommit?(target)
             }
-        default:
-            break
         }
     }
 
@@ -176,7 +175,7 @@ final class SidebarView: NSView {
     private var hoveredWorktreePath: String? {
         guard let hovered, hovered < items.count else { return nil }
         switch items[hovered] {
-        case .row(_, _, _, _, _, _, _, _, _, _, _, let linked, _, _): return linked
+        case .row(let row): return row.linkedWorktree
         case .worktree(let info, let isCurrent): return isCurrent ? nil : info.worktree.path
         default: return nil
         }
@@ -265,7 +264,7 @@ final class SidebarView: NSView {
                 if worktree.isPrunable { detail = String(localized: "sidebar.worktree.prunable", defaultValue: "folder missing · prunable", bundle: .module, comment: "A worktree whose folder is gone; prunable is git's term.") }
                 else if let branch = worktree.branchName { detail = branch }
                 else {
-                    let sha = String((worktree.headSHA ?? "").prefix(7))
+                    let sha = String((worktree.headSHA ?? "").prefix(RefString.shortSHA))
                     detail = String(localized: "sidebar.worktree.detached", defaultValue: "detached @ \(sha)", bundle: .module, comment: "A worktree on a detached HEAD at a short SHA.")
                 }
                 if let branch = info.status?.branch, branch.upstream != nil {
@@ -274,26 +273,26 @@ final class SidebarView: NSView {
                 }
                 drawText(detail, font: Theme.caption, color: faint ? Theme.inkFaint : Theme.inkMuted, x: textX, midY: line2, maxX: valueRight)
 
-            case .row(let text, let value, let expander, let icon, let slotGlyph, let slotColor, let indent, let strong, let isCheckedOut, let ghost, let target, _, _, _):
-                if isCheckedOut {
+            case .row(let row):
+                if row.isCheckedOut {
                     fillRow(Theme.surfaceSelected)
-                } else if hovered == index, target != nil || slotGlyph == .chevronRight {
+                } else if hovered == index, row.target != nil || row.slot == .chevronRight {
                     fillRow(Theme.surface2)
                 }
-                let shift = CGAffineTransform(translationX: indent, y: 0)
-                expander?.draw(in: columnA.insetBy(dx: M.expanderInset, dy: M.expanderInset), color: ghost ? Theme.inkFaint : Theme.inkMuted, context: context)
-                if let icon {
+                let shift = CGAffineTransform(translationX: row.indent, y: 0)
+                row.expander?.draw(in: columnA.insetBy(dx: M.expanderInset, dy: M.expanderInset), color: row.ghost ? Theme.inkFaint : Theme.inkMuted, context: context)
+                if let icon = row.icon {
                     let inset = icon == .chevronDown || icon == .chevronRight ? M.chevronInset : M.iconInset
                     icon.draw(in: columnB.insetBy(dx: inset, dy: inset).applying(shift), color: Theme.inkMuted, context: context)
                 }
-                if let slotGlyph {
+                if let slotGlyph = row.slot {
                     let inset = slotGlyph == .chevronRight ? M.slotChevronInset : M.slotInset
-                    slotGlyph.draw(in: slot.insetBy(dx: inset, dy: inset), color: slotColor ?? Theme.inkMuted, context: context)
+                    slotGlyph.draw(in: slot.insetBy(dx: inset, dy: inset), color: row.slotColor ?? Theme.inkMuted, context: context)
                 }
-                let limit = drawValue(value, atY: rect.midY)
+                let limit = drawValue(row.value, atY: rect.midY)
                 // The add-remote row is the one exception to the grid: its text starts right after the plus.
-                let x = ghost ? columnB.minX : textX + indent
-                drawText(text, font: strong ? Theme.bodyStrong : Theme.body, color: ghost ? Theme.inkFaint : Theme.ink, x: x, midY: rect.midY, maxX: limit)
+                let x = row.ghost ? columnB.minX : textX + row.indent
+                drawText(row.text, font: row.strong ? Theme.bodyStrong : Theme.body, color: row.ghost ? Theme.inkFaint : Theme.ink, x: x, midY: rect.midY, maxX: limit)
             }
         }
     }

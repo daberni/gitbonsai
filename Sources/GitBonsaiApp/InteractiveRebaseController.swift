@@ -138,7 +138,7 @@ final class InteractiveRebaseController {
 
     /// "git rebase -i 1a2b3c4" in place, "git rebase -i --onto 4d5e6f7 1a2b3c4" otherwise.
     static func command(_ plan: RebasePlan) -> String {
-        plan.onto.map { "git rebase -i --onto \($0.prefix(7)) \(plan.base.prefix(7))" } ?? "git rebase -i \(plan.base.prefix(7))"
+        plan.onto.map { "git rebase -i --onto \($0.prefix(RefString.shortSHA)) \(plan.base.prefix(RefString.shortSHA))" } ?? "git rebase -i \(plan.base.prefix(RefString.shortSHA))"
     }
 
     /// Loads the range from another old base into the open sheet; returns why it cannot.

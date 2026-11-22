@@ -172,7 +172,7 @@ final class DetailView: NSView {
         for (index, parent) in commit.parents.enumerated() {
             let link = LinkButton(target: self, action: #selector(openParent(_:)))
             link.tag = index
-            link.attributedTitle = NSAttributedString(string: String(parent.prefix(7)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
+            link.attributedTitle = NSAttributedString(string: String(parent.prefix(RefString.shortSHA)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
             link.toolTip = String(localized: "detail.meta.parentToolTip", defaultValue: "Jump to the parent commit in the graph", bundle: .module)
             meta.addArrangedSubview(link)
             parentLinks.append(link)
@@ -356,10 +356,8 @@ final class DetailView: NSView {
     private func person(_ name: String, role: String, date: Date, ring: NSColor, avatar source: AvatarView.Source) -> NSView {
         let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring, source: source)
         let nameLabel = label(name, font: Theme.body, color: Theme.ink)
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = AppLanguage.locale
-        let detail = label("\(role) · \(formatter.localizedString(for: date, relativeTo: Date()))", font: Theme.caption, color: Theme.inkMuted)
-        detail.toolTip = GraphRowView.exactFormatter.string(from: date)
+        let detail = label("\(role) · \(DateText.relative(date))", font: Theme.caption, color: Theme.inkMuted)
+        detail.toolTip = DateText.exact(date)
         let text = NSStackView(views: [nameLabel, detail])
         text.orientation = .vertical
         text.alignment = .leading

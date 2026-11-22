@@ -47,7 +47,7 @@ final class StashesController {
 
     private static func row(_ stash: Stash) -> PanelRow {
         let detail = [stash.selector, stash.branch ?? String(localized: "common.detachedHead", defaultValue: "Detached HEAD", bundle: .module)].joined(separator: " · ")
-        return PanelRow(id: stash.commitID, glyph: .stashBowl, title: stash.text, marker: nil, tooltip: nil, detail: detail, date: stash.date, sha: String(stash.commitID.prefix(7)), searchText: stash.message)
+        return PanelRow(id: stash.commitID, glyph: .stashBowl, title: stash.text, marker: nil, tooltip: nil, detail: detail, date: stash.date, sha: String(stash.commitID.prefix(RefString.shortSHA)), searchText: stash.message)
     }
 
     private func stash(_ id: String) -> Stash? { viewModel.stashes.first { $0.commitID == id } }

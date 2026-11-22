@@ -17,17 +17,42 @@ enum SidebarPanel: String {
 enum SidebarItem {
     case header(key: String, title: String, count: Int, icon: Glyph, plus: Bool)
     case worktree(WorktreeInfo, isCurrent: Bool)
-    /// `ref` is set on branch rows; their context menu acts on it.
-    case row(text: String, value: String, expander: Glyph?, icon: Glyph?, slot: Glyph?, slotColor: NSColor?, indent: CGFloat, strong: Bool, isCheckedOut: Bool, ghost: Bool, target: String?, linkedWorktree: String?, checkout: CheckoutTarget?, ref: Ref? = nil)
+    case row(SidebarRow)
 
     /// What the row's context menu acts on, if it has one.
     var menuSubject: SidebarMenuSubject? {
         switch self {
         case .worktree(let info, let isCurrent): .worktree(info, isCurrent: isCurrent)
-        case .row(_, _, _, _, _, _, _, _, _, _, _, _, _, let ref?): .branch(ref)
+        case .row(let row): row.ref.map(SidebarMenuSubject.branch)
         default: nil
         }
     }
+}
+
+/// A line of the sidebar other than a header or worktree: a branch, a folder of branches, or an entry that opens something.
+struct SidebarRow {
+    var text: String
+    /// The count or other value right of the text.
+    var value: String = ""
+    /// Drawn in the first column, as the plus of "Add Remote…".
+    var expander: Glyph?
+    var icon: Glyph?
+    /// The glyph in the status slot at the right edge, with its colour.
+    var slot: Glyph?
+    var slotColor: NSColor?
+    var indent: CGFloat = 0
+    var strong = false
+    var isCheckedOut = false
+    /// Faint, for an entry that adds something.
+    var ghost = false
+    /// What a click selects or opens: a commit, a panel or a folder.
+    var target: String?
+    /// The worktree that has this branch checked out, if another one.
+    var linkedWorktree: String?
+    /// What a double click checks out.
+    var checkout: CheckoutTarget?
+    /// Set on branch rows; their context menu acts on it.
+    var ref: Ref?
 }
 
 /// The thing a sidebar context menu acts on.
@@ -47,6 +72,9 @@ enum SidebarMenuSubject {
 /// Turns the view model into sidebar lines and remembers which sections and folders are collapsed.
 @MainActor
 struct SidebarOutline {
+    /// A remote with more branches than this starts collapsed, even the first one.
+    private static let expandedRemoteLimit = 40
+
     private var collapsed: Set<String> = []
     private var knownSections: Set<String> = []
 
@@ -86,12 +114,12 @@ struct SidebarOutline {
                 case .remoteBranch(let remote): .remoteBranch(remote: remote, branch: String(ref.name.dropFirst(remote.count + 1)))
                 default: nil
                 }
-                result.append(.row(text: name, value: value, expander: nil, icon: nil, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, ghost: false, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout, ref: ref))
+                result.append(.row(SidebarRow(text: name, value: value, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout, ref: ref)))
             }
             for folder in folders.keys.sorted() {
                 let folderKey = key + "/" + folder
                 let open = !collapsed.contains(folderKey)
-                result.append(.row(text: folder, value: open ? "" : "\(folders[folder]!.count)", expander: nil, icon: open ? .chevronDown : .chevronRight, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: "folder:" + folderKey, linkedWorktree: nil, checkout: nil))
+                result.append(.row(SidebarRow(text: folder, value: open ? "" : "\(folders[folder]!.count)", icon: open ? .chevronDown : .chevronRight, target: "folder:" + folderKey)))
                 if open { for (name, ref) in folders[folder]!.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: Theme.Sidebar.folderIndent) } }
             }
             for (name, ref) in leaves.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 0) }
@@ -103,14 +131,14 @@ struct SidebarOutline {
             }
         }
         let tags = model.refs.filter { $0.kind == .tag }
-        result.append(.row(text: String(localized: "sidebar.row.tags", defaultValue: "Tags", bundle: .module, comment: "Sidebar row that opens the tag list."), value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.tags.target, linkedWorktree: nil, checkout: nil))
+        result.append(.row(SidebarRow(text: String(localized: "sidebar.row.tags", defaultValue: "Tags", bundle: .module, comment: "Sidebar row that opens the tag list."), value: "\(tags.count)", icon: .tag, slot: .chevronRight, target: SidebarPanel.tags.target)))
 
         let locals = model.refs.filter { $0.kind == .localBranch }
         if section("local", title: String(localized: "sidebar.section.local", defaultValue: "Local", bundle: .module, comment: "Sidebar section of local branches."), count: locals.count, icon: .laptop, plus: true) {
             // The uncommitted changes of this worktree; a click selects their row in the history, or HEAD when there are none.
             let changes = model.status?.entries.count ?? 0
-            result.append(.row(text: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"), value: "\(changes)", expander: nil, icon: .pencil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: changes > 0 ? GraphViewModel.wipID : model.headSHA, linkedWorktree: nil, checkout: nil))
-            result.append(.row(text: String(localized: "sidebar.row.stashes", defaultValue: "Stashes", bundle: .module, comment: "Sidebar row that opens the stash list."), value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.stashes.target, linkedWorktree: nil, checkout: nil))
+            result.append(.row(SidebarRow(text: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"), value: "\(changes)", icon: .pencil, target: changes > 0 ? GraphViewModel.wipID : model.headSHA)))
+            result.append(.row(SidebarRow(text: String(localized: "sidebar.row.stashes", defaultValue: "Stashes", bundle: .module, comment: "Sidebar row that opens the stash list."), value: "\(model.stashes.count)", icon: .stashBowl, slot: .chevronRight, target: SidebarPanel.stashes.target)))
             branches(locals, display: { $0.name }, section: "local")
         }
 
@@ -120,11 +148,11 @@ struct SidebarOutline {
         }
         for (index, remote) in remotes.keys.sorted(by: { $0 == "origin" ? true : $1 == "origin" ? false : $0 < $1 }).enumerated() {
             let refs = remotes[remote]!
-            if section("remote:" + remote, title: remote, count: refs.count, icon: .cloud, startCollapsed: index > 0 || refs.count > 40) {
+            if section("remote:" + remote, title: remote, count: refs.count, icon: .cloud, startCollapsed: index > 0 || refs.count > Self.expandedRemoteLimit) {
                 branches(refs, display: { String($0.name.dropFirst(remote.count + 1)) }, section: "remote:" + remote)
             }
         }
-        result.append(.row(text: String(localized: "sidebar.row.addRemote", defaultValue: "Add Remote…", bundle: .module), value: "", expander: .plus, icon: nil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: true, target: nil, linkedWorktree: nil, checkout: nil))
+        result.append(.row(SidebarRow(text: String(localized: "sidebar.row.addRemote", defaultValue: "Add Remote…", bundle: .module), expander: .plus, ghost: true)))
 
         return result
     }

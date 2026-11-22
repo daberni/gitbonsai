@@ -144,7 +144,7 @@ extension ScreenshotHarness {
     private static func describe(_ source: DiffSource) -> String {
         switch source {
         case .commit(let commit): "commit \(commit.shortID)"
-        case .revisions(let base, let target): "\(base.prefix(7))..\(target.prefix(7))"
+        case .revisions(let base, let target): "\(base.prefix(RefString.shortSHA))..\(target.prefix(RefString.shortSHA))"
         case .unstaged: "unstaged"
         case .staged: "staged"
         case .untracked: "untracked"

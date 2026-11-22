@@ -30,23 +30,7 @@ final class GraphRowView: NSView {
         var columns: HistoryColumns
     }
 
-    static let shortSHALength = 7
-
     var model: Model? { didSet { needsDisplay = true } }
-
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        formatter.locale = AppLanguage.locale
-        return formatter
-    }()
-    static let exactFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = AppLanguage.locale
-        // A pattern per language rather than a template, so the German pattern stays exactly the one the history has always shown.
-        formatter.dateFormat = String(localized: "history.row.dateFormat", defaultValue: "EEE, MMM d, yyyy, HH:mm", bundle: .module, comment: "Date format pattern (Unicode/ICU) for a commit's exact date in tooltips")
-        return formatter
-    }()
 
     override var isFlipped: Bool { true }
 
@@ -291,7 +275,7 @@ final class GraphRowView: NSView {
         }
         cell(model.commit.authorName, in: layout.author, attributes: muted, highlights: model.highlights.author)
         let shaHighlight = model.highlights.shaPrefix > 0 ? [NSRange(location: 0, length: model.highlights.shaPrefix)] : []
-        cell(String(model.commit.id.prefix(Self.shortSHALength)), in: layout.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkMuted], highlights: shaHighlight)
-        cell(Self.relativeFormatter.localizedString(for: model.commit.authorDate, relativeTo: Date()), in: layout.date, attributes: muted, rightAligned: true)
+        cell(String(model.commit.id.prefix(RefString.shortSHA)), in: layout.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkMuted], highlights: shaHighlight)
+        cell(DateText.relative(model.commit.authorDate), in: layout.date, attributes: muted, rightAligned: true)
     }
 }

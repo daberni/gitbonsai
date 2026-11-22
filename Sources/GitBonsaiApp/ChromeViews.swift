@@ -35,7 +35,8 @@ class BarView: NSView {
         Theme.surface1.setFill()
         bounds.fill()
         Theme.hairline.setFill()
-        NSRect(x: 0, y: edge == .bottom ? bounds.height - 1 : 0, width: bounds.width, height: 1).fill()
+        let line = Theme.Stroke.hairline
+        NSRect(x: 0, y: edge == .bottom ? bounds.height - line : 0, width: bounds.width, height: line).fill()
     }
 }
 

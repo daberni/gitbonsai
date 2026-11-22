@@ -115,7 +115,7 @@ extension RepositoryViewController: CommandProvider {
             Command(.copyBranch, context: state.branch, blocker: CommandRules.copyBranchName(state)) {
                 if let branch = state.branch { ActionRunner.copy(branch) }
             },
-            Command(.copyHead, context: state.headSHA.map { String($0.prefix(7)) }, blocker: CommandRules.copyHead(state)) {
+            Command(.copyHead, context: state.headSHA.map { String($0.prefix(RefString.shortSHA)) }, blocker: CommandRules.copyHead(state)) {
                 if let sha = state.headSHA { ActionRunner.copy(sha) }
             },
         ]

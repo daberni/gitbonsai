@@ -152,7 +152,7 @@ final class RebaseOntoController {
             let base: String? = if case .detected(let found) = detection { found.commit } else { nil }
             let hint = CommitActionsController.publishedHint(await repository.publishedCommitCount(rewrittenBy: base ?? target.id), upstream: upstream)
             if let base {
-                runPlainRebase(CommitActionsController.note("git rebase --onto \(target.id.prefix(7)) \(base.prefix(7))", hint)) { try await $0.rebase(onto: target.id, from: base, branch: branch) }
+                runPlainRebase(CommitActionsController.note("git rebase --onto \(target.id.prefix(RefString.shortSHA)) \(base.prefix(RefString.shortSHA))", hint)) { try await $0.rebase(onto: target.id, from: base, branch: branch) }
             } else {
                 runPlainRebase(CommitActionsController.note("git rebase", hint)) { try await $0.rebaseCurrentBranch(onto: target.id) }
             }

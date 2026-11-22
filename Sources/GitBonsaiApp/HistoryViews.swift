@@ -160,7 +160,7 @@ final class HistoryTableView: NSTableView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53, onCancel?() == true { return }
+        if event.keyCode == KeyCode.escape, onCancel?() == true { return }
         super.keyDown(with: event)
     }
 

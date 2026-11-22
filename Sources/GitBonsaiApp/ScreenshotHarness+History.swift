@@ -132,7 +132,7 @@ extension ScreenshotHarness {
             let rows = visible.location..<(visible.location + visible.length)
             let dimmed = rows.filter { !history.search.isMatch(row: $0) }.count
             let row = history.selectedRow
-            let sha = history.selectedID.map { String($0.prefix(7)) } ?? "-"
+            let sha = history.selectedID.map { String($0.prefix(RefString.shortSHA)) } ?? "-"
             let onScreen = rows.contains(row) ? "on screen" : "off screen"
             let line = "search \(step): field \"\(field.stringValue)\", counter \(field.counterText ?? "none"), selected row \(row) \(sha) \(onScreen), first responder \(describeResponder(window.firstResponder, field: field)), \(dimmed) of \(rows.count) visible rows dimmed, \(ContinuousClock.now - startedAt) after start\n"
             FileHandle.standardError.write(Data(line.utf8))
@@ -238,9 +238,9 @@ extension ScreenshotHarness {
         let viewModel = tab.viewModel
         let commits = viewModel.commits.enumerated().filter { viewModel.kinds[$0.offset] != .wip }.map(\.element)
         let row = tab.history.selectedRow
-        let selected = viewModel.commits.indices.contains(row) ? String(viewModel.commits[row].id.prefix(7)) : "-"
-        let head = viewModel.headSHA.map { String($0.prefix(7)) } ?? "-"
-        let rows = commits.prefix(8).map { "\($0.id.prefix(7)) \($0.subject)" }.joined(separator: " | ")
+        let selected = viewModel.commits.indices.contains(row) ? String(viewModel.commits[row].id.prefix(RefString.shortSHA)) : "-"
+        let head = viewModel.headSHA.map { String($0.prefix(RefString.shortSHA)) } ?? "-"
+        let rows = commits.prefix(8).map { "\($0.id.prefix(RefString.shortSHA)) \($0.subject)" }.joined(separator: " | ")
         let table = tab.history.tableView
         let scrollY = Int(table.visibleRect.minY)
         let rowOnScreen = row >= 0 ? "\(Int(table.rect(ofRow: row).minY - table.visibleRect.minY))" : "-"

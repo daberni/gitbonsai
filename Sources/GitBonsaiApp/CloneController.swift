@@ -65,11 +65,11 @@ final class CloneController {
     /// git clones only into a folder that is missing or empty; saying so before it runs spares a failure.
     private var destinationProblem: String? {
         guard !destination.isEmpty else { return nil }
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: destination, isDirectory: &isDirectory) else { return nil }
-        guard isDirectory.boolValue else { return String(localized: "clone.destination.fileInTheWay", defaultValue: "A file is in the way at this path.", bundle: .module) }
-        let contents = (try? FileManager.default.contentsOfDirectory(atPath: destination)) ?? []
-        return contents.filter { $0 != ".DS_Store" }.isEmpty ? nil : String(localized: "clone.destination.notEmpty", defaultValue: "The folder already exists and isn't empty.", bundle: .module)
+        switch SheetSupport.destination(at: destination, ignoring: [".DS_Store"]) {
+        case .missing, .emptyFolder, .unreadableFolder: return nil
+        case .file: return String(localized: "clone.destination.fileInTheWay", defaultValue: "A file is in the way at this path.", bundle: .module)
+        case .occupiedFolder: return String(localized: "clone.destination.notEmpty", defaultValue: "The folder already exists and isn't empty.", bundle: .module)
+        }
     }
 
     var options: CloneOptions {
@@ -91,14 +91,8 @@ final class CloneController {
     @objc private func chooseDestination(_ sender: Any?) {
         guard let sheet else { return }
         let current = URL(fileURLWithPath: destination.isEmpty ? Self.destinationBase : destination)
-        let panel = NSSavePanel()
-        panel.title = String(localized: "clone.destination.panelTitle", defaultValue: "Clone Destination", bundle: .module)
-        panel.prompt = String(localized: "common.choose", defaultValue: "Choose", bundle: .module)
-        panel.canCreateDirectories = true
-        panel.directoryURL = current.deletingLastPathComponent()
-        panel.nameFieldStringValue = current.lastPathComponent
-        panel.beginSheetModal(for: sheet.window) { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
+        let title = String(localized: "clone.destination.panelTitle", defaultValue: "Clone Destination", bundle: .module)
+        SheetSupport.chooseFolder(title: title, directory: current.deletingLastPathComponent(), name: current.lastPathComponent, on: sheet.window) { [weak self] url in
             sheet.destinationField.stringValue = (url.path as NSString).abbreviatingWithTildeInPath
             self?.update()
         }

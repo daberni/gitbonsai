@@ -40,7 +40,7 @@ extension ScreenshotHarness {
             let rect = list.tableView.rect(ofRow: row)
             pressView(in: window, at: list.tableView.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil))
             let selectedRow = tab.history.selectedRow
-            let historyCommit = selectedRow >= 0 ? String(tab.viewModel.commits[selectedRow].id.prefix(7)) : "none"
+            let historyCommit = selectedRow >= 0 ? String(tab.viewModel.commits[selectedRow].id.prefix(RefString.shortSHA)) : "none"
             FileHandle.standardError.write(Data("panel selected \(list.selectedID ?? "nothing"), history at \(historyCommit)\n".utf8))
         }
         if let shot = environment["GITBONSAI_PANEL_SHOT"] { capturePanel(popover, to: shot) }
@@ -121,7 +121,7 @@ extension ScreenshotHarness {
             case .worktree: height = M.worktreeHeight
             case .row: height = M.rowHeight
             }
-            if case .row(_, _, _, _, _, _, _, _, _, _, let target?, _, _, _) = item, target == panel.target { anchor = CGRect(x: M.rowInset, y: y, width: sidebar.bounds.width - 2 * M.rowInset, height: height) }
+            if case .row(let row) = item, row.target == panel.target { anchor = CGRect(x: M.rowInset, y: y, width: sidebar.bounds.width - 2 * M.rowInset, height: height) }
             y += height
         }
         guard let anchor, let window = sidebar.window else {
