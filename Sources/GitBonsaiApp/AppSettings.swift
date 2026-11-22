@@ -20,9 +20,6 @@ enum AppSettings {
         }
     }
 
-    /// Minutes the automatic fetch can be set to; 0 is off.
-    static let autoFetchChoices = [0, 5, 10, 30]
-
     private static var defaults: UserDefaults {
         ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
     }
@@ -48,10 +45,16 @@ enum AppSettings {
         }
     }
 
-    /// Minutes between automatic fetches; 0 turns automatic fetching off.
+    /// Minutes between automatic fetches of the visible repository; 0 turns them off. Until the user chooses, it is `AutoFetchPolicy.defaultIntervalMinutes`.
     static var autoFetchMinutes: Int {
-        get { defaults.object(forKey: "autoFetchMinutes") as? Int ?? 0 }
+        get { AutoFetchPolicy.intervalMinutes(stored: defaults.object(forKey: "autoFetchMinutes") as? Int) }
         set { store(newValue, forKey: "autoFetchMinutes") }
+    }
+
+    /// Whether a repository fetches when the app becomes active or its tab becomes visible, at most once per `AutoFetchPolicy.activationThreshold`.
+    static var fetchOnActivation: Bool {
+        get { defaults.object(forKey: "fetchOnActivation") as? Bool ?? true }
+        set { store(newValue, forKey: "fetchOnActivation") }
     }
 
     /// Folders searched for repositories to suggest on the empty tab. Until the user edits the list it holds `~/Developer` when that folder exists.

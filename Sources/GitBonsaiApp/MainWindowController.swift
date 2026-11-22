@@ -162,6 +162,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             welcome.refresh()
         }
         content.show(tab.view)
+        tab.repository?.becameVisible()
         if let responder = tab.repository?.preferredFirstResponder ?? tab.welcome?.searchField { window?.makeFirstResponder(responder) }
         refreshTabBar()
         captureIfRequested()

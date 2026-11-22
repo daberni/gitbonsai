@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// Harness switches for the toolbar's badges, the fetch, pull and push menus, running a commit menu entry without showing the menu, the onto sheet and the operation banner.
+/// Harness switches for the toolbar's badges, automatic fetching, the fetch, pull and push menus, running a commit menu entry without showing the menu, the onto sheet and the operation banner.
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_ONTO=<base>` fills the new base of the onto sheet.
@@ -16,6 +16,46 @@ extension ScreenshotHarness {
             runPullOrPush(on: tab)
             runMenuEntry(on: tab)
             clickBanner(on: tab)
+            runAutoFetchSteps(on: tab)
+        }
+    }
+
+    /// `GITBONSAI_AUTO_FETCH=<seconds>` turns automatic fetching on for a harness run, which otherwise never fetches by itself: on activation, and periodically at that interval unless it is 0.
+    static var asksForAutoFetch: Bool { isActive && environment["GITBONSAI_AUTO_FETCH"] != nil }
+
+    static var autoFetchSeconds: TimeInterval? {
+        guard asksForAutoFetch else { return nil }
+        return environment["GITBONSAI_AUTO_FETCH"].flatMap(Double.init).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    static func traceAutoFetch(_ trigger: AutoFetchPolicy.Trigger, skip: AutoFetchPolicy.Skip?) {
+        guard isActive else { return }
+        FileHandle.standardError.write(Data("auto-fetch \(trigger.rawValue): \(skip.map { "skip \($0.rawValue)" } ?? "fetch with \(GitRunner.defaultGitPath())")\n".utf8))
+    }
+
+    private static var autoFetchTabs: [WeakTab] = []
+    private struct WeakTab { weak var tab: RepositoryViewController? }
+
+    /// `GITBONSAI_AUTO_FETCH_STEPS=activate,tab,…` posts the app's activation or selects the next tab, one step every two seconds, and prints each tab's toolbar counts after each step.
+    private static func runAutoFetchSteps(on tab: RepositoryViewController) {
+        guard let spec = environment["GITBONSAI_AUTO_FETCH_STEPS"] else { return }
+        autoFetchTabs.append(WeakTab(tab: tab))
+        guard autoFetchTabs.count == 1 else { return }
+        let steps = ["loaded"] + spec.split(separator: ",").map(String.init)
+        for (index, step) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0 * Double(index)) {
+                FileHandle.standardError.write(Data("auto-fetch step \(step)\n".utf8))
+                switch step {
+                case "activate": NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+                case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab(nil)
+                default: break
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    for case let shown? in autoFetchTabs.map(\.tab) {
+                        FileHandle.standardError.write(Data("toolbar counts \(shown.name)\(shown.view.window == nil ? "" : " (visible)"): \(shown.toolbar.upstreamCounts)\n".utf8))
+                    }
+                }
+            }
         }
     }
 

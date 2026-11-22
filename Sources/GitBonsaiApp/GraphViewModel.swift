@@ -32,6 +32,7 @@ final class GraphViewModel {
     /// The folder of the repository's main worktree, whichever worktree the tab shows.
     let repositoryName: String
     private(set) var lastFetch: Date?
+    private(set) var isFetching = false
     private(set) var statusText = "Loading…"
     private(set) var isLoading = false
     private(set) var maxLaneCount = 1
@@ -139,6 +140,8 @@ final class GraphViewModel {
     /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.
     func fetch(_ variant: FetchVariant) async -> Error? {
         setStatus("\(variant.commandLine) …")
+        isFetching = true
+        defer { isFetching = false }
         let start = ContinuousClock.now
         do {
             try await repository.fetch(variant)

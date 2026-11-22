@@ -43,7 +43,7 @@ final class RepositoryViewController: NSObject {
     private let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
-    private var autoFetch: AutoFetchTimer?
+    private var autoFetch: AutoFetchScheduler?
     private var selectsHeadAfterLoad = false
     let toast = Toast()
 
@@ -70,7 +70,7 @@ final class RepositoryViewController: NSObject {
         layout()
         bind()
         viewModel.load()
-        autoFetch = AutoFetchTimer { [weak self] in _ = await self?.viewModel.fetch(.allRemotes) }
+        autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak self] in self?.view.window != nil })
     }
 
     // MARK: Diff
@@ -103,6 +103,18 @@ final class RepositoryViewController: NSObject {
             guard let file = try? await viewModel.repository.changedFiles(of: commit).first else { return }
             openFile(FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)))
         }
+    }
+
+    /// The tab became the one its window shows.
+    func becameVisible() {
+        autoFetch?.becameVisible()
+    }
+
+    private func autoFetchSituation() async -> AutoFetchPolicy.Situation {
+        let repository = viewModel.repository
+        let hasRemote = await (try? repository.remotes())?.isEmpty == false
+        let operation = await repository.operationInProgress()
+        return AutoFetchPolicy.Situation(hasRemote: hasRemote, operationInProgress: operation != nil, fetchRunning: viewModel.isFetching)
     }
 
     func switchWorktree(to path: String) {
@@ -391,6 +403,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.openSidebarMenu(on: self)
             ScreenshotHarness.driveRebase(on: self)
         }
+        autoFetch?.loaded()
         onLoaded?()
     }
 }
