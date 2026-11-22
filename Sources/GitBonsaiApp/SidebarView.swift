@@ -12,6 +12,8 @@ final class SidebarView: NSView {
     var onCheckout: ((CheckoutTarget, _ worktreePath: String?) -> Void)?
     /// Double click on a worktree other than the one shown.
     var onSwitchWorktree: ((String) -> Void)?
+    /// The Tags or Stashes row was clicked; `anchor` is the row's rectangle in this view, for a popover.
+    var onOpenPanel: ((SidebarPanel, NSRect) -> Void)?
 
     private var items: [SidebarItem] = []
     private var frames: [CGRect] = []
@@ -111,6 +113,8 @@ final class SidebarView: NSView {
         case .row(_, _, _, _, _, _, _, _, _, _, let target?, let linked, let checkout):
             if event.clickCount == 2, let checkout {
                 onCheckout?(checkout, linked)
+            } else if let panel = SidebarPanel(target: target) {
+                onOpenPanel?(panel, frames[index])
             } else if target.hasPrefix("folder:") {
                 let key = String(target.dropFirst(7))
                 outline.toggle(key)

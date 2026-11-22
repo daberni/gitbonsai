@@ -4,6 +4,20 @@ import AppKit
 final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
     var onFetch: (() -> Void)?
     var onSearch: ((String) -> Void)?
+    /// Each action button is enabled once its handler is set.
+    var onPull: (() -> Void)? { didSet { pull.isEnabled = onPull != nil } }
+    var onPush: (() -> Void)? { didSet { push.isEnabled = onPush != nil } }
+    var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
+    var onStash: (() -> Void)? { didSet { stash.isEnabled = onStash != nil } }
+    var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
+    /// Choices for the fetch button's menu, for example other fetch variants; nil keeps a plain button.
+    var fetchMenu: (() -> NSMenu)?
+
+    private lazy var pull = button("Pull", "arrow.down", #selector(runPull(_:)))
+    private lazy var push = button("Push", "arrow.up", #selector(runPush(_:)))
+    private lazy var branch = button("Branch", "arrow.triangle.branch", #selector(runBranch(_:)))
+    private lazy var stash = button("Stash", "tray.and.arrow.down", #selector(runStash(_:)))
+    private lazy var pop = button("Pop", "tray.and.arrow.up", #selector(runPop(_:)))
 
     private let fetchLabel = NSTextField(labelWithString: "")
     private let searchField = NSSearchField()
@@ -16,11 +30,11 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
 
         let actions = NSStackView(views: [
             button("Fetch", "arrow.down.to.line", #selector(fetch(_:))),
-            button("Pull", "arrow.down", nil),
-            button("Push", "arrow.up", nil),
-            button("Branch", "arrow.triangle.branch", nil),
-            button("Stash", "tray.and.arrow.down", nil),
-            button("Pop", "tray.and.arrow.up", nil),
+            pull,
+            push,
+            branch,
+            stash,
+            pop,
         ])
         actions.orientation = .horizontal
         actions.spacing = Theme.Space.s
@@ -47,17 +61,22 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
 
     required init?(coder: NSCoder) { nil }
 
-    /// Actions without a selector are shown but not yet available.
-    private func button(_ title: String, _ symbol: String, _ action: Selector?) -> NSButton {
+    /// Every button but Fetch starts disabled and comes alive when its handler is set.
+    private func button(_ title: String, _ symbol: String, _ action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         button.imagePosition = .imageLeading
         button.bezelStyle = .rounded
         button.controlSize = .large
-        button.isEnabled = action != nil
-        if action == nil { button.toolTip = "Kommt mit dem MVP" }
+        button.isEnabled = action == #selector(fetch(_:))
         return button
     }
+
+    @objc private func runPull(_ sender: Any?) { onPull?() }
+    @objc private func runPush(_ sender: Any?) { onPush?() }
+    @objc private func runBranch(_ sender: Any?) { onBranch?() }
+    @objc private func runStash(_ sender: Any?) { onStash?() }
+    @objc private func runPop(_ sender: Any?) { onPop?() }
 
     func showFetchState(hasRemote: Bool, lastFetch: Date?) {
         let remote = hasRemote ? "origin" : "kein Remote"
@@ -72,8 +91,13 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         fetchLabel.toolTip = "Letzter Fetch: " + GraphRowView.exactFormatter.string(from: lastFetch)
     }
 
+    /// With a fetch menu the button opens it below itself; otherwise it fetches right away.
     @objc private func fetch(_ sender: Any?) {
-        onFetch?()
+        guard let menu = fetchMenu?(), let button = sender as? NSButton else {
+            onFetch?()
+            return
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + Theme.Space.xs), in: button)
     }
 
     @objc private func search(_ sender: NSSearchField) {

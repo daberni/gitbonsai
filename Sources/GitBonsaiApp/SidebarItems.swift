@@ -1,6 +1,18 @@
 import AppKit
 import GitEngine
 
+/// Lists that open from a sidebar row in a popover instead of in the tree.
+enum SidebarPanel: String {
+    case tags, stashes
+
+    var target: String { "panel:" + rawValue }
+
+    init?(target: String) {
+        guard target.hasPrefix("panel:") else { return nil }
+        self.init(rawValue: String(target.dropFirst("panel:".count)))
+    }
+}
+
 /// One line of the sidebar.
 enum SidebarItem {
     case header(key: String, title: String, count: Int, icon: Glyph, plus: Bool)
@@ -67,14 +79,14 @@ struct SidebarOutline {
             }
         }
         let tags = model.refs.filter { $0.kind == .tag }
-        result.append(.row(text: "Tags", value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
+        result.append(.row(text: "Tags", value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.tags.target, linkedWorktree: nil, checkout: nil))
 
         let locals = model.refs.filter { $0.kind == .localBranch }
         if section("local", title: "Local", count: locals.count, icon: .laptop, plus: true) {
             // The uncommitted changes of this worktree; a click selects their row in the history, or HEAD when there are none.
             let changes = model.status?.entries.count ?? 0
             result.append(.row(text: "Working Directory", value: "\(changes)", expander: nil, icon: .pencil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: changes > 0 ? GraphViewModel.wipID : model.headSHA, linkedWorktree: nil, checkout: nil))
-            result.append(.row(text: "Stashes", value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
+            result.append(.row(text: "Stashes", value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: SidebarPanel.stashes.target, linkedWorktree: nil, checkout: nil))
             branches(locals, display: { $0.name }, section: "local")
         }
 
