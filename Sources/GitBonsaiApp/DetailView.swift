@@ -17,6 +17,7 @@ final class DetailView: NSView {
     private var parentTargets: [String] = []
     private var copySHA = ""
     private var fileList: FileListView?
+    private var isShowingWorkingDirectory = false
 
     override var isFlipped: Bool { true }
 
@@ -44,6 +45,7 @@ final class DetailView: NSView {
     }
 
     private func reset(title: String) {
+        isShowingWorkingDirectory = false
         loadTask?.cancel()
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let header = label(title.uppercased(), font: Theme.label, color: Theme.inkMuted)
@@ -142,9 +144,17 @@ final class DetailView: NSView {
 
     // MARK: Working directory
 
+    /// Shown again for a changed status, the panel stays and the file list is replaced once its line counts are known, in one step.
     func showWorkingDirectory(status: RepositoryStatus, repository: Repository) {
-        reset(title: "Working Directory")
-        let list = makeFileList()
+        let isUpdate = isShowingWorkingDirectory && fileList != nil
+        let list: FileListView
+        if isUpdate, let fileList {
+            list = fileList
+        } else {
+            reset(title: "Working Directory")
+            isShowingWorkingDirectory = true
+            list = makeFileList()
+        }
         let unstaged = status.unstaged
         let staged = status.staged
         func sections(unstagedStats: [String: DiffStat], stagedStats: [String: DiffStat]) -> [FileListView.Section] {
@@ -166,7 +176,8 @@ final class DetailView: NSView {
             }
             return result
         }
-        list.show(sections(unstagedStats: [:], stagedStats: [:]))
+        if !isUpdate { list.show(sections(unstagedStats: [:], stagedStats: [:])) }
+        loadTask?.cancel()
         loadTask = Task {
             async let unstagedStats = repository.workingStats(staged: false)
             async let stagedStats = repository.workingStats(staged: true)

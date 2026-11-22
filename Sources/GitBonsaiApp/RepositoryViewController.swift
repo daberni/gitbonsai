@@ -99,16 +99,14 @@ final class RepositoryViewController: NSObject {
         diff.onClose = { [weak self] in self?.showGraph() }
     }
 
-    /// Selecting the same commit again, which happens when HEAD moves or the index changes, keeps the chosen file.
-    /// The table clears its selection for a moment while it is rebuilt; that gap does not count as a change.
+    /// The table clears its selection for a moment while it is rebuilt, and then selects the same row again; neither counts as a change.
+    /// Selecting the same commit again leaves the panel as it is; changes of the working directory reach it through `metadataChanged`.
     private func selectionChanged(to row: Int?) {
-        guard let row else {
-            showDetail(for: nil, keepingFile: true)
-            return
-        }
+        guard let row else { return }
         let id = viewModel.commits[row].id
-        showDetail(for: row, keepingFile: id == shownCommitID)
+        guard id != shownCommitID else { return }
         shownCommitID = id
+        showDetail(for: row)
     }
 
     /// A new selection in the history starts without a chosen file; a redraw of the same one keeps it.
