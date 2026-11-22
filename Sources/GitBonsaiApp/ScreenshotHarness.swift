@@ -49,6 +49,10 @@ enum ScreenshotHarness {
             if let png = rep.representation(using: .png, properties: [:]) {
                 try? png.write(to: URL(fileURLWithPath: outputPath))
             }
+            // A sheet left unanswered keeps the app from quitting; aborting it answers like a cancel.
+            for window in NSApp.windows {
+                if let sheet = window.attachedSheet { window.endSheet(sheet, returnCode: .abort) }
+            }
             NSApp.terminate(nil)
         }
     }
@@ -70,12 +74,22 @@ enum ScreenshotHarness {
             if let event = mouseEvent(.leftMouseDragged, at: CGPoint(x: start.x + (end.x - start.x) * fraction, y: start.y + (end.y - start.y) * fraction), in: window) { NSApp.postEvent(event, atStart: false) }
         }
         if let up = mouseEvent(.leftMouseUp, at: end, in: window) { NSApp.postEvent(up, atStart: false) }
-        if let down = mouseEvent(.leftMouseDown, at: start, in: window) { window.sendEvent(down) }
+        if let down = mouseEvent(.leftMouseDown, at: start, in: window) { press(down, in: window) }
     }
 
     static func click(in window: NSWindow, at point: CGPoint) {
         if let up = mouseEvent(.leftMouseUp, at: point, in: window) { NSApp.postEvent(up, atStart: false) }
-        if let down = mouseEvent(.leftMouseDown, at: point, in: window) { window.sendEvent(down) }
+        if let down = mouseEvent(.leftMouseDown, at: point, in: window) { press(down, in: window) }
+    }
+
+    /// Delivers a press the way a key window would. A background run never has a key window, and AppKit takes a press on a control that refuses first mouse, such as a sheet's buttons, as a click that only activates the window.
+    /// Such a press goes to the view under the point instead; its tracking loop then finds the queued release like it does in a key window.
+    static func press(_ event: NSEvent, in window: NSWindow) {
+        if !window.isKeyWindow, let view = window.contentView?.superview?.hitTest(event.locationInWindow), !view.acceptsFirstMouse(for: event) {
+            view.mouseDown(with: event)
+        } else {
+            window.sendEvent(event)
+        }
     }
 
     static func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in window: NSWindow) -> NSEvent? {
