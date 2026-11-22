@@ -35,3 +35,26 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 - Performance budgets are tests (`swift test --filter Performance`): first 300 commits laid out in < 100 ms; 100k commits laid out in < 2 s on Apple Silicon.
 - Comments explain intent or constraints, never mechanics. Prefer complete statements over line-length wrapping.
 - Commit messages: imperative subject, body only when needed.
+
+## Code and architecture conventions
+
+- Develop against the current state. Internal APIs, view types and module structure change together; update every caller in the same change instead of keeping old signatures, aliases or fallback paths for earlier versions.
+- Keep types focused on one reason to change. A view draws or lays out one coherent part; a controller owns one interaction or use case; `GitEngine` owns every git call and parse. Split by responsibility instead of growing single files.
+- Add behavior tests against real repositories for consequential logic: parsing, staging and patch building, history and layout rules, anything that rewrites refs or the index. Show the failure on the original defect when adding a regression test. Do not test drawing, trivial delegation or logging.
+- Verify UI changes in the running app through `ScreenshotHarness`, in light and dark. Interactions are checked with real mouse events through the window (see the click and drag switches in the README), not by calling the handler directly.
+
+## Task intake and backlog
+
+- There are no GitHub issues or pull requests yet. The backlog is kept outside the repository by the coordinating session (until it moves to GitHub issues): one entry per independently shippable task with the problem, the desired behavior and its state. Task briefs quote the entries they need; the backlog's location is given in the brief when a session must read it.
+- Treat feedback about the current work as steering for that work. Put unrelated requests into the backlog instead of starting them on the spot, unless the user makes them the current work.
+- Keep implemented, verified and integrated distinct. A task is done once it is merged into local `main` and verified there.
+
+## Agent coordination
+
+- The coordinating session owns architecture, shared contracts (`GitEngine` API, `DesignTokens.swift`, `ScreenshotHarness`, this file), integration into `main` and the status the user sees. It does not implement backlog tasks itself.
+- Every independently scoped task runs in its own fresh linked session with its own worktree and branch `task/<short-name>` cut from local `main`. Its brief names the scope, the files it owns, dependencies, expected checks and the limits below. Follow-up feedback goes to that session; its report comes back to the coordinator.
+- A task session commits on its branch only. It never merges, rebases `main`, pushes or touches another task's files. Before reporting it rebases its branch onto the current local `main`, runs `swift build`, `swift test` and the relevant harness checks, and reports the branch, its commits, the checks with their results, screenshot paths and remaining limitations.
+- The coordinator reviews each reported branch (diff, build, tests, screenshots), then puts its commits directly onto local `main` with a fast-forward: no merge commits, linear history. If `main` moved meanwhile, the branch is rebased onto it first. Afterwards the branch and worktree are removed.
+- Never let two sessions edit the same files at the same time. Shared files are the coordinator's; a task that needs a new token namespace or harness switch adds only its own block and the coordinator resolves overlaps at integration.
+- Run as many task sessions in parallel as the work allows, but each worktree builds into its own `.build`, so keep heavy checks bounded and never run two `swift test` in one checkout.
+- Nothing is pushed. There is no remote yet.
