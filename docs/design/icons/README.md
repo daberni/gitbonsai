@@ -9,3 +9,4 @@ Bonsai-Glyphen und Laptop, 24×24, Linienstärke 1.5, runde Enden, einfarbig in 
 | bonsai-prunable.svg | Verwaist (prunable): kahler Trieb |
 | stash-bowl.svg | Stash: leere Bonsai-Schale, in der etwas geparkt ist; Sidebar-Zeile, Popover, Toolbar (Stash, Pop) |
 | laptop.svg | Lokal: Laptop mit offenem Bildschirm; im Branch-Label und im Kopf der Sidebar-Sektion Local (SF Symbol `laptopcomputer` hat einen gefüllten Bildschirm) |
+| empty-state-bonsai.svg | Leerzustand: Bonsai in Schale als Linienzeichnung, Stamm in den S-Kurven der Graph-Stränge; 210×216, Linien 1.5 (Äste 2, Stamm 3). Nur im Hintergrund von Leerzuständen, unten rechts, in `ink` bei 7 % Deckung (`EmptyStateView`, `BonsaiArtView` mit denselben Pfaden) |

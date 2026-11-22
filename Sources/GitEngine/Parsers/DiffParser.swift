@@ -1,6 +1,6 @@
 import Foundation
 
-/// Parses `git diff -p --no-color` output into files, hunks and numbered lines.
+/// Parses `git diff -p --no-color` output into files, hunks and numbered lines, with renames, copies, their similarity and mode changes from the extended header.
 enum DiffParser {
     static func parse(_ data: Data) -> [FileDiff] {
         let text = String(decoding: data, as: UTF8.self)
@@ -25,6 +25,10 @@ enum DiffParser {
         var newPath: String?
         var renameFrom: String?
         var renameTo: String?
+        var isCopy = false
+        var similarity: Int?
+        var oldMode: String?
+        var newMode: String?
         var isNew = false
         var isDeleted = false
         var isBinary = false
@@ -36,8 +40,11 @@ enum DiffParser {
             else if line.hasPrefix("deleted file mode") { isDeleted = true }
             else if line.hasPrefix("rename from ") { renameFrom = String(line.dropFirst("rename from ".count)) }
             else if line.hasPrefix("rename to ") { renameTo = String(line.dropFirst("rename to ".count)) }
-            else if line.hasPrefix("copy from ") { renameFrom = String(line.dropFirst("copy from ".count)) }
-            else if line.hasPrefix("copy to ") { renameTo = String(line.dropFirst("copy to ".count)) }
+            else if line.hasPrefix("copy from ") { renameFrom = String(line.dropFirst("copy from ".count)); isCopy = true }
+            else if line.hasPrefix("copy to ") { renameTo = String(line.dropFirst("copy to ".count)); isCopy = true }
+            else if line.hasPrefix("similarity index ") { similarity = Int(line.dropFirst("similarity index ".count).dropLast()) }
+            else if line.hasPrefix("old mode ") { oldMode = String(line.dropFirst("old mode ".count)) }
+            else if line.hasPrefix("new mode ") { newMode = String(line.dropFirst("new mode ".count)) }
             else if line.hasPrefix("Binary files ") { isBinary = true }
             else if line.hasPrefix("--- ") { oldPath = path(after: "--- ", in: line, prefix: "a/") }
             else if line.hasPrefix("+++ ") { newPath = path(after: "+++ ", in: line, prefix: "b/") }
@@ -54,7 +61,7 @@ enum DiffParser {
         let gitLine = header.first ?? ""
         let fallback = Self.pathFromGitLine(gitLine)
         let path = renameTo ?? newPath ?? oldPath ?? fallback
-        return FileDiff(path: path, oldPath: renameFrom, isNew: isNew, isDeleted: isDeleted, isBinary: isBinary, hunks: hunks, headerLines: header)
+        return FileDiff(path: path, oldPath: renameFrom, isCopy: isCopy, similarity: similarity, isNew: isNew, isDeleted: isDeleted, isBinary: isBinary, oldMode: oldMode, newMode: newMode, hunks: hunks, headerLines: header)
     }
 
     /// `--- a/path` or `+++ b/path`; `/dev/null` stands for a missing side.

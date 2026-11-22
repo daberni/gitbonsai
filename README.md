@@ -89,6 +89,7 @@ Settings:
 Files, diffs and commits:
 
 - `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file's diff (without a source: the file in the selected commit), and `GITBONSAI_HUNK_ACTION=<n>` stages or unstages hunk n; `GITBONSAI_WINDOW_WIDTH=<points>` resizes the window before the diff opens.
+- `GITBONSAI_OPEN_ORIGINAL=<path>` passes the path before a rename or copy with `GITBONSAI_OPEN_FILE`, as the file lists do; `GITBONSAI_PRINT_DIFF_HEADER=1` prints the header's change letter, path and tooltip.
 - `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle in the open diff with a real click and prints the numbers of the top and bottom line.
 - `GITBONSAI_DIFF_NEXT=<n>` clicks the ↓ of the hunk navigation n times and prints the top line after each jump.
 - `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the close button of the open diff with a real click and prints whether the diff is still shown.

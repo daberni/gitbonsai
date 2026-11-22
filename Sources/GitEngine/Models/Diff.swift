@@ -60,22 +60,46 @@ public struct FileDiff: Sendable, Hashable {
     public let path: String
     /// Set when the file was renamed or copied.
     public let oldPath: String?
+    /// The file was copied from `oldPath`, which still exists; otherwise a set `oldPath` means a rename.
+    public let isCopy: Bool
+    /// git's similarity score of a rename or copy, in percent.
+    public let similarity: Int?
     public let isNew: Bool
     public let isDeleted: Bool
     public let isBinary: Bool
+    /// Both set when the file mode changed, for instance `100644` and `100755`.
+    public let oldMode: String?
+    public let newMode: String?
     public let hunks: [DiffHunk]
     /// Everything before the first hunk (`diff --git`, modes, `---`, `+++`), needed to apply a single hunk.
     let headerLines: [String]
 
-    public init(path: String, oldPath: String?, isNew: Bool, isDeleted: Bool, isBinary: Bool, hunks: [DiffHunk], headerLines: [String]) {
+    public init(path: String, oldPath: String?, isCopy: Bool = false, similarity: Int? = nil, isNew: Bool, isDeleted: Bool, isBinary: Bool, oldMode: String? = nil, newMode: String? = nil, hunks: [DiffHunk], headerLines: [String]) {
         self.path = path
         self.oldPath = oldPath
+        self.isCopy = isCopy
+        self.similarity = similarity
         self.isNew = isNew
         self.isDeleted = isDeleted
         self.isBinary = isBinary
+        self.oldMode = oldMode
+        self.newMode = newMode
         self.hunks = hunks
         self.headerLines = headerLines
     }
+
+    /// What happened to the file, in the terms of `--name-status`.
+    public var change: FileState {
+        if isNew { return .added }
+        if isDeleted { return .deleted }
+        if oldPath != nil { return isCopy ? .copied : .renamed }
+        return .modified
+    }
+
+    /// The content itself did not change: a pure rename or copy, or only the file mode.
+    public var hasNoContentChange: Bool { hunks.isEmpty && !isBinary && !isNew && !isDeleted }
+
+    public var modeChanged: Bool { oldMode != nil && newMode != nil && oldMode != newMode }
 
     public var stat: DiffStat {
         let lines = hunks.flatMap(\.lines)

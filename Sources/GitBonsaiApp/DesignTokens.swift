@@ -414,6 +414,26 @@ enum Theme {
         static let hunkLabelWidth: CGFloat = 480
     }
 
+    /// A pane with nothing to show: a centred message over the bonsai drawing (`icons/empty-state-bonsai.svg`).
+    @MainActor enum EmptyState {
+        static let maximumTextWidth: CGFloat = 440
+        static let lineSpacing = Space.xs
+        static let titleGap = Space.s
+        /// The message sits this far above the middle, where the eye expects it.
+        static let lift = Space.xl
+        /// The drawing fills this share of the pane height, anchored to the lower right corner.
+        static let artHeightShare: CGFloat = 2.0 / 3.0
+        /// … but never more than this share of the pane width, so it stays at the edge in narrow panes.
+        static let artMaximumWidthShare: CGFloat = 0.42
+        static let artInset = Space.xl
+        /// Line widths in points, whatever the drawing's size: twigs and pads, branches, trunk.
+        static let artStroke = Stroke.icon
+        static let artBranchStroke = Stroke.strand
+        static let artTrunkStroke: CGFloat = 3
+        /// Ink at a whisper, so the drawing never competes with the message.
+        static let art = dynamic(0x2a241e, 0xf1eae1, lightAlpha: 0.07, darkAlpha: 0.07)
+    }
+
     /// Capsules on a control's corner, such as the commit counts on Pull and Push: opaque `sky` informs, `persimmon` warns of danger.
     @MainActor enum Badge {
         static let height: CGFloat = 16

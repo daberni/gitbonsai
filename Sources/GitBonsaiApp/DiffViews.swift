@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The bar above a file diff: the way back to the graph (also the close button and Esc), the file, its counts, the choice between diff and whole file, hunk navigation and the file-wide action.
+/// The bar above a file diff: the way back to the graph (also the close button and Esc), the change kind and the file (both paths for a rename), its counts, the choice between diff and whole file, hunk navigation and the file-wide action.
 final class DiffHeaderView: BarView {
     var onBack: (() -> Void)?
     var onModeChange: ((DiffMode) -> Void)?
@@ -10,6 +10,7 @@ final class DiffHeaderView: BarView {
     var onFileAction: (() -> Void)?
 
     private let back = NSButton()
+    private let indicator = NSTextField(labelWithString: "")
     private let title = NSTextField(labelWithString: "")
     private let badge = BadgeView()
     private let stat = NSTextField(labelWithString: "")
@@ -28,12 +29,14 @@ final class DiffHeaderView: BarView {
         back.target = self
         back.action = #selector(goBack(_:))
         back.keyEquivalent = "\u{1b}"
-        // One line at a constant height: the folder gives way from the front before the file name, like in the file lists.
+        // One line at a constant height: the folder gives way from the front before the file name, like in the file lists; for a rename the old part goes before the new one.
         title.usesSingleLineMode = true
         title.maximumNumberOfLines = 1
         title.cell?.wraps = false
         title.lineBreakMode = .byTruncatingHead
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        indicator.font = Theme.monoStrong
+        indicator.setContentCompressionResistancePriority(.required, for: .horizontal)
         for (button, symbol, action, tip) in [(previous, "chevron.up", #selector(goPrevious(_:)), "Vorheriger Hunk"), (next, "chevron.down", #selector(goNext(_:)), "Nächster Hunk")] {
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tip)
             button.bezelStyle = .rounded
@@ -54,8 +57,9 @@ final class DiffHeaderView: BarView {
         fileAction.target = self
         fileAction.action = #selector(runFileAction(_:))
 
-        let leading = NSStackView(views: [back, title, badge, stat])
+        let leading = NSStackView(views: [back, indicator, title, badge, stat])
         leading.spacing = Theme.Space.m
+        leading.setCustomSpacing(Theme.Space.s, after: indicator)
         let trailing = NSStackView(views: [modes, previous, next, fileAction, close])
         trailing.spacing = Theme.Space.s
         trailing.setCustomSpacing(Theme.Space.m, after: modes)
@@ -77,12 +81,20 @@ final class DiffHeaderView: BarView {
     required init?(coder: NSCoder) { nil }
 
     func show(_ selection: FileSelection, diff: FileDiff?, mode: DiffMode) {
+        let change = DiffChange(selection: selection, diff: diff)
+        indicator.stringValue = change.letter
+        indicator.textColor = change.color
+        indicator.isHidden = change.letter.isEmpty
+        indicator.toolTip = change.word
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingHead
-        let text = NSMutableAttributedString(string: selection.directory, attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted, .paragraphStyle: paragraph])
-        text.append(NSAttributedString(string: selection.name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink, .paragraphStyle: paragraph]))
+        let muted: [NSAttributedString.Key: Any] = [.font: Theme.body, .foregroundColor: Theme.inkMuted, .paragraphStyle: paragraph]
+        let path = change.oldPath.map { RenamedPath.text(old: $0, new: selection.path) } ?? selection.path
+        let name = selection.name
+        let text = NSMutableAttributedString(string: String(path.dropLast(name.count)), attributes: muted)
+        text.append(NSAttributedString(string: name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink, .paragraphStyle: paragraph]))
         title.attributedStringValue = text
-        title.toolTip = selection.path
+        title.toolTip = change.description
         switch selection.source {
         case .commit: badge.text = nil
         case .unstaged: badge.text = "unstaged"
@@ -100,6 +112,11 @@ final class DiffHeaderView: BarView {
         fileAction.title = selection.isUnstageable ? "Datei unstagen" : "Datei stagen"
     }
 
+    /// The change letter, the path as shown and its tooltip; harness checks print them.
+    var summary: String {
+        "\(indicator.isHidden ? "-" : indicator.stringValue) \(title.stringValue) | \(title.toolTip ?? "")"
+    }
+
     @objc private func goBack(_ sender: Any?) { onBack?() }
     @objc private func changeMode(_ sender: Any?) {
         guard DiffMode.allCases.indices.contains(modes.selectedSegment) else { return }
@@ -108,6 +125,74 @@ final class DiffHeaderView: BarView {
     @objc private func goPrevious(_ sender: Any?) { onPrevious?() }
     @objc private func goNext(_ sender: Any?) { onNext?() }
     @objc private func runFileAction(_ sender: Any?) { onFileAction?() }
+}
+
+/// What happened to the file shown, with the letter and colour of the file lists, and the sentence its tooltip says.
+struct DiffChange {
+    let letter: String
+    let color: NSColor
+    let word: String
+    /// Set for a rename or copy.
+    let oldPath: String?
+    let description: String
+
+    @MainActor init(selection: FileSelection, diff: FileDiff?) {
+        let state: FileState? = selection.source == .untracked ? nil : diff?.change ?? (selection.originalPath == nil ? nil : .renamed)
+        oldPath = diff?.oldPath ?? selection.originalPath
+        if selection.source == .untracked {
+            letter = "?"
+            color = Theme.inkMuted
+            word = "untracked"
+        } else if let state {
+            letter = String(state.rawValue)
+            color = state.tint
+            word = Self.word(for: state)
+        } else {
+            letter = ""
+            color = Theme.inkMuted
+            word = ""
+        }
+        var lines: [String] = []
+        if let oldPath {
+            let similarity = diff?.similarity.map { " (Ähnlichkeit \($0) %)" } ?? ""
+            lines.append("\(word) von \(oldPath) nach \(selection.path)\(similarity)")
+        } else {
+            lines.append(selection.path)
+        }
+        if let diff, diff.modeChanged, let oldMode = diff.oldMode, let newMode = diff.newMode { lines.append("Dateimodus \(oldMode) → \(newMode)") }
+        description = lines.joined(separator: "\n")
+    }
+
+    private static func word(for state: FileState) -> String {
+        switch state {
+        case .added: "hinzugefügt"
+        case .deleted: "gelöscht"
+        case .renamed: "umbenannt"
+        case .copied: "kopiert"
+        case .typeChanged: "Typ geändert"
+        case .unmerged: "Konflikt"
+        case .modified, .unmodified: "geändert"
+        }
+    }
+}
+
+/// The old and new path of a rename around the leading and trailing folders they share, as `git diff --stat` writes them, so both fit on one line:
+/// `src/{transactions → ledger}/server/repository.ts`, or `docs/old.md → new.md` when only the name changed.
+enum RenamedPath {
+    static func text(old: String, new: String) -> String {
+        let oldParts = old.split(separator: "/", omittingEmptySubsequences: false)
+        let newParts = new.split(separator: "/", omittingEmptySubsequences: false)
+        // Each side keeps at least one component of its own.
+        let limit = min(oldParts.count, newParts.count) - 1
+        let shared = zip(oldParts, newParts).prefix { $0 == $1 }.count
+        let leading = min(shared, limit)
+        let trailing = min(zip(oldParts.reversed(), newParts.reversed()).prefix { $0 == $1 }.count, limit - leading)
+        let prefix = oldParts.prefix(leading).map { $0 + "/" }.joined()
+        let suffix = oldParts.suffix(trailing).map { "/" + $0 }.joined()
+        let oldMiddle = oldParts[leading..<(oldParts.count - trailing)].joined(separator: "/")
+        let newMiddle = newParts[leading..<(newParts.count - trailing)].joined(separator: "/")
+        return suffix.isEmpty ? "\(prefix)\(oldMiddle) → \(newMiddle)" : "\(prefix){\(oldMiddle) → \(newMiddle)}\(suffix)"
+    }
 }
 
 /// A small capsule with a word in it, for "unstaged" and the like.

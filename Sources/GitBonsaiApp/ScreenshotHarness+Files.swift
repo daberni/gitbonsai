@@ -5,6 +5,8 @@ import GitEngine
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file of the working directory, or of the selected commit without a source.
+    /// `GITBONSAI_PRINT_DIFF_HEADER=1` prints the change letter, the path and its tooltip once the diff is shown.
+    /// `GITBONSAI_OPEN_ORIGINAL=<path>` names the path before a rename or copy, as the file lists pass it.
     /// `GITBONSAI_HUNK_ACTION=<n>` then stages or unstages hunk n; `GITBONSAI_WINDOW_WIDTH=<points>` first resizes the window.
     static func openDiff(on tab: RepositoryViewController) {
         guard let path = environment["GITBONSAI_OPEN_FILE"] else { return }
@@ -21,11 +23,14 @@ extension ScreenshotHarness {
         if let width = environment["GITBONSAI_WINDOW_WIDTH"].flatMap(Double.init), let window = tab.view.window {
             window.setFrame(NSRect(origin: window.frame.origin, size: CGSize(width: width, height: window.frame.height)), display: true)
         }
-        tab.openFile(FileSelection(path: path, originalPath: nil, source: source))
+        tab.openFile(FileSelection(path: path, originalPath: environment["GITBONSAI_OPEN_ORIGINAL"], source: source))
         if let hunk = environment["GITBONSAI_HUNK_ACTION"].flatMap(Int.init) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { tab.diff.runHunkAction(hunk) }
         }
         driveDiffHeader(on: tab)
+        if environment["GITBONSAI_PRINT_DIFF_HEADER"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { FileHandle.standardError.write(Data("diff header: \(tab.diff.header.summary)\n".utf8)) }
+        }
     }
 
     // MARK: Diff mode

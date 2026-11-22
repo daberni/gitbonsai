@@ -10,7 +10,6 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         case line(hunk: Int, line: Int)
         /// A line of the whole file in the "Datei" mode.
         case fileLine(Int)
-        case message(String)
     }
 
     let view = NSView()
@@ -21,6 +20,9 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private let repository: () -> Repository
     let header = DiffHeaderView()
     private let table = NSTableView()
+    private let scroll = NSScrollView()
+    /// Takes the place of the lines when there are none to show: binary files, pure renames, mode changes, no changes.
+    let emptyState = EmptyStateView()
     private let column = NSTableColumn(identifier: .init("diff"))
     private var diff: FileDiff?
     private var mode = DiffMode.remembered
@@ -60,7 +62,6 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     }
 
     private func layout() {
-        let scroll = NSScrollView()
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = true
@@ -68,7 +69,8 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.backgroundColor = Theme.surface0
         scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled(_:)), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
-        for subview in [header, scroll] as [NSView] {
+        emptyState.isHidden = true
+        for subview in [header, scroll, emptyState] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
@@ -81,6 +83,10 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            emptyState.topAnchor.constraint(equalTo: header.bottomAnchor),
+            emptyState.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            emptyState.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            emptyState.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
 
@@ -154,26 +160,43 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         header.show(selection, diff: diff, mode: mode)
         rows = []
         hunkStarts = []
-        if let diff, diff.isBinary {
-            rows = [.message("Binärdatei, kein Textvergleich.")]
-        } else if let diff, !diff.hunks.isEmpty, mode == .file, !fileLines.isEmpty {
+        let empty = Self.emptyContent(for: diff)
+        if let empty { emptyState.show(empty) }
+        emptyState.isHidden = empty == nil
+        scroll.isHidden = empty != nil
+        if let diff, empty == nil, mode == .file, !fileLines.isEmpty {
             rows = fileLines.indices.map { .fileLine($0) }
             // A hunk starts with the same line in both views, and a line's pair of old and new number occurs once in the file.
             let rowOfNumbers = Dictionary(fileLines.enumerated().map { (NumberPair($1), $0) }, uniquingKeysWith: { first, _ in first })
             hunkStarts = diff.hunks.compactMap { $0.lines.first.flatMap { rowOfNumbers[NumberPair($0)] } }
-        } else if let diff, !diff.hunks.isEmpty {
+        } else if let diff, empty == nil {
             for (hunkIndex, hunk) in diff.hunks.enumerated() {
                 hunkStarts.append(rows.count)
                 rows.append(.hunk(hunkIndex))
                 rows += hunk.lines.indices.map { .line(hunk: hunkIndex, line: $0) }
             }
-        } else {
-            rows = [.message("Keine Änderungen.")]
         }
         column.minWidth = contentWidth()
         table.reloadData()
         // The whole file opens where its first change is.
         if scrollToTop { self.scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0) }
+    }
+
+    /// What to say instead of lines, or nil when the diff has lines to show. A rename or mode change without content change says so rather than "no changes".
+    private static func emptyContent(for diff: FileDiff?) -> EmptyStateView.Content? {
+        guard let diff else { return EmptyStateView.Content(title: "Keine Änderungen") }
+        if diff.isBinary { return EmptyStateView.Content(title: "Binärdatei", detail: ["Kein Textvergleich möglich"]) }
+        guard diff.hunks.isEmpty else { return nil }
+        let modes = diff.modeChanged ? diff.oldMode.flatMap { old in diff.newMode.map { "\(old) → \($0)" } } : nil
+        if let oldPath = diff.oldPath {
+            let title = diff.isCopy ? "Kopiert, Inhalt unverändert" : "Umbenannt, Inhalt unverändert"
+            let detail = [oldPath, "→ \(diff.path)"] + (modes.map { ["Dateimodus \($0)"] } ?? [])
+            return EmptyStateView.Content(title: title, detail: detail, detailIsCode: true, toolTip: "\(oldPath) → \(diff.path)")
+        }
+        if let modes { return EmptyStateView.Content(title: "Nur Dateimodus geändert", detail: [modes], detailIsCode: true) }
+        if diff.isNew { return EmptyStateView.Content(title: "Leere Datei hinzugefügt") }
+        if diff.isDeleted { return EmptyStateView.Content(title: "Leere Datei gelöscht") }
+        return EmptyStateView.Content(title: "Keine Änderungen")
     }
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.
@@ -248,7 +271,6 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         case .line(let hunk, let line): diff?.hunks[hunk].lines[line]
         case .fileLine(let index): fileLines[index]
         case .hunk(let index): diff?.hunks[index].lines.first
-        case .message: nil
         }
         return line.map { "\($0.oldNumber.map(String.init) ?? "-")/\($0.newNumber.map(String.init) ?? "-")" } ?? "none"
     }
@@ -259,10 +281,9 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch rows[row] {
-        case .line, .fileLine: return Theme.Diff.lineHeight
-        case .hunk, .message: break
+        case .line, .fileLine: Theme.Diff.lineHeight
+        case .hunk: Theme.Diff.hunkHeight
         }
-        return Theme.Diff.hunkHeight
     }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
@@ -285,11 +306,6 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             view.identifier = .init("line")
             view.line = fileLines[index]
             return view
-        case .message(let text):
-            let field = NSTextField(labelWithString: text)
-            field.font = Theme.body
-            field.textColor = Theme.inkMuted
-            return field
         }
     }
 }

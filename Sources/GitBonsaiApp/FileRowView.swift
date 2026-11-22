@@ -164,6 +164,18 @@ final class FileRowView: NSView {
     }
 }
 
+extension FileState {
+    /// The colour of the change letter, the same in the file lists and the diff header.
+    @MainActor var tint: NSColor {
+        switch self {
+        case .added: Theme.moss
+        case .deleted, .unmerged: Theme.persimmon
+        case .renamed, .copied: Theme.sky
+        default: Theme.ochre
+        }
+    }
+}
+
 /// Sections of file rows with a caption and an optional action, and one selected file across all of them.
 final class FileListView: NSStackView {
     struct Section {

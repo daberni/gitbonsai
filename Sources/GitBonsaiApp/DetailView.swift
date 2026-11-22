@@ -174,7 +174,7 @@ final class DetailView: NSView {
             let summary = NSMutableAttributedString(string: (files.count == 1 ? "1 Datei" : "\(files.count) Dateien") + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
             summary.append(FileRowView.statText(total))
             let rows = files.map { file in
-                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: Self.color(for: file.state), stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil, state: file.state)
+                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil, state: file.state)
             }
             filesHeader.attributedStringValue = summary
             list.show([FileListView.Section(title: "Dateien", rows: rows, action: nil)])
@@ -208,10 +208,10 @@ final class DetailView: NSView {
             let unstagedRows = unstaged.map { entry in
                 entry.isUntracked
                     ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", actions: [.stage, .discard], state: nil)
-                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil, actions: [.stage, .discard], state: entry.worktreeState)
+                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: entry.worktreeState.tint, stat: unstagedStats[entry.path], note: nil, actions: [.stage, .discard], state: entry.worktreeState)
             }
             let stagedRows = staged.map { entry in
-                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil, actions: [.unstage], state: entry.indexState)
+                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: entry.indexState.tint, stat: stagedStats[entry.path], note: nil, actions: [.unstage], state: entry.indexState)
             }
             var result = [
                 FileListView.Section(title: "Unstaged  \(unstaged.count)", rows: unstagedRows, action: unstaged.isEmpty ? nil : ("Alle stagen", { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
@@ -268,15 +268,6 @@ final class DetailView: NSView {
     }
 
     // MARK: Parts
-
-    private static func color(for state: FileState) -> NSColor {
-        switch state {
-        case .added: Theme.moss
-        case .deleted, .unmerged: Theme.persimmon
-        case .renamed, .copied: Theme.sky
-        default: Theme.ochre
-        }
-    }
 
     private func person(_ name: String, role: String, date: Date, ring: NSColor) -> NSView {
         let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring)

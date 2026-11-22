@@ -54,6 +54,69 @@ final class DiffTests: XCTestCase {
         XCTAssertEqual(files.first { $0.path == "new name.txt" }?.stat, DiffStat(added: 1, removed: 1), "numstat of a rename is keyed by the new path")
     }
 
+    func testRenameCarriesSimilarityAndPureRenameHasNoHunks() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "src/äpfel/alt.txt", contents: numbered())
+        try fixture.write("keep.txt", numbered())
+        try fixture.git("add", "-A")
+        try fixture.git("commit", "-q", "-m", "keep")
+        try FileManager.default.createDirectory(at: fixture.url.appendingPathComponent("src/birnen"), withIntermediateDirectories: true)
+        try fixture.git("mv", "src/äpfel/alt.txt", "src/birnen/neu.txt")
+        try fixture.git("mv", "keep.txt", "kept.txt")
+        try fixture.write("kept.txt", numbered(changing: [10: "line ten"]))
+        try fixture.git("add", "-A")
+
+        let pure = try await XCTUnwrapAsync(await fixture.repository.diff(of: "src/birnen/neu.txt", originalPath: "src/äpfel/alt.txt", in: .staged))
+        XCTAssertEqual(pure.change, .renamed)
+        XCTAssertEqual(pure.oldPath, "src/äpfel/alt.txt")
+        XCTAssertEqual(pure.similarity, 100)
+        XCTAssertTrue(pure.hunks.isEmpty)
+        XCTAssertTrue(pure.hasNoContentChange)
+
+        let edited = try await XCTUnwrapAsync(await fixture.repository.diff(of: "kept.txt", originalPath: "keep.txt", in: .staged))
+        XCTAssertEqual(edited.change, .renamed)
+        XCTAssertTrue((80..<100).contains(edited.similarity ?? 0), "similarity \(String(describing: edited.similarity))")
+        XCTAssertFalse(edited.hasNoContentChange)
+    }
+
+    func testModeOnlyChangeHasBothModesAndNoHunks() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "run.sh", contents: "echo hi\n")
+        try fixture.git("update-index", "--chmod=+x", "run.sh")
+
+        let diff = try await XCTUnwrapAsync(await fixture.repository.diff(of: "run.sh", in: .staged))
+        XCTAssertEqual(diff.change, .modified)
+        XCTAssertEqual(diff.oldMode, "100644")
+        XCTAssertEqual(diff.newMode, "100755")
+        XCTAssertTrue(diff.modeChanged)
+        XCTAssertTrue(diff.hasNoContentChange)
+        XCTAssertNil(diff.similarity)
+    }
+
+    /// `-M` never reports copies, `-C` does; the parser keeps them apart from renames.
+    func testCopyHeaderIsACopyWithSimilarity() {
+        let output = """
+        diff --git a/a.txt b/b.txt
+        similarity index 87%
+        copy from a.txt
+        copy to b.txt
+        index 1111111..2222222 100644
+        --- a/a.txt
+        +++ b/b.txt
+        @@ -1 +1 @@
+        -one
+        +two
+
+        """
+        let diff = try? XCTUnwrap(DiffParser.parse(Data(output.utf8)).first)
+        XCTAssertEqual(diff?.change, .copied)
+        XCTAssertEqual(diff?.oldPath, "a.txt")
+        XCTAssertEqual(diff?.path, "b.txt")
+        XCTAssertEqual(diff?.similarity, 87)
+    }
+
     func testStageAndUnstageOneHunk() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
