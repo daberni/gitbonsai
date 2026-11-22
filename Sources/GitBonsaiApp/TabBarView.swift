@@ -28,7 +28,8 @@ final class TabBarView: NSView, NSViewToolTipOwner {
     private var plusFrame = CGRect.zero
     private var hover = Hit.none { didSet { if hover != oldValue { needsDisplay = true } } }
     private var pressedClose: Int?
-    private var mayDragWindow = false
+    /// The press on free space, kept until the mouse moves; macOS starts a window move from the press, not from a later drag event.
+    private var windowMovePress: NSEvent?
     /// The tab being dragged and where its left edge currently is.
     private var dragging: (index: Int, minX: CGFloat)?
     private var tracking: NSTrackingArea?
@@ -220,20 +221,20 @@ final class TabBarView: NSView, NSViewToolTipOwner {
             onNew?()
         case .none:
             // The empty part of the row is the window's title bar.
-            if event.clickCount == 2 { window?.performZoom(nil) } else { mayDragWindow = true }
+            if event.clickCount == 2 { window?.performZoom(nil) } else { windowMovePress = event }
         }
     }
 
     /// The window move starts with the first real movement; starting it on a plain click makes AppKit log a warning.
     override func mouseDragged(with event: NSEvent) {
-        guard mayDragWindow else { return }
-        mayDragWindow = false
-        window?.performDrag(with: event)
+        guard let press = windowMovePress else { return }
+        windowMovePress = nil
+        window?.performDrag(with: press)
     }
 
     override func mouseUp(with event: NSEvent) {
         defer { pressedClose = nil }
-        mayDragWindow = false
+        windowMovePress = nil
         guard let pressedClose, hit(at: convert(event.locationInWindow, from: nil)) == .close(pressedClose) else { return }
         hover = .none
         onClose?(pressedClose)
