@@ -1,6 +1,9 @@
 #!/bin/zsh
-# Brings Localizable.xcstrings in line with the code: builds the app, which extracts every String(localized:) and LocalizedStringResource literal into .stringsdata files,
-# then adds new keys (English source text, no German yet) and marks keys no longer used as stale. Translate the new keys and delete stale ones afterwards; LocalizationTests fails until then.
+# Brings Localizable.xcstrings in line with the code: builds the app, which extracts every String(localized:defaultValue:) and LocalizedStringResource(_:defaultValue:) into .stringsdata files, then lets xcstringstool
+# - add new keys with the English from defaultValue (no German yet),
+# - update the English of a key whose defaultValue changed and mark its German as needing review,
+# - mark keys no longer used as stale.
+# Afterwards it lists what needs work: translate new keys, review changed German, delete stale keys. LocalizationTests fails until then.
 # Usage: scripts/sync-strings.sh
 set -euo pipefail
 
@@ -16,3 +19,9 @@ if (( ${#stringsdata} == 0 )); then
 fi
 xcrun xcstringstool sync $catalog --stringsdata $stringsdata
 echo "Synced ${#stringsdata} files into ${catalog#$root/}"
+
+jq -r '.strings | to_entries[] | select(.value.shouldTranslate != false) |
+    if .value.extractionState == "stale" then "stale, delete:       \(.key)"
+    elif (.value.localizations.de // null) == null then "translate:           \(.key)"
+    elif ([.value.localizations.de | .. | .state? // empty] | any(. != "translated")) then "review German:       \(.key)"
+    else empty end' $catalog

@@ -27,12 +27,17 @@ enum RefName {
     }
 }
 
+extension LocalizedStringResource.BundleDescription {
+    /// The app's resource bundle, for `LocalizedStringResource(…, bundle: .module)`: SwiftPM's `Bundle.module` is a `Bundle`, not a `BundleDescription`.
+    static var module: Self { .atURL(Bundle.module.bundleURL) }
+}
+
 extension LocalizedStringResource {
-    /// The text in the app's language, with its names still marked. Resolves against the app's own resource bundle:
-    /// `String(localized: resource)` would look in the main bundle, which holds no strings when SwiftPM builds the app.
-    /// Only works for resources whose key is their English text, which is how the app writes all of them.
+    /// The text in the app's language, with its names still marked.
     var marked: String {
-        String(localized: defaultValue, table: table, bundle: .module, locale: locale)
+        // Resources still keyed by their English text resolve that text against the app's bundle; semantic keys carry `bundle: .module` themselves.
+        guard key.contains("."), !key.contains(" ") else { return String(localized: defaultValue, table: table, bundle: .module, locale: locale) }
+        return String(localized: self)
     }
 
     /// The text in the app's language as plain text, names included without pills.
