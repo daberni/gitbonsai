@@ -22,7 +22,6 @@ final class GraphRowView: NSView {
         /// Lane of the strand between the working directory row and HEAD where it enters and where it leaves this row.
         var wipLaneAbove: Lane?
         var wipLaneBelow: Lane?
-        var laneOffset = 0
         var pills: [PillModel]
         var isHead: Bool
         var dimmed: Bool
@@ -52,7 +51,7 @@ final class GraphRowView: NSView {
     private typealias G = Theme.Graph
 
     private func laneX(_ lane: Int) -> CGFloat {
-        G.labelColumn + G.firstLane + CGFloat(lane + (model?.laneOffset ?? 0)) * G.lane
+        G.labelColumn + G.firstLane + CGFloat(lane) * G.lane
     }
 
     override func draw(_ dirtyRect: NSRect) {

@@ -435,7 +435,6 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             previousKind: index > 0 ? viewModel.kinds[index - 1] : nil,
             wipLaneAbove: viewModel.wipStrand.flatMap { index >= 1 && index <= $0.headRow ? $0.lane : nil },
             wipLaneBelow: viewModel.wipStrand.flatMap { index < $0.headRow ? $0.lane : nil },
-            laneOffset: viewModel.laneOffset,
             pills: pills(for: refs),
             isHead: refs.contains(where: \.isHead),
             dimmed: kind != .stash && !viewModel.isReachableFromHead(commit.id),

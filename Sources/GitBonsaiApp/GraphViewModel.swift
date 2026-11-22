@@ -40,12 +40,14 @@ final class GraphViewModel {
     var onReset: (() -> Void)?
     /// The working directory row appeared while commits were still streaming in.
     var onRowsShifted: (() -> Void)?
-    /// HEAD moved: the working directory row was taken out and put back above the new HEAD, every other row is unchanged.
+    /// HEAD moved: the rows were laid out again around it and the working directory row was put back.
     var onRowsRebuilt: (() -> Void)?
 
     /// Rebound when the tab moves to another worktree of the same repository.
     private(set) var repository: Repository
     private var layout = GraphLayout()
+    /// The commit the current layout keeps the leftmost lane for.
+    private var layoutHead: String?
     private var loadTask: Task<Void, Never>?
     /// While a refresh gathers its parts, the single redraw at its end replaces the per-part ones.
     private var isRefreshing = false
@@ -58,8 +60,6 @@ final class GraphViewModel {
     private var rowsBeforeWip: [GraphRow] = []
     /// The lane of the strand between the working directory row and HEAD, and HEAD's row.
     private(set) var wipStrand: (lane: Lane, headRow: Int)?
-    /// Lanes the whole graph is drawn further right, to keep the leftmost lane for the working directory strand.
-    private(set) var laneOffset = 0
     /// The row that stands for where the working tree is: its uncommitted changes if there are any, otherwise HEAD.
     var currentRow: Int? { wipRow ?? headSHA.flatMap { rowIndex(of: $0) } }
     /// Index and untracked helper commits of stashes. They follow their stash in topological order and are skipped.
@@ -123,8 +123,8 @@ final class GraphViewModel {
         Task { await refresh(note: nil) }
     }
 
-    /// After a checkout or a worktree switch the commits and their layout are still the same: only HEAD, the working directory and the refs moved.
-    /// So nothing is read from the log and nothing is laid out again; the working directory row moves and the marks are redrawn.
+    /// After a checkout or a worktree switch the commits are still the same: only HEAD, the working directory and the refs moved.
+    /// So nothing is read from the log; the loaded commits are laid out again when HEAD sits on another commit.
     func refresh(note: String?) async {
         guard !isLoading else { reload(); return }
         let start = ContinuousClock.now
@@ -143,6 +143,8 @@ final class GraphViewModel {
             return
         }
         removeWipRow()
+        // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
+        if headSHA != layoutHead { await relayout() }
         insertWipRow()
         computeReachability()
         onRowsRebuilt?()
@@ -154,35 +156,40 @@ final class GraphViewModel {
 
     // MARK: Working directory row
 
-    /// Uncommitted changes always show as the first row, in the leftmost lane. A dashed strand runs from there down to HEAD.
-    /// The row is not part of the lane layout: the whole graph moves one lane to the right to make room, and the rows down to HEAD get one extra edge each.
-    /// So the row can follow HEAD without laying out a single commit again.
+    /// Uncommitted changes always show as the first row. The layout keeps the leftmost lane for HEAD, so the row sits in that lane
+    /// and a dashed strand runs straight down to HEAD through the rows in between.
     private func insertWipRow() {
         guard wipRow == nil, !(status?.entries.isEmpty ?? true), let head = headSHA, let index = commitIndexByID[head], index < rows.count else { return }
         let headRow = rows[index]
-        rowsBeforeWip = Array(rows[0...index])
-        let leftmostIsFreeAbove = !rows[0..<index].contains { row in row.lane == 0 || row.edges.contains { $0.fromLane == 0 || $0.toLane == 0 } }
-        // A branch tip that already owns the leftmost lane simply gets the row on top of it.
-        let sitsOnHeadStrand = headRow.lane == 0 && leftmostIsFreeAbove
-        let lane = sitsOnHeadStrand ? 0 : -1
-        if !sitsOnHeadStrand {
-            for above in 0..<index {
-                let row = rows[above]
-                let through = GraphEdge(fromLane: lane, toLane: lane, kind: .passThrough, color: headRow.color)
-                rows[above] = GraphRow(commitID: row.commitID, lane: row.lane, color: row.color, isMerge: row.isMerge, edges: row.edges + [through], laneCount: row.laneCount)
-            }
-            let join = GraphEdge(fromLane: lane, toLane: headRow.lane, kind: .fromChild, color: headRow.color)
-            rows[index] = GraphRow(commitID: headRow.commitID, lane: headRow.lane, color: headRow.color, isMerge: headRow.isMerge, edges: headRow.edges + [join], laneCount: headRow.laneCount)
-            laneOffset = 1
+        rowsBeforeWip = Array(rows[0..<index])
+        let lane = headRow.lane
+        for above in 0..<index {
+            let row = rows[above]
+            let through = GraphEdge(fromLane: lane, toLane: lane, kind: .passThrough, color: headRow.color)
+            rows[above] = GraphRow(commitID: row.commitID, lane: row.lane, color: row.color, isMerge: row.isMerge, edges: row.edges + [through], laneCount: row.laneCount)
         }
         let now = Date()
         let down = GraphEdge(fromLane: lane, toLane: lane, kind: .straight, color: headRow.color)
         commits.insert(Commit(id: Self.wipID, parents: [head], authorName: "", authorEmail: "", authorDate: now, committerName: "", committerEmail: "", committerDate: now, subject: "", body: ""), at: 0)
-        rows.insert(GraphRow(commitID: Self.wipID, lane: lane, color: headRow.color, isMerge: false, edges: [down], laneCount: 1), at: 0)
+        rows.insert(GraphRow(commitID: Self.wipID, lane: lane, color: headRow.color, isMerge: false, edges: [down], laneCount: lane + 1), at: 0)
         kinds.insert(.wip, at: 0)
         wipRow = 0
         wipStrand = (lane, index + 1)
-        maxLaneCount = max(layout.maxLaneCount, 1) + laneOffset
+    }
+
+    /// Lays the loaded commits out again around a new HEAD, off the main thread. Nothing is read from git.
+    private func relayout() async {
+        let head = headSHA
+        let input = commits.map { layoutCommit(for: $0) }
+        let result = await Task.detached { () -> (GraphLayout, [GraphRow]) in
+            var layout = GraphLayout(pinned: head)
+            let rows = input.map { layout.append($0) }
+            return (layout, rows)
+        }.value
+        layout = result.0
+        rows = result.1
+        layoutHead = head
+        maxLaneCount = max(layout.maxLaneCount, 1)
     }
 
     private func removeWipRow() {
@@ -194,8 +201,6 @@ final class GraphViewModel {
         rowsBeforeWip = []
         wipRow = nil
         wipStrand = nil
-        laneOffset = 0
-        maxLaneCount = max(layout.maxLaneCount, 1)
     }
 
     /// Drops everything that was loaded and reads the repository again.
@@ -208,7 +213,6 @@ final class GraphViewModel {
         wipRow = nil
         rowsBeforeWip = []
         wipStrand = nil
-        laneOffset = 0
         hiddenCommitIDs = []
         reachableFromHead = []
         maxLaneCount = 1
@@ -223,6 +227,8 @@ final class GraphViewModel {
         loadTask = Task { [weak self] in
             guard let self else { return }
             status = try? await repository.status()
+            layout = GraphLayout(pinned: headSHA)
+            layoutHead = headSHA
             await loadStashes()
             async let refsTask: Void = loadRefs()
             async let worktreesTask: Void = loadWorktrees()
@@ -349,7 +355,7 @@ final class GraphViewModel {
             commits.append(contentsOf: pending)
             rows.append(contentsOf: pendingRows)
             kinds.append(contentsOf: pendingKinds)
-            maxLaneCount = max(layout.maxLaneCount, 1) + laneOffset
+            maxLaneCount = max(layout.maxLaneCount, 1)
             pending.removeAll(keepingCapacity: true)
             pendingRows.removeAll(keepingCapacity: true)
             pendingKinds.removeAll(keepingCapacity: true)

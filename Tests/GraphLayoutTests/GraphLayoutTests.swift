@@ -130,6 +130,29 @@ final class GraphLayoutTests: XCTestCase {
         XCTAssertEqual(layout.maxLaneCount, 2)
     }
 
+    func testPinnedCommitOwnsLaneZeroBelowNewerBranches() {
+        // feature (F2, F1) is ahead of the checked-out commit M2; an unrelated tip X sits on top.
+        var layout = GraphLayout(pinned: "M2")
+        layout.append(contentsOf: [commit("X", parents: ["M1"]), commit("F2", parents: ["F1"]), commit("F1", parents: ["M2"]), commit("M2", parents: ["M1"]), commit("M1")])
+        let rows = layout.rows
+        XCTAssertEqual(rows.map(\.lane), [1, 2, 2, 0, 0])
+        XCTAssertEqual(rows[3].color, 0)
+        XCTAssertEqual(edges(rows[3], .fromChild).map(\.fromLane), [2], "the child strand joins the pinned commit from its own lane")
+        for row in rows[0..<3] {
+            XCTAssertFalse(row.edges.contains { $0.fromLane == 0 || $0.toLane == 0 }, "nothing is drawn in the held lane above the pinned commit")
+        }
+        XCTAssertEqual(edges(rows[4], .fromChild).map(\.fromLane), [1])
+    }
+
+    func testMergeIntoPinnedCommitMakesTheHeldLaneVisible() {
+        var layout = GraphLayout(pinned: "P")
+        layout.append(contentsOf: [commit("M", parents: ["A", "P"]), commit("A", parents: ["R"]), commit("P", parents: ["R"]), commit("R")])
+        let rows = layout.rows
+        XCTAssertEqual(edges(rows[0], .toParent).map(\.toLane), [0])
+        XCTAssertEqual(edges(rows[1], .passThrough).map(\.fromLane), [0], "the merge strand keeps running down to the pinned commit")
+        XCTAssertEqual(rows[2].lane, 0)
+    }
+
     func testDuplicateCommitIsIgnored() {
         var layout = GraphLayout()
         let first = layout.append(commit("B", parents: ["A"]))

@@ -75,8 +75,20 @@ public struct GraphLayout: Sendable {
     private var lanesExpecting: [String: [Lane]] = [:]
     private var rowIndexByCommitID: [String: Int] = [:]
     private var nextColor = 0
+    /// The pinned commit while the leftmost lane is still only held free for it and nothing has drawn into that lane yet.
+    private var reservedFor: String?
 
     public init() {}
+
+    /// Keeps the leftmost lane for `pinned`, the checked-out commit: it and its first-parent ancestors always sit in lane 0, in the first strand color.
+    /// Above the pinned commit the lane stays empty; children of the pinned commit join it from their own lanes.
+    public init(pinned: String?) {
+        guard let pinned else { return }
+        lanes = [ActiveLane(expected: pinned, color: 0)]
+        lanesExpecting[pinned] = [0]
+        nextColor = 1
+        reservedFor = pinned
+    }
 
     /// Row of an already appended commit, for selection and scrolling.
     public func row(for commitID: String) -> GraphRow? {
@@ -91,6 +103,7 @@ public struct GraphLayout: Sendable {
 
         let occupiedBefore = lanes.count
         var edges: [GraphEdge] = []
+        if commit.id == reservedFor { reservedFor = nil }
 
         let waiting = (lanesExpecting.removeValue(forKey: commit.id) ?? []).sorted()
         let lane: Lane
@@ -113,6 +126,7 @@ public struct GraphLayout: Sendable {
 
         for (index, active) in lanes.enumerated() where index != lane {
             guard let active else { continue }
+            if index == 0, reservedFor != nil { continue }
             edges.append(GraphEdge(fromLane: index, toLane: index, kind: .passThrough, color: active.color))
         }
 
@@ -131,6 +145,8 @@ public struct GraphLayout: Sendable {
 
         for parent in parents.dropFirst() {
             if let target = lanesExpecting[parent]?.min(), let active = lanes[target] {
+                // A merge that reaches the pinned commit draws into the held lane, so from here on the lane is a visible strand.
+                if parent == reservedFor { reservedFor = nil }
                 edges.append(GraphEdge(fromLane: lane, toLane: target, kind: .toParent, color: active.color))
             } else {
                 let target = allocateLane(after: lane)
