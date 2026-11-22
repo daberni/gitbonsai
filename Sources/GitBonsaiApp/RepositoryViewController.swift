@@ -260,6 +260,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.prepare(history)
             ScreenshotHarness.openDiff(on: self)
             ScreenshotHarness.clickFile(on: self)
+            ScreenshotHarness.pressFileKeys(on: self)
             ScreenshotHarness.fillCommit(on: self)
             ScreenshotHarness.discard(on: self)
             ScreenshotHarness.scrollSidebar(sidebar)

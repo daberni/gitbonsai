@@ -146,6 +146,34 @@ enum ScreenshotHarness {
         }
     }
 
+    /// `GITBONSAI_FILE_KEYS=down,down,up` presses arrow keys through the window after `GITBONSAI_CLICK_FILE` and reports the history row and the diff after each.
+    static func pressFileKeys(on tab: RepositoryViewController) {
+        guard let keys = environment["GITBONSAI_FILE_KEYS"]?.split(separator: ",").map(String.init), !keys.isEmpty else { return }
+        for (step, key) in keys.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2 + 0.4 * Double(step)) {
+                guard let window = tab.view.window else { return }
+                let arrow: (scalar: Int, code: UInt16)? = switch key {
+                case "up": (NSUpArrowFunctionKey, 126)
+                case "down": (NSDownArrowFunctionKey, 125)
+                default: nil
+                }
+                guard let arrow, let scalar = UnicodeScalar(arrow.scalar) else { return }
+                let characters = String(Character(scalar))
+                let responder = window.firstResponder.map { "\(type(of: $0))" } ?? "nothing"
+                if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: arrow.code) {
+                    window.sendEvent(event)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    let shown = tab.diff.selection.map { selection in
+                        if case .commit(let commit) = selection.source { return "\(selection.path) (commit \(commit.shortID))" }
+                        return "\(selection.path) (\(selection.source))"
+                    }
+                    FileHandle.standardError.write(Data("key \(key) to \(responder): history row \(tab.history.selectedRow), diff shows \(shown ?? "nothing")\n".utf8))
+                }
+            }
+        }
+    }
+
     /// `GITBONSAI_COMMIT_SUBJECT` and `GITBONSAI_COMMIT_BODY` fill the commit form, `GITBONSAI_AMEND=1` ticks amend,
     /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button.
     static func fillCommit(on tab: RepositoryViewController) {

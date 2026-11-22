@@ -36,11 +36,17 @@ final class FileRowView: NSView {
     private var isHovered = false { didSet { needsDisplay = true } }
     private var hoveredAction: Action? { didSet { needsDisplay = true } }
 
-    /// The action buttons replace the counts at the right end while the row is hovered, the first one outermost.
+    /// The action buttons take the place of the counts at the right end while the row is hovered, the first one outermost.
     func actionRect(_ index: Int) -> CGRect {
         let size = M.actionButton
         let maxX = bounds.maxX - Theme.Space.xs / 2 - CGFloat(index) * (size + M.actionGap)
         return CGRect(x: maxX - size, y: bounds.midY - size / 2, width: size, height: size)
+    }
+
+    /// The right-hand slot always reserves room for the buttons, so the path keeps its place and cut whether or not the row is hovered.
+    private var actionsWidth: CGFloat {
+        guard !model.actions.isEmpty else { return 0 }
+        return bounds.maxX - Theme.Space.xs - actionRect(model.actions.count - 1).minX
     }
 
     private func action(at point: CGPoint) -> Action? {
@@ -95,11 +101,9 @@ final class FileRowView: NSView {
         let letter = NSAttributedString(string: model.letter, attributes: [.font: Theme.monoStrong, .foregroundColor: model.color])
         letter.draw(at: CGPoint(x: inset, y: midY - letter.size().height / 2))
 
-        let showsActions = isHovered && !model.actions.isEmpty
-        let trailing = showsActions ? nil : trailingText()
-        var trailingWidth = trailing?.size().width ?? 0
-        trailing?.draw(at: CGPoint(x: bounds.maxX - inset - trailingWidth, y: midY - (trailing?.size().height ?? 0) / 2))
-        if showsActions, let context = NSGraphicsContext.current?.cgContext {
+        let trailing = trailingText()
+        let trailingWidth = max(trailing?.size().width ?? 0, actionsWidth)
+        if isHovered && !model.actions.isEmpty, let context = NSGraphicsContext.current?.cgContext {
             for (index, action) in model.actions.enumerated() {
                 let rect = actionRect(index)
                 if hoveredAction == action {
@@ -107,8 +111,10 @@ final class FileRowView: NSView {
                     NSBezierPath(roundedRect: rect, xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm).fill()
                 }
                 action.glyph.draw(in: rect.insetBy(dx: Theme.Space.xs, dy: Theme.Space.xs), color: Theme.ink, context: context)
-                trailingWidth = bounds.maxX - inset - rect.minX
             }
+        } else if let trailing {
+            let size = trailing.size()
+            trailing.draw(at: CGPoint(x: bounds.maxX - inset - size.width, y: midY - size.height / 2))
         }
 
         let pathX = inset + M.letterWidth
@@ -179,9 +185,10 @@ final class FileListView: NSStackView {
             for model in section.rows.prefix(Theme.Detail.maximumFiles) {
                 let row = FileRowView(model: model)
                 row.isSelected = model.selection == selected
-                row.onClick = { [weak self] in
-                    self?.selected = model.selection
-                    self?.onSelect?(model.selection)
+                row.onClick = { [weak self, weak row] in
+                    guard let self, let row else { return }
+                    window?.makeFirstResponder(self)
+                    choose(row)
                 }
                 row.onAction = { [weak self] action in self?.onAction?(model.selection, action) }
                 rowViews.append(row)
@@ -191,6 +198,34 @@ final class FileListView: NSStackView {
                 addFull(Self.caption("… und \(section.rows.count - Theme.Detail.maximumFiles) weitere"))
             }
         }
+    }
+
+    // MARK: Keyboard
+
+    /// ↑ and ↓ walk through the rows of all sections as one list; a click on a row gives the list the focus.
+    override var acceptsFirstResponder: Bool { !rowViews.isEmpty }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.specialKey {
+        case .upArrow?: moveSelection(by: -1)
+        case .downArrow?: moveSelection(by: 1)
+        default: super.keyDown(with: event)
+        }
+    }
+
+    func moveSelection(by offset: Int) {
+        guard !rowViews.isEmpty else { return }
+        let current = rowViews.firstIndex { $0.model.selection == selected }
+        let target = current.map { min(max($0 + offset, 0), rowViews.count - 1) } ?? (offset > 0 ? 0 : rowViews.count - 1)
+        guard target != current else { return }
+        choose(rowViews[target])
+    }
+
+    /// The same path for a click and a key: select, keep the row in sight, open its diff.
+    private func choose(_ row: FileRowView) {
+        selected = row.model.selection
+        row.scrollToVisible(row.bounds)
+        onSelect?(row.model.selection)
     }
 
     private func addFull(_ view: NSView) {
