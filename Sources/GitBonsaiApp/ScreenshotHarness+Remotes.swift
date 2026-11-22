@@ -78,7 +78,7 @@ extension ScreenshotHarness {
         printStatus(of: tab, after: 1.5)
     }
 
-    /// `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>`, `GITBONSAI_PUSH=<title>` or `GITBONSAI_STASH=<title>` clicks the chevron of that toolbar button with a real click, prints the menu it opens and closes it again, then chooses the entry and prints
+    /// `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>`, `GITBONSAI_PUSH=<title>` or `GITBONSAI_STASH=<title>` clicks the chevron of that toolbar button with a real click, prints the menu it opens (`GITBONSAI_MENU_SHOT=<png>` renders it) and closes it again, then chooses the entry and prints
     /// the status line, the banner, the toolbar's counts and the button frames once git has finished. Questions are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`; an empty title only prints the menu.
     private static func runPullOrPush(on tab: RepositoryViewController) {
         // The switch is named in English; the button is found by the title it shows.
@@ -132,7 +132,12 @@ extension ScreenshotHarness {
         let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { note in
             nonisolated(unsafe) let menu = note.object as? NSMenu
             opened = menu
-            let close = Timer(timeInterval: 0.3, repeats: false) { _ in menu?.cancelTracking() }
+            let close = Timer(timeInterval: 0.3, repeats: false) { _ in
+                MainActor.assumeIsolated {
+                    if let shot = environment["GITBONSAI_MENU_SHOT"] { captureMenuWindow(to: shot) }
+                }
+                menu?.cancelTracking()
+            }
             RunLoop.current.add(close, forMode: .eventTracking)
             RunLoop.current.add(close, forMode: .common)
         }
