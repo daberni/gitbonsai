@@ -80,7 +80,7 @@ final class RepositoryToolbar: BarView {
 
     @objc private func runPull(_ sender: Any?) { popUp(pullMenu?(), below: sender) }
     @objc private func runPush(_ sender: Any?) { popUp(pushMenu?(), below: sender) }
-    @objc private func runBranch(_ sender: Any?) { onBranch?() }
+    @objc func runBranch(_ sender: Any?) { onBranch?() }
     @objc private func runStash(_ sender: Any?) { onStash?() }
     @objc private func runPop(_ sender: Any?) { onPop?() }
 

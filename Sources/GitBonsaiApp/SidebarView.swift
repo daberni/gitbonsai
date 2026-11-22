@@ -23,7 +23,8 @@ final class SidebarView: NSView {
     private var frames: [CGRect] = []
     private var outline = SidebarOutline()
     private var hovered: Int?
-    private var contentHeight: CGFloat = 0
+    /// Bottom of the last row; taller than the visible area when the sidebar scrolls.
+    private(set) var contentHeight: CGFloat = 0
     private weak var model: GraphViewModel?
 
     override var isFlipped: Bool { true }
@@ -38,7 +39,7 @@ final class SidebarView: NSView {
         super.viewDidMoveToSuperview()
         NotificationCenter.default.removeObserver(self, name: NSView.frameDidChangeNotification, object: nil)
         guard let clip = superview else { return }
-        // A taller or shorter visible area can start or stop the scrolling, and with it the room kept for the scroller.
+        // A taller visible area needs a taller view, or the rows below the content stop taking clicks and hover.
         clip.postsFrameChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(visibleAreaChanged), name: NSView.frameDidChangeNotification, object: clip)
     }
@@ -47,13 +48,19 @@ final class SidebarView: NSView {
         if !items.isEmpty { layoutItems() }
     }
 
-    /// Right edge of the status slot column. The overlay scroller lies on the rows while they scroll, so the slot moves out from under it; a legacy scroller narrows the visible area itself.
-    var slotRight: CGFloat {
-        let regular = bounds.width - M.rowInset - Theme.Space.xs
-        guard let scrollView = enclosingScrollView, scrollView.scrollerStyle == .overlay, contentHeight > scrollView.contentSize.height else { return regular }
-        let scrollerWidth = NSScroller.scrollerWidth(for: scrollView.verticalScroller?.controlSize ?? .regular, scrollerStyle: .overlay)
-        return min(regular, bounds.width - scrollerWidth)
+    /// Width the rows are laid out in: the visible width a legacy scroller leaves, whether or not a scroller shows and in either style.
+    /// Expanding a section, resizing the window or changing "Show scroll bars" never moves the right edge, and an overlay scroller lies in the gutter instead of on the slots.
+    var contentWidth: CGFloat {
+        guard let scrollView = enclosingScrollView else { return bounds.width }
+        let reserved = NSScrollView.contentSize(forFrameSize: scrollView.frame.size, horizontalScrollerClass: nil, verticalScrollerClass: NSScroller.self, borderType: scrollView.borderType, controlSize: scrollView.verticalScroller?.controlSize ?? .regular, scrollerStyle: .legacy)
+        return min(bounds.width, reserved.width)
     }
+
+    /// Right edge of the status slot column.
+    var slotRight: CGFloat { contentWidth - M.rowInset - Theme.Space.xs }
+
+    /// Right edge of the counts and other values left of the slot.
+    var valueRight: CGFloat { slotRight - M.slot - M.textGap }
 
     func reload(from model: GraphViewModel) {
         self.model = model
@@ -72,7 +79,7 @@ final class SidebarView: NSView {
             case .row: height = M.rowHeight
             }
             defer { y += height }
-            return CGRect(x: M.rowInset, y: y, width: bounds.width - 2 * M.rowInset, height: height)
+            return CGRect(x: M.rowInset, y: y, width: contentWidth - 2 * M.rowInset, height: height)
         }
         contentHeight = y + Theme.Space.s
         let total = max(contentHeight, enclosingScrollView?.contentSize.height ?? 0)
@@ -159,6 +166,15 @@ final class SidebarView: NSView {
 
     func rowRect(at index: Int) -> CGRect { frames[index] }
 
+    var rowCount: Int { frames.count }
+
+    /// Collapses or expands every section, for the harness.
+    func setSections(collapsed: Bool) {
+        guard let model else { return }
+        for case .header(let key, _, _, _, _) in items where outline.isCollapsed(key) != collapsed { outline.toggle(key) }
+        reload(from: model)
+    }
+
     func menu(forItemAt index: Int) -> NSMenu? {
         guard let subject = items[index].menuSubject, let entries = menuItems?(subject), !entries.isEmpty else { return nil }
         let menu = NSMenu()
@@ -182,12 +198,12 @@ final class SidebarView: NSView {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         let linkedPath = hoveredWorktreePath
         let slotRight = slotRight
+        let valueRight = valueRight
         for (index, item) in items.enumerated() where frames[index].intersects(dirtyRect) {
             let rect = frames[index]
             let columnA = CGRect(x: rect.minX + M.rowInset, y: rect.midY - M.column / 2, width: M.column, height: M.column)
             let columnB = columnA.offsetBy(dx: M.columnStep, dy: 0)
             let slot = CGRect(x: slotRight - M.slot, y: rect.midY - M.slot / 2, width: M.slot, height: M.slot)
-            let valueRight = slot.minX - M.textGap
             let textX = columnB.maxX + M.textGap
 
             func fillRow(_ color: NSColor) {

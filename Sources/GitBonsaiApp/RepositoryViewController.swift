@@ -383,6 +383,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.discard(on: self)
             ScreenshotHarness.fileMenu(on: self)
             ScreenshotHarness.scrollSidebar(sidebar)
+            ScreenshotHarness.printSidebarGutter(sidebar)
             ScreenshotHarness.openCommitMenu(on: self)
             ScreenshotHarness.runRemotesAndRebase(on: self)
             ScreenshotHarness.driveStashesAndTags(on: self)
