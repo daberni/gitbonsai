@@ -22,7 +22,8 @@ struct TagRows {
         let remoteRows = remoteOnly.keys.sorted().map { name in Self.remoteOnlyRow(name, states: byName[name] ?? [], labelled: labelled) }
         rows = localRows + remoteRows
 
-        guard !states.isEmpty else {
+        // The scopes are offered from the start whenever there is a remote, empty until it answers, so the filter field and its menu arrow never appear late.
+        guard !remotes.isEmpty else {
             scopes = []
             return
         }

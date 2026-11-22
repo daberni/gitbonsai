@@ -16,6 +16,7 @@ extension ScreenshotHarness {
                     FileHandle.standardError.write(Data("panel \(name) did not open\n".utf8))
                     return
                 }
+                watchPanelLayout(popover)
                 whenSettled(tab.tagsController, attempts: 150) { drivePanel(popover, in: window, on: tab, name: name) }
             }
         }
@@ -151,7 +152,7 @@ extension ScreenshotHarness {
     }
 
     /// The list without the popover's glass frame, which renders as noise outside a live window.
-    private static func capturePanel(_ popover: PanelPopover, to path: String) {
+    static func capturePanel(_ popover: PanelPopover, to path: String) {
         let view = popover.list
         view.window?.appearance = NSApp.appearance
         view.layoutSubtreeIfNeeded()

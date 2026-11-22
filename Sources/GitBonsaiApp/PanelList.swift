@@ -81,11 +81,11 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             noteLabel.isHidden = note == nil
         }
     }
-    /// A quiet spinner next to the counter while the entries are being brought up to date; the entries stay as they are meanwhile.
+    /// A quiet spinner at the header's end while the entries are being brought up to date; the entries stay as they are meanwhile.
+    /// Its slot is always there, so nothing moves when it starts or stops.
     var isBusy = false {
         didSet {
             guard isBusy != oldValue else { return }
-            busyIndicator.isHidden = !isBusy
             if isBusy { busyIndicator.startAnimation(nil) } else { busyIndicator.stopAnimation(nil) }
         }
     }
@@ -93,9 +93,9 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     private(set) var rows: [PanelRow] = []
     private(set) var shownRows: [PanelRow] = []
     private let titleLabel = NSTextField(labelWithString: "")
-    private let countLabel = NSTextField(labelWithString: "")
+    let countLabel = NSTextField(labelWithString: "")
     private let noteLabel = NSTextField(labelWithString: "")
-    private let busyIndicator = NSProgressIndicator()
+    let busyIndicator = NSProgressIndicator()
     private let filterPlaceholder: String
     private let empty: String
     private let noMatch: String
@@ -126,7 +126,6 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         busyIndicator.style = .spinning
         busyIndicator.controlSize = .mini
         busyIndicator.isDisplayedWhenStopped = false
-        busyIndicator.isHidden = true
         emptyLabel.stringValue = empty
         emptyLabel.textColor = Theme.inkMuted
         emptyLabel.font = Theme.body
@@ -159,8 +158,14 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         footer.orientation = .horizontal
         footer.spacing = Theme.Space.s
 
-        let header = NSStackView(views: [titleLabel, countLabel, busyIndicator, noteLabel])
+        // Title and counter lead, the note and the busy slot trail: a changing count or note never moves anything else in the header.
+        let header = NSStackView()
         header.spacing = Theme.Space.s
+        header.alignment = .centerY
+        header.addView(titleLabel, in: .leading)
+        header.addView(countLabel, in: .leading)
+        header.addView(noteLabel, in: .trailing)
+        header.addView(busyIndicator, in: .trailing)
         noteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for view in [header, filterField, scrollView, emptyLabel, footer] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -172,7 +177,10 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             widthAnchor.constraint(equalToConstant: P.width),
             header.topAnchor.constraint(equalTo: topAnchor, constant: P.padding),
             header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: P.padding),
-            header.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -P.padding),
+            header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -P.padding),
+            header.heightAnchor.constraint(equalToConstant: P.headerHeight),
+            busyIndicator.widthAnchor.constraint(equalToConstant: P.busySlot),
+            busyIndicator.heightAnchor.constraint(equalToConstant: P.busySlot),
             filterField.topAnchor.constraint(equalTo: header.bottomAnchor, constant: Theme.Space.s),
             filterField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: P.padding),
             filterField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -P.padding),

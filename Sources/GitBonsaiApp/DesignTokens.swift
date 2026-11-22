@@ -530,6 +530,10 @@ enum Theme {
         static let firstLine: CGFloat = 0.34
         static let secondLine: CGFloat = 0.70
         static let selectionInset: CGFloat = 1
+        /// The title row keeps this height whether a note or the busy spinner shows.
+        static let headerHeight: CGFloat = 18
+        /// Room the mini spinner always takes at the header's end.
+        static let busySlot: CGFloat = 12
         static let maxVisibleRows = 9
         /// Longer lists get a filter field.
         static let filterThreshold = 8
