@@ -48,6 +48,9 @@ final class FileRowView: NSView {
 
     override var isFlipped: Bool { true }
 
+    /// Like a Finder list, a click into an inactive window already chooses the file.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)

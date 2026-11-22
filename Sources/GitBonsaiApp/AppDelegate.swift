@@ -5,12 +5,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var windowController: MainWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.activate(ignoringOtherApps: true)
+        if !ScreenshotHarness.isActive { NSApp.activate(ignoringOtherApps: true) }
         ScreenshotHarness.applyAppearance()
         NSApp.mainMenu = makeMenu()
         let controller = MainWindowController(store: SessionStore.standard())
         windowController = controller
         controller.showWindow(nil)
+        // The capture renders the views itself, so the window can stay behind everything else.
+        if ScreenshotHarness.isActive { controller.window?.orderBack(nil) }
         controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()))
     }
 

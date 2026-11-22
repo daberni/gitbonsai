@@ -6,6 +6,7 @@ import GitEngine
 @MainActor
 enum ScreenshotHarness {
     static var outputPath: String? { environment["GITBONSAI_SCREENSHOT"] }
+    static var isActive: Bool { outputPath != nil }
     private static var environment: [String: String] { ProcessInfo.processInfo.environment }
     private static var didRunOneTimeAction = false
 
