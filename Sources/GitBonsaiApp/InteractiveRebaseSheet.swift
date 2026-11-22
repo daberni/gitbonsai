@@ -63,7 +63,7 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         let title = NSTextField(labelWithString: "")
         title.font = Theme.title
         title.textColor = Theme.ink
-        title.setText("Rebase \(RefName.branch(model.branch)) Interactively")
+        title.setText("Rebase \(RefName.branch(model.branch)) interactively")
         let keys = NSTextField(labelWithString: String(localized: "Oldest on top · drag or ⌥↑ ⌥↓ to move, p r e s f d to choose the action · column edges can be dragged", bundle: .module))
         keys.font = Theme.caption
         keys.textColor = Theme.inkMuted

@@ -33,11 +33,11 @@ final class TagsController {
         // A tag only on a remote can only be fetched; the buttons for a local tag make room for "Fetch Tag".
         let isLocal: (String?) -> Bool = { [weak self] name in name.map { self?.tag($0) != nil } ?? true }
         list.actions = [
-            PanelAction("Check Out", isShown: isLocal) { [weak self] name in self?.checkout(name) },
+            PanelAction("Checkout", isShown: isLocal) { [weak self] name in self?.checkout(name) },
             PanelAction(Self.pushButton, isEnabled: { [weak self] _ in self?.remotes.isEmpty == false }, isShown: isLocal) { [weak self] name in self?.pushFromButton(name) },
             PanelAction(Self.fetchButton, isShown: { !isLocal($0) }) { [weak self] name in self?.fetchFromButton(name) },
             PanelAction("Delete…", isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
-            PanelAction("Copy Tag Name") { name in ActionRunner.copy(name) },
+            PanelAction("Copy Tag name") { name in ActionRunner.copy(name) },
         ]
         remoteTags.onChange = { [weak self] in self?.render() }
     }
@@ -99,7 +99,7 @@ final class TagsController {
         guard let tag = tag(name) else {
             let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Fetch from \(RefName.remote(remote))") { [weak self] in self?.fetch(name, from: remote) } }
             let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Delete on \(RefName.remote(remote))…") { [weak self] in self?.deleteRemotely(name, on: remote) } }
-            return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem("Copy Tag Name") { ActionRunner.copy(name) }]
+            return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem("Copy Tag name") { ActionRunner.copy(name) }]
         }
         let jump: [NSMenuItem] = [ActionMenuItem("Jump to Commit") { [weak self] in self?.jump(to: name) }]
         return ([jump] + localTagGroups(name, commit: tag.commitID)).joinedWithSeparators
@@ -108,12 +108,12 @@ final class TagsController {
     /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history.
     func localTagGroups(_ name: String, commit: String) -> [[NSMenuItem]] {
         [
-            [ActionMenuItem("Check Out (Detached HEAD)") { [weak self] in self?.checkout(commit: commit) }],
+            [ActionMenuItem("Checkout (Detached HEAD)") { [weak self] in self?.checkout(commit: commit) }],
             remotes.map { remote in ActionMenuItem("Push to \(RefName.remote(remote))") { [weak self] in self?.push(name, to: remote) } },
             [ActionMenuItem("Delete…") { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
                 ActionMenuItem("Delete on \(RefName.remote(remote))…") { [weak self] in self?.deleteRemotely(name, on: remote) }
             },
-            [ActionMenuItem("Copy Tag Name") { ActionRunner.copy(name) }],
+            [ActionMenuItem("Copy Tag name") { ActionRunner.copy(name) }],
         ]
     }
 

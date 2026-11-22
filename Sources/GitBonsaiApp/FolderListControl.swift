@@ -36,8 +36,8 @@ final class FolderListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
         buttons.segmentCount = 2
         buttons.trackingMode = .momentary
         buttons.segmentStyle = .smallSquare
-        buttons.setImage(NSImage(systemSymbolName: "plus", accessibilityDescription: String(localized: "Add Folder", bundle: .module)), forSegment: 0)
-        buttons.setImage(NSImage(systemSymbolName: "minus", accessibilityDescription: String(localized: "Remove Folder", bundle: .module)), forSegment: 1)
+        buttons.setImage(NSImage(systemSymbolName: "plus", accessibilityDescription: String(localized: "Add folder", bundle: .module)), forSegment: 0)
+        buttons.setImage(NSImage(systemSymbolName: "minus", accessibilityDescription: String(localized: "Remove folder", bundle: .module)), forSegment: 1)
         buttons.target = self
         buttons.action = #selector(press(_:))
         for view in [scroll, buttons] as [NSView] {

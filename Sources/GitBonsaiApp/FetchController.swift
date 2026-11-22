@@ -27,14 +27,14 @@ final class FetchController {
     func menu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(item("Fetch All Remotes", .allRemotes))
+        menu.addItem(item("Fetch all Remotes", .allRemotes))
         if !remotes.isEmpty { menu.addItem(.separator()) }
         for remote in remotes {
             menu.addItem(item("Fetch \(RefName.remote(remote))", .remote(remote, prune: false)))
-            menu.addItem(item("Fetch \(RefName.remote(remote)) and Prune Deleted Branches", .remote(remote, prune: true)))
+            menu.addItem(item("Fetch \(RefName.remote(remote)) and Prune deleted Branches", .remote(remote, prune: true)))
         }
         menu.addItem(.separator())
-        menu.addItem(item("Fetch Tags from All Remotes", .tags))
+        menu.addItem(item("Fetch Tags from all Remotes", .tags))
         return menu
     }
 

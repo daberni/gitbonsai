@@ -77,7 +77,7 @@ final class ActionPrompter {
         if (error as? GitError)?.stoppedOnConflict == true {
             if await repository.operationInProgress() != nil { return }
             if let onToast {
-                onToast(RefString(title), onShowConflicts.map { show in ToastAction(title: "Show Conflicts") { show() } })
+                onToast(RefString(title), onShowConflicts.map { show in ToastAction(title: "Show conflicts") { show() } })
                 return
             }
         }
@@ -86,7 +86,7 @@ final class ActionPrompter {
 
     /// Changes set aside for a command conflicted when they came back: the working directory shows the conflicts, and the stash named `stash` stays.
     func reportConflictingReturn(of stash: String) {
-        onToast?(RefString("Local changes conflict on their way back; the stash “\(stash)” stays"), onShowConflicts.map { show in ToastAction(title: "Show Conflicts") { show() } })
+        onToast?(RefString("Local changes conflict on their way back; the stash “\(stash)” stays"), onShowConflicts.map { show in ToastAction(title: "Show conflicts") { show() } })
     }
 
     /// The sheet of a failure, also for a decision that a failure leads to, such as a rejected push. The chosen action runs once the sheet is gone.

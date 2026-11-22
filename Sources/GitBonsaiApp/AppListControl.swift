@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private let table = NSTableView()
-    private let addButton = NSButton(title: String(localized: "Add Other App…", bundle: .module), target: nil, action: nil)
+    private let addButton = NSButton(title: String(localized: "Add other app…", bundle: .module), target: nil, action: nil)
     let defaultPicker = NSPopUpButton(frame: .zero, pullsDown: false)
     private let kind: ExternalApps.Kind
     private var choices: [ExternalApps.Choice] = []
@@ -66,7 +66,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
 
     private func rebuildDefaultPicker() {
         defaultPicker.removeAllItems()
-        let first = NSMenuItem(title: kind == .editor ? String(localized: "First Checked Editor", bundle: .module) : String(localized: "First Checked Terminal", bundle: .module), action: nil, keyEquivalent: "")
+        let first = NSMenuItem(title: kind == .editor ? String(localized: "First checked editor", bundle: .module) : String(localized: "First checked terminal", bundle: .module), action: nil, keyEquivalent: "")
         defaultPicker.menu?.addItem(first)
         let shown = choices.filter(\.isShown)
         if !shown.isEmpty { defaultPicker.menu?.addItem(.separator()) }

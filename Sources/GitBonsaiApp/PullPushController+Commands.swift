@@ -30,7 +30,7 @@ extension PullPushController: CommandProvider {
         var commands = [Command(.push, context: pushContext, blocker: CommandRules.push(state)) { [weak self] in self?.pushCurrentBranch() }]
         let tagRemotes = state.remotes.isEmpty ? [nil] : state.remotes.map(Optional.some)
         for remote in tagRemotes {
-            commands.append(Command(id: "push.tags.\(remote ?? "")", title: "Push Tags", keywords: ["push"], glyph: .glyph(.tag), context: remote, blocker: CommandRules.pushTags(state)) { [weak self] in
+            commands.append(Command(id: "push.tags.\(remote ?? "")", title: "Push Tags", keywords: Command.searchWords("push, upload, publish"), glyph: .glyph(.tag), context: remote, blocker: CommandRules.pushTags(state)) { [weak self] in
                 guard let remote else { return }
                 self?.pushTags(.tags(remote: remote))
             })
@@ -53,9 +53,9 @@ extension PullPushController: CommandProvider {
 
     private static func commandTitle(of mode: PullMode) -> LocalizedStringResource {
         switch mode {
-        case .fastForwardOnly: "Pull with Fast-Forward"
-        case .merge: "Pull with Merge"
-        case .rebase: "Pull with Rebase"
+        case .fastForwardOnly: "Pull with fast-forward"
+        case .merge: "Pull with merge"
+        case .rebase: "Pull with rebase"
         }
     }
 }

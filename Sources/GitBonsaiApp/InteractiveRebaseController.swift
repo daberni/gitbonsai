@@ -45,8 +45,8 @@ final class InteractiveRebaseController {
         reword.keyEquivalentModifierMask = CommandShortcut.editMessage.modifiers
         return [
             reword,
-            item("Move Up", disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
-            item("Move Down", disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
+            item("Move up", disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
+            item("Move down", disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
             item("Drop Commit…", disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
         ]
     }

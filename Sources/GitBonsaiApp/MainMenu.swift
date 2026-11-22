@@ -239,7 +239,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
                 holder.submenu = services
                 items.append(holder)
             case .commandBar:
-                let entry = NSMenuItem(title: String(localized: "Command Bar…", bundle: .module), action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
+                let entry = NSMenuItem(title: String(localized: "Command bar…", bundle: .module), action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
                 entry.keyEquivalentModifierMask = CommandShortcut.commandBar.modifiers
                 entry.target = target
                 items.append(entry)
@@ -291,7 +291,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             recentMenu.addItem(item)
         }
         if paths.isEmpty {
-            let empty = NSMenuItem(title: String(localized: "Nothing Opened Yet", bundle: .module, comment: "The empty Open Recent menu."), action: nil, keyEquivalent: "")
+            let empty = NSMenuItem(title: String(localized: "Nothing opened yet", bundle: .module, comment: "The empty Open Recent menu."), action: nil, keyEquivalent: "")
             empty.isEnabled = false
             recentMenu.addItem(empty)
         }

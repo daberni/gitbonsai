@@ -130,7 +130,7 @@ final class OperationBannerController {
                 alert.messageText = String(localized: "Abort \(label)?", bundle: .module, comment: "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.")
                 alert.informativeText = String(localized: "Branch, index and working directory return to where they were before the \(label). Conflicts already resolved are lost.", bundle: .module, comment: "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.")
                 alert.addButton(withTitle: String(localized: "Abort \(label)", bundle: .module, comment: "Button; the argument is git's operation: Rebase, Cherry-pick, Revert or Merge."))
-                alert.addButton(withTitle: String(localized: "Keep Resolving", bundle: .module))
+                alert.addButton(withTitle: String(localized: "Keep resolving", bundle: .module))
                 alert.buttons.first?.hasDestructiveAction = true
                 guard await prompter.confirm(alert) else { return }
             }

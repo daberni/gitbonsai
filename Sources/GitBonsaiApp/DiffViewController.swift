@@ -8,7 +8,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private enum Row {
         case hunk(Int)
         case line(hunk: Int, line: Int)
-        /// A line of the whole file in the "Whole File" mode.
+        /// A line of the whole file in the "Whole file" mode.
         case fileLine(Int)
         /// A sentence about the whole file above its lines.
         case notice(String)
@@ -29,9 +29,9 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private var diff: FileDiff?
     private var mode = DiffMode.remembered
     private var style = DiffLineStyle(options: DiffOptions.remembered)
-    /// Every line of the file, read only in the "Whole File" mode.
+    /// Every line of the file, read only in the "Whole file" mode.
     private var fileLines: [DiffLine] = []
-    /// The rows hunk navigation stops at: hunk headers, or in the "Whole File" mode the line each hunk starts with.
+    /// The rows hunk navigation stops at: hunk headers, or in the "Whole file" mode the line each hunk starts with.
     private var hunkStarts: [Int] = []
     private var rows: [Row] = []
     private var loadTask: Task<Void, Never>?
@@ -142,7 +142,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         }
     }
 
-    /// The diff, and in the "Whole File" mode also the whole file; both are read before either is shown. A binary file is checked for UTF-16 text.
+    /// The diff, and in the "Whole file" mode also the whole file; both are read before either is shown. A binary file is checked for UTF-16 text.
     private static func read(_ selection: FileSelection, mode: DiffMode, from repository: Repository) async -> (FileDiff?, FileDiff?, WideTextEncoding?) {
         async let diff = try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
         async let full = mode == .file ? try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil

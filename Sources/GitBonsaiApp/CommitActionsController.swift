@@ -47,14 +47,14 @@ final class CommitActionsController {
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
         if !inBranch {
-            items.append(ActionMenuItem("Cherry-pick onto \(RefName.branch(branch))") { [weak self] in self?.cherryPick(commit) })
+            items.append(ActionMenuItem("Cherry-Pick onto \(RefName.branch(branch))") { [weak self] in self?.cherryPick(commit) })
         }
         items += rebaseOnto.items(branch: branch, commit: commit)
         if !isHead {
             let reset = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            reset.setTitle("Reset \(RefName.branch(branch)) to Here")
+            reset.setTitle("Reset \(RefName.branch(branch)) to here")
             let submenu = NSMenu()
-            let modes: [(ResetMode, LocalizedStringResource)] = [(.soft, "Soft – Keep Changes Staged"), (.mixed, "Mixed – Keep Changes in Working Directory"), (.hard, "Hard – Discard Changes…")]
+            let modes: [(ResetMode, LocalizedStringResource)] = [(.soft, "Soft – keep changes staged"), (.mixed, "Mixed – keep changes in working directory"), (.hard, "Hard – discard changes…")]
             for (mode, title) in modes {
                 submenu.addItem(ActionMenuItem(title) { [weak self] in self?.reset(branch, to: commit, mode: mode) })
             }
@@ -62,7 +62,7 @@ final class CommitActionsController {
             items.append(reset)
         }
         if inBranch {
-            items.append(ActionMenuItem("Create Revert Commit") { [weak self] in self?.revert(commit) })
+            items.append(ActionMenuItem("Revert Commit") { [weak self] in self?.revert(commit) })
         }
         return items
     }
@@ -79,7 +79,7 @@ final class CommitActionsController {
     private func tagItems(_ commit: Commit) -> [NSMenuItem] {
         [
             ActionMenuItem("Create Tag…") { [weak self] in self?.createTag(at: commit, annotated: false) },
-            ActionMenuItem("Create Annotated Tag…") { [weak self] in self?.createTag(at: commit, annotated: true) },
+            ActionMenuItem("Create annotated Tag…") { [weak self] in self?.createTag(at: commit, annotated: true) },
         ]
     }
 
@@ -148,7 +148,7 @@ final class CommitActionsController {
     }
 
     private func createTag(at commit: Commit, annotated: Bool) {
-        let title: LocalizedStringResource = annotated ? "Create Annotated Tag at \(RefName.commit(commit.id))" : "Create Tag at \(RefName.commit(commit.id))"
+        let title: LocalizedStringResource = annotated ? "Create annotated Tag at \(RefName.commit(commit.id))" : "Create Tag at \(RefName.commit(commit.id))"
         let form = ActionForm(title: title, info: .verbatim(commit.subject), confirm: "Create")
         form.addField(key: "name", label: "Name", placeholder: "v1.0")
         if annotated { form.addMessage(label: "Message") }
@@ -195,7 +195,7 @@ final class CommitActionsController {
         let message = String(localized: "GitBonsai: before \(note)", bundle: .module, comment: "Message of the stash that carries local changes past a command; the argument is the git command.")
         let prompter = prompter
         let carried = String(localized: "\(note) · local changes carried along in a stash", bundle: .module, comment: "Status line after a command ran with the local changes stashed around it; the argument is the git command.")
-        return FailureAction(title: "Stash Changes and Try Again") { [weak self] in
+        return FailureAction(title: "Stash changes and try again") { [weak self] in
             self?.runOperation(failure: failure, conflict: conflict, note: carried, endsRebase: endsRebase) { repository in
                 var report: OperationReport?
                 let conflicted = try await repository.withLocalChangesStashed(message: message) { report = try await operation(repository) }

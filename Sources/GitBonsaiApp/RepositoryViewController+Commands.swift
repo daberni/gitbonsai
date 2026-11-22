@@ -27,9 +27,9 @@ extension RepositoryViewController: CommandProvider {
     private func viewCommands() -> [Command] {
         // Each title on its own: the compiler extracts only the first branch of a conditional expression into the String Catalog.
         let sidebarTitle: LocalizedStringResource
-        if split.showsSidebar { sidebarTitle = "Hide Sidebar" } else { sidebarTitle = "Show Sidebar" }
+        if split.showsSidebar { sidebarTitle = "Hide sidebar" } else { sidebarTitle = "Show sidebar" }
         let detailTitle: LocalizedStringResource
-        if split.showsDetail { detailTitle = "Hide Detail Panel" } else { detailTitle = "Show Detail Panel" }
+        if split.showsDetail { detailTitle = "Hide detail panel" } else { detailTitle = "Show detail panel" }
         return [
             Command(.toggleSidebar, title: sidebarTitle) { [weak self] in self?.split.toggleSidebar() },
             Command(.toggleDetail, title: detailTitle) { [weak self] in self?.split.toggleDetail() },
@@ -96,7 +96,7 @@ extension RepositoryViewController: CommandProvider {
         ]
     }
 
-    /// "Open in Editor With…" and "Open in Terminal With…": the apps checked in the settings, the default marked.
+    /// "Open in editor with…" and "Open in terminal with…": the apps checked in the settings, the default marked.
     private static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?) -> Command {
         let shown = ExternalApps.shown(kind)
         let none: LocalizedStringResource = kind == .editor ? "No editor found" : "No terminal found"

@@ -1596,7 +1596,17 @@
         }
       }
     },
-    "Add Folder" : {
+    "Add Remote…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote hinzufügen …"
+          }
+        }
+      }
+    },
+    "Add folder" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1606,22 +1616,12 @@
         }
       }
     },
-    "Add Other App…" : {
+    "Add other app…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Andere App hinzufügen …"
-          }
-        }
-      }
-    },
-    "Add Remote…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remote hinzufügen …"
           }
         }
       }
@@ -1724,16 +1724,6 @@
         }
       }
     },
-    "Amend Anyway" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trotzdem ändern"
-          }
-        }
-      }
-    },
     "Amend Commit…" : {
       "localizations" : {
         "de" : {
@@ -1744,12 +1734,12 @@
         }
       }
     },
-    "Amend Last Commit…" : {
+    "Amend anyway" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Letzten Commit ändern (Amend) …"
+            "value" : "Trotzdem ändern"
           }
         }
       }
@@ -1760,6 +1750,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amend fehlgeschlagen"
+          }
+        }
+      }
+    },
+    "Amend last Commit…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letzten Commit ändern (Amend) …"
           }
         }
       }
@@ -1848,22 +1848,22 @@
         }
       }
     },
-    "Automatic Graph Width" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Graph-Breite automatisch"
-          }
-        }
-      }
-    },
     "Automatic fetch" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatisch holen"
+          }
+        }
+      }
+    },
+    "Automatic graph width" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graph-Breite automatisch"
           }
         }
       }
@@ -2086,108 +2086,6 @@
         }
       }
     },
-    "Check Out" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auschecken"
-          }
-        }
-      }
-    },
-    "Check Out %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ auschecken"
-          }
-        }
-      }
-    },
-    "Check Out %@ (Diverged from %@)…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ auschecken (weicht von %@ ab) …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Check Out %1$@ (Diverged from %2$@)…"
-          }
-        }
-      }
-    },
-    "Check Out %@ and Fast-Forward to %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ auschecken und auf %@ vorspulen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Check Out %1$@ and Fast-Forward to %2$@"
-          }
-        }
-      }
-    },
-    "Check Out %@ as Local Branch" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ als lokalen Branch auschecken"
-          }
-        }
-      }
-    },
-    "Check Out (Detached HEAD)" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auschecken (Detached HEAD)"
-          }
-        }
-      }
-    },
-    "Check Out Branch…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch auschecken …"
-          }
-        }
-      }
-    },
-    "Check Out Commit %@ (Detached HEAD)" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Commit %@ auschecken (Detached HEAD)"
-          }
-        }
-      }
-    },
-    "Check Out and Pull…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auschecken und pullen …"
-          }
-        }
-      }
-    },
     "Check out" : {
       "comment" : "Checkbox in the New Branch sheet: switch to the new branch.",
       "localizations" : {
@@ -2249,22 +2147,124 @@
         }
       }
     },
+    "Checkout" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auschecken"
+          }
+        }
+      }
+    },
+    "Checkout %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ auschecken"
+          }
+        }
+      }
+    },
+    "Checkout %@ (diverged from %@)…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ auschecken (weicht von %@ ab) …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check Out %1$@ (Diverged from %2$@)…"
+          }
+        }
+      }
+    },
+    "Checkout %@ and Fast-Forward to %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ auschecken und auf %@ vorspulen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Check Out %1$@ and Fast-Forward to %2$@"
+          }
+        }
+      }
+    },
+    "Checkout %@ as local Branch" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ als lokalen Branch auschecken"
+          }
+        }
+      }
+    },
+    "Checkout (Detached HEAD)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auschecken (Detached HEAD)"
+          }
+        }
+      }
+    },
+    "Checkout Branch…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branch auschecken …"
+          }
+        }
+      }
+    },
+    "Checkout Commit %@ (Detached HEAD)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit %@ auschecken (Detached HEAD)"
+          }
+        }
+      }
+    },
+    "Checkout and Pull…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auschecken und pullen …"
+          }
+        }
+      }
+    },
+    "Cherry-Pick onto %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cherry-pick auf %@"
+          }
+        }
+      }
+    },
     "Cherry-pick failed" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cherry-pick fehlgeschlagen"
-          }
-        }
-      }
-    },
-    "Cherry-pick onto %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cherry-pick auf %@"
           }
         }
       }
@@ -2420,22 +2420,22 @@
         }
       }
     },
-    "Close Tab" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tab schließen"
-          }
-        }
-      }
-    },
     "Close Window" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fenster schließen"
+          }
+        }
+      }
+    },
+    "Close tab" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab schließen"
           }
         }
       }
@@ -2471,7 +2471,7 @@
         }
       }
     },
-    "Command Bar…" : {
+    "Command bar…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2737,22 +2737,12 @@
         }
       }
     },
-    "Copy Branch Name" : {
+    "Copy Branch name" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Branch-Namen kopieren"
-          }
-        }
-      }
-    },
-    "Copy Full Path" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vollen Pfad kopieren"
           }
         }
       }
@@ -2767,26 +2757,6 @@
         }
       }
     },
-    "Copy Name" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Namen kopieren"
-          }
-        }
-      }
-    },
-    "Copy Path" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pfad kopieren"
-          }
-        }
-      }
-    },
     "Copy SHA" : {
       "localizations" : {
         "de" : {
@@ -2797,12 +2767,42 @@
         }
       }
     },
-    "Copy Tag Name" : {
+    "Copy Tag name" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Name kopieren"
+          }
+        }
+      }
+    },
+    "Copy full path" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vollen Pfad kopieren"
+          }
+        }
+      }
+    },
+    "Copy name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Namen kopieren"
+          }
+        }
+      }
+    },
+    "Copy path" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pfad kopieren"
           }
         }
       }
@@ -2887,42 +2887,12 @@
         }
       }
     },
-    "Create Annotated Tag at %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotierten Tag bei %@ anlegen"
-          }
-        }
-      }
-    },
-    "Create Annotated Tag…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotierten Tag anlegen …"
-          }
-        }
-      }
-    },
     "Create Branch" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Branch anlegen"
-          }
-        }
-      }
-    },
-    "Create Branch Here…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch hier anlegen …"
           }
         }
       }
@@ -2957,22 +2927,22 @@
         }
       }
     },
+    "Create Branch here…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branch hier anlegen …"
+          }
+        }
+      }
+    },
     "Create Branch…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Branch anlegen …"
-          }
-        }
-      }
-    },
-    "Create Revert Commit" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Revert-Commit anlegen"
           }
         }
       }
@@ -3033,6 +3003,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Worktree anlegen …"
+          }
+        }
+      }
+    },
+    "Create annotated Tag at %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotierten Tag bei %@ anlegen"
+          }
+        }
+      }
+    },
+    "Create annotated Tag…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotierten Tag anlegen …"
           }
         }
       }
@@ -3199,22 +3189,22 @@
         }
       }
     },
-    "Delete Anyway" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trotzdem löschen"
-          }
-        }
-      }
-    },
     "Delete Worktree and Branch" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Worktree und Branch löschen"
+          }
+        }
+      }
+    },
+    "Delete anyway" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trotzdem löschen"
           }
         }
       }
@@ -3423,26 +3413,6 @@
         }
       }
     },
-    "Discard All Changes…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle Änderungen verwerfen …"
-          }
-        }
-      }
-    },
-    "Discard Changes…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Änderungen verwerfen …"
-          }
-        }
-      }
-    },
     "Discard Hunk" : {
       "localizations" : {
         "de" : {
@@ -3463,12 +3433,32 @@
         }
       }
     },
+    "Discard all changes…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Änderungen verwerfen …"
+          }
+        }
+      }
+    },
     "Discard changes to %@?" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Änderungen an %@ verwerfen?"
+          }
+        }
+      }
+    },
+    "Discard changes…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen verwerfen …"
           }
         }
       }
@@ -3769,7 +3759,7 @@
         }
       }
     },
-    "Fast-Forward Only" : {
+    "Fast-forward only" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3779,7 +3769,7 @@
         }
       }
     },
-    "Fast-Forward Only (Default)" : {
+    "Fast-forward only (default)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3930,22 +3920,12 @@
         }
       }
     },
-    "Fetch %@ and Prune Deleted Branches" : {
+    "Fetch %@ and Prune deleted Branches" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ fetchen und gelöschte Branches entfernen"
-          }
-        }
-      }
-    },
-    "Fetch All Remotes" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle Remotes fetchen"
           }
         }
       }
@@ -3960,12 +3940,22 @@
         }
       }
     },
-    "Fetch Tags from All Remotes" : {
+    "Fetch Tags from all Remotes" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tags aller Remotes fetchen"
+          }
+        }
+      }
+    },
+    "Fetch all Remotes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Remotes fetchen"
           }
         }
       }
@@ -4079,7 +4069,7 @@
         }
       }
     },
-    "First Checked Editor" : {
+    "First checked editor" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4089,7 +4079,7 @@
         }
       }
     },
-    "First Checked Terminal" : {
+    "First checked terminal" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4276,7 +4266,7 @@
         }
       }
     },
-    "Hard – Discard Changes…" : {
+    "Hard – discard changes…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4292,16 +4282,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hilfe"
-          }
-        }
-      }
-    },
-    "Hide Detail Panel" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detail-Panel ausblenden"
           }
         }
       }
@@ -4326,7 +4306,17 @@
         }
       }
     },
-    "Hide Sidebar" : {
+    "Hide detail panel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detail-Panel ausblenden"
+          }
+        }
+      }
+    },
+    "Hide sidebar" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4417,7 +4407,7 @@
         }
       }
     },
-    "Just Check Out" : {
+    "Just Checkout" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4427,7 +4417,7 @@
         }
       }
     },
-    "Keep Resolving" : {
+    "Keep resolving" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4557,17 +4547,6 @@
         }
       }
     },
-    "Local Only" : {
-      "comment" : "Tag filter: tags no remote has.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nur lokal"
-          }
-        }
-      }
-    },
     "Local changes conflict on their way back; the stash “%@” stays" : {
       "localizations" : {
         "de" : {
@@ -4646,7 +4625,7 @@
         }
       }
     },
-    "Local has %@, %@ has %@. A fast-forward is not possible; nothing was changed. Check Out and Pull offers merge and rebase; resetting drops the local commits." : {
+    "Local has %@, %@ has %@. A fast-forward is not possible; nothing was changed. Checkout and Pull offers merge and rebase; resetting drops the local commits." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4658,6 +4637,17 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Local has %1$@, %2$@ has %3$@. A fast-forward is not possible; nothing was changed. Check Out and Pull offers merge and rebase; resetting drops the local commits."
+          }
+        }
+      }
+    },
+    "Local only" : {
+      "comment" : "Tag filter: tags no remote has.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur lokal"
           }
         }
       }
@@ -4719,7 +4709,7 @@
         }
       }
     },
-    "Merge (Default)" : {
+    "Merge (default)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4870,7 +4860,7 @@
         }
       }
     },
-    "Mixed – Keep Changes in Working Directory" : {
+    "Mixed – keep changes in working directory" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4890,32 +4880,22 @@
         }
       }
     },
-    "Move Down" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nach unten verschieben"
-          }
-        }
-      }
-    },
-    "Move Up" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nach oben verschieben"
-          }
-        }
-      }
-    },
     "Move dependent branches along (--update-refs)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abhängige Branches mitziehen (--update-refs)"
+          }
+        }
+      }
+    },
+    "Move down" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach unten verschieben"
           }
         }
       }
@@ -4936,6 +4916,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "In den Papierkorb legen …"
+          }
+        }
+      }
+    },
+    "Move up" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach oben verschieben"
           }
         }
       }
@@ -4968,16 +4958,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Neuer Branch …"
-          }
-        }
-      }
-    },
-    "New Tab" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neuer Tab"
           }
         }
       }
@@ -5022,6 +5002,16 @@
         }
       }
     },
+    "New tab" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer Tab"
+          }
+        }
+      }
+    },
     "Next Hunk" : {
       "localizations" : {
         "de" : {
@@ -5032,7 +5022,7 @@
         }
       }
     },
-    "Next Tab" : {
+    "Next tab" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5413,17 +5403,6 @@
         }
       }
     },
-    "Nothing Opened Yet" : {
-      "comment" : "The empty Open Recent menu.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Noch nichts geöffnet"
-          }
-        }
-      }
-    },
     "Nothing changed" : {
       "localizations" : {
         "de" : {
@@ -5460,6 +5439,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Über diesem Commit liegt nichts, das neu geschrieben werden könnte."
+          }
+        }
+      }
+    },
+    "Nothing opened yet" : {
+      "comment" : "The empty Open Recent menu.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch nichts geöffnet"
           }
         }
       }
@@ -5680,16 +5670,6 @@
         }
       }
     },
-    "Open Folder…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ordner öffnen …"
-          }
-        }
-      }
-    },
     "Open Recent" : {
       "localizations" : {
         "de" : {
@@ -5732,6 +5712,16 @@
         }
       }
     },
+    "Open folder…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ordner öffnen …"
+          }
+        }
+      }
+    },
     "Open in %@" : {
       "localizations" : {
         "de" : {
@@ -5742,7 +5732,7 @@
         }
       }
     },
-    "Open in Diff Tool" : {
+    "Open in diff tool" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5752,7 +5742,7 @@
         }
       }
     },
-    "Open in Editor" : {
+    "Open in editor" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5762,7 +5752,7 @@
         }
       }
     },
-    "Open in Editor With…" : {
+    "Open in editor with…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5772,7 +5762,7 @@
         }
       }
     },
-    "Open in Terminal" : {
+    "Open in terminal" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5782,7 +5772,7 @@
         }
       }
     },
-    "Open in Terminal With…" : {
+    "Open in terminal with…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5792,7 +5782,7 @@
         }
       }
     },
-    "Open with Default App" : {
+    "Open with default app" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5813,7 +5803,7 @@
         }
       }
     },
-    "Opens repositories and worktrees with “Open in Terminal”." : {
+    "Opens repositories and worktrees with “Open in terminal”." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5833,7 +5823,7 @@
         }
       }
     },
-    "Opens worktrees with “Open in Editor” and files from their context menu." : {
+    "Opens worktrees with “Open in editor” and files from their context menu." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5947,7 +5937,7 @@
         }
       }
     },
-    "Previous Tab" : {
+    "Previous tab" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5957,7 +5947,7 @@
         }
       }
     },
-    "Prune Missing Worktrees" : {
+    "Prune missing Worktrees" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6014,27 +6004,7 @@
         }
       }
     },
-    "Pull Using Merge" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mit Merge pullen"
-          }
-        }
-      }
-    },
-    "Pull Using Rebase" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mit Rebase pullen"
-          }
-        }
-      }
-    },
-    "Pull and Push Again" : {
+    "Pull and Push again" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6074,7 +6044,27 @@
         }
       }
     },
-    "Pull with Fast-Forward" : {
+    "Pull using merge" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Merge pullen"
+          }
+        }
+      }
+    },
+    "Pull using rebase" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Rebase pullen"
+          }
+        }
+      }
+    },
+    "Pull with fast-forward" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6084,7 +6074,7 @@
         }
       }
     },
-    "Pull with Merge" : {
+    "Pull with merge" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6094,7 +6084,7 @@
         }
       }
     },
-    "Pull with Rebase" : {
+    "Pull with rebase" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6272,7 +6262,7 @@
         }
       }
     },
-    "Rebase %@ Interactively" : {
+    "Rebase %@ interactively" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6282,7 +6272,7 @@
         }
       }
     },
-    "Rebase %@ Interactively onto %@…" : {
+    "Rebase %@ interactively onto %@…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6298,7 +6288,7 @@
         }
       }
     },
-    "Rebase %@ Interactively onto This Commit…" : {
+    "Rebase %@ interactively onto this Commit…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6340,7 +6330,7 @@
         }
       }
     },
-    "Rebase %@ onto %@ (Ambiguous Base)…" : {
+    "Rebase %@ onto %@ (ambiguous base)…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6356,7 +6346,7 @@
         }
       }
     },
-    "Rebase %@ onto %@ (Fast-Forward)" : {
+    "Rebase %@ onto %@ (fast-forward)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6372,7 +6362,7 @@
         }
       }
     },
-    "Rebase %@ onto %@ (Finding Base…)" : {
+    "Rebase %@ onto %@ (finding base…)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6404,7 +6394,7 @@
         }
       }
     },
-    "Rebase %@ onto This Commit (%@)" : {
+    "Rebase %@ onto this Commit (%@)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6420,7 +6410,7 @@
         }
       }
     },
-    "Rebase %@ onto This Commit (Ambiguous Base)…" : {
+    "Rebase %@ onto this Commit (ambiguous base)…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6430,7 +6420,7 @@
         }
       }
     },
-    "Rebase %@ onto This Commit (Fast-Forward)" : {
+    "Rebase %@ onto this Commit (fast-forward)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6440,7 +6430,7 @@
         }
       }
     },
-    "Rebase %@ onto This Commit (Finding Base…)" : {
+    "Rebase %@ onto this Commit (finding base…)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6450,7 +6440,7 @@
         }
       }
     },
-    "Rebase (Default)" : {
+    "Rebase (default)" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6572,17 +6562,6 @@
         }
       }
     },
-    "Remote Only" : {
-      "comment" : "Tag filter: tags only a remote has.",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nur auf Remote"
-          }
-        }
-      }
-    },
     "Remote branch" : {
       "localizations" : {
         "de" : {
@@ -6613,6 +6592,17 @@
         }
       }
     },
+    "Remote only" : {
+      "comment" : "Tag filter: tags only a remote has.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur auf Remote"
+          }
+        }
+      }
+    },
     "Remove" : {
       "localizations" : {
         "de" : {
@@ -6623,7 +6613,17 @@
         }
       }
     },
-    "Remove Anyway" : {
+    "Remove Worktree %@?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Worktree %@ entfernen?"
+          }
+        }
+      }
+    },
+    "Remove anyway" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6633,22 +6633,12 @@
         }
       }
     },
-    "Remove Folder" : {
+    "Remove folder" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ordner entfernen"
-          }
-        }
-      }
-    },
-    "Remove Worktree %@?" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Worktree %@ entfernen?"
           }
         }
       }
@@ -6803,7 +6793,7 @@
         }
       }
     },
-    "Reset %@ to Here" : {
+    "Reset %@ to here" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6813,7 +6803,7 @@
         }
       }
     },
-    "Reset Columns" : {
+    "Reset columns" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6905,22 +6895,22 @@
         }
       }
     },
-    "Restore Version Before This Commit" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Version vor diesem Commit wiederherstellen"
-          }
-        }
-      }
-    },
-    "Restore from This Commit" : {
+    "Restore from this Commit" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aus diesem Commit wiederherstellen"
+          }
+        }
+      }
+    },
+    "Restore version before this Commit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version vor diesem Commit wiederherstellen"
           }
         }
       }
@@ -6932,6 +6922,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ergebnis, neuester oben"
+          }
+        }
+      }
+    },
+    "Revert Commit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revert-Commit anlegen"
           }
         }
       }
@@ -7312,26 +7312,6 @@
         }
       }
     },
-    "Show Conflicts" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Konflikte anzeigen"
-          }
-        }
-      }
-    },
-    "Show Detail Panel" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detail-Panel einblenden"
-          }
-        }
-      }
-    },
     "Show Diff" : {
       "localizations" : {
         "de" : {
@@ -7342,12 +7322,22 @@
         }
       }
     },
-    "Show Sidebar" : {
+    "Show conflicts" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Seitenleiste einblenden"
+            "value" : "Konflikte anzeigen"
+          }
+        }
+      }
+    },
+    "Show detail panel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detail-Panel einblenden"
           }
         }
       }
@@ -7379,6 +7369,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nur die Änderungen oder die ganze Datei zeigen"
+          }
+        }
+      }
+    },
+    "Show sidebar" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seitenleiste einblenden"
           }
         }
       }
@@ -7525,7 +7525,7 @@
         }
       }
     },
-    "Soft – Keep Changes Staged" : {
+    "Soft – keep changes staged" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7565,26 +7565,6 @@
         }
       }
     },
-    "Stage All" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alles stagen"
-          }
-        }
-      }
-    },
-    "Stage File" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Datei stagen"
-          }
-        }
-      }
-    },
     "Stage Hunk" : {
       "localizations" : {
         "de" : {
@@ -7602,6 +7582,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alle stagen"
+          }
+        }
+      }
+    },
+    "Stage all changes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alles stagen"
+          }
+        }
+      }
+    },
+    "Stage file" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei stagen"
           }
         }
       }
@@ -7649,42 +7649,12 @@
         }
       }
     },
-    "Stash All Changes" : {
+    "Stash all changes" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alle Änderungen stashen"
-          }
-        }
-      }
-    },
-    "Stash Changes" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Änderungen stashen"
-          }
-        }
-      }
-    },
-    "Stash Changes and Try Again" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Änderungen stashen und erneut versuchen"
-          }
-        }
-      }
-    },
-    "Stash Staged Changes Only" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nur gestagte Änderungen stashen"
           }
         }
       }
@@ -7705,6 +7675,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stash mit Konflikten angewendet, er bleibt erhalten"
+          }
+        }
+      }
+    },
+    "Stash changes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen stashen"
+          }
+        }
+      }
+    },
+    "Stash changes and try again" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen stashen und erneut versuchen"
           }
         }
       }
@@ -7755,6 +7745,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stash nicht zurückgenommen"
+          }
+        }
+      }
+    },
+    "Stash staged changes only" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur gestagte Änderungen stashen"
           }
         }
       }
@@ -7874,26 +7874,6 @@
         }
       }
     },
-    "Switch to Tab…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zu Tab wechseln …"
-          }
-        }
-      }
-    },
-    "Switch to This Worktree" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zu diesem Worktree wechseln"
-          }
-        }
-      }
-    },
     "Switch to Worktree %@" : {
       "localizations" : {
         "de" : {
@@ -7916,6 +7896,26 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Switch to Worktree %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "Switch to tab…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu Tab wechseln …"
+          }
+        }
+      }
+    },
+    "Switch to this Worktree" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu diesem Worktree wechseln"
           }
         }
       }
@@ -8146,7 +8146,7 @@
         }
       }
     },
-    "The command bar (⇧⌘P) offers the checked editors under “Open in Editor With…”." : {
+    "The command bar (⇧⌘P) offers the checked editors under “Open in editor with…”." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8156,7 +8156,7 @@
         }
       }
     },
-    "The command bar offers the checked terminals under “Open in Terminal With…”." : {
+    "The command bar offers the checked terminals under “Open in terminal with…”." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8624,26 +8624,6 @@
         }
       }
     },
-    "Unstage All" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alles unstagen"
-          }
-        }
-      }
-    },
-    "Unstage File" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Datei unstagen"
-          }
-        }
-      }
-    },
     "Unstage Hunk" : {
       "localizations" : {
         "de" : {
@@ -8661,6 +8641,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alle unstagen"
+          }
+        }
+      }
+    },
+    "Unstage all changes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alles unstagen"
+          }
+        }
+      }
+    },
+    "Unstage file" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei unstagen"
           }
         }
       }
@@ -8837,7 +8837,7 @@
         }
       }
     },
-    "Whole File" : {
+    "Whole file" : {
       "comment" : "Diff mode: the whole file with the changes in place",
       "localizations" : {
         "de" : {
@@ -8940,6 +8940,28 @@
         }
       }
     },
+    "abort, cancel" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "abbrechen"
+          }
+        }
+      }
+    },
+    "add, stage, index" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vormerken, stagen"
+          }
+        }
+      }
+    },
     "added" : {
       "comment" : "What happened to a file",
       "localizations" : {
@@ -8982,6 +9004,17 @@
         }
       }
     },
+    "amend, fix, last commit" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ergänzen, korrigieren, letzter Commit"
+          }
+        }
+      }
+    },
     "binary" : {
       "comment" : "Note on a file row: a binary file without line counts",
       "localizations" : {
@@ -8993,6 +9026,61 @@
         }
       }
     },
+    "branch, create, new" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "erstellen, anlegen, neu"
+          }
+        }
+      }
+    },
+    "checkout, switch" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "auschecken, wechseln"
+          }
+        }
+      }
+    },
+    "clone, download" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "klonen, herunterladen"
+          }
+        }
+      }
+    },
+    "code, ide" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bearbeiten"
+          }
+        }
+      }
+    },
+    "commit, save, record" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "committen, speichern"
+          }
+        }
+      }
+    },
     "conflict" : {
       "comment" : "Note on a file row: the file has unresolved conflicts",
       "localizations" : {
@@ -9000,6 +9088,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Konflikt"
+          }
+        }
+      }
+    },
+    "continue, resume" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "fortsetzen, weiter"
           }
         }
       }
@@ -9047,6 +9146,28 @@
         }
       }
     },
+    "copy, name, clipboard" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kopieren, Zwischenablage"
+          }
+        }
+      }
+    },
+    "copy, sha, hash, clipboard" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kopieren, Zwischenablage"
+          }
+        }
+      }
+    },
     "deleted" : {
       "comment" : "What happened to a file",
       "localizations" : {
@@ -9076,6 +9197,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "erkannt"
+          }
+        }
+      }
+    },
+    "discard, restore, reset" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "verwerfen, zurücksetzen, Änderungen"
           }
         }
       }
@@ -9113,6 +9245,28 @@
         }
       }
     },
+    "fetch, download, update" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "holen, abrufen, aktualisieren"
+          }
+        }
+      }
+    },
+    "fetch, prune, clean up" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "holen, aufräumen"
+          }
+        }
+      }
+    },
     "fetched %@" : {
       "comment" : "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.",
       "localizations" : {
@@ -9120,6 +9274,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "gefetcht %@"
+          }
+        }
+      }
+    },
+    "find, filter" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "suchen, finden, filtern"
           }
         }
       }
@@ -9269,6 +9434,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "in Worktree %@"
+          }
+        }
+      }
+    },
+    "inspector, detail, show, hide" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details, Inspektor, einblenden, ausblenden"
           }
         }
       }
@@ -9424,6 +9600,17 @@
         }
       }
     },
+    "open, folder" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "öffnen, Ordner"
+          }
+        }
+      }
+    },
     "pick" : {
       "comment" : "Rebase action in the step pop-up; git's todo verb.",
       "localizations" : {
@@ -9431,6 +9618,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "pick"
+          }
+        }
+      }
+    },
+    "pop, stash apply, restore" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "anwenden, zurückholen"
+          }
+        }
+      }
+    },
+    "pull, update, download" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "aktualisieren, herunterladen"
+          }
+        }
+      }
+    },
+    "pull, upstream, track" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "verfolgen, aktualisieren"
+          }
+        }
+      }
+    },
+    "push, upload, publish" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "hochladen, veröffentlichen"
+          }
+        }
+      }
+    },
+    "rebase -i, squash, reword, fixup, drop" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "umschreiben, zusammenfassen, Nachricht ändern"
           }
         }
       }
@@ -9478,6 +9720,28 @@
         }
       }
     },
+    "restore, unstage, index" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zurücknehmen, unstagen"
+          }
+        }
+      }
+    },
+    "reveal, folder" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ordner, zeigen"
+          }
+        }
+      }
+    },
     "reword" : {
       "comment" : "Rebase action in the step pop-up; git's todo verb.",
       "localizations" : {
@@ -9485,6 +9749,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "reword"
+          }
+        }
+      }
+    },
+    "reword, message, edit" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachricht, bearbeiten, ändern"
           }
         }
       }
@@ -9500,6 +9775,39 @@
         }
       }
     },
+    "settings, preferences, editor, terminal" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen, Optionen"
+          }
+        }
+      }
+    },
+    "shell, console" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konsole, Kommandozeile"
+          }
+        }
+      }
+    },
+    "sidebar, show, hide" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seitenleiste, einblenden, ausblenden"
+          }
+        }
+      }
+    },
     "since common base" : {
       "comment" : "Checkbox: compare two commits from their merge base",
       "localizations" : {
@@ -9507,6 +9815,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "seit gemeinsamer Basis"
+          }
+        }
+      }
+    },
+    "skip" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "überspringen"
           }
         }
       }
@@ -9543,6 +9862,39 @@
         }
       }
     },
+    "stash push, changes, message" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen, Nachricht, zurücklegen"
+          }
+        }
+      }
+    },
+    "stash push, changes, save" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen, zurücklegen, sichern"
+          }
+        }
+      }
+    },
+    "stash push, staged, index" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vorgemerkt, gestagt, zurücklegen"
+          }
+        }
+      }
+    },
     "stops for editing" : {
       "comment" : "Rebase preview mark: the rebase stops at this commit (edit).",
       "localizations" : {
@@ -9561,6 +9913,61 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "synced"
+          }
+        }
+      }
+    },
+    "tab, close" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schließen"
+          }
+        }
+      }
+    },
+    "tab, new" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "neu"
+          }
+        }
+      }
+    },
+    "tab, next" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nächster"
+          }
+        }
+      }
+    },
+    "tab, previous" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vorheriger"
+          }
+        }
+      }
+    },
+    "tab, repository" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wechseln, Repository"
           }
         }
       }
@@ -9656,6 +10063,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ohne die in %@ gesquashten"
+          }
+        }
+      }
+    },
+    "worktree, switch" : {
+      "comment" : "Command bar search words, comma-separated. The English words always match as well, so a translation lists only its own.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wechseln, Arbeitskopie"
           }
         }
       }

@@ -94,8 +94,8 @@ final class BranchPullController {
             if await prompter.confirm(alert) { onSwitchWorktree?(path) }
             return
         }
-        alert.setText(title, info: RefString("Local has \(local), \(RefName.remoteBranch(upstream)) has \(remote). A fast-forward is not possible; nothing was changed. Check Out and Pull offers merge and rebase; resetting drops the local commits."))
-        alert.addButton(withTitle: String(localized: "Check Out and Pull…", bundle: .module))
+        alert.setText(title, info: RefString("Local has \(local), \(RefName.remoteBranch(upstream)) has \(remote). A fast-forward is not possible; nothing was changed. Checkout and Pull offers merge and rebase; resetting drops the local commits."))
+        alert.addButton(withTitle: String(localized: "Checkout and Pull…", bundle: .module))
         alert.addButton(withTitle: String(localized: "Reset to \(upstream)…", bundle: .module))
         alert.addButton(withTitle: cancel)
         switch await prompter.choose(alert) {

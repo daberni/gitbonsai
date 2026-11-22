@@ -82,7 +82,7 @@ final class SidebarActionRunner {
             return
         }
         let message = Self.gitMessage(error)
-        guard await confirm("\(RefName.branch(name)) is not fully merged", info: "\(message)\n\nCommits that are only on this branch can then only be reached through the reflog.", button: "Delete Anyway", destructive: true, style: .warning) else { return }
+        guard await confirm("\(RefName.branch(name)) is not fully merged", info: "\(message)\n\nCommits that are only on this branch can then only be reached through the reflog.", button: "Delete anyway", destructive: true, style: .warning) else { return }
         await run(failure: "Branch not deleted", note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
     }
 
@@ -95,7 +95,7 @@ final class SidebarActionRunner {
         }
         let name = (path as NSString).lastPathComponent
         let message = Self.gitMessage(error)
-        guard await confirm("\(RefName.worktree(name)) has uncommitted changes", info: "\(message)\n\nThe changes and untracked files in this folder will be lost.", button: "Remove Anyway", destructive: true, style: .warning) else { return false }
+        guard await confirm("\(RefName.worktree(name)) has uncommitted changes", info: "\(message)\n\nThe changes and untracked files in this folder will be lost.", button: "Remove anyway", destructive: true, style: .warning) else { return false }
         return await run(failure: "Worktree not removed", note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
     }
 

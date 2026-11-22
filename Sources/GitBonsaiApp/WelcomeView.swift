@@ -13,7 +13,7 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     let searchField = NSSearchField()
     let listView = WelcomeListView()
     private typealias M = Theme.Welcome
-    private let openButton = NSButton(title: String(localized: "Open Folder…", bundle: .module), target: nil, action: nil)
+    private let openButton = NSButton(title: String(localized: "Open folder…", bundle: .module), target: nil, action: nil)
     let cloneButton = NSButton(title: String(localized: "Clone…", bundle: .module), target: nil, action: nil)
     private let scrollView = NSScrollView()
     private let discovery = RepositoryDiscoveryStore.shared

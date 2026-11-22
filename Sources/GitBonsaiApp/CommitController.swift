@@ -84,7 +84,7 @@ final class CommitController {
             let alert = NSAlert()
             alert.messageText = String(localized: "Requires a force push", bundle: .module)
             alert.informativeText = String(localized: "The last commit is already in the upstream. After the amend, the local and the remote branch differ, and a push only works with force.", bundle: .module)
-            alert.addButton(withTitle: String(localized: "Amend Anyway", bundle: .module))
+            alert.addButton(withTitle: String(localized: "Amend anyway", bundle: .module))
             alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
             present(alert) { [weak self] response in
                 if response == .alertFirstButtonReturn { self?.run(amend: true) }

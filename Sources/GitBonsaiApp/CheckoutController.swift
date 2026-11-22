@@ -50,7 +50,7 @@ final class CheckoutController: NSObject {
             return choice
         }
         if commit.id != viewModel.headSHA || viewModel.currentBranch != nil {
-            choices.append(Choice(title: RefString("Check Out Commit \(RefName.commit(commit.id)) (Detached HEAD)"), target: .commit(commit.id), worktreePath: nil))
+            choices.append(Choice(title: RefString("Checkout Commit \(RefName.commit(commit.id)) (Detached HEAD)"), target: .commit(commit.id), worktreePath: nil))
         }
         return choices
     }
@@ -58,12 +58,12 @@ final class CheckoutController: NSObject {
     private func title(of checkout: BranchCheckout) -> RefString {
         let branch = RefName.branch(checkout.branch)
         let title: LocalizedStringResource = switch checkout.kind {
-        case .local: "Check Out \(branch)"
+        case .local: "Checkout \(branch)"
         case .fastForward(let upstream) where checkout.branch == viewModel.currentBranch: "Fast-Forward \(branch) to \(RefName.remoteBranch(upstream))"
-        case .fastForward(let upstream): "Check Out \(branch) and Fast-Forward to \(RefName.remoteBranch(upstream))"
+        case .fastForward(let upstream): "Checkout \(branch) and Fast-Forward to \(RefName.remoteBranch(upstream))"
         case .diverged(let upstream, _) where checkout.branch == viewModel.currentBranch: "Reset \(branch) to \(RefName.remoteBranch(upstream))…"
-        case .diverged(let upstream, _): "Check Out \(branch) (Diverged from \(RefName.remoteBranch(upstream)))…"
-        case .createTracking(let remote): "Check Out \(RefName.remoteBranch("\(remote)/\(checkout.branch)")) as Local Branch"
+        case .diverged(let upstream, _): "Checkout \(branch) (diverged from \(RefName.remoteBranch(upstream)))…"
+        case .createTracking(let remote): "Checkout \(RefName.remoteBranch("\(remote)/\(checkout.branch)")) as local Branch"
         }
         return RefString(title)
     }
@@ -109,7 +109,7 @@ final class CheckoutController: NSObject {
         alert.setText("\(branch) and \(upstream) have diverged", info: "\(branch) cannot be fast-forwarded. Resetting it to \(upstream) drops \(offer.lostCommits) local commits; the reflog keeps them for a while.")
         // Buttons take plain text only, so the name stands bare there.
         alert.addButton(withTitle: String(localized: "Reset to \(offer.upstream)", bundle: .module))
-        if !offer.isCurrent { alert.addButton(withTitle: String(localized: "Just Check Out", bundle: .module)) }
+        if !offer.isCurrent { alert.addButton(withTitle: String(localized: "Just Checkout", bundle: .module)) }
         alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = true
         if ScreenshotHarness.isActive { return ScreenshotHarness.answerReset(alert) }

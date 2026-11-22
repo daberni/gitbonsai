@@ -92,12 +92,12 @@ final class PullPushController {
 
     private static func title(of mode: PullMode, isDefault: Bool) -> LocalizedStringResource {
         switch (mode, isDefault) {
-        case (.fastForwardOnly, false): "Fast-Forward Only"
-        case (.fastForwardOnly, true): "Fast-Forward Only (Default)"
+        case (.fastForwardOnly, false): "Fast-forward only"
+        case (.fastForwardOnly, true): "Fast-forward only (default)"
         case (.merge, false): LocalizedStringResource("Merge", comment: "Pull mode.")
-        case (.merge, true): "Merge (Default)"
+        case (.merge, true): "Merge (default)"
         case (.rebase, false): LocalizedStringResource("Rebase", comment: "Pull mode.")
-        case (.rebase, true): "Rebase (Default)"
+        case (.rebase, true): "Rebase (default)"
         }
     }
 
@@ -128,7 +128,7 @@ final class PullPushController {
         do {
             let result = try await repository.pull(variant)
             await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""))
-            if result.localChangesConflicted { prompter.onToast?(RefString("Pull done, local changes brought back with conflicts, stash “autostash” stays"), prompter.onShowConflicts.map { show in ToastAction(title: "Show Conflicts") { show() } }) }
+            if result.localChangesConflicted { prompter.onToast?(RefString("Pull done, local changes brought back with conflicts, stash “autostash” stays"), prompter.onShowConflicts.map { show in ToastAction(title: "Show conflicts") { show() } }) }
             return true
         } catch let error as GitError where error.isDivergedPull {
             await viewModel.refresh(note: nil)
@@ -154,8 +154,8 @@ final class PullPushController {
             "A fast-forward is not possible. Rebase puts the local commits on top of \(RefName.remoteBranch(upstream)), merge joins both sides with a merge commit."
         }
         prompter.showSheet(title: "Branches have diverged", summary: summary, details: GitFailureText.details(of: error), actions: [
-            FailureAction(title: "Pull Using Rebase") { [weak self] in self?.pull(PullVariant(mode: .rebase)) },
-            FailureAction(title: "Pull Using Merge") { [weak self] in self?.pull(PullVariant(mode: .merge)) },
+            FailureAction(title: "Pull using rebase") { [weak self] in self?.pull(PullVariant(mode: .rebase)) },
+            FailureAction(title: "Pull using merge") { [weak self] in self?.pull(PullVariant(mode: .merge)) },
         ])
     }
 
@@ -192,7 +192,7 @@ final class PullPushController {
             let canPullFirst = branch == self.branch && self.upstream?.name == upstream
             var actions: [FailureAction] = []
             if canPullFirst {
-                actions.append(FailureAction(title: "Pull and Push Again") { [weak self] in
+                actions.append(FailureAction(title: "Pull and Push again") { [weak self] in
                     guard let self else { return }
                     Task {
                         guard await self.performPull(PullVariant(mode: self.defaultMode)) else { return }

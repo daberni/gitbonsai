@@ -78,7 +78,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         reload()
     }
 
-    /// A step's title is the command that opened it, without the ellipsis that promised the step: "Switch to Tab…" heads its list as "Switch to Tab".
+    /// A step's title is the command that opened it, without the ellipsis that promised the step: "Switch to tab…" heads its list as "Switch to Tab".
     private static func withoutEllipsis(_ title: String) -> String {
         guard title.hasSuffix("…") else { return title }
         return String(title.dropLast()).trimmingCharacters(in: .whitespaces)

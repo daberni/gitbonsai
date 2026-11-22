@@ -34,7 +34,7 @@ final class BranchActionsController {
         var historyGroup: [NSMenuItem] = []
         if let pull = branchPull.item(for: ref) { checkoutGroup.append(pull) }
         if !ref.isHead {
-            let title: LocalizedStringResource = worktreeName.map { folder -> LocalizedStringResource in "Switch to Worktree \(RefName.worktree(folder))" } ?? "Check Out \(RefName.branch(name))"
+            let title: LocalizedStringResource = worktreeName.map { folder -> LocalizedStringResource in "Switch to Worktree \(RefName.worktree(folder))" } ?? "Checkout \(RefName.branch(name))"
             checkoutGroup.append(ActionMenuItem(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })
             if let current = viewModel.currentBranch {
                 historyGroup.append(ActionMenuItem("Merge \(RefName.branch(name)) into \(RefName.branch(current))") { [weak self] in self?.merge(name, into: current) })
@@ -48,7 +48,7 @@ final class BranchActionsController {
         if !ref.isHead, worktree == nil {
             editGroup.append(ActionMenuItem("Create Worktree for \(RefName.branch(name))…") { [weak self] in self?.createWorktree(for: name) })
         }
-        let copyGroup: [NSMenuItem] = [ActionMenuItem("Copy Name") { SidebarActionRunner.copy(name) }]
+        let copyGroup: [NSMenuItem] = [ActionMenuItem("Copy name") { SidebarActionRunner.copy(name) }]
         let deleteGroup: [NSMenuItem] = ref.isHead ? [] : [ActionMenuItem("Delete \(RefName.branch(name))…") { [weak self] in self?.delete(name, worktree: worktree) }]
         return [checkoutGroup, historyGroup, editGroup, copyGroup, deleteGroup]
     }
@@ -56,12 +56,12 @@ final class BranchActionsController {
     /// A local branch that follows this remote branch is offered a pull from it.
     private func remoteGroups(_ ref: Ref, remote: String, branch: String) -> [[NSMenuItem]] {
         let hasLocal = viewModel.refs.contains { $0.kind == .localBranch && $0.name == branch }
-        var checkoutGroup: [NSMenuItem] = hasLocal ? [] : [ActionMenuItem("Check Out \(RefName.remoteBranch(ref.name)) as Local Branch") { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
+        var checkoutGroup: [NSMenuItem] = hasLocal ? [] : [ActionMenuItem("Checkout \(RefName.remoteBranch(ref.name)) as local Branch") { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
         let followers = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }
         checkoutGroup += followers.compactMap(branchPull.item(for:))
         return [
             checkoutGroup,
-            [ActionMenuItem("Copy Name") { SidebarActionRunner.copy(ref.name) }],
+            [ActionMenuItem("Copy name") { SidebarActionRunner.copy(ref.name) }],
             [ActionMenuItem("Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))…") { [weak self] in self?.deleteRemote(branch, on: remote) }],
         ]
     }

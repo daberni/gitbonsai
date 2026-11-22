@@ -36,7 +36,7 @@ final class FileActionsController {
         case .unstaged:
             return [
                 ActionMenuItem("Stage") { [weak self] in self?.staging.stage([path]) },
-                ActionMenuItem("Discard Changes…") { [weak self] in self?.staging.discard(selection) },
+                ActionMenuItem("Discard changes…") { [weak self] in self?.staging.discard(selection) },
             ]
         case .untracked:
             return [ActionMenuItem("Stage") { [weak self] in self?.staging.stage([path]) }]
@@ -49,22 +49,22 @@ final class FileActionsController {
 
     private func openItems(_ selection: FileSelection, onDisk: Bool, isConflict: Bool) -> [NSMenuItem] {
         var items: [NSMenuItem] = []
-        if !isConflict { items.append(ActionMenuItem("Open in Diff Tool") { [weak self] in self?.openDiffTool(selection) }) }
+        if !isConflict { items.append(ActionMenuItem("Open in diff tool") { [weak self] in self?.openDiffTool(selection) }) }
         guard onDisk else { return items }
         let file = url(of: selection)
         let editor = ExternalApps.editor(forRepository: viewModel.repository.path)
-        let editorTitle: LocalizedStringResource = editor.map { editor -> LocalizedStringResource in "Open in \(editor.app.name)" } ?? "Open in Editor"
+        let editorTitle: LocalizedStringResource = editor.map { editor -> LocalizedStringResource in "Open in \(editor.app.name)" } ?? "Open in editor"
         items.append(ActionMenuItem(editorTitle) { [weak self] in self?.openInEditor(file) })
-        items.append(ActionMenuItem("Open with Default App") { [weak self] in self?.open(file, with: nil) })
+        items.append(ActionMenuItem("Open with default app") { [weak self] in self?.open(file, with: nil) })
         items.append(ActionMenuItem("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) })
         return items
     }
 
-    /// ⌥ turns "Copy Path" into "Copy Full Path".
+    /// ⌥ turns "Copy path" into "Copy full path".
     private func copyItems(_ selection: FileSelection) -> [NSMenuItem] {
-        let relative = ActionMenuItem("Copy Path") { Self.copy(selection.path) }
+        let relative = ActionMenuItem("Copy path") { Self.copy(selection.path) }
         relative.keyEquivalentModifierMask = []
-        let full = ActionMenuItem("Copy Full Path") { [weak self] in
+        let full = ActionMenuItem("Copy full path") { [weak self] in
             guard let self else { return }
             Self.copy(url(of: selection).path)
         }
@@ -77,7 +77,7 @@ final class FileActionsController {
         let selection = file.selection
         switch selection.source {
         case .commit(let commit):
-            let title: LocalizedStringResource = file.state == .deleted ? "Restore Version Before This Commit" : "Restore from This Commit"
+            let title: LocalizedStringResource = file.state == .deleted ? "Restore version before this Commit" : "Restore from this Commit"
             return [ActionMenuItem(title) { [weak self] in self?.restore(selection.path, of: commit) }]
         case .revisions:
             return []
@@ -118,7 +118,7 @@ final class FileActionsController {
         }
     }
 
-    /// The same default editor as the command bar's "Open in Editor"; without any editor the system's default app.
+    /// The same default editor as the command bar's "Open in editor"; without any editor the system's default app.
     private func openInEditor(_ file: URL) {
         guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path) else { return open(file, with: nil) }
         ExternalApps.open(file, in: editor.app, at: editor.url) { [weak self] error in

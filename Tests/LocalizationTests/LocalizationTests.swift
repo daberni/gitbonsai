@@ -59,12 +59,13 @@ final class LocalizationTests: XCTestCase {
             #"let text = "\(count) Dateien geändert""#,
             #"let title = String(localized: "Fetch")"#,
             #"let title = String(localized: "Check out \(RefName.branch(name))", bundle: .module)"#,
+            #"keywords: ["checkout", "auschecken"],"#,
         ]
         let good = [
             #"button.title = String(localized: "Cancel", bundle: .module)"#,
             #"ActionMenuItem("Rename…") { }"#,
             #"let note = "git merge""#,
-            #"keywords: ["checkout", "wechseln"],"#,
+            #"keywords: "checkout, switch","#,
             #"field.placeholderString = "feature/…""#,
             #"print("Gewechselt")"#,
         ]
@@ -144,7 +145,7 @@ enum ExtractedKeys {
 /// - an English-looking literal (a capital letter, then letters) handed straight to an AppKit text sink such as `title =`, `stringValue =`, `toolTip =`, `labelWithString:` or `withTitle:`;
 /// - `String(localized:)` without `bundle:` (it would look in the empty main bundle) or with `RefName` marks (they need `RefString`).
 /// It cannot see: English text passed to a `String` parameter of the app's own types, text built in variables before it reaches a sink, literals split over lines, or German without the listed signals.
-/// Lines of `print` and `FileHandle.standardError`, `keywords:` lists and everything after `//` are skipped; harness files may report in any language, but their comparisons with titles still face the sink rule.
+/// Lines of `print` and `FileHandle.standardError` and everything after `//` are skipped; harness files may report in any language, but their comparisons with titles still face the sink rule.
 enum LiteralScanner {
     /// Literals that look like copy but are not translated: names of languages in themselves, product and app names, git terms shown as they are.
     static let allowed: Set<String> = ["Deutsch", "English", "GitBonsai", "Detached HEAD", "HEAD"]
@@ -184,7 +185,7 @@ enum LiteralScanner {
         if line.contains("String(localized:") && !line.contains("bundle:") { result.append("String(localized:) without bundle: .module") }
         if line.contains("String(localized:") && line.contains("RefName.") { result.append("RefName marks inside String(localized:); use RefString") }
         for (literal, prefix) in literals(in: line) {
-            if allowed.contains(literal) || isKeyword(prefix) { continue }
+            if allowed.contains(literal) { continue }
             let localized = prefix.contains("String(localized:") || prefix.contains("LocalizedStringResource(")
             if looksGerman(literal) && !diagnostics {
                 result.append("German-looking literal \"\(literal)\"")
@@ -193,12 +194,6 @@ enum LiteralScanner {
             }
         }
         return result
-    }
-
-    /// Inside a `keywords: [...]` list: search words of a command, in both languages on purpose.
-    private static func isKeyword(_ prefix: String) -> Bool {
-        guard let start = prefix.range(of: "keywords: [", options: .backwards) else { return false }
-        return !prefix[start.upperBound...].contains("]")
     }
 
     /// A capital letter followed by a lowercase letter: a word of copy, not an identifier, key, path or command.

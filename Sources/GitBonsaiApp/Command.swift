@@ -50,6 +50,20 @@ struct Command {
     }
 }
 
+extension Command {
+    /// Splits a comma-separated list of search words from the catalog. The English words always count, so git's own terms find a command in every language; a translation adds its own words.
+    static func searchWords(_ list: LocalizedStringResource) -> [String] {
+        let english = list.key.split(separator: ",")
+        let translated = list.text.split(separator: ",")
+        var words: [String] = []
+        for word in english + translated {
+            let trimmed = word.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty, !words.contains(trimmed) { words.append(trimmed) }
+        }
+        return words
+    }
+}
+
 /// Anything that offers commands: the window for app-wide ones, a tab's controllers for repository ones.
 @MainActor
 protocol CommandProvider {

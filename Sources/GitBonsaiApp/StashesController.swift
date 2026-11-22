@@ -72,11 +72,11 @@ final class StashesController {
     func stashMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let all = ActionMenuItem("Stash All Changes") { [weak self] in self?.stashNow(.includingUntracked) }
+        let all = ActionMenuItem("Stash all changes") { [weak self] in self?.stashNow(.includingUntracked) }
         all.toolTip = String(localized: "\(StashScope.includingUntracked.commandLine) -m “WIP on <branch>: <HEAD>”", bundle: .module, comment: "Tooltip: the git command with the message it writes; <branch> and <HEAD> are placeholders.")
         menu.addItem(all)
         menu.addItem(ActionMenuItem("Stash with Message…") { [weak self] in self?.stashWithMessage() })
-        let staged = ActionMenuItem("Stash Staged Changes Only") { [weak self] in self?.stashNow(.staged) }
+        let staged = ActionMenuItem("Stash staged changes only") { [weak self] in self?.stashNow(.staged) }
         staged.toolTip = StashScope.staged.commandLine
         staged.isEnabled = hasStagedChanges
         menu.addItem(staged)
@@ -102,7 +102,7 @@ final class StashesController {
 
     /// Asks for a message and whether untracked files go along, then stashes.
     func stashWithMessage() {
-        let form = ActionForm(title: "Stash Changes", info: "All changes in the working directory go into a new stash.", confirm: LocalizedStringResource("Stash", comment: "Button that stashes the changes."))
+        let form = ActionForm(title: "Stash changes", info: "All changes in the working directory go into a new stash.", confirm: LocalizedStringResource("Stash", comment: "Button that stashes the changes."))
         form.addField(key: "message", label: "Message (optional)", placeholder: String(localized: "WIP", bundle: .module, comment: "Placeholder of a stash message: work in progress."), required: false)
         form.addCheckbox("Include untracked files", checked: true)
         Task {

@@ -52,6 +52,7 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 - Never build sentences by concatenation: one key per sentence with placeholders. Counts are `Int` arguments with plural variants in the catalog. Names (refs, commits, paths, worktrees, stashes) are `RefName` arguments, shown as pills through `RefString`; text shown as it is goes in with `.verbatim`.
 - Dates, relative dates, numbers, durations and sizes use formatters with `AppLanguage.locale`; no fixed locales.
 - Never translate git commands, the command line shown in the status line, git output, ref names, paths or SHAs.
+- English capitalization for commands (menus, command bar, buttons, sheet titles): capitalize the verb and the git object (Commit, Branch, Tag, Worktree, Remote, Stash, Message, Patch, SHA); everything else lowercase (adverbs, prepositions, pronouns, adjectives, "here"). Git verbs as git users know them: Checkout, Rebase, Reset, Cherry-Pick, Revert, Fetch, Pull, Push. "this Commit" names the object, "here" is the target of a move. Examples: "Checkout Commit", "Rebase main interactively onto this Commit…", "Reset main to here", "Revert Commit", "Move up", "Create annotated Tag…". Running text in hints and messages stays sentence case.
 
 ## Task intake and backlog
 

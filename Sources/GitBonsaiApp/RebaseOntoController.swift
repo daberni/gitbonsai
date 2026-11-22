@@ -25,7 +25,7 @@ final class RebaseOntoController {
     func items(branch: String, commit: Commit) -> [NSMenuItem] {
         let place = placeName(of: commit)
         let name = RefName.branch(branch)
-        let interactiveTitle: LocalizedStringResource = if let place { "Rebase \(name) Interactively onto \(place.marked)…" } else { "Rebase \(name) Interactively onto This Commit…" }
+        let interactiveTitle: LocalizedStringResource = if let place { "Rebase \(name) interactively onto \(place.marked)…" } else { "Rebase \(name) interactively onto this Commit…" }
         // The sheet names the target in its own sentences; a commit without a branch or tag is "this commit" there too.
         let targetName = place ?? RefString("this commit")
         guard !viewModel.isReachableFromHead(commit.id) else {
@@ -40,7 +40,7 @@ final class RebaseOntoController {
             found.store(result)
             return result
         }
-        let searchingTitle: LocalizedStringResource = if let place { "Rebase \(name) onto \(place.marked) (Finding Base…)" } else { "Rebase \(name) onto This Commit (Finding Base…)" }
+        let searchingTitle: LocalizedStringResource = if let place { "Rebase \(name) onto \(place.marked) (finding base…)" } else { "Rebase \(name) onto this Commit (finding base…)" }
         let oneClick = ActionMenuItem(searchingTitle) { [weak self] in
             Task { await self?.rebase(branch, onto: commit, targetName: targetName, detection: detection.value) }
         }
@@ -84,13 +84,13 @@ final class RebaseOntoController {
         switch detection {
         // Without own commits the rebase only fast-forwards; a count of none would read odd.
         case .plain(let moving) where moving == 0:
-            guard let place else { return RefString("Rebase \(name) onto This Commit (Fast-Forward)") }
-            return RefString("Rebase \(name) onto \(place.marked) (Fast-Forward)")
+            guard let place else { return RefString("Rebase \(name) onto this Commit (fast-forward)") }
+            return RefString("Rebase \(name) onto \(place.marked) (fast-forward)")
         case .plain(let moving):
             return title(branch: branch, place: place, notes: [commits(moving)])
         case .tie:
-            guard let place else { return RefString("Rebase \(name) onto This Commit (Ambiguous Base)…") }
-            return RefString("Rebase \(name) onto \(place.marked) (Ambiguous Base)…")
+            guard let place else { return RefString("Rebase \(name) onto this Commit (ambiguous base)…") }
+            return RefString("Rebase \(name) onto \(place.marked) (ambiguous base)…")
         case .detected(let base):
             // A former tip of the target branch itself means the target was rewritten, like a fork point.
             let reason = if case .branch(let target) = base.reason, place?.containsNames == true, target == place?.plain { without(.forkPoint(target)) } else { without(base.reason) }
@@ -102,7 +102,7 @@ final class RebaseOntoController {
     private static func title(branch: String, place: RefString?, notes: [RefString]) -> RefString {
         let name = RefName.branch(branch)
         let list = notes.map(\.marked).joined(separator: ", ")
-        guard let place else { return RefString("Rebase \(name) onto This Commit (\(list))") }
+        guard let place else { return RefString("Rebase \(name) onto this Commit (\(list))") }
         return RefString("Rebase \(name) onto \(place.marked) (\(list))")
     }
 

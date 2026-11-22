@@ -31,9 +31,9 @@ struct TagRows {
         let differing = Set(byName.filter { _, states in states.contains { if case .differs = $0.state { true } else { false } } }.keys)
         let onlyRemote = Set(remoteOnly.keys)
         scopes = [
-            PanelScope(title: String(localized: "Local Only", bundle: .module, comment: "Tag filter: tags no remote has."), empty: String(localized: "No local-only tags", bundle: .module)) { onlyLocal.contains($0) },
+            PanelScope(title: String(localized: "Local only", bundle: .module, comment: "Tag filter: tags no remote has."), empty: String(localized: "No local-only tags", bundle: .module)) { onlyLocal.contains($0) },
             PanelScope(title: String(localized: "Differing", bundle: .module, comment: "Tag filter: tags that point elsewhere on a remote."), empty: String(localized: "No differing tags", bundle: .module)) { differing.contains($0) },
-            PanelScope(title: String(localized: "Remote Only", bundle: .module, comment: "Tag filter: tags only a remote has."), empty: String(localized: "No remote-only tags", bundle: .module)) { onlyRemote.contains($0) },
+            PanelScope(title: String(localized: "Remote only", bundle: .module, comment: "Tag filter: tags only a remote has."), empty: String(localized: "No remote-only tags", bundle: .module)) { onlyRemote.contains($0) },
         ]
     }
 

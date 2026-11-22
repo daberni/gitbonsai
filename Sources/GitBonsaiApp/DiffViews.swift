@@ -131,7 +131,7 @@ final class DiffHeaderView: BarView {
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
         fileAction.isHidden = !(selection.isStageable || selection.isUnstageable) || diff == nil
-        fileAction.title = selection.isUnstageable ? String(localized: "Unstage File", bundle: .module) : String(localized: "Stage File", bundle: .module)
+        fileAction.title = selection.isUnstageable ? String(localized: "Unstage file", bundle: .module) : String(localized: "Stage file", bundle: .module)
     }
 
     /// The change letter, the path as shown and its tooltip; harness checks print them.

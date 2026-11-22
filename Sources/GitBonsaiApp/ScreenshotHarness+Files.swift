@@ -73,7 +73,7 @@ extension ScreenshotHarness {
         }
     }
 
-    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Whole File" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top and bottom line after each step.
+    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Whole file" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top and bottom line after each step.
     static func driveDiffHeader(on tab: RepositoryViewController) {
         let environment = environment
         let mode = environment["GITBONSAI_CLICK_DIFF_MODE"].flatMap(DiffMode.init)

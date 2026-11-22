@@ -33,7 +33,7 @@ struct ActionRunner {
         let message = String(localized: "GitBonsai: before \(note)", bundle: .module, comment: "Message of the stash that carries local changes past a command; the argument is the git command.")
         let prompter = prompter
         let carried = String(localized: "\(note) · local changes carried along in a stash", bundle: .module, comment: "Status line after a command ran with the local changes stashed around it; the argument is the git command.")
-        return FailureAction(title: "Stash Changes and Try Again") {
+        return FailureAction(title: "Stash changes and try again") {
             run(failure: failure, conflict: conflict, note: carried, then: then) { repository in
                 let conflicted = try await repository.withLocalChangesStashed(message: message) { try await operation(repository) }
                 if conflicted { await prompter.reportConflictingReturn(of: message) }

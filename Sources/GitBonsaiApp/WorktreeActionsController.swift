@@ -19,11 +19,11 @@ final class WorktreeActionsController {
         let exists = !worktree.isPrunable
         var switchGroup: [NSMenuItem] = []
         if !isCurrent, exists, !worktree.isBare {
-            switchGroup.append(ActionMenuItem("Switch to This Worktree") { [weak self] in self?.switchWorktree(path) })
+            switchGroup.append(ActionMenuItem("Switch to this Worktree") { [weak self] in self?.switchWorktree(path) })
         }
         let openGroup: [NSMenuItem] = exists ? [
             ActionMenuItem("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) },
-            ActionMenuItem("Open in Terminal") { Self.openInTerminal(path) },
+            ActionMenuItem("Open in terminal") { Self.openInTerminal(path) },
         ] : []
         var manageGroup: [NSMenuItem] = []
         if !worktree.isMain {
@@ -34,7 +34,7 @@ final class WorktreeActionsController {
                 manageGroup.append(ActionMenuItem("Remove…") { [weak self] in self?.remove(worktree) })
             }
         }
-        let pruneGroup: [NSMenuItem] = [ActionMenuItem("Prune Missing Worktrees") { [weak self] in self?.prune() }]
+        let pruneGroup: [NSMenuItem] = [ActionMenuItem("Prune missing Worktrees") { [weak self] in self?.prune() }]
         return [switchGroup, openGroup, manageGroup, pruneGroup]
     }
 
