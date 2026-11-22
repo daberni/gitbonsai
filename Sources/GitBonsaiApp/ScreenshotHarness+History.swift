@@ -41,6 +41,7 @@ extension ScreenshotHarness {
         }
         driveSearch(history)
         driveRefPills(history)
+        drivePillMenus(history)
         driveAvatarSweep(history)
     }
 

@@ -4,6 +4,15 @@ struct PillModel: Hashable {
     let name: String
     let glyphs: [Glyph]
     let isHead: Bool
+    let ref: PillRef
+}
+
+/// What a pill stands for, so a click on it can act on that ref: a branch pill joins the local branch and its same-named remote branches.
+enum PillRef: Hashable {
+    case branch(String)
+    case tag(String)
+    case detachedHead
+    case other(String)
 }
 
 /// Where the ref pills of one history row go and how one pill looks; shared by the row and its expansion.
@@ -27,6 +36,31 @@ enum RefPills {
 
         /// Something of the row's refs is not readable here: a label left out or a name cut short.
         var hidesSomething: Bool { counter != nil || placements.contains(where: \.isTruncated) }
+    }
+
+    /// What lies under `point` in a row's pills: the rounded shape of a pill, cut short or not, or the "+n" counter with a little slack around it.
+    enum Hit: Equatable {
+        case pill(Int)
+        case counter
+    }
+
+    static func hit(_ layout: CompactLayout, at point: CGPoint) -> Hit? {
+        if let placement = hit(layout.placements, at: point) { return .pill(placement.index) }
+        if let counter = layout.counter {
+            let inset = Theme.RefOverlay.counterHitInset
+            if counter.rect.insetBy(dx: -inset, dy: -inset).contains(point) { return .counter }
+        }
+        return nil
+    }
+
+    static func hit(_ placements: [Placement], at point: CGPoint) -> Placement? {
+        placements.first { shape(of: $0.rect).contains(point) }
+    }
+
+    /// The capsule a pill fills, inset by half its border.
+    static func shape(of rect: CGRect) -> CGPath {
+        let edge = P.stroke / 2
+        return CGPath(roundedRect: rect.insetBy(dx: edge, dy: edge), cornerWidth: P.height / 2 - edge, cornerHeight: P.height / 2 - edge, transform: nil)
     }
 
     static func title(_ pill: PillModel) -> NSAttributedString {
@@ -73,8 +107,7 @@ enum RefPills {
     /// Draws one pill into `rect` (flipped coordinates); the name gets `textWidth` and is cut with "…" beyond it.
     static func draw(_ pill: PillModel, in rect: CGRect, textWidth: CGFloat, strand: NSColor, context: CGContext) {
         let midY = rect.midY
-        let edge = P.stroke / 2
-        let path = CGPath(roundedRect: rect.insetBy(dx: edge, dy: edge), cornerWidth: P.height / 2 - edge, cornerHeight: P.height / 2 - edge, transform: nil)
+        let path = shape(of: rect)
         // The ground is opaque (strand mixed into the surface) so the connector never shows through.
         context.setFillColor(strand.mixed(into: Theme.surface0, fraction: pill.isHead ? P.tint.head : P.tint.plain).cgColor)
         context.addPath(path)

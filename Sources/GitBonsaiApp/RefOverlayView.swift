@@ -22,7 +22,7 @@ final class RefOverlayView: NSView {
         }
     }
     var onPress: ((NSEvent) -> Void)?
-    var makeMenu: (() -> NSMenu?)?
+    var makeMenu: ((NSEvent) -> NSMenu?)?
 
     override var isFlipped: Bool { true }
 
@@ -35,7 +35,7 @@ final class RefOverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) { onPress?(event) }
 
-    override func menu(for event: NSEvent) -> NSMenu? { makeMenu?() }
+    override func menu(for event: NSEvent) -> NSMenu? { makeMenu?(event) }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let content, let context = NSGraphicsContext.current?.cgContext else { return }

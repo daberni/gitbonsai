@@ -22,7 +22,14 @@ final class SidebarActionsController {
         case .branch(let ref): branches.menuGroups(for: ref)
         case .worktree(let info, let isCurrent): worktrees.menuGroups(for: info, isCurrent: isCurrent)
         }
-        return groups.filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
+        return groups.joinedWithSeparators
+    }
+}
+
+extension Array where Element == [NSMenuItem] {
+    /// The non-empty groups in order, with a separator between neighbours.
+    var joinedWithSeparators: [NSMenuItem] {
+        filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
     }
 }
 

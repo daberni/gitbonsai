@@ -26,6 +26,7 @@ final class RepositoryViewController: NSObject {
     let operationBanner: OperationBannerController
     let rebaseUndo: RebaseUndoController
     private(set) var sidebarActions: SidebarActionsController!
+    private(set) var pillMenu: PillMenuController!
     let staging: StagingController
     let fileActions: FileActionsController
     let commitController: CommitController
@@ -77,6 +78,7 @@ final class RepositoryViewController: NSObject {
         super.init()
         let checkout = checkoutController
         sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
+        pillMenu = PillMenuController(viewModel: viewModel, sidebarActions: sidebarActions, tags: tagsController)
         wire()
         layout()
         bind()
@@ -181,8 +183,9 @@ final class RepositoryViewController: NSObject {
         history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
         history.menuItems = { [weak self] row in
             guard let self else { return [] }
-            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row) + branchPull.items(forRow: row))
+            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row))
         }
+        history.pillMenuItems = { [weak self] row, ref in self?.pillMenu.menuItems(forRow: row, ref: ref) ?? [] }
 
         detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
         detail.onSelectFile = { [weak self] selection in self?.showDiff(selection) }

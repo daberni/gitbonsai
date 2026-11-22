@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The context menu of a local or remote branch in the sidebar, and running its actions.
+/// The context menu of a local or remote branch, in the sidebar and on its history pill, and running its actions.
 @MainActor
 final class BranchActionsController {
     private let runner: SidebarActionRunner
@@ -53,9 +53,12 @@ final class BranchActionsController {
         return [checkoutGroup, historyGroup, editGroup, copyGroup, deleteGroup]
     }
 
+    /// A local branch that follows this remote branch is offered a pull from it.
     private func remoteGroups(_ ref: Ref, remote: String, branch: String) -> [[NSMenuItem]] {
         let hasLocal = viewModel.refs.contains { $0.kind == .localBranch && $0.name == branch }
-        let checkoutGroup: [NSMenuItem] = hasLocal ? [] : [ActionMenuItem("„\(ref.name)“ als lokalen Branch auschecken") { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
+        var checkoutGroup: [NSMenuItem] = hasLocal ? [] : [ActionMenuItem("„\(ref.name)“ als lokalen Branch auschecken") { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
+        let followers = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }
+        checkoutGroup += followers.compactMap(branchPull.item(for:))
         return [
             checkoutGroup,
             [ActionMenuItem("Namen kopieren") { SidebarActionRunner.copy(ref.name) }],

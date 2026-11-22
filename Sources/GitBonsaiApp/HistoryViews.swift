@@ -86,6 +86,8 @@ final class HistoryTableView: NSTableView {
     var onHover: ((NSPoint?) -> Void)?
     /// A press in the label column; returns true when it was taken, such as a click on a "+n" counter.
     var onPressLabels: ((NSPoint) -> Bool)?
+    /// A right-click in the label column: a pill's own menu, `.none` when the click was taken without a menu, nil for the row's menu.
+    var labelMenu: ((NSPoint) -> LabelMenu?)?
     /// A click on a row with ⌘ or ⇧; returns true when it changed the selection.
     var onModifiedClick: ((_ row: Int, _ flags: NSEvent.ModifierFlags) -> Bool)?
     /// Columns, width or the whole content changed, so anything placed over the rows is stale.
@@ -142,6 +144,19 @@ final class HistoryTableView: NSTableView {
     override func reloadData(forRowIndexes rowIndexes: IndexSet, columnIndexes: IndexSet) {
         super.reloadData(forRowIndexes: rowIndexes, columnIndexes: columnIndexes)
         onRowsReloaded?(rowIndexes)
+    }
+
+    enum LabelMenu {
+        case menu(NSMenu)
+        case none
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        switch labelMenu?(convert(event.locationInWindow, from: nil)) {
+        case .menu(let menu): menu
+        case .none?: nil
+        case nil: super.menu(for: event)
+        }
     }
 
     override func keyDown(with event: NSEvent) {

@@ -65,11 +65,11 @@ enum HistoryRowModel {
                 if local[base] == nil, remoteCount[base] == nil { order.append(base) }
                 remoteCount[base, default: 0] += 1
             case .tag:
-                others.append(PillModel(name: ref.name, glyphs: [.tag], isHead: false))
+                others.append(PillModel(name: ref.name, glyphs: [.tag], isHead: false, ref: .tag(ref.name)))
             case .stash:
                 continue
             case .other:
-                others.append(PillModel(name: ref.name, glyphs: [], isHead: false))
+                others.append(PillModel(name: ref.name, glyphs: [], isHead: false, ref: .other(ref.name)))
             }
         }
         let branches = order.map { name -> PillModel in
@@ -80,10 +80,10 @@ enum HistoryRowModel {
                 else { glyphs.append(.laptop) }
             }
             glyphs += Array(repeating: Glyph.cloud, count: remoteCount[name] ?? 0)
-            return PillModel(name: name, glyphs: glyphs, isHead: local[name]?.isHead ?? false)
+            return PillModel(name: name, glyphs: glyphs, isHead: local[name]?.isHead ?? false, ref: .branch(name))
         }
         // The pill list is drawn right to left, so the most important label comes first.
-        let head = detachedHead ? [PillModel(name: "HEAD", glyphs: [.check, .laptop], isHead: true)] : []
+        let head = detachedHead ? [PillModel(name: "HEAD", glyphs: [.check, .laptop], isHead: true, ref: .detachedHead)] : []
         return head + branches.sorted { $0.isHead && !$1.isHead } + others
     }
 }

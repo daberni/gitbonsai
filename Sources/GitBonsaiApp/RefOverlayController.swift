@@ -8,6 +8,8 @@ final class RefOverlayController {
     var select: ((Int) -> Void)?
     var activate: ((Int) -> Void)?
     var menuItems: ((Int) -> [NSMenuItem])?
+    /// Items for the context menu of one pill of a row.
+    var pillMenuItems: ((Int, PillRef) -> [NSMenuItem])?
 
     private let table: HistoryTableView
     let overlay = RefOverlayView()
@@ -28,12 +30,8 @@ final class RefOverlayController {
             return true
         }
         overlay.onPress = { [weak self] event in self?.press(event) }
-        overlay.makeMenu = { [weak self] in
-            guard let self, let row = shownRow, let items = menuItems?(row), !items.isEmpty else { return nil }
-            let menu = NSMenu()
-            items.forEach(menu.addItem)
-            return menu
-        }
+        table.labelMenu = { [weak self] point in self?.labelMenu(at: point) }
+        overlay.makeMenu = { [weak self] event in self?.overlayMenu(for: event) }
     }
 
     // MARK: Pointer
@@ -61,12 +59,42 @@ final class RefOverlayController {
 
     /// A press on a row's "+n" counter expands its labels at once. Returns whether it was taken.
     func pressCounter(at point: NSPoint) -> Bool {
-        guard let target = target(at: point), let counter = target.compact.counter else { return false }
-        let inset = Theme.RefOverlay.counterHitInset
-        guard counter.rect.insetBy(dx: -inset, dy: -inset).contains(point) else { return false }
+        guard let target = target(at: point), RefPills.hit(target.compact, at: point) == .counter else { return false }
         cancelPending()
         open(target.row)
         return true
+    }
+
+    // MARK: Menus
+
+    /// A right-click on a pill opens that ref's menu; on the "+n" counter it expands the labels instead. Anywhere else in the row is left to the row's menu (nil).
+    private func labelMenu(at point: NSPoint) -> HistoryTableView.LabelMenu? {
+        guard let target = target(at: point) else { return nil }
+        switch RefPills.hit(target.compact, at: point) {
+        case .counter:
+            cancelPending()
+            open(target.row)
+            return HistoryTableView.LabelMenu.none
+        case .pill(let index):
+            return Self.menu(pillMenuItems?(target.row, target.model.pills[index].ref) ?? []).map(HistoryTableView.LabelMenu.menu)
+        case nil:
+            return nil
+        }
+    }
+
+    /// A pill in the expanded labels gets its own menu, the card around them the row's menu.
+    private func overlayMenu(for event: NSEvent) -> NSMenu? {
+        guard let row = shownRow, let content = overlay.content else { return nil }
+        let point = table.convert(event.locationInWindow, from: nil)
+        if let placement = RefPills.hit(content.placements, at: point), let menu = Self.menu(pillMenuItems?(row, content.pills[placement.index].ref) ?? []) { return menu }
+        return Self.menu(menuItems?(row) ?? [])
+    }
+
+    private static func menu(_ items: [NSMenuItem]) -> NSMenu? {
+        guard !items.isEmpty else { return nil }
+        let menu = NSMenu()
+        items.forEach(menu.addItem)
+        return menu
     }
 
     private func press(_ event: NSEvent) {

@@ -49,10 +49,16 @@ final class TagsController {
         }
     }
 
-    /// Called whenever the tab refreshed; an open list follows.
+    /// Called whenever the tab refreshed; an open list follows. The remotes are kept current for the tag pills' menus also while the list is closed.
     func viewModelChanged() {
-        guard popover.isShown else { return }
-        Task { await reload() }
+        let repository = viewModel.repository
+        Task {
+            guard popover.isShown else {
+                remotes = (try? await repository.remoteNames()) ?? remotes
+                return
+            }
+            await reload()
+        }
     }
 
     /// Reads the local tags and asks the remotes whose answer is missing or stale; their marks follow when they answer.
@@ -86,21 +92,25 @@ final class TagsController {
     // MARK: Menu
 
     func menuItems(for name: String) -> [NSMenuItem] {
-        guard tag(name) != nil else {
+        guard let tag = tag(name) else {
             let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Von „\(remote)“ holen") { [weak self] in self?.fetch(name, from: remote) } }
             let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Auf „\(remote)“ löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) } }
             return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem("Name kopieren") { ActionRunner.copy(name) }]
         }
-        var groups: [[NSMenuItem]] = [[
-            ActionMenuItem("Zum Commit springen") { [weak self] in self?.jump(to: name) },
-            ActionMenuItem("Auschecken (Detached HEAD)") { [weak self] in self?.checkout(name) },
-        ]]
-        groups.append(remotes.map { remote in ActionMenuItem("Nach „\(remote)“ pushen") { [weak self] in self?.push(name, to: remote) } })
-        groups.append([ActionMenuItem("Löschen …") { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
-            ActionMenuItem("Auf „\(remote)“ löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) }
-        })
-        groups.append([ActionMenuItem("Name kopieren") { ActionRunner.copy(name) }])
-        return groups.filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
+        let jump: [NSMenuItem] = [ActionMenuItem("Zum Commit springen") { [weak self] in self?.jump(to: name) }]
+        return ([jump] + localTagGroups(name, commit: tag.commitID)).joinedWithSeparators
+    }
+
+    /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history.
+    func localTagGroups(_ name: String, commit: String) -> [[NSMenuItem]] {
+        [
+            [ActionMenuItem("Auschecken (Detached HEAD)") { [weak self] in self?.checkout(commit: commit) }],
+            remotes.map { remote in ActionMenuItem("Nach „\(remote)“ pushen") { [weak self] in self?.push(name, to: remote) } },
+            [ActionMenuItem("Löschen …") { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
+                ActionMenuItem("Auf „\(remote)“ löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) }
+            },
+            [ActionMenuItem("Name kopieren") { ActionRunner.copy(name) }],
+        ]
     }
 
     // MARK: Actions
@@ -112,8 +122,12 @@ final class TagsController {
 
     private func checkout(_ name: String) {
         guard let tag = tag(name) else { return }
+        checkout(commit: tag.commitID)
+    }
+
+    private func checkout(commit: String) {
         popover.close()
-        onCheckout?(.commit(tag.commitID))
+        onCheckout?(.commit(commit))
     }
 
     private func pushFromButton(_ name: String) {

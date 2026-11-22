@@ -120,7 +120,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 
 | Operation | Git command | Notes |
 |---|---|---|
-| List remotes | `git remote` | |
+| List remotes | `git remote` | For the Tags list when it opens, and after every refresh while it is closed so that tag pills in the history offer push and remote delete per remote |
 | Fetch all | `git fetch --all --prune` | |
 | Automatic fetch | `git fetch --all --prune` | Visible tab only, on activation and periodically (`AutoFetchPolicy`). Reads `git remote` and `git rev-parse --git-path` for an operation in progress first and skips without a remote or during a rebase, merge, cherry-pick or revert |
 | Fetch one remote | `git fetch --prune\|--no-prune <remote>` | |

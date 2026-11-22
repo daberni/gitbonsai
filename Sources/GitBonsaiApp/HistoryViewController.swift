@@ -27,6 +27,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     var onActivate: ((Int) -> Void)?
     /// Items for the context menu of a row.
     var menuItems: ((Int) -> [NSMenuItem])?
+    /// Items for the context menu of one ref pill of a row, in the row and in its expanded labels.
+    var pillMenuItems: ((Int, PillRef) -> [NSMenuItem])?
 
     private let viewModel: GraphViewModel
     private let header = HistoryHeaderView()
@@ -43,6 +45,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         refOverlay.select = { [weak self] row in self?.select(row: row, scroll: false) }
         refOverlay.activate = { [weak self] row in self?.onActivate?(row) }
         refOverlay.menuItems = { [weak self] row in self?.menuItems?(row) ?? [] }
+        refOverlay.pillMenuItems = { [weak self] row, ref in self?.pillMenuItems?(row, ref) ?? [] }
         columnsController.onChange = { [weak self] in self?.reloadVisibleRows() }
         tableView.onModifiedClick = { [weak self] row, flags in self?.extendSelection(to: row, flags: flags) ?? false }
         search.onChange = { [weak self] in

@@ -27,13 +27,6 @@ final class BranchPullController {
         return item
     }
 
-    /// The pull entries for the local branches whose pills sit on a history row.
-    func items(forRow index: Int) -> [NSMenuItem] {
-        guard viewModel.commits.indices.contains(index) else { return [] }
-        let refs = viewModel.refsByCommit[viewModel.commits[index].id] ?? []
-        return refs.compactMap(item(for:))
-    }
-
     func pull(_ branch: String) {
         let repository = viewModel.repository
         Task {
