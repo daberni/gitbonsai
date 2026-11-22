@@ -251,10 +251,20 @@ final class RepositoryViewController: NSObject {
         branchPull.onToast = { [weak self] text in self?.toast.show(text) }
         branchPull.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
         operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
+        for prompter in [sidebarActions.prompter, fileActions.prompter, commitActions.prompter, tagsController.prompter, stashesController.prompter] {
+            prompter.onToast = { [weak self] text, action in self?.toast.show(text, action: action) }
+            prompter.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
+        }
         operationBanner.onStateChange = { [weak self] in
             guard let self else { return }
             rightColumn.showsBar = showsCommitForm(at: singleSelectedRow)
         }
+    }
+
+    /// Selects the working directory row, where conflicts left by a stash show.
+    private func showWorkingDirectory() {
+        guard let row = viewModel.kinds.firstIndex(of: .wip) else { return }
+        history.select(row: row, scroll: true)
     }
 
     /// A rebase, cherry-pick, revert or merge is over: the history shows HEAD, and no file or diff of the conflict state stays open.
@@ -497,7 +507,7 @@ final class RepositoryViewController: NSObject {
         rebaseUndo.update()
         selectHeadIfLoaded()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
-        toolbar.onStash = hasChanges ? { [weak self] in self?.stashesController.stashChanges() } : nil
+        toolbar.stashMenu = hasChanges ? { [weak self] in self?.stashesController.stashMenu() ?? NSMenu() } : nil
         toolbar.onPop = viewModel.stashes.isEmpty ? nil : { [weak self] in self?.stashesController.popNewest() }
         tagsController.viewModelChanged()
         stashesController.viewModelChanged()

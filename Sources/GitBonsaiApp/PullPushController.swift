@@ -47,7 +47,7 @@ final class PullPushController {
 
     // MARK: Menus
 
-    /// With an upstream: the three modes, the default marked and first, then autostash with the default mode. Without one: setting it.
+    /// With an upstream: the three modes, the default marked and first; every mode carries local changes. Without one: setting it.
     func pullMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -63,8 +63,6 @@ final class PullPushController {
         for mode in modes {
             menu.addItem(pullItem(Self.title(of: mode) + (mode == defaultMode ? " (Standard)" : ""), PullVariant(mode: mode)))
         }
-        menu.addItem(.separator())
-        menu.addItem(pullItem("\(Self.title(of: defaultMode)) mit Autostash", PullVariant(mode: defaultMode, autostash: true)))
         return menu
     }
 
@@ -115,35 +113,43 @@ final class PullPushController {
     // MARK: Pull
 
     func pull(_ variant: PullVariant) {
-        let repository = viewModel.repository
-        let upstreamName = upstream?.name ?? "Upstream"
-        Task {
-            do {
-                try await repository.pull(variant)
-                await viewModel.refresh(note: variant.commandLine)
-            } catch let error as GitError where error.isDivergedPull {
-                await viewModel.refresh(note: nil)
-                await offerRebase(after: error, upstream: upstreamName)
-            } catch {
-                await viewModel.refresh(note: nil)
-                let stopped = (error as? GitError)?.stoppedOnConflict == true
-                await prompter.report(error, title: stopped ? "Pull mit Konflikten angehalten" : "Pull fehlgeschlagen", unlessStoppedIn: repository)
-            }
-        }
+        Task { await performPull(variant) }
     }
 
-    /// A fast-forward-only pull found commits on both sides; the local ones can go on top of the upstream instead.
+    /// Pulls and refreshes the tab; true when the pull went through. Local changes come along through `--autostash`: when they conflict on the way back, the working directory shows the conflicts, and the status line and a toast say so, without a sheet.
+    @discardableResult
+    func performPull(_ variant: PullVariant) async -> Bool {
+        let repository = viewModel.repository
+        let upstreamName = upstream?.name ?? "Upstream"
+        do {
+            let result = try await repository.pull(variant)
+            await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""))
+            if result.localChangesConflicted { prompter.onToast?("Pull fertig, " + Self.conflictedChanges, prompter.onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } }) }
+            return true
+        } catch let error as GitError where error.isDivergedPull {
+            await viewModel.refresh(note: nil)
+            await offerRebase(after: error, upstream: upstreamName)
+        } catch {
+            await viewModel.refresh(note: nil)
+            let stopped = (error as? GitError)?.stoppedOnConflict == true
+            await prompter.report(error, title: stopped ? "Pull mit Konflikten angehalten" : "Pull fehlgeschlagen", unlessStoppedIn: repository)
+        }
+        return false
+    }
+
+    /// The status line after a pull whose carried changes conflicted on the way back.
+    static let conflictedChanges = "lokale Änderungen mit Konflikten zurückgeholt, Stash „autostash“ bleibt erhalten"
+
+    /// A fast-forward-only pull found commits on both sides; the local ones can go on top of the upstream, or the two can be merged.
     /// The pull fetched first, so the counts are read again rather than taken from before it.
     private func offerRebase(after error: GitError, upstream: String) async {
         let fresh: Upstream? = if let branch { await viewModel.repository.upstream(of: branch) } else { nil }
-        let alert = NSAlert()
-        alert.messageText = "Branches sind auseinandergelaufen"
-        let counts = fresh.flatMap { up in up.ahead.flatMap { ahead in up.behind.map { "Lokal \(ahead), auf \(upstream) \($0) neue Commits. " } } } ?? ""
-        alert.informativeText = counts + "Ein Fast-Forward ist nicht möglich. Die lokalen Commits per Rebase auf \(upstream) setzen? Merge bietet das Pull-Menü."
-        alert.addButton(withTitle: "Mit Rebase pullen")
-        alert.addButton(withTitle: "Abbrechen")
-        guard await prompter.confirm(alert) else { return }
-        pull(PullVariant(mode: .rebase))
+        let counts = fresh.flatMap { up in up.ahead.flatMap { ahead in up.behind.map { "Lokal \(ahead), auf \(upstream) \($0) neue Commits: " } } } ?? ""
+        let summary = counts + "Ein Fast-Forward ist nicht möglich. Rebase setzt die lokalen Commits auf \(upstream), Merge führt beide Seiten mit einem Merge-Commit zusammen."
+        prompter.showSheet(title: "Branches sind auseinandergelaufen", summary: summary, details: GitFailureText.details(of: error), actions: [
+            FailureAction(title: "Mit Rebase pullen") { [weak self] in self?.pull(PullVariant(mode: .rebase)) },
+            FailureAction(title: "Mit Merge pullen") { [weak self] in self?.pull(PullVariant(mode: .merge)) },
+        ])
     }
 
     /// Asks for a remote branch, makes it the upstream and pulls with the default mode.
@@ -171,23 +177,32 @@ final class PullPushController {
 
     // MARK: Push
 
-    /// A rejection because the remote has other commits offers `--force-with-lease`, which still refuses when the remote moved since the last fetch.
+    /// A rejection because the remote has other commits offers to pull first and push again, or to overwrite with `--force-with-lease`, which still refuses when the remote moved since the last fetch.
     func push(_ variant: PushVariant, upstream: String) {
         run(variant, failure: "Push fehlgeschlagen") { [weak self] error in
             guard let self, error.isRejectedNonFastForward, case .branch(let branch, let remote, let remoteBranch, let setUpstream, false) = variant else { return false }
-            let alert = NSAlert()
-            alert.messageText = "Push abgelehnt"
-            alert.informativeText = "\(upstream) enthält Commits, die in „\(branch)“ fehlen. Mit --force-with-lease überschreiben? Git bricht trotzdem ab, wenn sich \(upstream) seit dem letzten Fetch bewegt hat. Wer die fremden Commits behalten will, pullt zuerst."
-            alert.addButton(withTitle: "Mit --force-with-lease überschreiben")
-            alert.addButton(withTitle: "Abbrechen")
-            alert.buttons.first?.hasDestructiveAction = true
-            if await prompter.confirm(alert) {
-                run(.branch(branch, remote: remote, remoteBranch: remoteBranch, setUpstream: setUpstream, forceWithLease: true), failure: "Force-Push fehlgeschlagen") { [weak self] error in
-                    guard error.isStaleLease else { return false }
-                    self?.prompter.report(error, title: "Force-Push abgelehnt: \(upstream) hat sich seit dem letzten Fetch bewegt")
-                    return true
-                }
+            let force = PushVariant.branch(branch, remote: remote, remoteBranch: remoteBranch, setUpstream: setUpstream, forceWithLease: true)
+            let canPullFirst = branch == self.branch && self.upstream?.name == upstream
+            var actions: [FailureAction] = []
+            if canPullFirst {
+                actions.append(FailureAction(title: "Pullen und erneut pushen") { [weak self] in
+                    guard let self else { return }
+                    Task {
+                        guard await self.performPull(PullVariant(mode: self.defaultMode)) else { return }
+                        self.push(variant, upstream: upstream)
+                    }
+                })
             }
+            actions.append(FailureAction(title: "Mit --force-with-lease überschreiben", isDestructive: true) { [weak self] in self?.forcePush(force, upstream: upstream) })
+            prompter.report(error, title: "Push abgelehnt", summary: "\(upstream) enthält Commits, die in „\(branch)“ fehlen. Pullen holt sie zuerst; --force-with-lease überschreibt sie, solange sich \(upstream) seit dem letzten Fetch nicht bewegt hat.", actions: actions)
+            return true
+        }
+    }
+
+    private func forcePush(_ variant: PushVariant, upstream: String) {
+        run(variant, failure: "Force-Push fehlgeschlagen") { [weak self] error in
+            guard error.isStaleLease else { return false }
+            self?.prompter.report(error, title: "Force-Push abgelehnt", summary: "\(upstream) hat sich seit dem letzten Fetch bewegt. Erst fetchen und prüfen, was dort neu ist.")
             return true
         }
     }

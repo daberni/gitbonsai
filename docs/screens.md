@@ -59,10 +59,10 @@ Ein Fenster mit einem Tab pro Repository (MVP; Tabs sind essenziell, weil der Al
 | Zurück/Vor | Navigationshistorie der Auswahl | ⌘[ ⌘] | deaktiviert ohne Historie |
 | Tab-Leiste | Ein Tab pro Repository; ⌘T öffnet ein Repository (zuletzt verwendete zuerst), ⌘W schließt den Tab, ⌘⇧[ ⌘⇧] wechselt | ⌘T ⌘W | Titel ist nur der Repository-Name |
 | Fetch | `git fetch --prune --progress` | ⌘⇧F | Spinner während des Laufs |
-| Pull | Dropdown: ff-only (Standard), rebase, merge | ⌘⇧L | Badge mit Behind-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „3 Commits hinter origin/main“ |
+| Pull | Dropdown: ff-only (Standard), rebase, merge; jeder Pull nimmt lokale Änderungen mit (`--autostash`) | ⌘⇧L | Badge mit Behind-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „3 Commits hinter origin/main“ |
 | Push | Push aktueller Branch; Dropdown: Force-with-lease, Tags pushen | ⌘⇧U | Badge mit Ahead-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „2 Commits vor origin/main“. Ohne Upstream ein `persimmon`-Badge mit Ausrufezeichen, der Tooltip erklärt den ersten Push. Badges sitzen oben rechts auf dem Button und verschieben ihn nie |
 | Branch | Neuer Branch am HEAD | ⌘B | – |
-| Stash / Pop | `git stash push -u`, `git stash pop` | ⌘⇧S / ⌘⇧⌥S | Pop deaktiviert ohne Stash |
+| Stash / Pop | Stash ohne Dialog: `git stash push -u -m "WIP auf <Branch>: <HEAD>"`; Dropdown: mit Nachricht, nur gestagte (`--staged`). Pop: `git stash pop` | ⌘⇧S / ⌘⇧⌥S | Toast „Gestasht: …“ mit „Rückgängig“; Stash deaktiviert ohne Änderungen, Pop ohne Stash |
 | Suche | Fokus auf Filterleiste | ⌘F | – |
 
 ### 1.2 Sidebar

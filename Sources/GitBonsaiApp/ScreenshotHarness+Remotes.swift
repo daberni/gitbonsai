@@ -78,10 +78,10 @@ extension ScreenshotHarness {
         printStatus(of: tab, after: 1.5)
     }
 
-    /// `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>` or `GITBONSAI_PUSH=<title>` clicks the chevron of that toolbar button with a real click, prints the menu it opens and closes it again, then chooses the entry and prints
+    /// `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>`, `GITBONSAI_PUSH=<title>` or `GITBONSAI_STASH=<title>` clicks the chevron of that toolbar button with a real click, prints the menu it opens and closes it again, then chooses the entry and prints
     /// the status line, the banner, the toolbar's counts and the button frames once git has finished. Questions are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`; an empty title only prints the menu.
     private static func runPullOrPush(on tab: RepositoryViewController) {
-        for title in ["Fetch", "Pull", "Push"] {
+        for title in ["Fetch", "Pull", "Push", "Stash"] {
             guard let pick = environment["GITBONSAI_\(title.uppercased())"] else { continue }
             FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n".utf8))
             guard let menu = openToolbarMenu(title, on: tab) else { continue }
@@ -97,7 +97,7 @@ extension ScreenshotHarness {
         }
     }
 
-    /// `GITBONSAI_TOOLBAR_DEFAULT=Fetch|Pull|Push` clicks the main part of that split button with a real click and prints the status line, the banner and the toolbar's counts once git has finished.
+    /// `GITBONSAI_TOOLBAR_DEFAULT=Fetch|Pull|Push|Stash` clicks the main part of that split button with a real click and prints the status line, the banner and the toolbar's counts once git has finished.
     private static func runToolbarDefault(on tab: RepositoryViewController) {
         guard let title = environment["GITBONSAI_TOOLBAR_DEFAULT"], let button = toolbarButton(title, on: tab) else { return }
         FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\ntoolbar \(title) default, enabled \(button.isEnabled)\n".utf8))
@@ -133,6 +133,12 @@ extension ScreenshotHarness {
         press(button, at: NSPoint(x: button.bounds.maxX - Theme.Toolbar.menuPart / 2, y: button.bounds.midY))
         if opened == nil { FileHandle.standardError.write(Data("\(title): no menu opened\n".utf8)) }
         return opened
+    }
+
+    /// `GITBONSAI_TOOLBAR_HIGHLIGHT=1` prints when a split button shows pressed and what let it go: the menu closing or `popUp` returning.
+    static func traceMenuButton(_ button: MenuButton, cause: String) {
+        guard environment["GITBONSAI_TOOLBAR_HIGHLIGHT"] == "1" else { return }
+        FileHandle.standardError.write(Data("\(button.title) highlighted \(button.isHighlighted) by \(cause)\n".utf8))
     }
 
     /// A window that is not key swallows the first click on a button, so the press goes to the view under the point directly; its tracking loop finds the queued release.

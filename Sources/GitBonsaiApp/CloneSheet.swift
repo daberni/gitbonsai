@@ -149,7 +149,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         summary.preferredMaxLayoutWidth = M.width - 2 * M.padding
         failure.addArrangedSubview(summary)
         if let details = GitFailureText.details(of: error), details != summary.stringValue {
-            let view = FailureDetailsView(details: details)
+            let view = FailureDetailsView(details: details, width: M.width - 2 * M.padding)
             view.onToggle = { [weak self] in self?.fitWindow() }
             failure.addArrangedSubview(view)
         }

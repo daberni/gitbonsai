@@ -260,14 +260,6 @@ extension ScreenshotHarness {
         }
     }
 
-    /// `GITBONSAI_REPORT_SHOT=<png>` renders an error alert with its details open.
-    static func renderReport(_ alert: NSAlert) {
-        guard let path = environment["GITBONSAI_REPORT_SHOT"] else { return }
-        (alert.accessoryView as? FailureDetailsView)?.isExpanded = true
-        alert.layout()
-        renderWindow(alert.window, to: path)
-    }
-
     // MARK: Events
 
     /// A real click in the middle of a control. A background window is never key and drops a press routed through it, even on a control that accepts first mouse,
@@ -346,7 +338,7 @@ extension ScreenshotHarness {
         }
     }
 
-    private static func renderWindow(_ window: NSWindow, to path: String) {
+    static func renderWindow(_ window: NSWindow, to path: String) {
         guard let view = window.contentView?.superview ?? window.contentView else { return }
         window.appearance = NSApp.appearance
         view.layoutSubtreeIfNeeded()

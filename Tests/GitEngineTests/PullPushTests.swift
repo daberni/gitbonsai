@@ -102,7 +102,53 @@ final class PullPushTests: XCTestCase {
         XCTAssertNil(after)
     }
 
-    func testAutostashKeepsLocalChangesAcrossThePull() async throws {
+    /// Every variant carries a dirty working tree, including staged changes and untracked files, through the pull.
+    func testEveryPullModeCarriesLocalChanges() async throws {
+        for mode in PullMode.allCases {
+            let setup = try setUpRemote()
+            defer { setup.remove() }
+            try setup.other.commit("theirs", file: "theirs.txt")
+            try setup.other.git("push", "-q", "origin", "main")
+            // A rebase and a merge need a local commit to do more than fast-forward; fast-forward only must not have one.
+            if mode != .fastForwardOnly { try setup.local.commit("mine", file: "mine.txt") }
+            try setup.local.write("file.txt", "edited\n")
+            try setup.local.write("staged.txt", "staged\n")
+            try setup.local.git("add", "staged.txt")
+            try setup.local.write("untracked.txt", "new\n")
+
+            let result = try await setup.local.repository.pull(PullVariant(mode: mode))
+
+            XCTAssertFalse(result.localChangesConflicted, "\(mode)")
+            XCTAssertEqual(try setup.local.git("merge-base", "--is-ancestor", try remoteHead(setup), "HEAD"), "", "\(mode) took the upstream")
+            XCTAssertEqual(try setup.local.git("status", "--porcelain"), " M file.txt\nA  staged.txt\n?? untracked.txt", "\(mode)")
+            XCTAssertEqual(try setup.local.git("stash", "list"), "", "\(mode) left no stash behind")
+        }
+    }
+
+    /// Local changes that collide with the pulled commits: the pull itself succeeds, the conflicts are in the working tree and the stash stays.
+    func testConflictingLocalChangesAreLeftInTheWorkingTreeWithTheStashKept() async throws {
+        for mode in PullMode.allCases {
+            let setup = try setUpRemote()
+            defer { setup.remove() }
+            try setup.other.commit("theirs", file: "file.txt", contents: "theirs\n")
+            try setup.other.git("push", "-q", "origin", "main")
+            if mode == .rebase { try setup.local.commit("mine", file: "mine.txt") }
+            try setup.local.write("file.txt", "mine\n")
+
+            let result = try await setup.local.repository.pull(PullVariant(mode: mode))
+
+            XCTAssertTrue(result.localChangesConflicted, "\(mode)")
+            XCTAssertEqual(try setup.local.git("merge-base", "--is-ancestor", try remoteHead(setup), "HEAD"), "", "\(mode) took the upstream")
+            XCTAssertEqual(try setup.local.git("status", "--porcelain"), "UU file.txt", "\(mode)")
+            XCTAssertTrue(try String(contentsOf: setup.local.url.appendingPathComponent("file.txt"), encoding: .utf8).contains("<<<<<<<"), "\(mode)")
+            XCTAssertTrue(try setup.local.git("stash", "list").hasSuffix("autostash"), "\(mode)")
+            let progress = await setup.local.repository.operationInProgress()
+            XCTAssertNil(progress, "\(mode): the pull is finished, only the changes conflict")
+        }
+    }
+
+    /// A refused fast-forward puts the local changes back as they were.
+    func testRefusedPullRestoresLocalChanges() async throws {
         let setup = try setUpRemote()
         defer { setup.remove() }
         try setup.other.commit("theirs", file: "theirs.txt")
@@ -111,12 +157,13 @@ final class PullPushTests: XCTestCase {
         try setup.local.write("file.txt", "edited\n")
 
         do {
-            try await setup.local.repository.pull(PullVariant(mode: .rebase))
-            XCTFail("a rebase over a dirty tree must be refused without autostash")
-        } catch is GitError {}
-        try await setup.local.repository.pull(PullVariant(mode: .rebase, autostash: true))
-        XCTAssertEqual(try setup.local.git("rev-parse", "HEAD^"), try remoteHead(setup))
+            try await setup.local.repository.pull(PullVariant(mode: .fastForwardOnly))
+            XCTFail("a diverged pull must not succeed with --ff-only")
+        } catch let error as GitError {
+            XCTAssertTrue(error.isDivergedPull, error.stderr)
+        }
         XCTAssertEqual(try setup.local.git("status", "--porcelain"), " M file.txt")
+        XCTAssertEqual(try setup.local.git("stash", "list"), "")
     }
 
     func testDefaultPullModeFollowsPullRebaseThenPullFF() async throws {

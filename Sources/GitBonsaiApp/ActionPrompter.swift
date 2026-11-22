@@ -52,31 +52,55 @@ final class ActionPrompter {
         return response == .OK ? panel.url : nil
     }
 
-    /// Says in one sentence what went wrong; git's own output sits behind "Details". A conflict is not undone: the repository stays in the state git left it in.
-    func report(_ error: Error, title: String) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = title
-        alert.informativeText = GitFailureText.summary(of: error)
-        let details = GitFailureText.details(of: error)
-        if let details, details != alert.informativeText {
-            let view = FailureDetailsView(details: details)
-            view.frame.size = view.fittingSize
-            view.onToggle = { [weak alert] in alert?.layout() }
-            alert.accessoryView = view
-        }
-        if ScreenshotHarness.isActive {
-            FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\n".utf8))
-            ScreenshotHarness.renderReport(alert)
+    /// Where failures that need no answer go, as a toast with an optional action; without it they get the sheet too.
+    var onToast: ((String, ToastAction?) -> Void)?
+    /// Shows the working directory with its conflicts, for the toast of a stash that applied with conflicts.
+    var onShowConflicts: (() -> Void)?
+
+    /// Says what went wrong. A failure that changed nothing and needs no decision, such as an unreachable server, is a toast whose "Details" opens the sheet;
+    /// anything else is a sheet with one sentence, the ways forward as buttons and git's output collapsed below. `summary` replaces the app's sentence for git's message.
+    func report(_ error: Error, title: String, summary: String? = nil, actions: [FailureAction] = []) {
+        let sentence = summary ?? GitFailureText.summary(of: error)
+        let details = GitFailureText.details(of: error).flatMap { $0 == sentence ? nil : $0 }
+        if actions.isEmpty, GitFailureText.isPassing(error), let onToast {
+            let more = details.map { _ in ToastAction(title: "Details") { [weak self] in self?.showSheet(title: title, summary: sentence, details: details, actions: []) } }
+            onToast("\(title): \(sentence)", more)
             return
         }
-        Task { _ = await present(alert) }
+        showSheet(title: title, summary: sentence, details: details, actions: actions)
     }
 
     /// A rebase, cherry-pick, revert or merge that stopped on conflicts is a state, not an error: the banner and the conflict list show it, so only other failures are reported.
-    func report(_ error: Error, title: String, unlessStoppedIn repository: Repository) async {
-        if (error as? GitError)?.stoppedOnConflict == true, await repository.operationInProgress() != nil { return }
-        report(error, title: title)
+    /// A stash that applied with conflicts leaves no operation behind; the working directory shows the conflicts, and a toast leads there.
+    func report(_ error: Error, title: String, actions: [FailureAction] = [], unlessStoppedIn repository: Repository) async {
+        if (error as? GitError)?.stoppedOnConflict == true {
+            if await repository.operationInProgress() != nil { return }
+            if let onToast {
+                onToast(title, onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } })
+                return
+            }
+        }
+        report(error, title: title, actions: actions)
+    }
+
+    /// Changes set aside for a command conflicted when they came back: the working directory shows the conflicts, and the stash named `stash` stays.
+    func reportConflictingReturn(of stash: String) {
+        onToast?("Lokale Änderungen kollidieren beim Zurückholen; der Stash „\(stash)“ bleibt erhalten", onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } })
+    }
+
+    /// The sheet of a failure, also for a decision that a failure leads to, such as a rejected push. The chosen action runs once the sheet is gone.
+    func showSheet(title: String, summary: String, details: String?, actions: [FailureAction]) {
+        let sheet = FailureSheet(title: title, summary: summary, details: details, actions: actions)
+        if ScreenshotHarness.isActive {
+            FileHandle.standardError.write(Data("\(title): \(summary)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\(actions.isEmpty ? "" : " {\(actions.map(\.title).joined(separator: " | "))}")\n".utf8))
+            guard ScreenshotHarness.clicksReports else { return ScreenshotHarness.renderReport(sheet) }
+        }
+        guard let window = window?() else { return }
+        if ScreenshotHarness.clicksReports { ScreenshotHarness.clickReport(sheet) }
+        Task {
+            guard let index = await sheet.run(on: window) else { return }
+            actions[index].run()
+        }
     }
 
     private func present(_ alert: NSAlert) async -> NSApplication.ModalResponse {

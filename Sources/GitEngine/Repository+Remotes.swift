@@ -34,25 +34,39 @@ public enum PullMode: Sendable, Hashable, CaseIterable {
 /// One way to pull the current branch from its upstream.
 public struct PullVariant: Sendable, Hashable {
     public let mode: PullMode
-    /// Stashes local changes before the pull and applies them afterwards.
-    public let autostash: Bool
 
-    public init(mode: PullMode, autostash: Bool = false) {
+    public init(mode: PullMode) {
         self.mode = mode
-        self.autostash = autostash
     }
 
     /// Every flag is explicit, so `pull.rebase` and `pull.ff` in the user's configuration cannot turn one variant into another.
+    /// Local changes always come along with `--autostash`: git stashes them before the pull and applies them afterwards, also after a merge or rebase that stopped on conflicts and was finished later.
     public var arguments: [String] {
         let mode = switch self.mode {
         case .fastForwardOnly: ["--no-rebase", "--ff-only"]
         case .merge: ["--no-rebase", "--ff", "--no-edit"]
         case .rebase: ["--rebase"]
         }
-        return ["pull"] + mode + [autostash ? "--autostash" : "--no-autostash"]
+        return ["pull"] + mode + ["--autostash"]
     }
 
     public var commandLine: String { "git " + arguments.joined(separator: " ") }
+}
+
+/// What a pull that succeeded did with the local changes it carried.
+public struct PullResult: Sendable, Equatable {
+    /// Applying the stashed local changes after the pull conflicted. The conflicts are in the working tree, and the stash stays in the list as `autostash`.
+    public let localChangesConflicted: Bool
+
+    public init(localChangesConflicted: Bool) {
+        self.localChangesConflicted = localChangesConflicted
+    }
+
+    /// git reports a conflicting autostash with exit code 0, so only its message tells: "Applying autostash resulted in conflicts" or "…however applying them resulted in conflicts", wrapped over lines.
+    static func parse(_ result: GitCommandResult) -> PullResult {
+        let output = (result.stdoutString + "\n" + result.stderr).replacingOccurrences(of: "\n", with: " ")
+        return PullResult(localChangesConflicted: output.contains("resulted in conflicts"))
+    }
 }
 
 /// Where the current branch pulls from and pushes to, and how far the two have moved apart.
@@ -125,9 +139,10 @@ extension Repository {
     }
 
     /// Pulls the current branch from its upstream. A conflict leaves git's merge or rebase in progress and is thrown so that `stoppedOnConflict` holds.
-    public func pull(_ variant: PullVariant) async throws {
+    @discardableResult
+    public func pull(_ variant: PullVariant) async throws -> PullResult {
         do {
-            _ = try await runner.runWrite(variant.arguments, environment: ["GIT_EDITOR": "true"])
+            return PullResult.parse(try await runner.runWrite(variant.arguments, environment: ["GIT_EDITOR": "true"]))
         } catch let error as GitError {
             // git reports a merge conflict on stdout, which the thrown error does not carry.
             guard (try? await runner.run(["rev-parse", "-q", "--verify", "MERGE_HEAD"])) != nil else { throw error }

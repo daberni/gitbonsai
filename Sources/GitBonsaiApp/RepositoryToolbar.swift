@@ -7,19 +7,20 @@ final class RepositoryToolbar: BarView {
     var onFetch: (() -> Void)?
     /// Each action button is enabled once its handler is set.
     var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
-    var onStash: (() -> Void)? { didSet { stash.isEnabled = onStash != nil } }
     var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
     /// The variants in the fetch button's menu, the first enabled one its default; without them the button only runs `onFetch`.
     var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : "Alle Remotes fetchen, weitere Varianten über den Pfeil" } }
     /// The menus of Pull and Push, the first enabled entry each button's default; the buttons start disabled until `showUpstream` enables them.
     var pullMenu: (() -> NSMenu)?
     var pushMenu: (() -> NSMenu)?
+    /// The Stash menu, its first entry stashing everything at once; the button is enabled while it is set.
+    var stashMenu: (() -> NSMenu)? { didSet { stash.isEnabled = stashMenu != nil } }
 
     private lazy var fetchButton = MenuButton("Fetch", "arrow.down.to.line", enabled: true) { [weak self] in self?.fetchMenu?() ?? self?.singleFetchMenu() ?? NSMenu() }
     private lazy var pull = MenuButton("Pull", "arrow.down", enabled: false) { [weak self] in self?.pullMenu?() ?? NSMenu() }
     private lazy var push = MenuButton("Push", "arrow.up", enabled: false) { [weak self] in self?.pushMenu?() ?? NSMenu() }
     private lazy var branch = button("Branch", "arrow.triangle.branch", #selector(runBranch(_:)))
-    private lazy var stash = button("Stash", "tray.and.arrow.down", #selector(runStash(_:)))
+    private lazy var stash = MenuButton("Stash", "tray.and.arrow.down", enabled: false) { [weak self] in self?.stashMenu?() ?? NSMenu() }
     private lazy var pop = button("Pop", "tray.and.arrow.up", #selector(runPop(_:)))
 
     /// Commits to pull and to push as badges on their buttons; the push badge also warns of a missing upstream.
@@ -80,7 +81,6 @@ final class RepositoryToolbar: BarView {
     }
 
     @objc func runBranch(_ sender: Any?) { onBranch?() }
-    @objc private func runStash(_ sender: Any?) { onStash?() }
     @objc private func runPop(_ sender: Any?) { onPop?() }
 
     /// Enables Pull and Push and badges them with the commits each would move; without counts (no upstream, or never fetched) the badges stay hidden.
@@ -112,8 +112,8 @@ final class RepositoryToolbar: BarView {
 
     /// Frames of the action buttons in the toolbar, "▾" for those that open a menu, and the badges' tooltips, for harness output that checks badges and menus never move a button.
     var actionLayout: String {
-        let menuButtons = [fetchButton, pull, push].map { "\($0.title) ▾ \(NSStringFromRect(convert($0.bounds, from: $0)))" }
-        let buttons = menuButtons + [branch, stash, pop].map { "\($0.title) \(NSStringFromRect(convert($0.bounds, from: $0)))" }
+        let menuButtons = [fetchButton, pull, push, stash].map { "\($0.title) ▾ \(NSStringFromRect(convert($0.bounds, from: $0)))" }
+        let buttons = menuButtons + [branch, pop].map { "\($0.title) \(NSStringFromRect(convert($0.bounds, from: $0)))" }
         let tips = [pull, push].map { "\($0.title): \($0.toolTip ?? "-")" }
         return (buttons + tips).joined(separator: "\n")
     }
@@ -140,7 +140,7 @@ final class RepositoryToolbar: BarView {
 
 /// A toolbar action with several variants, split in two like a macOS split button: the main part runs the default variant, the chevron behind a divider opens all variants below the button.
 /// The default is the menu's first enabled entry, so the menus list it first. The chevron part adds a fixed width, so the button never changes size with the menu's contents.
-final class MenuButton: NSButton {
+final class MenuButton: NSButton, NSMenuDelegate {
     private let entries: () -> NSMenu
     private let divider = DividerLine()
     private let chevron = NSImageView()
@@ -200,10 +200,25 @@ final class MenuButton: NSButton {
             super.mouseDown(with: event)
             return
         }
-        // Built anew for every opening, since branch, upstream and remotes change between clicks. The menu tracks synchronously, so the button shows pressed while it is open.
-        isHighlighted = true
-        entries().popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + Theme.Space.xs), in: self)
-        isHighlighted = false
+        // Built anew for every opening, since branch, upstream and remotes change between clicks. The button shows pressed while the menu is open and lets go the moment it closes:
+        // `popUp` returns only after the chosen entry's action has run, so waiting for it would keep the button pressed through that action.
+        let menu = entries()
+        menu.delegate = self
+        setPressed(true, by: "press")
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + Theme.Space.xs), in: self)
+        setPressed(false, by: "popUp returned")
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        setPressed(false, by: "menu closed")
+    }
+
+    /// Draws the change at once instead of with the window's next update, which waits for the menu's tracking to unwind.
+    private func setPressed(_ pressed: Bool, by cause: String) {
+        guard isHighlighted != pressed else { return }
+        isHighlighted = pressed
+        displayIfNeeded()
+        if ScreenshotHarness.isActive { ScreenshotHarness.traceMenuButton(self, cause: cause) }
     }
 
     /// Divider and chevron are drawing only; every press belongs to the button.

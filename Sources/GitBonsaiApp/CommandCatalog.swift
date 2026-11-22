@@ -20,7 +20,6 @@ extension CommandSpec {
     static let fetchAll = CommandSpec(id: "fetch", title: "Alle Remotes fetchen", keywords: ["fetch"], glyph: .symbol("arrow.down.circle"), shortcut: .fetch)
     static let fetchTags = CommandSpec(id: "fetch.tags", title: "Tags aller Remotes fetchen", keywords: ["fetch"], glyph: .glyph(.tag))
     static let pull = CommandSpec(id: "pull", title: "Pull", glyph: .symbol("arrow.down"), shortcut: .pull)
-    static let pullAutostash = CommandSpec(id: "pull.autostash", title: "Pull mit Autostash", keywords: ["stash"], glyph: .symbol("arrow.down"))
     static let setUpstreamAndPull = CommandSpec(id: "pull.set-upstream", title: "Upstream setzen und pullen …", keywords: ["pull"], glyph: .symbol("arrow.down"))
     static let push = CommandSpec(id: "push", title: "Push", glyph: .symbol("arrow.up"), shortcut: .push)
 
@@ -33,7 +32,9 @@ extension CommandSpec {
 
     // MARK: Working directory
 
-    static let stash = CommandSpec(id: "stash", title: "Stash …", keywords: ["stash push", "änderungen"], glyph: .glyph(.stashBowl), shortcut: .stash)
+    static let stash = CommandSpec(id: "stash", title: "Änderungen stashen", keywords: ["stash push", "änderungen"], glyph: .glyph(.stashBowl), shortcut: .stash)
+    static let stashWithMessage = CommandSpec(id: "stash.message", title: "Stash mit Nachricht …", keywords: ["stash push", "änderungen"], glyph: .glyph(.stashBowl))
+    static let stashStaged = CommandSpec(id: "stash.staged", title: "Nur gestagte Änderungen stashen", keywords: ["stash push", "staged"], glyph: .glyph(.stashBowl))
     static let pop = CommandSpec(id: "stash.pop", title: "Stash poppen", keywords: ["pop"], glyph: .glyph(.stashBowl), shortcut: .pop)
     static let commit = CommandSpec(id: "commit", title: "Commit …", keywords: ["commit"], glyph: .glyph(.staged), shortcut: .commit)
     static let amend = CommandSpec(id: "commit.amend", title: "Letzten Commit ändern (Amend) …", keywords: ["amend"], glyph: .glyph(.pencil))

@@ -14,10 +14,26 @@ enum GitFailureText {
         case let .localChangesInTheWay(paths): return "Lokale Änderungen würden überschrieben: \(list(paths))."
         case .uncommittedChanges: return "Nicht committete Änderungen stehen im Weg; erst committen oder stashen."
         case .emptyStep: return "Der Schritt ist leer, es gibt nichts zu committen."
+        case .unreachable: return "Der Server ist nicht erreichbar. Netzwerkverbindung und Remote-Adresse prüfen."
         case .authenticationFailed: return "Anmeldung beim Server fehlgeschlagen. GitBonsai fragt nicht nach Passwörtern: Zugangsdaten im Credential-Helper speichern oder den SSH-Schlüssel im SSH-Agent laden."
         case let .message(text) where text.isEmpty: return "git meldet einen Fehler (Exit-Code \(gitError.exitCode))."
         case let .message(text): return text.prefix(1).uppercased() + text.dropFirst()
         }
+    }
+
+    /// Local changes stopped the command before it changed anything, so stashing them and running it again gets it through.
+    static func isBlockedByLocalChanges(_ error: Error) -> Bool {
+        guard let gitError = error as? GitError else { return false }
+        switch GitFailure(output: gitError.stderr) {
+        case .localChangesInTheWay, .uncommittedChanges: return true
+        default: return false
+        }
+    }
+
+    /// A failure that changed nothing and asks for nothing: the server could not be reached, or a stash was already gone. A toast says so instead of a sheet.
+    static func isPassing(_ error: Error) -> Bool {
+        guard let gitError = error as? GitError else { return false }
+        return GitFailure(output: gitError.stderr) == .unreachable || gitError.stderr.contains("is no longer in the stash list")
     }
 
     /// git's output as a terminal would show it, or nil when it says nothing beyond the summary.
@@ -45,54 +61,4 @@ enum GitFailureText {
     private static func list(_ paths: [String]) -> String {
         paths.count > 3 ? paths.prefix(3).joined(separator: ", ") + " und \(paths.count - 3) weitere" : paths.joined(separator: ", ")
     }
-}
-
-/// "Details" under an error: a disclosure that shows git's output in a small scrolling text view.
-@MainActor
-final class FailureDetailsView: NSStackView {
-    private let disclosure = NSButton(title: "", target: nil, action: nil)
-    private let scroll = NSTextView.scrollableTextView()
-    /// The alert lays itself out again so the window grows or shrinks with the details.
-    var onToggle: (() -> Void)?
-
-    init(details: String) {
-        super.init(frame: .zero)
-        orientation = .vertical
-        alignment = .leading
-        spacing = Theme.ActionSheet.labelSpacing
-        disclosure.bezelStyle = .disclosure
-        disclosure.setButtonType(.pushOnPushOff)
-        disclosure.target = self
-        disclosure.action = #selector(toggle)
-        let caption = NSTextField(labelWithString: "Details")
-        caption.font = Theme.caption
-        caption.textColor = Theme.inkMuted
-        let header = NSStackView(views: [disclosure, caption])
-        header.spacing = Theme.Space.xs
-        let text = scroll.documentView as! NSTextView
-        text.string = details
-        text.font = Theme.monoSmall
-        text.isEditable = false
-        scroll.borderType = .bezelBorder
-        scroll.isHidden = true
-        addArrangedSubview(header)
-        addArrangedSubview(scroll)
-        scroll.widthAnchor.constraint(equalToConstant: Theme.ActionSheet.fieldWidth).isActive = true
-        scroll.heightAnchor.constraint(equalToConstant: Theme.FailureDetails.height).isActive = true
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    var isExpanded: Bool {
-        get { !scroll.isHidden }
-        set {
-            disclosure.state = newValue ? .on : .off
-            scroll.isHidden = !newValue
-            layoutSubtreeIfNeeded()
-            frame.size = fittingSize
-            onToggle?()
-        }
-    }
-
-    @objc private func toggle() { isExpanded = disclosure.state == .on }
 }

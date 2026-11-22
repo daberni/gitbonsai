@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The Stashes popover of the sidebar and the toolbar's Stash and Pop: making a stash, and showing, applying, popping, dropping or branching one.
+/// The Stashes popover of the sidebar and the toolbar's Stash and Pop: making a stash, taking it back, and showing, applying, popping, dropping or branching one.
 @MainActor
 final class StashesController {
     /// Selects a commit in the history.
@@ -68,16 +68,81 @@ final class StashesController {
 
     // MARK: Toolbar
 
+    /// The toolbar's Stash menu: stashing everything at once is its default; the others ask for a message or take only the staged changes.
+    func stashMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let all = ActionMenuItem("Alle Änderungen stashen") { [weak self] in self?.stashNow(.includingUntracked) }
+        all.toolTip = StashScope.includingUntracked.commandLine + " -m „WIP auf <Branch>: <HEAD>“"
+        menu.addItem(all)
+        menu.addItem(ActionMenuItem("Stash mit Nachricht …") { [weak self] in self?.stashWithMessage() })
+        let staged = ActionMenuItem("Nur gestagte Änderungen stashen") { [weak self] in self?.stashNow(.staged) }
+        staged.toolTip = StashScope.staged.commandLine
+        staged.isEnabled = hasStagedChanges
+        menu.addItem(staged)
+        return menu
+    }
+
+    var hasStagedChanges: Bool { !(viewModel.status?.staged.isEmpty ?? true) }
+
+    /// Stashes without asking, under git's default style of message in the app's words; a toast offers to take it back.
+    func stashNow(_ scope: StashScope) {
+        Task {
+            let message = await viewModel.repository.defaultStashMessage()
+            await stash(message: message, scope: scope)
+        }
+    }
+
     /// Asks for a message and whether untracked files go along, then stashes.
-    func stashChanges() {
+    func stashWithMessage() {
         let form = ActionForm(title: "Änderungen stashen", info: "Alle Änderungen im Working Directory kommen in einen neuen Stash.", confirm: "Stash")
         form.addField(key: "message", label: "Nachricht (optional)", placeholder: "WIP", required: false)
         form.addCheckbox("Unversionierte Dateien einschließen", checked: true)
         Task {
             guard let values = await prompter.ask(form) else { return }
             let message = values.value("message")
-            let untracked = values.isChecked
-            runner.run(failure: "Stash nicht angelegt", note: untracked ? "git stash push -u" : "git stash push") { try await $0.stash(message: message, includeUntracked: untracked) }
+            await stash(message: message, scope: values.isChecked ? .includingUntracked : .tracked)
+        }
+    }
+
+    private func stash(message: String?, scope: StashScope) async {
+        let repository = viewModel.repository
+        do {
+            let created = try await repository.stash(message: message, scope: scope)
+            await viewModel.refresh(note: created == nil ? nil : scope.commandLine)
+            guard let created else {
+                prompter.onToast?("Nichts zu stashen", nil)
+                return
+            }
+            prompter.onToast?("Gestasht: \(created.stash.text)", ToastAction(title: "Rückgängig") { [weak self] in self?.undo(created) })
+        } catch {
+            await viewModel.refresh(note: nil)
+            prompter.report(error, title: "Stash nicht angelegt")
+        }
+    }
+
+    /// Pops the stash just made back, as long as nothing changed since; otherwise a toast says why it stays.
+    private func undo(_ created: NewStash) {
+        let repository = viewModel.repository
+        Task {
+            do {
+                try await repository.undoStash(created)
+                await viewModel.refresh(note: "git stash pop --index stash@{0}")
+                prompter.onToast?("Stash zurückgenommen: \(created.stash.text)", nil)
+            } catch let error as StashUndoError {
+                prompter.onToast?("Nicht rückgängig gemacht: " + Self.reason(error) + "; der Stash bleibt in der Liste", nil)
+            } catch {
+                await viewModel.refresh(note: nil)
+                prompter.report(error, title: "Stash nicht zurückgenommen")
+            }
+        }
+    }
+
+    private static func reason(_ error: StashUndoError) -> String {
+        switch error {
+        case .notNewest: "inzwischen gibt es einen neueren Stash"
+        case .headMoved: "HEAD hat sich inzwischen bewegt"
+        case .workingTreeChanged: "das Working Directory hat sich inzwischen geändert"
         }
     }
 

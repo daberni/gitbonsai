@@ -180,7 +180,22 @@ final class CommitActionsController {
                 await viewModel.refresh(note: nil)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
-                await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, unlessStoppedIn: repository)
+                let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, endsRebase: endsRebase, operation)] : []
+                await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, unlessStoppedIn: repository)
+            }
+        }
+    }
+
+    /// Runs the operation again with the local changes set aside and brought back afterwards; see `Repository.withLocalChangesStashed`.
+    private func stashAndRetry(failure: String, conflict: String?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
+        let message = "GitBonsai: vor \(note)"
+        let prompter = prompter
+        return FailureAction(title: "Änderungen stashen und erneut versuchen") { [weak self] in
+            self?.runOperation(failure: failure, conflict: conflict, note: note + " · lokale Änderungen per Stash mitgenommen", endsRebase: endsRebase) { repository in
+                var report: OperationReport?
+                let conflicted = try await repository.withLocalChangesStashed(message: message) { report = try await operation(repository) }
+                if conflicted { await prompter.reportConflictingReturn(of: message) }
+                return report
             }
         }
     }

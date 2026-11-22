@@ -46,8 +46,9 @@ final class BranchPullController {
             case .fastForwarded(let commits):
                 let what = commits == 1 ? "1 Commit" : "\(commits) Commits"
                 let summary = "„\(branch)“ um \(what) auf \(upstream) vorgespult" + Self.whereText(result.place)
-                await viewModel.refresh(note: summary + " · " + result.commandLine)
-                onToast?(summary)
+                let conflicted = result.localChangesConflicted ? ", " + PullPushController.conflictedChanges : ""
+                await viewModel.refresh(note: summary + conflicted + " · " + result.commandLine)
+                onToast?(summary + conflicted)
             case .upToDate(let ahead):
                 let summary = "„\(branch)“ ist auf dem Stand von \(upstream)" + (ahead > 0 ? ", \(ahead) lokale Commits noch nicht gepusht" : "")
                 await viewModel.refresh(note: summary + " · " + result.commandLine)

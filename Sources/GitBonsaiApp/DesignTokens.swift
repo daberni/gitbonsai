@@ -363,10 +363,11 @@ enum Theme {
         static let margin = Space.l
         /// Seconds the toast stays before it fades.
         static let duration: TimeInterval = 4
+        /// A toast with an action stays longer, so the action can be reached.
+        static let actionDuration: TimeInterval = 8
         static let fade: TimeInterval = 0.25
     }
 
-    /// The "Details" disclosure under a failed git command, with git's own output.
     /// The "Repository klonen" sheet.
     enum Clone {
         static let width: CGFloat = 460
@@ -376,8 +377,21 @@ enum Theme {
         static let barHeight: CGFloat = 6
     }
 
-    enum FailureDetails {
-        static let height: CGFloat = 140
+    /// The sheet of a failed git command, and the disclosure with git's own output that it shares with the clone sheet.
+    enum Failure {
+        static let width: CGFloat = 480
+        static let padding = Space.xl
+        static let spacing = Space.m
+        static let buttonGap = Space.s
+        static let glyph = Icon.large
+        /// The output box grows with git's text up to this height, then scrolls.
+        static let outputMaxHeight: CGFloat = 220
+        static let outputMinHeight = TextField.height
+        static let outputInset = TextField.inset
+        /// Between the disclosure row and the output box.
+        static let outputGap = Space.xs
+        static let chevron: CGFloat = 9
+        static let copyGlyph: CGFloat = 11
     }
 
     /// The interactive rebase sheet: the steps on the left and the resulting history on the right on one baseline grid, the message of the selected step below both.

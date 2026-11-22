@@ -106,7 +106,10 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Tag status per remote | `git ls-remote --tags <remote>` and `git for-each-ref --format=<name, object, peeled object> refs/tags` | Once per remote when the Tags list opens, kept until the next `fetch`, `pull` or `push` through the repository; stopped after 10 s. Tags compare by the object their ref names, so an annotated tag recreated on the same commit differs |
 | Fetch one tag | `git fetch --no-tags <remote> refs/tags/<name>:refs/tags/<name>` | "Holen" for a tag only on the remote; never overwrites a differing local tag |
 | List stashes | `git stash list --format=…` | |
-| Stash | `git stash push [--include-untracked] [-m <message>]` | |
+| Stash from the toolbar | `git symbolic-ref -q --short HEAD`, `git log -1 --format=%s HEAD`, then `git stash push --include-untracked -m "WIP auf <branch>: <subject>"` | Runs at once. `git stash list` before and after tells whether a stash was made, `git status --porcelain --untracked-files=all` records what it left |
+| Stash with a message / only staged changes | `git stash push [--include-untracked] [-m <message>]`, `git stash push --staged -m <message>` | From the Stash button's menu |
+| Undo the stash just made | `git stash list`, `git rev-parse --verify <stash>^1`, `git rev-parse --verify HEAD`, `git status --porcelain --untracked-files=all`, then `git stash pop --index stash@{0}` | Only while the stash is the newest, HEAD is where it was made and the working tree is as the stash left it |
+| Stash local changes and retry a refused command | `git stash push --include-untracked -m "GitBonsai: vor <command>"`, the command, `git stash pop --index <selector>` (retried as `git stash pop` on "Conflicts in index") | Offered when local changes stop a cherry-pick, revert, merge or rebase. A failure without an operation in progress pops at once; a stop on conflicts keeps the stash; a conflicting pop keeps it too |
 | Apply / pop / drop | `git stash apply\|pop\|drop <selector>` | Drop asks first |
 | Branch from a stash | `git stash branch <name> <selector>` | |
 
@@ -130,14 +133,13 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Fetch tags | `git fetch --all --tags` | |
 | Upstream and ahead/behind | `git config --get branch.<b>.remote`, `git config --get branch.<b>.merge`, `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | Counts next to Pull and Push |
 | Default pull mode | `git config --type=bool-or-str --get pull.rebase`, `… --get pull.ff` | `pull.rebase` first, then `pull.ff`; without either fast-forward only |
-| Pull, fast-forward only | `git pull --no-rebase --ff-only --no-autostash` | Every pull runs with `GIT_EDITOR=true` |
-| Pull, merge | `git pull --no-rebase --ff --no-edit --no-autostash` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
-| Pull, rebase | `git pull --rebase --no-autostash` | |
-| Pull with autostash | `git pull <default mode flags> --autostash` | |
+| Pull, fast-forward only | `git pull --no-rebase --ff-only --autostash` | Every pull runs with `GIT_EDITOR=true` and carries local changes with `--autostash`. When applying them again conflicts, git exits 0 with "…resulted in conflicts", keeps the stash `autostash` and leaves the conflicts in the working tree; a toast with "Konflikte anzeigen" and the status line say so |
+| Pull, merge | `git pull --no-rebase --ff --no-edit --autostash` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
+| Pull, rebase | `git pull --rebase --autostash` | |
 | Set upstream before a pull | `git branch --set-upstream-to=<remote>/<branch> <b>` | Then pulls with the default mode |
 | Pull a branch from its context menu: where it is checked out | `git worktree list --porcelain`, `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | The checked-out branch takes the normal pull with the default mode |
 | Pull a branch that is checked out nowhere | `git fetch --no-write-fetch-head <remote> refs/heads/<upstream>:refs/heads/<b>` | One command fetches and moves the ref; git refuses anything but a fast-forward (`[rejected] … (non-fast-forward)`) and also updates `<remote>/<upstream>`. Position before and after with `git rev-parse --verify refs/heads/<b>^{commit}`, commits taken with `git rev-list --count <old>..<new>` |
-| Pull a branch checked out in another worktree | `git -C <worktree> pull --no-rebase --ff-only --no-autostash` | Through that worktree's own index queue, with `GIT_EDITOR=true` |
+| Pull a branch checked out in another worktree | `git -C <worktree> pull --no-rebase --ff-only --autostash` | Through that worktree's own index queue, with `GIT_EDITOR=true`; a conflicting autostash is named in the toast and status line |
 | Diverged branch: counts | `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | After the refused attempt, which already fetched. Behind 0 is reported as up to date |
 | Diverged branch: reset to the upstream | `git rev-parse --verify <b>@{upstream}^{commit}`, `git update-ref -m "reset: moving to <b>@{upstream}" refs/heads/<b> <upstream sha> <old sha>` | Only for a branch checked out nowhere, after a confirmation with the number of lost commits; the old value guards against a branch that moved meanwhile |
 | Push to the upstream | `git push <remote> refs/heads/<b>:refs/heads/<upstream branch>` | |

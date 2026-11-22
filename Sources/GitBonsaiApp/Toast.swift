@@ -1,6 +1,13 @@
 import AppKit
 
+/// The one thing a toast offers to do, such as undoing what it reports or showing details.
+struct ToastAction {
+    let title: String
+    let run: @MainActor () -> Void
+}
+
 /// A short note at the bottom of the history pane that fades out by itself, for things worth knowing that need no answer, such as commits a rebase left out.
+/// It may carry one action; it then stays a little longer, and the action is gone with the toast.
 @MainActor
 final class Toast {
     let view = ToastView()
@@ -23,19 +30,33 @@ final class Toast {
         ])
     }
 
-    func show(_ text: String) {
+    func show(_ text: String, action: ToastAction? = nil) {
         generation += 1
         let current = generation
         view.text = text
-        view.isHidden = false
-        if ScreenshotHarness.isActive { FileHandle.standardError.write(Data("toast: \(text)\n".utf8)) }
-        fade(to: 1)
-        DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Toast.duration) { [weak self] in
-            guard let self, current == generation else { return }
-            fade(to: 0) { [weak self] in
-                guard let self, current == generation else { return }
-                view.isHidden = true
+        view.action = action.map { action in
+            ToastAction(title: action.title) { [weak self] in
+                self?.hide()
+                action.run()
             }
+        }
+        view.isHidden = false
+        if ScreenshotHarness.isActive { ScreenshotHarness.toastShown(view, text: text) }
+        fade(to: 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + (action == nil ? Theme.Toast.duration : Theme.Toast.actionDuration)) { [weak self] in
+            guard let self, current == generation else { return }
+            hide()
+        }
+    }
+
+    /// Fades the toast out now; a newer message cancels this.
+    func hide() {
+        generation += 1
+        let current = generation
+        fade(to: 0) { [weak self] in
+            guard let self, current == generation else { return }
+            view.isHidden = true
+            view.action = nil
         }
     }
 
@@ -47,11 +68,21 @@ final class Toast {
     }
 }
 
-/// A rounded, outlined pill with a glyph and one line of text; it lets clicks through to the history below.
+/// A rounded, outlined pill with a glyph, one line of text and an optional action link; apart from the link it lets clicks through to the history below.
 final class ToastView: NSView {
     private typealias M = Theme.Toast
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    private(set) lazy var actionButton = LinkButton(target: self, action: #selector(runAction(_:)))
+    private var actionHandler: (@MainActor () -> Void)?
+
+    var action: ToastAction? {
+        didSet {
+            actionHandler = action?.run
+            actionButton.isHidden = action == nil
+            actionButton.attributedTitle = NSAttributedString(string: action?.title ?? "", attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.moss])
+        }
+    }
 
     var text: String {
         get { label.stringValue }
@@ -70,7 +101,9 @@ final class ToastView: NSView {
         label.textColor = Theme.ink
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let row = NSStackView(views: [glyph, label])
+        actionButton.isHidden = true
+        actionButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let row = NSStackView(views: [glyph, label, actionButton])
         row.spacing = Theme.Space.s
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
@@ -85,7 +118,16 @@ final class ToastView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    /// Only the action link takes clicks.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !actionButton.isHidden, let hit = super.hitTest(point), hit === actionButton || hit.isDescendant(of: actionButton) else { return nil }
+        return hit
+    }
+
+    /// The toast sits over the history, whose window is key anyway; a click on the link should act at once.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    @objc private func runAction(_ sender: Any?) { actionHandler?() }
 
     override func draw(_ dirtyRect: NSRect) {
         let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: Theme.Stroke.hairline / 2, dy: Theme.Stroke.hairline / 2), xRadius: M.radius, yRadius: M.radius)

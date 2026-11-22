@@ -24,6 +24,8 @@ public struct BranchPullResult: Sendable, Equatable {
     public let outcome: BranchPullOutcome
     /// The command as the user would type it, for the status line.
     public let commandLine: String
+    /// The pull in another worktree carried its local changes, and applying them again conflicted there; the stash stays.
+    public var localChangesConflicted = false
 }
 
 public enum BranchPullError: Error, Sendable, Equatable {
@@ -60,9 +62,12 @@ extension Repository {
         case .worktree(let path):
             let arguments = PullVariant(mode: .fastForwardOnly).arguments
             let worktree = Repository(path: path, gitPath: runner.gitPath)
-            return try await pull(branch, place: place, commandLine: "git -C \(path) " + arguments.joined(separator: " ")) {
-                _ = try await worktree.runner.runWrite(arguments, environment: ["GIT_EDITOR": "true"])
+            var conflicted = false
+            var result = try await pull(branch, place: place, commandLine: "git -C \(path) " + arguments.joined(separator: " ")) {
+                conflicted = PullResult.parse(try await worktree.runner.runWrite(arguments, environment: ["GIT_EDITOR": "true"])).localChangesConflicted
             }
+            result.localChangesConflicted = conflicted
+            return result
         }
     }
 

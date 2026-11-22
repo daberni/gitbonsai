@@ -164,6 +164,18 @@ final class CloneTests: XCTestCase {
         XCTAssertEqual(GitFailure(output: https), .authenticationFailed)
         XCTAssertEqual(GitFailure(output: ssh), .authenticationFailed)
     }
+
+    /// An offline fetch is told apart from a remote that is wrong, so it can be a quiet note instead of a sheet.
+    func testUnreachableHostsAreNamed() {
+        let https = "fatal: unable to access 'https://example.invalid/x.git/': Could not resolve host: example.invalid\n"
+        let ssh = "ssh: connect to host example.com port 22: Operation timed out\nfatal: Could not read from remote repository.\n"
+        let refused = "fatal: unable to access 'https://localhost:9/x.git/': Failed to connect to localhost port 9 after 0 ms: Couldn't connect to server\n"
+        let missing = "fatal: '/no/such/repo' does not appear to be a git repository\nfatal: Could not read from remote repository.\n"
+        XCTAssertEqual(GitFailure(output: https), .unreachable)
+        XCTAssertEqual(GitFailure(output: ssh), .unreachable)
+        XCTAssertEqual(GitFailure(output: refused), .unreachable)
+        XCTAssertEqual(GitFailure(output: missing), .message("'/no/such/repo' does not appear to be a git repository"))
+    }
 }
 
 private final class ProgressLog: @unchecked Sendable {

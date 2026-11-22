@@ -18,12 +18,71 @@ extension Repository {
         }
     }
 
-    /// Stashes tracked and staged changes, and with `includeUntracked` untracked files too. Without a message git writes its `WIP on …` subject.
-    public func stash(message: String?, includeUntracked: Bool) async throws {
-        var arguments = ["stash", "push"]
-        if includeUntracked { arguments.append("--include-untracked") }
+    /// Stashes the changes `scope` names and returns the new stash with the working tree it left, or nil when there was nothing to stash. Without a message git writes its `WIP on …` subject.
+    @discardableResult
+    public func stash(message: String?, scope: StashScope) async throws -> NewStash? {
+        let before = try await stashes().first?.commitID
+        var arguments = ["stash", "push"] + scope.arguments
         if let message, !message.isEmpty { arguments += ["-m", message] }
         _ = try await runner.runWrite(arguments)
+        guard let newest = try await stashes().first, newest.commitID != before else { return nil }
+        return NewStash(stash: newest, remaining: try await workingTreeState())
+    }
+
+    /// Every change and untracked file, as `git status --porcelain` lists them.
+    private func workingTreeState() async throws -> String {
+        try await runner.run(["status", "--porcelain", "--untracked-files=all"]).stdoutString
+    }
+
+    /// The message the toolbar's one-click stash gives: "WIP auf <branch>: <subject of HEAD>", git's own default in the app's words.
+    public func defaultStashMessage() async -> String {
+        let branch = (try? await runner.run(["symbolic-ref", "-q", "--short", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let subject = (try? await runner.run(["log", "-1", "--format=%s", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let place = branch.flatMap { $0.isEmpty ? nil : $0 } ?? "Detached HEAD"
+        return subject.isEmpty ? "WIP auf \(place)" : "WIP auf \(place): \(subject)"
+    }
+
+    /// Takes back a stash just made: pops it with its index, but only while it is still the newest stash, HEAD is still the commit it was made on and the working tree is as the stash left it.
+    /// Anything else could mix the stash into newer work, so it throws `StashUndoError` and leaves everything as it is.
+    public func undoStash(_ created: NewStash) async throws {
+        let stash = created.stash
+        guard try await stashes().first?.commitID == stash.commitID else { throw StashUndoError.notNewest }
+        let base = try await runner.run(["rev-parse", "--verify", "\(stash.commitID)^1"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = try await runner.run(["rev-parse", "--verify", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard base == head else { throw StashUndoError.headMoved }
+        guard try await workingTreeState() == created.remaining else { throw StashUndoError.workingTreeChanged }
+        _ = try await runner.runWrite(["stash", "pop", "--index", "stash@{0}"])
+    }
+
+    /// Runs `body` with the working tree's changes, untracked files included, set aside in a stash, and puts them back afterwards. Returns whether putting them back conflicted; the stash then stays.
+    /// When `body` fails without leaving an operation in progress, the changes are put back before the error is thrown. When it stopped on conflicts, they stay in the stash, named by `message`, for after the operation.
+    public func withLocalChangesStashed(message: String, _ body: () async throws -> Void) async throws -> Bool {
+        guard let created = try await stash(message: message, scope: .includingUntracked) else {
+            try await body()
+            return false
+        }
+        do {
+            try await body()
+        } catch {
+            if await operationInProgress() == nil { _ = try? await popBack(created.stash) }
+            throw error
+        }
+        return try await popBack(created.stash)
+    }
+
+    /// Pops a stash, with its index unless `index` is false; true when that conflicted, which git answers by keeping the stash.
+    private func popBack(_ stash: Stash, index: Bool = true) async throws -> Bool {
+        do {
+            _ = try await runner.runWrite(["stash", "pop"] + (index ? ["--index"] : []) + [try await currentSelector(of: stash)])
+            return false
+        } catch let error as GitError {
+            // `--index` gives up when the staged part no longer applies; the plain pop still brings the changes back, unstaged.
+            if index, error.stderr.contains("Conflicts in index") { return try await popBack(stash, index: false) }
+            // A conflicting pop names the conflicts on stdout only ("Index was not unstashed." on stderr), so the working tree tells.
+            let unmerged = try? await runner.runRefreshingIndex(["diff", "--name-only", "-z", "--diff-filter=U"])
+            guard error.stoppedOnConflict || !(unmerged?.stdout.isEmpty ?? true) else { throw error }
+            return true
+        }
     }
 
     /// Applies a stash and keeps it. On a conflict git leaves the conflicted files in the working tree and the error says so.
@@ -54,4 +113,38 @@ extension Repository {
         }
         return match.selector
     }
+}
+
+/// A stash just made, with what it left in the working tree: nothing for a full stash, the unstaged rest for `--staged`.
+public struct NewStash: Sendable, Equatable {
+    public let stash: Stash
+    public let remaining: String
+}
+
+/// Which changes a new stash takes.
+public enum StashScope: Sendable, Hashable {
+    /// Tracked and staged changes and untracked files.
+    case includingUntracked
+    /// Tracked and staged changes only.
+    case tracked
+    /// Only what is staged; the rest stays in the working tree (`--staged`, git 2.35 and later).
+    case staged
+
+    var arguments: [String] {
+        switch self {
+        case .includingUntracked: ["--include-untracked"]
+        case .tracked: []
+        case .staged: ["--staged"]
+        }
+    }
+
+    /// The command as the user would type it, for the status line.
+    public var commandLine: String { (["git", "stash", "push"] + arguments).joined(separator: " ") }
+}
+
+/// Why a stash just made could not be taken back.
+public enum StashUndoError: Error, Sendable, Equatable {
+    case notNewest
+    case headMoved
+    case workingTreeChanged
 }

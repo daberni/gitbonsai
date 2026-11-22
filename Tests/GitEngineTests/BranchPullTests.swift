@@ -76,6 +76,27 @@ final class BranchPullTests: XCTestCase {
         XCTAssertEqual(try setup.local.git("status", "--porcelain", "--untracked-files=no"), "")
     }
 
+    func testPullInALinkedWorktreeCarriesItsLocalChanges() async throws {
+        let setup = try makeSetup()
+        defer { setup.remove() }
+        let worktree = setup.local.path + "-feature"
+        try setup.local.git("worktree", "add", "-q", worktree, "feature")
+        defer { try? FileManager.default.removeItem(atPath: worktree) }
+        let linked = FixtureRepo(existing: URL(fileURLWithPath: worktree))
+        try linked.write("file.txt", "edited\n")
+        try linked.write("notes.txt", "untracked\n")
+        // Writes file.txt on the remote, which collides with the edit.
+        try setup.advanceRemoteFeature("file")
+
+        let result = try await setup.local.repository.fastForwardBranch("feature")
+
+        XCTAssertEqual(result.outcome, .fastForwarded(commits: 1))
+        XCTAssertTrue(result.localChangesConflicted)
+        XCTAssertTrue(result.commandLine.contains("--autostash"), result.commandLine)
+        XCTAssertEqual(try linked.git("status", "--porcelain"), "UU file.txt\n?? notes.txt")
+        XCTAssertTrue(try linked.git("stash", "list").hasSuffix("autostash"))
+    }
+
     func testRefusesADivergedBranchAndReportsBothCounts() async throws {
         let setup = try makeSetup()
         defer { setup.remove() }

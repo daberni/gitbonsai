@@ -138,9 +138,10 @@ final class PrimaryButton: NSControl {
     }
 }
 
-/// The quiet button beside `PrimaryButton`, such as Cancel: `surface-2` with a hairline and ink text.
+/// The quiet button beside `PrimaryButton`, such as Cancel: `surface-2` with a hairline and ink text, persimmon for a destructive choice.
 final class SecondaryButton: NSControl {
     let title: String
+    var tint = Theme.ink { didSet { needsDisplay = true } }
     private var isPressed = false { didSet { needsDisplay = true } }
 
     init(title: String) {
@@ -151,7 +152,7 @@ final class SecondaryButton: NSControl {
     required init?(coder: NSCoder) { nil }
 
     private var attributedTitle: NSAttributedString {
-        NSAttributedString(string: title, attributes: [.font: Theme.body, .foregroundColor: Theme.ink])
+        NSAttributedString(string: title, attributes: [.font: Theme.body, .foregroundColor: tint])
     }
 
     override var intrinsicContentSize: NSSize {

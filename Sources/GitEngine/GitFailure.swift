@@ -16,6 +16,8 @@ public enum GitFailure: Sendable, Equatable {
     case emptyStep
     /// The remote wanted credentials that neither a credential helper nor the SSH agent supplied; git may not ask for them.
     case authenticationFailed
+    /// The remote's host could not be reached: no network, an unknown host, a refused or timed-out connection.
+    case unreachable
     /// Anything else: git's first `fatal:` or `error:` line, or its first line.
     case message(String)
 
@@ -31,6 +33,8 @@ public enum GitFailure: Sendable, Equatable {
             self = .emptyStep
         } else if lines.contains(where: Self.isAuthenticationFailure) {
             self = .authenticationFailed
+        } else if lines.contains(where: Self.isUnreachable) {
+            self = .unreachable
         } else if case let conflicted = lines.compactMap(Self.conflictPath), !conflicted.isEmpty {
             self = .conflicts(conflicted)
         } else if let line = lines.first(where: { $0.hasPrefix("fatal: ") || $0.hasPrefix("error: ") }) {
@@ -43,6 +47,12 @@ public enum GitFailure: Sendable, Equatable {
     /// HTTPS without stored credentials ends in "terminal prompts disabled" or "Authentication failed"; SSH without a usable key in "Permission denied (publickey)".
     private static func isAuthenticationFailure(_ line: String) -> Bool {
         let markers = ["terminal prompts disabled", "Authentication failed for", "could not read Username", "could not read Password", "Permission denied (publickey", "Host key verification failed"]
+        return markers.contains { line.contains($0) }
+    }
+
+    /// curl's and ssh's words for a host that does not answer; a remote path that is not a repository is not among them.
+    private static func isUnreachable(_ line: String) -> Bool {
+        let markers = ["Could not resolve host", "Could not resolve hostname", "Connection refused", "Network is unreachable", "No route to host", "timed out", "Failed to connect to", "Connection reset by peer"]
         return markers.contains { line.contains($0) }
     }
 

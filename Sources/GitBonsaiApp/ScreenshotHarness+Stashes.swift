@@ -6,6 +6,7 @@ import GitEngine
 extension ScreenshotHarness {
     /// Runs the switches in order, each after the one before has settled: open the panel, filter, select, capture, then one action.
     static func driveStashesAndTags(on tab: RepositoryViewController) {
+        toastTab = tab
         if let button = environment["GITBONSAI_TOOLBAR"] { clickToolbar(button, on: tab) }
         guard let name = environment["GITBONSAI_OPEN_PANEL"], let panel = SidebarPanel(rawValue: name) else { return }
         let popover = panel == .tags ? tab.tagsController.popover : tab.stashesController.popover
@@ -160,4 +161,29 @@ extension ScreenshotHarness {
         view.cacheDisplay(in: view.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
+
+    // MARK: Toast
+
+    /// Prints every toast with its action. `GITBONSAI_TOAST_SHOT=<png>` renders the window once the first toast with an action has faded in, and `GITBONSAI_TOAST_CLICK=<action>` then clicks that action with a real click
+    /// and prints the status line, the working tree's state and the next toast.
+    static func toastShown(_ toast: ToastView, text: String) {
+        let action = toast.action?.title
+        FileHandle.standardError.write(Data("toast: \(text)\(action.map { " [\($0)]" } ?? "")\n".utf8))
+        guard let action, !didHandleToast, let window = toast.window else { return }
+        didHandleToast = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if let path = environment["GITBONSAI_TOAST_SHOT"] { renderWindow(window, to: path) }
+            guard environment["GITBONSAI_TOAST_CLICK"] == action else { return }
+            let button = toast.actionButton
+            FileHandle.standardError.write(Data("toast click \(action)\n".utf8))
+            pressView(in: window, at: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
+            guard let tab = toastTab else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                FileHandle.standardError.write(Data("status: \(tab.viewModel.statusText)\nworking tree: \(tab.viewModel.status?.entries.map(\.path).joined(separator: ", ") ?? "-"), stashes \(tab.viewModel.stashes.count)\n".utf8))
+            }
+        }
+    }
+
+    private nonisolated(unsafe) static var didHandleToast = false
+    private nonisolated(unsafe) static weak var toastTab: RepositoryViewController?
 }
