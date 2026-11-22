@@ -133,7 +133,8 @@ enum Theme {
     }
 
     enum Tabs {
-        static let top: CGFloat = 4
+        /// Tabs sit at the bottom of the title row.
+        static let height: CGFloat = 34
         static let radius = Radius.md
         static let titleInset: CGFloat = 18
         static let closeSlot: CGFloat = 28

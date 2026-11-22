@@ -20,6 +20,7 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
   - History: `HistoryViewController` (table, selection, search), `HistoryColumnsController` (widths, visibility, graph scroll, column menu), `HistoryColumns` (layout math and `ColumnStore`), `HistoryViews` (header, table, hover guide), `HistoryRowModel` (row and label models), `GraphRowView` (drawing).
   - Shared: `DesignTokens.swift` mirrors `docs/design/tokens.json`, `Glyphs`, `ChromeViews`. `ScreenshotHarness` holds all verification switches.
   - When a type starts mixing responsibilities or passes about 300 lines, split it before adding more.
+  - Minimum is macOS 26. A SwiftPM build records the minimum as its SDK version, and AppKit draws the current window style (larger traffic lights, Liquid Glass controls) only for SDK 26 and later. An Xcode-built app bundle records the real SDK; revisit the minimum once the app is packaged that way.
   - No literal sizes, spacings, radii, strokes, fonts or alphas in views. Use the scales in `Theme` (`Space`, `Radius`, `Stroke`, `Icon`, `Wash`, fonts), which mirror `docs/design/tokens.json`; sizes that belong to one component go into its namespace in `DesignTokens.swift` (`Theme.Tabs`, `Theme.Sidebar`, …). Check a refactor of numbers with before/after screenshots: they must be pixel-identical apart from times.
 - `Tests/` — XCTest. Fixture repos are built on the fly with `git` in a temp dir (see `GitEngineTests/FixtureRepo.swift`).
 - `docs/` — product and architecture docs, design language.

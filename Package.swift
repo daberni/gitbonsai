@@ -3,7 +3,8 @@ import PackageDescription
 
 let package = Package(
     name: "GitBonsai",
-    platforms: [.macOS(.v14)],
+    // macOS records the SDK of a SwiftPM build as this version and draws windows in the current style only from 26 on.
+    platforms: [.macOS("26.0")],
     products: [
         .library(name: "GitEngine", targets: ["GitEngine"]),
         .library(name: "GraphLayout", targets: ["GraphLayout"]),

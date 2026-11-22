@@ -85,7 +85,7 @@ macOS 26 legt Toolbar, Sidebar, Sheets und Popover als Liquid Glass über den In
 - **Der Graph ist nie Glas.** Er ist die Pflanze, nicht das Fenster: `surface-0`, matt, mit vollen Strangfarben. Beim Scrollen gleiten die Stränge unter der Glas-Toolbar hindurch; das ist der einzige Moment, in dem Glas das Konzept trägt, weil der Graph dann wie hinter einer Scheibe wächst.
 - **Labels, Knoten, Banner und Detail-Panel bleiben matt.** Ein Label auf Glas verliert Kontrast; deshalb sitzen Ref-Labels im Graph-Bereich, nie in der Toolbar.
 - **Tönung statt Farbe**: Glasflächen tragen nie `moss` oder `clay` als Tönung, nur Papier bzw. Rinde. Akzente bleiben opake Elemente auf dem Glas (Buttons, Badges), damit sie in jedem Hintergrund lesbar sind.
-- **Fallback**: Mit "Transparenz reduzieren" oder auf macOS 15 werden dieselben Flächen opak `surface-1`; Layout und Abstände ändern sich nicht, nur die Materialität. Die Sidebar-Zeilenhöhen und Radien gelten auf beiden.
+- **Fallback**: Mit "Transparenz reduzieren" werden dieselben Flächen opak `surface-1`; Layout und Abstände ändern sich nicht, nur die Materialität. Die Sidebar-Zeilenhöhen und Radien gelten auf beiden.
 
 ## Nicht
 

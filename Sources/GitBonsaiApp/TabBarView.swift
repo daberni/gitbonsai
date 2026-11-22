@@ -64,9 +64,9 @@ final class TabBarView: NSView, NSViewToolTipOwner {
         var x = leadingInset
         tabFrames = widths.map { width in
             defer { x += width }
-            return CGRect(x: x, y: M.top, width: width, height: bounds.height - M.top)
+            return CGRect(x: x, y: bounds.height - M.height, width: width, height: M.height)
         }
-        plusFrame = CGRect(x: x + M.newTabGap, y: (M.top + Self.height - M.newTabButton.height) / 2, width: M.newTabButton.width, height: M.newTabButton.height)
+        plusFrame = CGRect(x: x + M.newTabGap, y: Self.height - (M.height + M.newTabButton.height) / 2, width: M.newTabButton.width, height: M.newTabButton.height)
         // AppKit does not retain a tool tip's owner, so the view itself answers for every rectangle.
         removeAllToolTips()
         for frame in tabFrames + [plusFrame] { addToolTip(frame, owner: self, userData: nil) }
