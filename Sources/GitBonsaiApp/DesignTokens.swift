@@ -140,6 +140,16 @@ enum Theme {
         static let toolbarInset: CGFloat = 14
     }
 
+    /// Split buttons of the repository toolbar: actions with several variants.
+    enum Toolbar {
+        /// Width of the chevron part behind the divider.
+        static let menuPart: CGFloat = 22
+        static let chevronSize: CGFloat = 10
+        static let dividerHeight: CGFloat = 16
+        /// Divider and chevron of a disabled button fade about as far as its title.
+        static let disabledAlpha: CGFloat = 0.4
+    }
+
     enum Tabs {
         /// Tabs sit at the bottom of the title row.
         static let height: CGFloat = 34

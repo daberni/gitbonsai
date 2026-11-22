@@ -3,20 +3,21 @@ import GitEngine
 
 /// The toolbar of a repository tab in three parts: fetch status on the left, the actions centred in the window, search on the right.
 final class RepositoryToolbar: BarView {
+    /// Runs when the Fetch button has no menu of variants.
     var onFetch: (() -> Void)?
     /// Each action button is enabled once its handler is set.
     var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
     var onStash: (() -> Void)? { didSet { stash.isEnabled = onStash != nil } }
     var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
-    /// Choices for the fetch button's menu, for example other fetch variants; nil keeps a plain button.
-    var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : "Fetch-Varianten" } }
-    /// The menus of Pull and Push; the buttons are enabled by `showUpstream`.
+    /// The variants in the fetch button's menu, the first enabled one its default; without them the button only runs `onFetch`.
+    var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : "Alle Remotes fetchen, weitere Varianten über den Pfeil" } }
+    /// The menus of Pull and Push, the first enabled entry each button's default; the buttons start disabled until `showUpstream` enables them.
     var pullMenu: (() -> NSMenu)?
     var pushMenu: (() -> NSMenu)?
 
-    private lazy var fetchButton = button("Fetch", "arrow.down.to.line", #selector(fetch(_:)))
-    private lazy var pull = button("Pull", "arrow.down", #selector(runPull(_:)))
-    private lazy var push = button("Push", "arrow.up", #selector(runPush(_:)))
+    private lazy var fetchButton = MenuButton("Fetch", "arrow.down.to.line", enabled: true) { [weak self] in self?.fetchMenu?() ?? self?.singleFetchMenu() ?? NSMenu() }
+    private lazy var pull = MenuButton("Pull", "arrow.down", enabled: false) { [weak self] in self?.pullMenu?() ?? NSMenu() }
+    private lazy var push = MenuButton("Push", "arrow.up", enabled: false) { [weak self] in self?.pushMenu?() ?? NSMenu() }
     private lazy var branch = button("Branch", "arrow.triangle.branch", #selector(runBranch(_:)))
     private lazy var stash = button("Stash", "tray.and.arrow.down", #selector(runStash(_:)))
     private lazy var pop = button("Pop", "tray.and.arrow.up", #selector(runPop(_:)))
@@ -67,19 +68,17 @@ final class RepositoryToolbar: BarView {
 
     required init?(coder: NSCoder) { nil }
 
-    /// Every button but Fetch starts disabled: Pull and Push come alive through `showUpstream`, the others when their handler is set.
+    /// Buttons that run directly start disabled and come alive when their handler is set.
     private func button(_ title: String, _ symbol: String, _ action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         button.imagePosition = .imageLeading
         button.bezelStyle = .rounded
         button.controlSize = .large
-        button.isEnabled = action == #selector(fetch(_:))
+        button.isEnabled = false
         return button
     }
 
-    @objc private func runPull(_ sender: Any?) { popUp(pullMenu?(), below: sender) }
-    @objc private func runPush(_ sender: Any?) { popUp(pushMenu?(), below: sender) }
     @objc func runBranch(_ sender: Any?) { onBranch?() }
     @objc private func runStash(_ sender: Any?) { onStash?() }
     @objc private func runPop(_ sender: Any?) { onPop?() }
@@ -111,9 +110,10 @@ final class RepositoryToolbar: BarView {
         return "\(behind) \(ahead)"
     }
 
-    /// Frames of the action buttons in the toolbar and the badges' tooltips, for harness output that checks badges never move a button.
+    /// Frames of the action buttons in the toolbar, "▾" for those that open a menu, and the badges' tooltips, for harness output that checks badges and menus never move a button.
     var actionLayout: String {
-        let buttons = [fetchButton, pull, push, branch, stash, pop].map { "\($0.title) \(NSStringFromRect(convert($0.bounds, from: $0)))" }
+        let menuButtons = [fetchButton, pull, push].map { "\($0.title) ▾ \(NSStringFromRect(convert($0.bounds, from: $0)))" }
+        let buttons = menuButtons + [branch, stash, pop].map { "\($0.title) \(NSStringFromRect(convert($0.bounds, from: $0)))" }
         let tips = [pull, push].map { "\($0.title): \($0.toolTip ?? "-")" }
         return (buttons + tips).joined(separator: "\n")
     }
@@ -131,17 +131,109 @@ final class RepositoryToolbar: BarView {
         fetchLabel.toolTip = "Letzter Fetch: " + GraphRowView.exactFormatter.string(from: lastFetch)
     }
 
-    /// With a fetch menu the button opens it below itself; otherwise it fetches right away.
-    @objc private func fetch(_ sender: Any?) {
-        guard let menu = fetchMenu?() else {
-            onFetch?()
-            return
+    private func singleFetchMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(ActionMenuItem("Fetch") { [weak self] in self?.onFetch?() })
+        return menu
+    }
+}
+
+/// A toolbar action with several variants, split in two like a macOS split button: the main part runs the default variant, the chevron behind a divider opens all variants below the button.
+/// The default is the menu's first enabled entry, so the menus list it first. The chevron part adds a fixed width, so the button never changes size with the menu's contents.
+final class MenuButton: NSButton {
+    private let entries: () -> NSMenu
+    private let divider = DividerLine()
+    private let chevron = NSImageView()
+
+    init(_ title: String, _ symbol: String, enabled: Bool, entries: @escaping () -> NSMenu) {
+        self.entries = entries
+        super.init(frame: .zero)
+        cell = SplitCell()
+        self.title = title
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        imagePosition = .imageLeading
+        bezelStyle = .rounded
+        controlSize = .large
+        target = self
+        action = #selector(runDefault(_:))
+        isEnabled = enabled
+
+        chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Varianten")
+        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Toolbar.chevronSize, weight: .semibold)
+        chevron.contentTintColor = Theme.inkMuted
+        for view in [divider, chevron] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
         }
-        popUp(menu, below: sender)
+        NSLayoutConstraint.activate([
+            divider.widthAnchor.constraint(equalToConstant: Theme.Stroke.hairline),
+            divider.heightAnchor.constraint(equalToConstant: Theme.Toolbar.dividerHeight),
+            divider.centerYAnchor.constraint(equalTo: centerYAnchor),
+            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Toolbar.menuPart),
+            chevron.centerXAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Toolbar.menuPart / 2),
+            chevron.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        updateParts()
     }
 
-    private func popUp(_ menu: NSMenu?, below sender: Any?) {
-        guard let menu, let button = sender as? NSButton else { return }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + Theme.Space.xs), in: button)
+    required init?(coder: NSCoder) { nil }
+
+    override var isEnabled: Bool { didSet { updateParts() } }
+
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        size.width += Theme.Toolbar.menuPart
+        return size
+    }
+
+    /// Disabled, divider and chevron fade like the title.
+    private func updateParts() {
+        let alpha = isEnabled ? 1 : Theme.Toolbar.disabledAlpha
+        divider.alphaValue = alpha
+        chevron.alphaValue = alpha
+    }
+
+    /// A press on the chevron part opens the variants; anywhere else the button tracks the click as usual and runs the default.
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard isEnabled, point.x >= bounds.maxX - Theme.Toolbar.menuPart else {
+            super.mouseDown(with: event)
+            return
+        }
+        // Built anew for every opening, since branch, upstream and remotes change between clicks. The menu tracks synchronously, so the button shows pressed while it is open.
+        isHighlighted = true
+        entries().popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + Theme.Space.xs), in: self)
+        isHighlighted = false
+    }
+
+    /// Divider and chevron are drawing only; every press belongs to the button.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
+    }
+
+    @objc private func runDefault(_ sender: Any?) {
+        let menu = entries()
+        guard let index = menu.items.firstIndex(where: { $0.isEnabled && !$0.isSeparatorItem && $0.action != nil }) else { return }
+        menu.performActionForItem(at: index)
+    }
+}
+
+/// Lays out image and title in the main part only, left of the chevron part.
+private final class SplitCell: NSButtonCell {
+    override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
+        var main = cellFrame
+        main.size.width -= Theme.Toolbar.menuPart
+        super.drawInterior(withFrame: main, in: controlView)
+    }
+}
+
+/// The divider between the main part and the chevron part of a split button.
+private final class DividerLine: NSView {
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = Theme.inkFaint.cgColor
+        }
     }
 }

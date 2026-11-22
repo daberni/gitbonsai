@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// Harness switches for the toolbar's badges, automatic fetching, the fetch, pull and push menus, running a commit menu entry without showing the menu, the onto sheet and the operation banner.
+/// Harness switches for the toolbar's badges, automatic fetching, the fetch, pull and push menus and their buttons, running a commit menu entry without showing the menu, the onto sheet and the operation banner.
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_ONTO=<base>` fills the new base of the onto sheet.
@@ -14,6 +14,7 @@ extension ScreenshotHarness {
             printToolbarLayout(of: tab)
             runFetchMenu(on: tab)
             runPullOrPush(on: tab)
+            runToolbarDefault(on: tab)
             runMenuEntry(on: tab)
             clickBanner(on: tab)
             runAutoFetchSteps(on: tab)
@@ -77,30 +78,48 @@ extension ScreenshotHarness {
         printStatus(of: tab, after: 1.5)
     }
 
-    /// `GITBONSAI_PULL=<title>` or `GITBONSAI_PUSH=<title>` clicks that toolbar button with a real click, prints the menu it opens and closes it again, then chooses the entry and prints
-    /// the status line, the banner and the toolbar's counts once git has finished. Questions are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`; an empty title only prints the menu.
+    /// `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>` or `GITBONSAI_PUSH=<title>` clicks the chevron of that toolbar button with a real click, prints the menu it opens and closes it again, then chooses the entry and prints
+    /// the status line, the banner, the toolbar's counts and the button frames once git has finished. Questions are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`; an empty title only prints the menu.
     private static func runPullOrPush(on tab: RepositoryViewController) {
-        for title in ["Pull", "Push"] {
+        for title in ["Fetch", "Pull", "Push"] {
             guard let pick = environment["GITBONSAI_\(title.uppercased())"] else { continue }
             FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n".utf8))
             guard let menu = openToolbarMenu(title, on: tab) else { continue }
-            FileHandle.standardError.write(Data("\(title.lowercased()) menu: \(menu.items.map { $0.isSeparatorItem ? "|" : "\($0.title) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }.joined(separator: "; "))\n".utf8))
+            let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.title) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
+            FileHandle.standardError.write(Data("\(title.lowercased()) menu: \(entries.joined(separator: "; "))\n".utf8))
             guard !pick.isEmpty else { continue }
             choose(pick, in: menu)
             printBanner(of: tab, when: "after \(title.lowercased())", delay: 2.5)
             printStatus(of: tab, after: 2.5)
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n".utf8))
+                FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n\(tab.toolbar.actionLayout)\n".utf8))
             }
         }
     }
 
-    /// The button runs its own tracking loop for the press and the menu another one inside it; a timer in that mode takes the open menu and closes it, so the press returns.
-    private static func openToolbarMenu(_ title: String, on tab: RepositoryViewController) -> NSMenu? {
-        guard let window = tab.toolbar.window, let button = views(of: NSButton.self, in: window).first(where: { $0.title == title && $0.isDescendant(of: tab.toolbar) }) else {
+    /// `GITBONSAI_TOOLBAR_DEFAULT=Fetch|Pull|Push` clicks the main part of that split button with a real click and prints the status line, the banner and the toolbar's counts once git has finished.
+    private static func runToolbarDefault(on tab: RepositoryViewController) {
+        guard let title = environment["GITBONSAI_TOOLBAR_DEFAULT"], let button = toolbarButton(title, on: tab) else { return }
+        FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\ntoolbar \(title) default, enabled \(button.isEnabled)\n".utf8))
+        press(button, at: NSPoint(x: button.bounds.minX + button.bounds.height, y: button.bounds.midY))
+        printBanner(of: tab, when: "after \(title.lowercased()) default", delay: 2.5)
+        printStatus(of: tab, after: 2.5)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n".utf8))
+        }
+    }
+
+    private static func toolbarButton(_ title: String, on tab: RepositoryViewController) -> MenuButton? {
+        guard let window = tab.toolbar.window, let button = views(of: MenuButton.self, in: window).first(where: { $0.title == title && $0.isDescendant(of: tab.toolbar) }) else {
             FileHandle.standardError.write(Data("no toolbar button \(title)\n".utf8))
             return nil
         }
+        return button
+    }
+
+    /// The button runs its own tracking loop for the press and the menu another one inside it; a timer in that mode takes the open menu and closes it, so the press returns.
+    private static func openToolbarMenu(_ title: String, on tab: RepositoryViewController) -> NSMenu? {
+        guard let button = toolbarButton(title, on: tab) else { return nil }
         FileHandle.standardError.write(Data("toolbar \(title) enabled \(button.isEnabled)\n".utf8))
         nonisolated(unsafe) var opened: NSMenu?
         let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { note in
@@ -111,13 +130,18 @@ extension ScreenshotHarness {
             RunLoop.current.add(close, forMode: .common)
         }
         defer { NotificationCenter.default.removeObserver(observer) }
-        let point = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
-        // A window that is not key swallows the first click on a button, so the press goes to the button under the point directly.
-        guard let target = window.contentView?.superview?.hitTest(point), let down = mouseEvent(.leftMouseDown, at: point, in: window) else { return nil }
-        if let up = mouseEvent(.leftMouseUp, at: point, in: window) { NSApp.postEvent(up, atStart: false) }
-        target.mouseDown(with: down)
+        press(button, at: NSPoint(x: button.bounds.maxX - Theme.Toolbar.menuPart / 2, y: button.bounds.midY))
         if opened == nil { FileHandle.standardError.write(Data("\(title): no menu opened\n".utf8)) }
         return opened
+    }
+
+    /// A window that is not key swallows the first click on a button, so the press goes to the view under the point directly; its tracking loop finds the queued release.
+    private static func press(_ button: NSView, at local: NSPoint) {
+        guard let window = button.window else { return }
+        let point = button.convert(local, to: nil)
+        guard let target = window.contentView?.superview?.hitTest(point), let down = mouseEvent(.leftMouseDown, at: point, in: window) else { return }
+        if let up = mouseEvent(.leftMouseUp, at: point, in: window) { NSApp.postEvent(up, atStart: false) }
+        target.mouseDown(with: down)
     }
 
     /// `GITBONSAI_MENU_RUN=<row>:<title>` runs an entry of a history row's menu, or `<title>/<title>` in a submenu, without opening the menu on screen.

@@ -63,14 +63,15 @@ History:
 
 Remotes and rebase:
 
-- `GITBONSAI_TOOLBAR_LAYOUT=1` prints the Pull and Push badges (`↓n ↑n`, `-` hidden, `!` no upstream), the frame of every toolbar action button and the Pull and Push tooltips, to check that badges never move a button.
+- `GITBONSAI_TOOLBAR_LAYOUT=1` prints the Pull and Push badges (`↓n ↑n`, `-` hidden, `!` no upstream), the frame of every toolbar action button (`▾` for those with a menu) and the Pull and Push tooltips, to check that badges never move a button.
 - `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's git command without opening it, and `GITBONSAI_FETCH_PICK=<title>` runs an entry and prints the status line afterwards.
 - `GITBONSAI_MENU_RUN=<row>:<title>` runs an entry of a history row's menu without opening the menu; `GITBONSAI_ONTO=<base>` chooses the old base of the interactive rebase sheet by name or revision when it opens, as picking it in the ref picker would.
 - `GITBONSAI_BANNER_CLICK=continue|skip|abort` clicks a button of the rebase, cherry-pick, revert or merge banner with a real click and prints the banner before and after.
 - `GITBONSAI_REBASE_SCRIPT=<step>;…` drives the interactive rebase sheet with real clicks, drags and keys once "Rebase „<branch>“ interaktiv auf … …" opened it: `drag:<row>><gap>`, `click:<row>`, `key:<key>` (letter, `opt-up`, `opt-down`), `popup:<row>=<action>`, `subject:<row>=<text>`, `message:<text>` (`\n` for a new line), `base:<revision>` (the old base), `resize:<column>><points>` (drags a column edge over the rows), `toggle:update-refs|autostash`, `size:<width>x<height>`, `print`, `shot:<png>`, `start`, `cancel`. `GITBONSAI_REBASE_MENU=<row>,…` prints a row's interactive rebase entries with the reason a disabled one gives.
 - `GITBONSAI_PRINT_SELECTION=<seconds>,…` prints whether the toast shows, the selected history row, whether it is HEAD and whether a diff covers the history after each delay; every toast is printed when it appears; `GITBONSAI_REPORT_SHOT=<png>` renders an error alert with its details open.
 - `GITBONSAI_EDIT_AMEND=<subject>` at an edit stop clicks "Commit ändern …" in the banner, types the subject into the commit form, clicks Amend and then Fortsetzen; `GITBONSAI_REBASE_UNDO=1` clicks "Rückgängig" in the status line (the question takes `GITBONSAI_CONFIRM=1`).
-- `GITBONSAI_PULL=<title>` or `GITBONSAI_PUSH=<title>` clicks that toolbar button with a real click, prints its menu (an empty title stops there), chooses the entry and prints the status line, the banner and the ahead/behind counts afterwards; the first-push and upstream sheets take `GITBONSAI_FORM` (remote, name, upstream) and the force-with-lease question `GITBONSAI_CONFIRM=1`.
+- `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>` or `GITBONSAI_PUSH=<title>` clicks the chevron of that toolbar split button with a real click, prints its menu (an empty title stops there), chooses the entry and prints the status line, the banner, the ahead/behind counts and the button frames afterwards; the first-push and upstream sheets take `GITBONSAI_FORM` (remote, name, upstream) and the force-with-lease question `GITBONSAI_CONFIRM=1`.
+- `GITBONSAI_TOOLBAR_DEFAULT=Fetch|Pull|Push` clicks the main part of that split button with a real click, which runs the first enabled entry of its menu, and prints the status line, the banner and the ahead/behind counts afterwards.
 
 Sidebar:
 
