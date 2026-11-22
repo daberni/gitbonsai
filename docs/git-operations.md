@@ -44,7 +44,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Unstage files | `git restore --staged -- <paths>`; before the first commit `git rm --cached -q -- <paths>` | |
 | Stage / unstage a hunk | `git apply --cached [--reverse] --whitespace=nowarn -` | Patch of the hunk on stdin |
 | Discard a hunk | `git apply --reverse --whitespace=nowarn -` | |
-| Discard file changes | `git restore --worktree -- <paths>` | Asks first |
+| Discard file changes | `git restore --worktree -- <paths>` | Asks first. The command bar's "Alle Änderungen verwerfen …" passes every tracked file with unstaged changes; staged changes and untracked files stay |
 | Delete untracked files | `git clean -f -q -- <paths>` | Asks first |
 | Commit / amend | `git commit --cleanup=whitespace -F - [--amend]` | Message on stdin |
 | Message for amend | `git log -1 --format=%B` | |

@@ -60,14 +60,14 @@ Ein Fenster mit einem Tab pro Repository (MVP; Tabs sind essenziell, weil der Al
 | Tab-Leiste | Ein Tab pro Repository; ⌘T öffnet ein Repository (zuletzt verwendete zuerst), ⌘W schließt den Tab, ⌘⇧[ ⌘⇧] wechselt | ⌘T ⌘W | Titel ist nur der Repository-Name |
 | Fetch | `git fetch --prune --progress` | ⌘⇧F | Spinner während des Laufs |
 | Pull | Dropdown: ff-only (Standard), rebase, merge | ⌘⇧L | Badge mit Behind-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „3 Commits hinter origin/main“ |
-| Push | Push aktueller Branch; Dropdown: Force-with-lease, Tags pushen | ⌘⇧P | Badge mit Ahead-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „2 Commits vor origin/main“. Ohne Upstream ein `persimmon`-Badge mit Ausrufezeichen, der Tooltip erklärt den ersten Push. Badges sitzen oben rechts auf dem Button und verschieben ihn nie |
+| Push | Push aktueller Branch; Dropdown: Force-with-lease, Tags pushen | ⌘⇧U | Badge mit Ahead-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „2 Commits vor origin/main“. Ohne Upstream ein `persimmon`-Badge mit Ausrufezeichen, der Tooltip erklärt den ersten Push. Badges sitzen oben rechts auf dem Button und verschieben ihn nie |
 | Branch | Neuer Branch am HEAD | ⌘B | – |
 | Stash / Pop | `git stash push -u`, `git stash pop` | ⌘⇧S / ⌘⇧⌥S | Pop deaktiviert ohne Stash |
 | Suche | Fokus auf Filterleiste | ⌘F | – |
 
 ### 1.2 Sidebar
 
-Abschnitte sind einklappbar; Abschnittsköpfe tragen Chevron, Quellen-Glyphe, Titel, Zähler und, wo etwas angelegt werden kann, ein rundes Plus am rechten Rand (Worktrees: neuer Worktree; Local: neuer Branch). Filterfeld oben (⌘⇧F im Sidebar-Fokus). Jeder Eintrag hat ein Kontextmenü (Abschnitt 9).
+Abschnitte sind einklappbar; Abschnittsköpfe tragen Chevron, Quellen-Glyphe, Titel, Zähler und, wo etwas angelegt werden kann, ein rundes Plus am rechten Rand (Worktrees: neuer Worktree; Local: neuer Branch). Filterfeld oben (⌥⌘F; ⌘⇧F ist Fetch). Jeder Eintrag hat ein Kontextmenü (Abschnitt 9).
 
 Reihenfolge und Dichte sind bewusst gewählt: In anderen Clients stehen Worktrees oft weit unten, Filter sind versteckt, der Remote-Abschnitt wird bei vielen Branches unübersichtlich. GitBonsai stellt **Worktrees an die erste Stelle**, direkt gefolgt von der Tags-Zeile; Stashes gehören als erste Zeile in den Local-Abschnitt. Die visuelle Ausarbeitung steht im [Design-System](design/README.md). GitBonsai stellt Worktrees an die erste Stelle, weil sie die erste Frage beim Öffnen beantworten ("wo arbeite ich gerade?"); Branches, Remotes, Tags und Stashes sind Navigation innerhalb dieses Kontexts.
 
@@ -138,7 +138,7 @@ Einklappbares Panel am unteren Rand (⌘⌥L). Tabelle: Zeit, Kommando, Dauer, E
 
 ## 2. Öffnen und Klonen
 
-Willkommensfenster beim Start ohne Repository: Liste der zuletzt verwendeten Repos (mit Favoriten-Stern), Buttons **Öffnen…** (⌘O, Ordner-Dialog, akzeptiert auch Unterordner eines Repos), **Klonen…** (⌘⇧N), **Init…**. Drag-and-drop eines Ordners auf das Fenster oder Dock-Icon öffnet ihn.
+Willkommensfenster beim Start ohne Repository: Liste der zuletzt verwendeten Repos (mit Favoriten-Stern), Buttons **Öffnen…** (⌘O, Ordner-Dialog, akzeptiert auch Unterordner eines Repos), **Klonen…** (⌥⌘N), **Init…**. Drag-and-drop eines Ordners auf das Fenster oder Dock-Icon öffnet ihn.
 
 Klonen-Sheet: URL (HTTPS/SSH, Zwischenablage wird vorgeschlagen), Zielordner, abgeleiteter Name, Optionen "Submodule rekursiv", "Flach (depth)". Fortschritt aus `--progress` (Objekte, Delta), Abbrechen möglich. Fehler zeigen stderr vollständig, bei Auth-Fehlern Link zu Settings › Git.
 
@@ -148,7 +148,7 @@ Klonen-Sheet: URL (HTTPS/SSH, Zwischenablage wird vorgeschlagen), Zielordner, ab
 |---|---|
 | General | Beim Start letztes Repo öffnen; Auto-Fetch (aus / 1 / 5 / 15 min); Datumsformat relativ/absolut; Bestätigungen (Discard, Force-Push, Branch löschen) |
 | Git | Pfad zum git-Binary (erkannt: Xcode, Homebrew, eigener Pfad) mit Versionsanzeige und Mindestversion 2.38; Name/E-Mail global; Signing (aus / GPG / SSH, Key-Auswahl); Credential-Helper-Status; `commit-graph` automatisch pflegen |
-| Editors & Tools | Externer Editor (VS Code, Zed, Xcode, eigener), Terminal-App (Terminal, iTerm, Ghostty, Warp), Diff-Tool und Merge-Tool (aus `git config` übernommen oder gewählt) |
+| Allgemein: Editoren und Terminal | Erkannte Editoren (VS Code, Insiders, Cursor, Windsurf, Zed, Sublime Text, Nova, BBEdit, Xcode, IntelliJ IDEA und CE, WebStorm, PyCharm, GoLand, Android Studio, Fleet) mit Häkchen, welche die Befehlsleiste anbietet, „Andere App hinzufügen …“ und Standard-Editor; Terminal-App (erkannt: Terminal, iTerm2, Ghostty, Warp, kitty, WezTerm, Alacritty, oder eigene). Diff-Tool und Merge-Tool kommen aus `git config` |
 | Appearance | Theme System/Hell/Dunkel; Akzentfarbe; Schriftgröße Graph und Diff; Lane-Farbpalette; Avatare an/aus |
 
 Repo-spezifische Werte (Name, E-Mail, Signing) stehen im Repo-Info-Sheet (Titel ▾ › Repository-Einstellungen) und schreiben `git config --local`.
@@ -197,11 +197,27 @@ Quellen: Branch-Labels im Graph, Branch-Einträge der Sidebar, Commit-Zeilen. Zi
 
 | Kürzel | Aktion |
 |---|---|
-| ⌘O / ⌘⇧N | Öffnen / Klonen |
+| ⌘⇧P | Befehlsleiste (Abschnitt 11) |
+| ⌘O / ⌥⌘N | Öffnen / Klonen |
 | ⌘T / ⌘W | Neuer Tab / Tab schließen |
 | ⌘⇧] / ⌘⇧[ | Nächster / vorheriger Tab |
 | ⌘1 ⌘2 ⌘3 | Detail-Tabs |
-| ⌘⌥S | Sidebar ein/aus; ⌘⌥D Detail-Panel ein/aus; ⌘⌥L Kommando-Log |
-| ⌘K | Command Palette (V1): jede Aktion per Text |
+| ⌃⌘S / ⌥⌘I | Seitenleiste / Detail-Panel ein- und ausblenden (⌥⌘D gehört dem Dock); ⌘⌥L Kommando-Log |
+| ⌘⇧F / ⌘⇧L / ⌘⇧U | Fetch / Pull / Push |
+| ⌘B | Neuer Branch |
+| ⌘⇧S / ⌥⇧⌘S | Stash / Stash poppen |
+| ⌘F | Commits durchsuchen |
 | ⌘⇧T | Im Terminal öffnen; ⌘⇧E im Editor; ⌘⇧R im Finder |
 | ⌘R | Manuell aktualisieren |
+
+Die Menüleiste (GitBonsai, Ablage, Bearbeiten, Darstellung, Repository, Branch, Fenster, Hilfe) entsteht aus denselben Befehlen wie die Befehlsleiste (`CommandSpec`, `MainMenu`): gleiche Titel, Kürzel und Aktivierung; im leeren Tab bleiben die Git-Einträge sichtbar und deaktiviert. Einträge mit „…“ und Argument öffnen die zweite Liste der Befehlsleiste. Nur was AppKit selbst kann (Textbearbeitung, Ausblenden, Dienste, Dock, Vollbild) bleibt ein Systemeintrag. Push lag früher auf ⌘⇧P und ist für die Befehlsleiste auf ⌘⇧U gewandert.
+
+## 11. Befehlsleiste (⌘⇧P)
+
+Schwebendes Panel aus Liquid Glass, zentriert unter der Toolbar: Suchfeld, darunter bis zu zehn Zeilen. Jede Zeile zeigt Glyphe, Titel mit hervorgehobenen Treffern, gedämpften Kontext („main“, „origin“, Repository-Name, Editor) und rechts das Kürzel, falls es eines gibt.
+
+- Tippen filtert unscharf über Titel und Stichwörter; jedes Wort der Eingabe muss passen, Wortanfänge zählen mehr. Zuletzt benutzte Befehle stehen oben.
+- ↑ ↓ wählen, ⏎ führt aus, Esc oder ein Klick daneben schließt.
+- Befehle mit Argument öffnen eine zweite Liste im selben Panel („Branch auschecken …“, „Zu Tab wechseln …“, „Im Editor öffnen mit …“, „Worktree wechseln …“, „Rebase interaktiv …“); ⌫ im leeren Feld geht zurück.
+- Was gerade nicht geht, bleibt grau in der Liste, unter den möglichen Befehlen, mit dem Grund statt des Kontexts („Kein Upstream“, „Nichts vorgemerkt“, „Kein Stash“). So findet man den Befehl und erfährt, warum er nicht läuft, statt ihn zu vermissen. Befehle, deren Gegenstand fehlt, erscheinen gar nicht: „Rebase fortsetzen/abbrechen“ nur während eines Rebase.
+- Ein leerer Tab bietet nur die Befehle des Fensters (Tabs, Öffnen, Klonen, Einstellungen).

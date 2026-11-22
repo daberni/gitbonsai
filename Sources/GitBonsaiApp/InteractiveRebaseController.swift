@@ -5,7 +5,7 @@ import GitEngine
 /// One-step entries are disabled, with the reason as tooltip, where git would have to flatten a merge, where there is no parent to start from, and for commits off the current branch's line.
 @MainActor
 final class InteractiveRebaseController {
-    private let viewModel: GraphViewModel
+    let viewModel: GraphViewModel
     private let prompter: ActionPrompter
     /// The sheet while it is open, for the harness.
     private(set) var sheet: InteractiveRebaseSheet?

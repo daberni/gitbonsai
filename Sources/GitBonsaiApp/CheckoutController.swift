@@ -25,7 +25,7 @@ final class CheckoutController: NSObject {
     /// The window that questions and errors are shown on.
     var window: (() -> NSWindow?)?
 
-    private let viewModel: GraphViewModel
+    let viewModel: GraphViewModel
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel

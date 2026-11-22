@@ -624,6 +624,36 @@ enum Theme {
         /// Room for five folders before the list scrolls.
         static let folderListHeight: CGFloat = 112
     }
+
+    /// The command bar (⌘⇧P): a glass panel centred near the top of the window.
+    enum CommandBar {
+        static let width: CGFloat = 560
+        /// From the top of the window's content, below the tab row and the toolbar.
+        static let topOffset: CGFloat = 88
+        static let padding = Space.s
+        /// The list reaches closer to the edges than the field, so the selection wash lines up with it.
+        static let listInset = Space.xs
+        static let listGap = Space.xs
+        static let rowHeight: CGFloat = 32
+        static let rowPadding = Space.s
+        static let maxVisibleRows = 10
+        static let glyph = Icon.regular
+        static let glyphGap = Space.s
+        /// Between the title and the muted context, and before the shortcut.
+        static let detailGap = Space.s
+        /// SF Symbols carry their own padding; at this share of the box they match the drawn glyphs.
+        static let symbolScale: CGFloat = 0.78
+        /// Height of the step's caption above the field while a second list is open.
+        static let stepHeight: CGFloat = 20
+        /// Paper tint of the glass, about 60 % as the design language asks for system-level glass.
+        static let glassTint: CGFloat = 0.6
+    }
+
+    /// The editor list of Settings → Allgemein.
+    enum Editors {
+        /// Room for five editors before the list scrolls.
+        static let listHeight: CGFloat = 112
+    }
 }
 
 extension NSColor {

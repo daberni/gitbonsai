@@ -98,6 +98,13 @@ Avatars (harness runs load none unless asked):
 - `GITBONSAI_AVATARS=off|remote|gravatar` sets "Avatare laden" and its sources for the run; `GITBONSAI_AVATAR_CACHE=<folder>` keeps the disk cache there, an empty folder for a cold load; without it harness runs use a temporary folder.
 - `GITBONSAI_AVATAR_LOG=1` prints every avatar request with status, host and path and a running number; `GITBONSAI_AVATAR_SWEEP=<rows>` pages the history down to that row, half a second per screen.
 
+Command bar:
+
+- `GITBONSAI_COMMAND_BAR=<step>;…` drives the command bar once the tab has loaded, half a second per step, then captures the window: `open` (⌘⇧P through the main menu), `type:<text>` and `key:down|up|return|escape|backspace` as real key events, `click:<row>`, `print` (step, field, every row with selection, context, reason and shortcut), `status` (branch, HEAD, upstream counts and status line), `wait:<seconds>`, `shot:<png>`. Each run starts without recently used commands. Editors, terminals and the Finder are not launched under the harness; the command prints the app and what it would open.
+- `GITBONSAI_PRINT_MENU=1` prints the generated menu bar a second after loading, each item with shortcut and enabled state (with `GITBONSAI_NEW_TAB=1` for the empty tab); in a `GITBONSAI_COMMAND_BAR` script `menu` prints it, `shortcut:ctrl-cmd-s` presses a key equivalent through the main menu and `pick:Branch/Branch auschecken …` chooses an item.
+- `GITBONSAI_PRINT_OPENERS=1` prints for every known terminal and editor whether it is installed and how it would open the tab's folder (document, URL scheme or its binary), and the default terminal and editor.
+- Background runs draw the bar's glass as a matte panel, because rendering the views leaves everything around a glass view blank; with `GITBONSAI_FOREGROUND=1` `shot:` asks `screencapture` for the real window, which needs Screen Recording for the app.
+
 Files, diffs and commits:
 
 - `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file's diff (without a source: the file in the selected commit), and `GITBONSAI_HUNK_ACTION=<n>` stages or unstages hunk n; `GITBONSAI_WINDOW_WIDTH=<points>` resizes the window before the diff opens.

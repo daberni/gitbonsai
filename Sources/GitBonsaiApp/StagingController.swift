@@ -7,7 +7,7 @@ final class StagingController {
     /// The index or the working tree changed; open diffs need to read them again.
     var onChange: (() -> Void)?
     var window: (() -> NSWindow?)?
-    private let viewModel: GraphViewModel
+    let viewModel: GraphViewModel
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel

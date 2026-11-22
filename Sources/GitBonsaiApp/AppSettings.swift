@@ -25,10 +25,22 @@ enum AppSettings {
         ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
     }
 
-    /// The app that opens files for editing; nil uses the system's default app for the file.
-    static var externalEditor: URL? {
-        get { defaults.url(forKey: "externalEditor") }
-        set { store(newValue, forKey: "externalEditor") }
+    /// Bundle id of the editor "Im Editor öffnen" uses; nil takes the first editor the command bar shows. `ExternalApps.editor(forRepository:)` resolves it.
+    static var defaultEditor: String? {
+        get { defaults.string(forKey: "defaultEditor") }
+        set { store(newValue, forKey: "defaultEditor") }
+    }
+
+    /// Bundle ids of detected or added editors the command bar leaves out of "Im Editor öffnen …".
+    static var hiddenEditors: [String] {
+        get { defaults.stringArray(forKey: "hiddenEditors") ?? [] }
+        set { store(newValue, forKey: "hiddenEditors") }
+    }
+
+    /// Editors added in the settings that the app does not detect on its own.
+    static var addedEditors: [URL] {
+        get { (defaults.stringArray(forKey: "addedEditors") ?? []).map { URL(fileURLWithPath: $0) } }
+        set { store(newValue.map(\.path), forKey: "addedEditors") }
     }
 
     /// The terminal app for "Open in Terminal"; nil uses Terminal.
@@ -91,9 +103,21 @@ enum AppSettings {
 
     /// Hands the stored choices to AppKit and the git engine; called once at launch, before the first window.
     static func apply() {
+        migrateExternalEditor()
         NSApp.appearance = appearance.nsAppearance
         GitRunner.preferredGitPath = gitPath
         ScreenshotHarness.applyAvatarSwitches()
+    }
+
+    /// The single `externalEditor` app of earlier versions becomes the default editor, added to the list when the app does not detect it.
+    private static func migrateExternalEditor() {
+        guard let old = defaults.url(forKey: "externalEditor") else { return }
+        defaults.removeObject(forKey: "externalEditor")
+        guard let app = ExternalApps.app(at: old) else { return }
+        if !ExternalApps.editors.contains(where: { $0.bundleID == app.bundleID && $0.url != nil }), !addedEditors.contains(old) {
+            addedEditors.append(old)
+        }
+        defaultEditor = app.bundleID
     }
 
     private static func store(_ value: Any?, forKey key: String) {

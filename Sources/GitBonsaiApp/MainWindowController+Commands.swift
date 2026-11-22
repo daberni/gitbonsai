@@ -1,0 +1,50 @@
+import AppKit
+import GitEngine
+
+/// The window's commands, offered in every tab, and the entry points of the command bar and of the main menu's command items.
+extension MainWindowController: CommandProvider {
+    func commands(_ state: RepositoryCommandState) -> [Command] {
+        let (titles, active) = commandTabs
+        let several = titles.count > 1 ? nil : "Nur ein Tab offen"
+        return [
+            Command(.newTab) { [weak self] in self?.newTab(nil) },
+            Command(.openRepository) { [weak self] in self?.openRepository(nil) },
+            Command(.clone) { [weak self] in self?.cloneRepository(nil) },
+            Command(.closeTab, context: titles.indices.contains(active) ? titles[active] : nil) { [weak self] in self?.closeTab(nil) },
+            Command(.nextTab, disabledReason: several) { [weak self] in self?.selectNextTab(nil) },
+            Command(.previousTab, disabledReason: several) { [weak self] in self?.selectPreviousTab(nil) },
+            Command(.switchTab, disabledReason: several, action: .choose(placeholder: "Tab suchen") { [weak self] in
+                titles.enumerated().map { index, title in
+                    Command(id: "tab.\(index)", title: title, glyph: .symbol("square"), scope: .app, context: index == active ? "Aktiv" : nil) { self?.showTab(at: index) }
+                }
+            }),
+            Command(.settings) { SettingsWindowController.shared.show() },
+        ]
+    }
+
+    /// Repository commands of the active tab first, then the window's own. The empty tab only gets the window's.
+    func allCommands() -> [Command] {
+        let repository = activeRepository
+        let state = repository?.commandState ?? RepositoryCommandState()
+        return (repository?.allCommands() ?? []) + commands(state)
+    }
+
+    func showCommandBar(_ sender: Any?) {
+        guard let window else { return }
+        CommandBarController.shared.toggle(in: window, commands: allCommands())
+    }
+
+    /// A main-menu item whose `representedObject` is a command id runs that command of the active tab; one that takes an argument opens the command bar at its second list.
+    func runMenuCommand(_ sender: NSMenuItem) {
+        let commands = allCommands()
+        guard let id = sender.representedObject as? String, let command = commands.first(where: { $0.id == id }), let window else { return }
+        guard command.isEnabled else { return NSSound.beep() }
+        switch command.action {
+        case .run(let perform):
+            if CommandBarController.shared.isOpen { CommandBarController.shared.close() }
+            perform()
+        case .choose:
+            CommandBarController.shared.open(in: window, commands: commands, step: command)
+        }
+    }
+}

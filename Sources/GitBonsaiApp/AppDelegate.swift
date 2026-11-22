@@ -1,15 +1,18 @@
 import AppKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var windowController: MainWindowController?
+    private var mainMenu: MainMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if !ScreenshotHarness.runsInBackground { NSApp.activate(ignoringOtherApps: true) }
         AppSettings.apply()
         ScreenshotHarness.applyAppearance()
         ScreenshotHarness.applyRepositoryFolders()
-        NSApp.mainMenu = makeMenu()
+        let menu = MainMenu(target: self, runAction: #selector(runMenuCommand(_:)), commandBarAction: #selector(showCommandBar(_:)), commands: { [weak self] in self?.currentCommands() ?? [] }, recents: { [weak self] in self?.windowController?.recentRepositories ?? [] })
+        menu.install()
+        mainMenu = menu
         let controller = MainWindowController(store: SessionStore.standard())
         windowController = controller
         if ScreenshotHarness.runsInBackground {
@@ -21,76 +24,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ScreenshotHarness.openSettingsIfAsked()
     }
 
-    @objc func showSettings(_ sender: Any?) {
-        SettingsWindowController.shared.show()
-    }
-
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    // MARK: Menu
+    // MARK: Commands
 
-    private func makeMenu() -> NSMenu {
-        func item(_ title: String, _ action: Selector?, _ key: String, _ modifiers: NSEvent.ModifierFlags = .command) -> NSMenuItem {
-            let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-            item.keyEquivalentModifierMask = modifiers
-            return item
-        }
-        func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
-            let menu = NSMenu(title: title)
-            items.forEach(menu.addItem)
-            let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            holder.submenu = menu
-            return holder
-        }
-
-        let recent = submenu("Zuletzt verwendet", [])
-        recent.submenu?.delegate = self
-
-        let menu = NSMenu()
-        menu.addItem(submenu("GitBonsai", [
-            item("Einstellungen …", #selector(showSettings(_:)), ","),
-            .separator(),
-            item("GitBonsai ausblenden", #selector(NSApplication.hide(_:)), "h"),
-            .separator(),
-            item("GitBonsai beenden", #selector(NSApplication.terminate(_:)), "q"),
-        ]))
-        menu.addItem(submenu("Ablage", [
-            item("Neuer Tab", #selector(MainWindowController.newTab(_:)), "t"),
-            item("Repository öffnen …", #selector(MainWindowController.openRepository(_:)), "o"),
-            item("Repository klonen …", #selector(MainWindowController.cloneRepository(_:)), "n", [.command, .option]),
-            recent,
-            .separator(),
-            item("Tab schließen", #selector(MainWindowController.closeTab(_:)), "w"),
-        ]))
-        menu.addItem(submenu("Bearbeiten", [
-            item("Ausschneiden", #selector(NSText.cut(_:)), "x"),
-            item("Kopieren", #selector(NSText.copy(_:)), "c"),
-            item("Einsetzen", #selector(NSText.paste(_:)), "v"),
-            item("Alles auswählen", #selector(NSText.selectAll(_:)), "a"),
-        ]))
-        let window = submenu("Fenster", [
-            item("Im Dock ablegen", #selector(NSWindow.performMiniaturize(_:)), "m"),
-            .separator(),
-            item("Nächster Tab", #selector(MainWindowController.selectNextTab(_:)), "}"),
-            item("Vorheriger Tab", #selector(MainWindowController.selectPreviousTab(_:)), "{"),
-        ])
-        menu.addItem(window)
-        NSApp.windowsMenu = window.submenu
-        return menu
+    /// The command bar and the menu's command items target the delegate, so they also work while the window is not key.
+    @objc func showCommandBar(_ sender: Any?) {
+        windowController?.showCommandBar(sender)
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let paths = windowController?.recentRepositories ?? []
-        for path in paths {
-            let item = NSMenuItem(title: (path as NSString).abbreviatingWithTildeInPath, action: #selector(MainWindowController.openRecent(_:)), keyEquivalent: "")
-            item.representedObject = path
-            menu.addItem(item)
-        }
-        if paths.isEmpty {
-            let empty = NSMenuItem(title: "Noch nichts geöffnet", action: nil, keyEquivalent: "")
-            empty.isEnabled = false
-            menu.addItem(empty)
-        }
+    @objc func runMenuCommand(_ sender: NSMenuItem) {
+        cachedCommands = nil
+        windowController?.runMenuCommand(sender)
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem.action == #selector(runMenuCommand(_:)), let id = menuItem.representedObject as? String else { return true }
+        return currentCommands().first { $0.id == id }?.isEnabled ?? false
+    }
+
+    /// A ⌘ key press updates and validates every menu at once; they share one list of commands for a moment, so the tab's state is read once.
+    private var cachedCommands: (time: TimeInterval, commands: [Command])?
+
+    private func currentCommands() -> [Command] {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cachedCommands, now - cachedCommands.time < 0.2 { return cachedCommands.commands }
+        let commands = windowController?.allCommands() ?? []
+        cachedCommands = (now, commands)
+        return commands
     }
 }

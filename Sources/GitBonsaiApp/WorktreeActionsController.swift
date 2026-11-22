@@ -41,9 +41,7 @@ final class WorktreeActionsController {
     // MARK: Actions
 
     private static func openInTerminal(_ path: String) {
-        let terminal = AppSettings.terminalApp ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
-        guard let terminal else { return }
-        NSWorkspace.shared.open([URL(fileURLWithPath: path, isDirectory: true)], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
+        ExternalApps.openInTerminal(URL(fileURLWithPath: path, isDirectory: true))
     }
 
     private func lock(_ path: String) {

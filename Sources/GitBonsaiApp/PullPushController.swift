@@ -147,7 +147,7 @@ final class PullPushController {
     }
 
     /// Asks for a remote branch, makes it the upstream and pulls with the default mode.
-    private func setUpstreamAndPull() {
+    func setUpstreamAndPull() {
         guard let branch else { return }
         let candidates = remoteBranches()
         let preferred = candidates.first { $0 == "origin/\(branch)" } ?? candidates.first { $0.hasSuffix("/\(branch)") } ?? candidates.first ?? ""
@@ -165,7 +165,7 @@ final class PullPushController {
         }
     }
 
-    private func remoteBranches() -> [String] {
+    func remoteBranches() -> [String] {
         viewModel.refs.filter { if case .remoteBranch = $0.kind { !$0.name.hasSuffix("/HEAD") } else { false } }.map(\.name).sorted()
     }
 
@@ -193,7 +193,7 @@ final class PullPushController {
     }
 
     /// The sheet of the first push: the remote (origin when there is one) and the branch's name there; the push sets the upstream.
-    private func firstPush() {
+    func firstPush() {
         guard let branch, !remotes.isEmpty else { return }
         let form = ActionForm(title: "„\(branch)“ pushen", info: "Der Branch kommt auf das gewählte Remote und wird dort zum Upstream (git push -u).", confirm: "Pushen")
         form.addChoice(key: "remote", label: "Remote", options: remotes.map { ($0, $0) }, selected: remotes.contains("origin") ? "origin" : remotes[0])
@@ -204,7 +204,7 @@ final class PullPushController {
         }
     }
 
-    private func pushTags(_ variant: PushVariant) {
+    func pushTags(_ variant: PushVariant) {
         run(variant, failure: "Tags nicht gepusht") { _ in false }
     }
 

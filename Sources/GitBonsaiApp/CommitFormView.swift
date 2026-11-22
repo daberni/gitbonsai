@@ -147,6 +147,11 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         commit.performClick(nil)
     }
 
+    /// Puts the cursor into the subject, for the command bar's Commit and Amend.
+    func focusSubject() {
+        window?.makeFirstResponder(subject)
+    }
+
     /// Toggles amend through its checkbox, for the screenshot harness.
     func pressAmend() {
         amend.performClick(nil)

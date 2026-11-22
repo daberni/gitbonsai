@@ -7,6 +7,9 @@ final class PanelWidths {
     private(set) var detail: CGFloat
     /// Called after a drag or a reset changed a width, to save it.
     var onChange: (() -> Void)?
+    /// Hidden panels keep their widths for when they come back. Like the widths, this holds for every tab.
+    var showsSidebar = true
+    var showsDetail = true
 
     init(sidebar: CGFloat = Theme.Sidebar.defaultWidth, detail: CGFloat = Theme.Detail.defaultWidth) {
         self.sidebar = sidebar.clamped(to: Theme.Sidebar.widths)
@@ -55,6 +58,19 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
     required init?(coder: NSCoder) { nil }
 
     var sidebarWidth: CGFloat { sidebar.frame.width }
+    var showsSidebar: Bool { widths.showsSidebar }
+    var showsDetail: Bool { widths.showsDetail }
+
+    /// Shows or hides a side panel; the history takes or gives back its room.
+    func toggleSidebar() {
+        widths.showsSidebar.toggle()
+        layoutPanels()
+    }
+
+    func toggleDetail() {
+        widths.showsDetail.toggle()
+        layoutPanels()
+    }
     var detailWidth: CGFloat { detail.frame.width }
     var historyWidth: CGFloat { history.frame.width }
 
@@ -88,32 +104,55 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
         layoutPanels()
     }
 
+    /// A hidden panel gets no width and its divider sits at the window's edge, where the window's own border covers it.
     private func layoutPanels() {
         guard bounds.width > 0 else { return }
+        let showsSidebar = widths.showsSidebar
+        let showsDetail = widths.showsDetail
         let available = bounds.width - 2 * dividerThickness
-        let (fittedSidebar, fittedDetail) = Self.panelWidths(available: available, sidebar: widths.sidebar, detail: widths.detail)
-        let sidebarWidth = fittedSidebar.rounded()
-        let detailWidth = fittedDetail.rounded()
-        let historyWidth = max(available - sidebarWidth - detailWidth, 0)
+        let (fittedSidebar, fittedDetail) = Self.panelWidths(available: available, sidebar: showsSidebar ? widths.sidebar : 0, detail: showsDetail ? widths.detail : 0)
+        let sidebarWidth = showsSidebar ? fittedSidebar.rounded() : 0
+        let detailWidth = showsDetail ? fittedDetail.rounded() : 0
+        let sidebarGap = showsSidebar ? dividerThickness : 0
+        let detailGap = showsDetail ? dividerThickness : 0
+        let historyWidth = max(bounds.width - sidebarWidth - detailWidth - sidebarGap - detailGap, 0)
         let height = bounds.height
+        sidebar.isHidden = !showsSidebar
+        detail.isHidden = !showsDetail
         sidebar.frame = NSRect(x: 0, y: 0, width: sidebarWidth, height: height)
-        history.frame = NSRect(x: sidebarWidth + dividerThickness, y: 0, width: historyWidth, height: height)
-        detail.frame = NSRect(x: history.frame.maxX + dividerThickness, y: 0, width: detailWidth, height: height)
+        history.frame = NSRect(x: sidebarWidth + sidebarGap, y: 0, width: historyWidth, height: height)
+        detail.frame = NSRect(x: history.frame.maxX + detailGap, y: 0, width: detailWidth, height: height)
     }
 
     /// The panels' widths in `available` points: as wished while the history keeps its minimum, otherwise both give way in proportion to what they have above their minimums.
     private static func panelWidths(available: CGFloat, sidebar: CGFloat, detail: CGFloat) -> (CGFloat, CGFloat) {
         let missing = Theme.Window.historyMinimum + sidebar + detail - available
         guard missing > 0 else { return (sidebar, detail) }
-        let sidebarSlack = sidebar - Theme.Sidebar.widths.lowerBound
-        let detailSlack = detail - Theme.Detail.widths.lowerBound
+        // A hidden panel passes 0 and has nothing to give.
+        let sidebarSlack = max(sidebar - Theme.Sidebar.widths.lowerBound, 0)
+        let detailSlack = max(detail - Theme.Detail.widths.lowerBound, 0)
         let slack = sidebarSlack + detailSlack
         guard slack > 0 else { return (sidebar, detail) }
         let share = min(missing / slack, 1)
         return (sidebar - sidebarSlack * share, detail - detailSlack * share)
     }
 
+    private func panelIsHidden(besideDivider index: Int) -> Bool {
+        index == 0 ? !widths.showsSidebar : !widths.showsDetail
+    }
+
+    override func drawDivider(in rect: NSRect) {
+        let index = rect.midX < history.frame.midX ? 0 : 1
+        guard !panelIsHidden(besideDivider: index) else { return }
+        super.drawDivider(in: rect)
+    }
+
     // MARK: NSSplitViewDelegate
+
+    /// The divider of a hidden panel cannot be dragged.
+    func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect, forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int) -> NSRect {
+        panelIsHidden(besideDivider: dividerIndex) ? .zero : proposedEffectiveRect
+    }
 
     func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
         layoutPanels()

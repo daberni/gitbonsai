@@ -52,9 +52,9 @@ final class FileActionsController {
         if !isConflict { items.append(ActionMenuItem("Im Diff-Tool öffnen") { [weak self] in self?.openDiffTool(selection) }) }
         guard onDisk else { return items }
         let file = url(of: selection)
-        let editor = AppSettings.externalEditor
-        let editorTitle = editor.map { "In „\(($0.lastPathComponent as NSString).deletingPathExtension)“ öffnen" } ?? "Im Editor öffnen"
-        items.append(ActionMenuItem(editorTitle) { [weak self] in self?.open(file, with: editor) })
+        let editor = ExternalApps.editor(forRepository: viewModel.repository.path)
+        let editorTitle = editor.map { "In „\($0.app.name)“ öffnen" } ?? "Im Editor öffnen"
+        items.append(ActionMenuItem(editorTitle) { [weak self] in self?.openInEditor(file) })
         items.append(ActionMenuItem("Mit Standard-App öffnen") { [weak self] in self?.open(file, with: nil) })
         items.append(ActionMenuItem("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([file]) })
         return items
@@ -116,6 +116,15 @@ final class FileActionsController {
         NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
             guard let error else { return }
             Task { @MainActor in self?.prompter.report(error, title: "Datei nicht geöffnet") }
+        }
+    }
+
+    /// The same default editor as the command bar's "Im Editor öffnen"; without any editor the system's default app.
+    private func openInEditor(_ file: URL) {
+        guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path) else { return open(file, with: nil) }
+        ExternalApps.open(file, in: editor.app, at: editor.url) { [weak self] error in
+            guard let error else { return }
+            self?.prompter.report(error, title: "Datei nicht geöffnet")
         }
     }
 

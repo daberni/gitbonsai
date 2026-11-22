@@ -263,6 +263,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     var recentRepositories: [String] { store.recentRepositories }
 
+    // MARK: Command bar
+
+    /// The tab titles in order with the active index, and the active repository tab, for the commands in `MainWindowController+Commands`.
+    var commandTabs: (titles: [String], active: Int) { (tabs.barItems.map(\.title), tabs.activeIndex) }
+    var activeRepository: RepositoryViewController? { tabs.active?.repository }
+    func showTab(at index: Int) { activate(index) }
+
     // MARK: Window
 
     override func showWindow(_ sender: Any?) {
@@ -326,6 +333,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true, !ScreenshotHarness.holdsCapture(for: cloner) else { return }
         guard ScreenshotHarness.driveTabRow(tabBar, in: window, tabs: { [unowned self] in tabs }) else { return }
         didCapture = true
+        if ScreenshotHarness.driveCommandBar(in: window, host: self) { return }
         if let welcome = tabs.active?.welcome { ScreenshotHarness.driveWelcome(welcome, in: window) }
         if let repository = tabs.active?.repository { ScreenshotHarness.driveLayout(repository.split, in: window) }
         ScreenshotHarness.captureAndQuit(window: window)

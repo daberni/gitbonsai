@@ -116,7 +116,7 @@ final class OperationBannerController {
 
     enum Action { case `continue`, skip, abort }
 
-    private func perform(_ action: Action) {
+    func perform(_ action: Action) {
         guard let progress, !isRunning else { return }
         let kind = progress.kind
         let label = Self.label(of: kind)
