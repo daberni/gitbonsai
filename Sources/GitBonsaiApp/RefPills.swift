@@ -30,7 +30,7 @@ enum RefPills {
     }
 
     static func title(_ pill: PillModel) -> NSAttributedString {
-        NSAttributedString(string: pill.name, attributes: [.font: pill.isHead ? Theme.pillStrong : Theme.pill, .foregroundColor: Theme.ink])
+        NSAttributedString(string: pill.name, attributes: [.font: pill.isHead ? P.fontStrong : P.font, .foregroundColor: Theme.ink])
     }
 
     /// Width of everything but the name: padding, glyphs and the gap before the text.
@@ -62,7 +62,7 @@ enum RefPills {
             right = rect.minX - P.spacing
         }
         if layout.placements.count < pills.count {
-            let text = NSAttributedString(string: "+\(pills.count - layout.placements.count)", attributes: [.font: Theme.pill, .foregroundColor: Theme.inkMuted])
+            let text = NSAttributedString(string: "+\(pills.count - layout.placements.count)", attributes: [.font: P.font, .foregroundColor: Theme.inkMuted])
             let size = text.size()
             layout.counter = (text, CGRect(x: right - size.width, y: midY - size.height / 2, width: size.width, height: size.height))
         }

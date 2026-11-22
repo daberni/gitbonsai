@@ -494,18 +494,24 @@ enum Theme {
     }
 
     enum Pill {
-        static let height: CGFloat = 20
-        static let glyph: CGFloat = 13
-        static let padding: CGFloat = 6
-        static let glyphGap = Space.xs
+        /// As tall as a commit node, so labels and nodes read as one size.
+        static let height = Graph.nodeDiameter
+        /// Glyphs, text and padding were drawn for a 20 pt pill and grow with it.
+        private static let scale = height / 20
+        private static func scaled(_ value: CGFloat) -> CGFloat { (value * scale).rounded() }
+        static let glyph = scaled(13)
+        static let padding = scaled(6)
+        static let glyphGap = scaled(Space.xs)
         /// Room kept for the "+n" counter while more labels follow.
-        static let counterReserve: CGFloat = 34
+        static let counterReserve = scaled(34)
         static let minimumText: CGFloat = 24
         /// Gap between the label column's edge and the rightmost pill.
         static let trailing: CGFloat = 14
         static let spacing = Space.xs
-        static let textGap: CGFloat = 2
-        static let trailingPadding = Space.s
+        static let textGap = scaled(2)
+        static let trailingPadding = scaled(Space.s)
+        @MainActor static let font = NSFont.systemFont(ofSize: scaled(11), weight: .medium)
+        @MainActor static let fontStrong = NSFont.systemFont(ofSize: scaled(11), weight: .semibold)
         /// Width of the pill's outline; 0 draws filled pills only, `Stroke.hairline` brings the outline back.
         static let stroke: CGFloat = 0
         /// Share of the strand color in the pill's ground and its border, plain and for HEAD. Without an outline the ground alone has to set the pill off from the row and from the selection.
@@ -567,7 +573,9 @@ enum Theme {
     enum Graph {
         static let rowHeight: CGFloat = 36
         static let lane: CGFloat = 28
-        static let nodeRadius: CGFloat = 12
+        /// Commit nodes and ref pills share this size.
+        static let nodeDiameter: CGFloat = 24
+        static let nodeRadius = nodeDiameter / 2
         static let mergeRadius: CGFloat = 5.5
         static let stashHalf: CGFloat = 9
         static let stashRadius: CGFloat = 4
