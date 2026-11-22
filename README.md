@@ -88,9 +88,14 @@ Sidebar:
 
 Settings:
 
-- `GITBONSAI_SETTINGS=general|git|appearance|fetch` opens the settings window on that section and captures it instead of the main window.
+- `GITBONSAI_SETTINGS=general|git|appearance|fetch|avatars` opens the settings window on that section and captures it instead of the main window.
 - `GITBONSAI_AUTO_FETCH=<seconds>` turns automatic fetching on for the run: on activation and when a tab becomes visible, and periodically at that interval unless it is 0. Each decision is printed; harness runs otherwise never fetch automatically.
 - `GITBONSAI_AUTO_FETCH_STEPS=activate,tab,…` posts the app's activation or selects the next tab, one step every two seconds, and prints every tab's toolbar counts after each step.
+
+Avatars (harness runs load none unless asked):
+
+- `GITBONSAI_AVATARS=off|remote|gravatar` sets "Avatare laden" and its sources for the run; `GITBONSAI_AVATAR_CACHE=<folder>` keeps the disk cache there, an empty folder for a cold load; without it harness runs use a temporary folder.
+- `GITBONSAI_AVATAR_LOG=1` prints every avatar request with status, host and path and a running number; `GITBONSAI_AVATAR_SWEEP=<rows>` pages the history down to that row, half a second per screen.
 
 Files, diffs and commits:
 

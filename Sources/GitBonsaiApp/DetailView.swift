@@ -114,10 +114,10 @@ final class DetailView: NSView {
         let samePerson = commit.authorName == commit.committerName && commit.authorEmail == commit.committerEmail
         let sameTime = abs(commit.authorDate.timeIntervalSince(commit.committerDate)) < 1
         if samePerson && sameTime {
-            add(person(commit.authorName, role: "Author und Committer", date: commit.authorDate, ring: strand))
+            add(person(commit.authorName, role: "Author und Committer", date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
         } else {
-            add(person(commit.authorName, role: "Author", date: commit.authorDate, ring: strand))
-            add(person(commit.committerName, role: "Committer", date: commit.committerDate, ring: Theme.hairline))
+            add(person(commit.authorName, role: "Author", date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
+            add(person(commit.committerName, role: "Committer", date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository)))
         }
 
         add(divider())
@@ -269,8 +269,8 @@ final class DetailView: NSView {
 
     // MARK: Parts
 
-    private func person(_ name: String, role: String, date: Date, ring: NSColor) -> NSView {
-        let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring)
+    private func person(_ name: String, role: String, date: Date, ring: NSColor, avatar source: AvatarView.Source) -> NSView {
+        let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring, source: source)
         let nameLabel = label(name, font: Theme.body, color: Theme.ink)
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = Locale(identifier: "de_DE")
@@ -328,25 +328,46 @@ final class DetailView: NSView {
 }
 
 private final class AvatarView: NSView {
+    /// Whose picture to show, as the avatar store looks it up.
+    struct Source {
+        let email: String
+        let commit: String
+        let repository: Repository
+    }
+
     private let initials: String
     private let ring: NSColor
+    private let source: Source
+    private var observer: NSObjectProtocol?
 
-    init(initials: String, ring: NSColor) {
+    init(initials: String, ring: NSColor, source: Source) {
         self.initials = initials
         self.ring = ring
+        self.source = source
         super.init(frame: NSRect(x: 0, y: 0, width: Theme.Detail.avatar, height: Theme.Detail.avatar))
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: Theme.Detail.avatar), heightAnchor.constraint(equalToConstant: Theme.Detail.avatar)])
+        observer = NotificationCenter.default.addObserver(forName: AvatarStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.needsDisplay = true }
+        }
     }
 
     required init?(coder: NSCoder) { nil }
 
+    isolated deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: Theme.Stroke.strand / 2, dy: Theme.Stroke.strand / 2))
         Theme.surface2.setFill(); circle.fill()
+        if let image = AvatarStore.shared.image(email: source.email, commit: source.commit, in: source.repository), let context = NSGraphicsContext.current?.cgContext {
+            AvatarDrawing.draw(image, in: bounds, ring: Theme.Stroke.strand, context: context)
+        } else {
+            let text = NSAttributedString(string: initials, attributes: [.font: Theme.initials, .foregroundColor: Theme.inkMuted])
+            let size = text.size()
+            text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
+        }
         ring.setStroke(); circle.lineWidth = Theme.Stroke.strand; circle.stroke()
-        let text = NSAttributedString(string: initials, attributes: [.font: Theme.initials, .foregroundColor: Theme.inkMuted])
-        let size = text.size()
-        text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
     }
 }

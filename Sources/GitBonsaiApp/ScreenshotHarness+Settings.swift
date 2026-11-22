@@ -4,7 +4,7 @@ import GitEngine
 /// Harness switches for the settings window.
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_SETTINGS=general|git|appearance|fetch` opens the settings on that section and captures the settings window instead of the main window.
+    /// `GITBONSAI_SETTINGS=general|git|appearance|fetch|avatars` opens the settings on that section and captures the settings window instead of the main window.
     static var settingsSection: SettingsWindowController.Section? {
         environment["GITBONSAI_SETTINGS"].flatMap(SettingsWindowController.Section.init)
     }

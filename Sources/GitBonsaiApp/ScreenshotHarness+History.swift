@@ -41,6 +41,7 @@ extension ScreenshotHarness {
         }
         driveSearch(history)
         driveRefPills(history)
+        driveAvatarSweep(history)
     }
 
     // MARK: Ref pill expansion

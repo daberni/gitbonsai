@@ -33,6 +33,7 @@ enum HistoryRowModel {
             subject: subject,
             wipCounts: wipCounts,
             isSearchMiss: !isMatch,
+            avatar: kind == .commit ? AvatarStore.shared.image(email: commit.authorEmail, commit: commit.id, in: viewModel.repository) : nil,
             highlights: isMatch ? highlights(of: search.search, subject: subject, commit: commit) : GraphRowView.Highlights(),
             columns: columns
         )

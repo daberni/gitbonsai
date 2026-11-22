@@ -557,6 +557,13 @@ enum Theme {
         static let filterThreshold = 8
     }
 
+    enum Avatar {
+        /// One download size for every place an avatar shows: the detail panel's at @2x. History nodes draw it scaled down.
+        static let pixels = Int(Detail.avatar * 2)
+        /// Background between the lane ring and the picture, so the ring keeps its full width over a picture of the same colour.
+        static let ringGap = Stroke.hairline
+    }
+
     enum Graph {
         static let rowHeight: CGFloat = 36
         static let lane: CGFloat = 28

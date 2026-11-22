@@ -4,7 +4,7 @@ import AppKit
 @MainActor
 final class SettingsWindowController: NSWindowController {
     enum Section: String, CaseIterable {
-        case general, git, appearance, fetch
+        case general, git, appearance, fetch, avatars
 
         var title: String {
             switch self {
@@ -12,6 +12,7 @@ final class SettingsWindowController: NSWindowController {
             case .git: "Git"
             case .appearance: "Darstellung"
             case .fetch: "Fetch"
+            case .avatars: "Avatare"
             }
         }
 
@@ -21,6 +22,7 @@ final class SettingsWindowController: NSWindowController {
             case .git: "point.3.connected.trianglepath.dotted"
             case .appearance: "circle.lefthalf.filled"
             case .fetch: "arrow.down.circle"
+            case .avatars: "person.crop.circle"
             }
         }
 
@@ -30,6 +32,7 @@ final class SettingsWindowController: NSWindowController {
             case .git: GitSettingsViewController()
             case .appearance: AppearanceSettingsViewController()
             case .fetch: FetchSettingsViewController()
+            case .avatars: AvatarSettingsViewController()
             }
         }
     }

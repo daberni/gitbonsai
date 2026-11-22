@@ -1,4 +1,5 @@
 import AppKit
+import Avatars
 import GitEngine
 
 /// User preferences shared across the app. The settings window edits them; features read them where they need them.
@@ -76,10 +77,23 @@ enum AppSettings {
         }
     }
 
+    /// Whether author avatars are loaded from the network. Harness runs keep them off unless `GITBONSAI_AVATARS` turns them on.
+    static var avatarsEnabled: Bool {
+        get { defaults.object(forKey: "avatarsEnabled") as? Bool ?? !ScreenshotHarness.isActive }
+        set { store(newValue, forKey: "avatarsEnabled") }
+    }
+
+    /// Which services may be asked for an avatar; by default only the host of the repository's remote.
+    static var avatarSources: AvatarSources {
+        get { defaults.string(forKey: "avatarSources").flatMap(AvatarSources.init) ?? .remoteHost }
+        set { store(newValue.rawValue, forKey: "avatarSources") }
+    }
+
     /// Hands the stored choices to AppKit and the git engine; called once at launch, before the first window.
     static func apply() {
         NSApp.appearance = appearance.nsAppearance
         GitRunner.preferredGitPath = gitPath
+        ScreenshotHarness.applyAvatarSwitches()
     }
 
     private static func store(_ value: Any?, forKey key: String) {

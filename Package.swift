@@ -8,14 +8,17 @@ let package = Package(
     products: [
         .library(name: "GitEngine", targets: ["GitEngine"]),
         .library(name: "GraphLayout", targets: ["GraphLayout"]),
+        .library(name: "Avatars", targets: ["Avatars"]),
         .executable(name: "GitBonsaiApp", targets: ["GitBonsaiApp"]),
     ],
     targets: [
         .target(name: "GitEngine"),
         .target(name: "GraphLayout", dependencies: ["GitEngine"]),
-        .executableTarget(name: "GitBonsaiApp", dependencies: ["GitEngine", "GraphLayout"]),
+        .target(name: "Avatars"),
+        .executableTarget(name: "GitBonsaiApp", dependencies: ["GitEngine", "GraphLayout", "Avatars"]),
         .testTarget(name: "GitEngineTests", dependencies: ["GitEngine", "GraphLayout"]),
         .testTarget(name: "GraphLayoutTests", dependencies: ["GraphLayout", "GitEngine"]),
+        .testTarget(name: "AvatarsTests", dependencies: ["Avatars"]),
     ],
     swiftLanguageModes: [.v6]
 )

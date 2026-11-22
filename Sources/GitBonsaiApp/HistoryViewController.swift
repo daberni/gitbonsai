@@ -43,6 +43,9 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
             self?.updateSearchCounter()
         }
         search.selectedRow = { [weak self] in self?.selectedRow ?? -1 }
+        NotificationCenter.default.addObserver(forName: AvatarStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloadVisibleRows() }
+        }
         // Selecting through the table leaves the search field first responder, so typing goes on.
         search.onJump = { [weak self] row in self?.select(row: row, scroll: true) }
         configureTable()
