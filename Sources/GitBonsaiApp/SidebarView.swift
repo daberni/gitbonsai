@@ -149,7 +149,12 @@ final class SidebarView: NSView {
             if collapsed.remove(key) == nil { collapsed.insert(key) }
             reload(from: model)
         case .worktree(let info, let isCurrent):
-            if event.clickCount == 2, !isCurrent, !info.worktree.isPrunable, !info.worktree.isBare { onSwitchWorktree?(info.worktree.path) }
+            // Same as a branch row: one click shows where it stands in the history, a double click goes there.
+            if event.clickCount == 2, !isCurrent, !info.worktree.isPrunable, !info.worktree.isBare {
+                onSwitchWorktree?(info.worktree.path)
+            } else if let head = info.worktree.headSHA {
+                onSelectCommit?(head)
+            }
         case .row(_, _, _, _, _, _, _, _, _, _, let target?, let linked, let checkout):
             if event.clickCount == 2, let checkout {
                 onCheckout?(checkout, linked)
