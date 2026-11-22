@@ -13,6 +13,22 @@ enum ScreenshotHarness {
     private static var didRunOneTimeAction = false
     private static var didDragTab = false
 
+    /// Background runs never show a window: every window of the app, sheets and alerts included, stays fully transparent and lets real clicks through.
+    /// Captures render the views themselves and the harness sends its events straight to the window, so both keep working.
+    static func keepWindowsInvisible() {
+        hideWindows()
+        NotificationCenter.default.addObserver(forName: NSApplication.didUpdateNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { hideWindows() }
+        }
+    }
+
+    private static func hideWindows() {
+        for window in NSApp.windows where window.alphaValue > 0 || !window.ignoresMouseEvents {
+            window.alphaValue = 0
+            window.ignoresMouseEvents = true
+        }
+    }
+
     static func applyAppearance() {
         switch environment["GITBONSAI_APPEARANCE"] {
         case "light": NSApp.appearance = NSAppearance(named: .aqua)

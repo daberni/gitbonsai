@@ -10,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.mainMenu = makeMenu()
         let controller = MainWindowController(store: SessionStore.standard())
         windowController = controller
+        if ScreenshotHarness.runsInBackground {
+            ScreenshotHarness.keepWindowsInvisible()
+            controller.window?.alphaValue = 0
+            controller.window?.ignoresMouseEvents = true
+        }
         controller.showWindow(nil)
         // The capture renders the views itself, so the window can stay behind everything else.
         if ScreenshotHarness.runsInBackground { controller.window?.orderBack(nil) }
