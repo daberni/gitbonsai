@@ -197,6 +197,43 @@ extension ScreenshotHarness {
         }
     }
 
+    // MARK: Status line
+
+    /// `GITBONSAI_STATUS_STEPS=fetch,stage:<path>,outside:<shell command>,…` runs one step every two seconds in this tab: `fetch` fetches all remotes, `stage` stages a path through the staging panel's action, `outside` runs the command with `sh` in the tab's worktree, as a terminal would.
+    /// Every change of the status line is printed with the time since its step began, and the line again right before the next step.
+    static func driveStatusLine(on tab: RepositoryViewController) {
+        guard let steps = environment["GITBONSAI_STATUS_STEPS"]?.split(separator: ",").map(String.init) else { return }
+        let viewModel = tab.viewModel
+        var stepStart = Date()
+        let onStatusChanged = viewModel.onStatusChanged
+        viewModel.onStatusChanged = { text in
+            FileHandle.standardError.write(Data("status line +\(Int(Date().timeIntervalSince(stepStart) * 1000)) ms: \(text)\n".utf8))
+            onStatusChanged?(text)
+        }
+        FileHandle.standardError.write(Data("status line loaded: \(viewModel.statusText)\n".utf8))
+        for (index, step) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + 2 * Double(index)) {
+                stepStart = Date()
+                let (name, argument) = step.firstIndex(of: ":").map { (String(step[..<$0]), String(step[step.index(after: $0)...])) } ?? (step, "")
+                FileHandle.standardError.write(Data("status step \(step)\n".utf8))
+                switch name {
+                case "fetch": tab.fetchController.fetch(.allRemotes)
+                case "stage": tab.staging.stage([argument])
+                case "outside":
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/bin/sh")
+                    process.arguments = ["-c", argument]
+                    process.currentDirectoryURL = URL(fileURLWithPath: viewModel.repository.path)
+                    do { try process.run() } catch { FileHandle.standardError.write(Data("outside: \(error)\n".utf8)) }
+                default: FileHandle.standardError.write(Data("unknown status step \(step)\n".utf8))
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + 2 * Double(index) + 1.9) {
+                FileHandle.standardError.write(Data("status line after \(step): \(viewModel.statusText)\n".utf8))
+            }
+        }
+    }
+
     static func printHistory(of tab: RepositoryViewController, when: String) {
         let viewModel = tab.viewModel
         let commits = viewModel.commits.enumerated().filter { viewModel.kinds[$0.offset] != .wip }.map(\.element)

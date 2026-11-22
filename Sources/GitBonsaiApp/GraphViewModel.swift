@@ -33,7 +33,8 @@ final class GraphViewModel {
     let repositoryName: String
     private(set) var lastFetch: Date?
     private(set) var isFetching = false
-    private(set) var statusText = "Loading…"
+    private var statusLine = StatusLine(summary: "Loading…")
+    var statusText: String { statusLine.text }
     private(set) var isLoading = false
     private(set) var maxLaneCount = 1
 
@@ -58,8 +59,6 @@ final class GraphViewModel {
     private var loadDuration = ""
     /// Counted live, because a refresh can drop commits and lay them out again.
     private var loadedSummary: String { "\(history.commitCount) Commits · \(maxLaneCount) Lanes · \(stashes.count) Stashes · geladen in \(loadDuration)" }
-    /// The note of a refresh that had to read the log again, such as after a rebase; the reload shows it once it has finished.
-    private var noteAfterReload: String?
     private var reachableFromHead: Set<String> = []
     private var sidebarChanges = 0
     private var hasSidebarContent = false
@@ -116,7 +115,7 @@ final class GraphViewModel {
     // MARK: Actions
 
     func checkout(_ target: CheckoutTarget) async -> CheckoutOutcome {
-        setStatus("Wechsle …")
+        setNote("Wechsle …")
         let start = ContinuousClock.now
         do {
             try await repository.checkout(target)
@@ -130,6 +129,7 @@ final class GraphViewModel {
             await refresh(note: nil)
             return .failed(error.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
         } catch {
+            setNote(nil)
             return .failed("\(error)")
         }
     }
@@ -143,7 +143,7 @@ final class GraphViewModel {
     /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.
     /// New remote commits only enter the history through the log, so the fetch ends with an in-place refresh, which reads it when a ref points at a commit that is not loaded. A failed fetch may still have moved some refs.
     func fetch(_ variant: FetchVariant) async -> Error? {
-        setStatus("\(variant.commandLine) …")
+        setNote("\(variant.commandLine) …")
         isFetching = true
         defer { isFetching = false }
         let start = ContinuousClock.now
@@ -154,9 +154,8 @@ final class GraphViewModel {
             return nil
         } catch {
             await loadLastFetch()
-            await refresh(note: nil)
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
-            setStatus("\(variant.commandLine) fehlgeschlagen nach \(elapsed(since: start)): \(message)")
+            await refresh(note: "\(variant.commandLine) fehlgeschlagen nach \(elapsed(since: start)): \(message)")
             return error
         }
     }
@@ -191,7 +190,7 @@ final class GraphViewModel {
             computeReachability()
             isLoading = false
             onMetadataChanged?()
-            setStatus(statusText)
+            publishStatus()
         }
     }
 
@@ -208,16 +207,21 @@ final class GraphViewModel {
     func reconcile() async -> Reconciliation {
         if isLoading { return .loading }
         guard inPlaceRefreshes == 0 else { return .refreshing }
-        await refresh(note: nil)
+        await update()
         return .done
+    }
+
+    /// Brings the tab up to date after an action; `note` replaces the previous action's note, nil clears it.
+    func refresh(note: String?, focus: Focus = .keepSelection) async {
+        setNote(note)
+        await update(focus: focus)
     }
 
     /// After a checkout, a reset or a worktree switch the commits are mostly the same: HEAD, the working directory and the refs moved.
     /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed.
-    /// The history keeps its selection unless `focus` asks for the current row.
-    func refresh(note: String?, focus: Focus = .keepSelection) async {
+    /// The history keeps its selection unless `focus` asks for the current row. The status line's note stays as it is.
+    private func update(focus: Focus = .keepSelection) async {
         guard !isLoading else {
-            noteAfterReload = note ?? noteAfterReload
             reload(focus: focus)
             return
         }
@@ -241,7 +245,6 @@ final class GraphViewModel {
             let loaded = history.commits
             let plan = await Task.detached { HistoryRefresh.plan(loaded: loaded, tips: tips) }.value
             guard case .keep(let dropping) = plan else {
-                noteAfterReload = note ?? noteAfterReload
                 reload(focus: focus)
                 return
             }
@@ -254,7 +257,7 @@ final class GraphViewModel {
         if historyMoved { computeReachability() }
         onRowsRebuilt?(focus)
         onMetadataChanged?()
-        setStatus(([loadedSummary] + [note].compactMap { $0 } + ["Ansicht \(elapsed(since: start))"]).joined(separator: " · "))
+        setSummary("\(loadedSummary) · Ansicht \(elapsed(since: start))")
         // The other worktrees' change counters are slow to gather and nothing waits for them.
         Task { await loadWorktreeStatuses() }
     }
@@ -272,17 +275,16 @@ final class GraphViewModel {
                 if history.wipRow != nil { onRowsShifted?() }
             }
         }, onProgress: {
-            setStatus("\(commits.count) Commits · \(elapsed(since: start))")
+            setSummary("\(commits.count) Commits · \(elapsed(since: start))")
         })
         switch outcome {
         case .finished:
             loadDuration = elapsed(since: start)
-            setStatus(([loadedSummary] + [noteAfterReload].compactMap { $0 }).joined(separator: " · "))
-            noteAfterReload = nil
+            setSummary(loadedSummary)
         case .cancelled:
             break
         case .failed(let error):
-            setStatus("git log fehlgeschlagen: \(error)")
+            setSummary("git log fehlgeschlagen: \(error)")
         }
     }
 
@@ -311,7 +313,7 @@ final class GraphViewModel {
             (refs, refsByCommit) = try await RefLoader.refs(of: repository)
             if !isRefreshing { onMetadataChanged?() }
         } catch {
-            setStatus("refs failed: \(error)")
+            setSummary("refs failed: \(error)")
         }
     }
 
@@ -353,9 +355,18 @@ final class GraphViewModel {
         onMetadataChanged?()
     }
 
-    private func setStatus(_ text: String) {
-        statusText = text
-        onStatusChanged?(text)
+    private func setSummary(_ summary: String) {
+        statusLine.summary = summary
+        publishStatus()
+    }
+
+    private func setNote(_ note: String?) {
+        statusLine.note = note
+        publishStatus()
+    }
+
+    private func publishStatus() {
+        onStatusChanged?(statusLine.text)
     }
 
     private func elapsed(since start: ContinuousClock.Instant) -> String {
