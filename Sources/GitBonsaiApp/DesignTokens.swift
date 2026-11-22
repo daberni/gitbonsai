@@ -260,6 +260,8 @@ enum Theme {
         static let messageHeight: CGFloat = 72
         static let rowSpacing = Space.s
         static let labelSpacing = Space.xs
+        /// Rows a ref suggestion list shows before it scrolls.
+        static let visibleSuggestions = 12
     }
 
     /// The sheet that picks the new base of a rebase with `--onto`.

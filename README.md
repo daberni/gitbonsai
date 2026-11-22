@@ -54,6 +54,7 @@ Sidebar:
 - `GITBONSAI_OPEN_PANEL=tags|stashes` opens that popover with a real press on its sidebar row and prints its entries; then `GITBONSAI_PANEL_FILTER=<text>` filters, `GITBONSAI_PANEL_SELECT=<n>` presses entry n and prints where the history went, `GITBONSAI_PANEL_SHOT=<png>` renders the list, and `GITBONSAI_PANEL_BUTTON=<title>` presses a button below it or `GITBONSAI_PANEL_MENU=<title>` runs an entry of the selected row's menu without opening it. Questions are answered like those of commit actions.
 - `GITBONSAI_TOOLBAR=Stash|Pop` presses that toolbar button and prints whether it was enabled; the stash sheet takes `GITBONSAI_FORM=message=…;checked=0|1`.
 - `GITBONSAI_SIDEBAR_SCROLL=<points>` scrolls the sidebar down and prints the left edge of its scroller next to the right edge of the status slot column; the capture does not draw scrollers, so these numbers show whether one covers the slot.
+- `GITBONSAI_SIDEBAR_MENU_LIST=<subject>` prints a sidebar row's context menu without opening it (`branch:<name>`, `branch:origin/<name>`, `worktree:<folder>`), and `GITBONSAI_SIDEBAR_MENU_PICK=<title prefix>` runs one of its entries; `GITBONSAI_SIDEBAR_MENU=<subject>` right-clicks the row with a real event instead (the menu shows on screen for a moment); `GITBONSAI_NEW_BRANCH=plus|toolbar` opens the new-branch sheet with a real click on the Local plus or the toolbar's Branch button. Sheets are answered with `GITBONSAI_FORM` (keys name, start, follow=checkout|worktree|stay, path, upstream, reason, checked) and `GITBONSAI_CONFIRM=1`.
 
 Settings:
 

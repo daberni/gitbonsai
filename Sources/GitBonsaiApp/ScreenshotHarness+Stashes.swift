@@ -65,7 +65,7 @@ extension ScreenshotHarness {
             case .worktree: height = M.worktreeHeight
             case .row: height = M.rowHeight
             }
-            if case .row(_, _, _, _, _, _, _, _, _, _, let target?, _, _) = item, target == panel.target { anchor = CGRect(x: M.rowInset, y: y, width: sidebar.bounds.width - 2 * M.rowInset, height: height) }
+            if case .row(_, _, _, _, _, _, _, _, _, _, let target?, _, _, _) = item, target == panel.target { anchor = CGRect(x: M.rowInset, y: y, width: sidebar.bounds.width - 2 * M.rowInset, height: height) }
             y += height
         }
         guard let anchor, let window = sidebar.window else {

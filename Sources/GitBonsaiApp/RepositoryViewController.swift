@@ -22,6 +22,7 @@ final class RepositoryViewController: NSObject {
     let commitActions: CommitActionsController
     let fetchController: FetchController
     let operationBanner: OperationBannerController
+    private(set) var sidebarActions: SidebarActionsController!
     let staging: StagingController
     let fileActions: FileActionsController
     let commitController: CommitController
@@ -57,6 +58,8 @@ final class RepositoryViewController: NSObject {
         let model = viewModel
         diff = DiffViewController(staging: staging, repository: { model.repository })
         super.init()
+        let checkout = checkoutController
+        sidebarActions = SidebarActionsController(viewModel: viewModel, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
         wire()
         layout()
         bind()
@@ -121,6 +124,10 @@ final class RepositoryViewController: NSObject {
         tagsController.onCheckout = { [weak self] target in self?.checkoutController.perform(target, worktreePath: nil) }
         stashesController.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
         stashesController.onShowDiff = { [weak self] stash in self?.showStash(stash) }
+        sidebar.menuItems = { [weak self] subject in self?.sidebarActions.menuItems(for: subject) ?? [] }
+        sidebar.onNewBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        toolbar.onBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        sidebarActions.prompter.window = { [weak self] in self?.view.window }
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
@@ -321,6 +328,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.openCommitMenu(on: self)
             ScreenshotHarness.runRemotesAndRebase(on: self)
             ScreenshotHarness.driveStashesAndTags(on: self)
+            ScreenshotHarness.openSidebarMenu(on: self)
         }
         onLoaded?()
     }

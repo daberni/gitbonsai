@@ -14,6 +14,10 @@ final class SidebarView: NSView {
     var onSwitchWorktree: ((String) -> Void)?
     /// The Tags or Stashes row was clicked; `anchor` is the row's rectangle in this view, for a popover.
     var onOpenPanel: ((SidebarPanel, NSRect) -> Void)?
+    /// The plus on the Local header.
+    var onNewBranch: (() -> Void)?
+    /// The entries of a row's context menu.
+    var menuItems: ((SidebarMenuSubject) -> [NSMenuItem])?
 
     private var items: [SidebarItem] = []
     private var frames: [CGRect] = []
@@ -97,10 +101,17 @@ final class SidebarView: NSView {
         if hovered != nil { hovered = nil; needsDisplay = true }
     }
 
+    /// Like Finder's sidebar, a click acts even when it also brings the window forward. Harness clicks rely on it: a background window never becomes key.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) {
         guard let index = index(at: convert(event.locationInWindow, from: nil)), let model else { return }
         switch items[index] {
-        case .header(let key, _, _, _, _):
+        case .header(let key, _, _, _, let plus):
+            if plus, key == "local", plusRect(in: frames[index]).contains(convert(event.locationInWindow, from: nil)) {
+                onNewBranch?()
+                return
+            }
             outline.toggle(key)
             reload(from: model)
         case .worktree(let info, let isCurrent):
@@ -110,7 +121,7 @@ final class SidebarView: NSView {
             } else if let head = info.worktree.headSHA {
                 onSelectCommit?(head)
             }
-        case .row(_, _, _, _, _, _, _, _, _, _, let target?, let linked, let checkout):
+        case .row(_, _, _, _, _, _, _, _, _, _, let target?, let linked, let checkout, _):
             if event.clickCount == 2, let checkout {
                 onCheckout?(checkout, linked)
             } else if let panel = SidebarPanel(target: target) {
@@ -127,11 +138,39 @@ final class SidebarView: NSView {
         }
     }
 
+    /// The status slot of a header, where its plus is drawn, with a little room around it for the click.
+    private func plusRect(in rect: CGRect) -> CGRect {
+        CGRect(x: slotRight - M.slot, y: rect.midY - M.slot / 2, width: M.slot, height: M.slot).insetBy(dx: -Theme.Space.xs, dy: -Theme.Space.xs)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard let index = index(at: convert(event.locationInWindow, from: nil)) else { return nil }
+        return menu(forItemAt: index)
+    }
+
+    /// The row whose menu the harness asks for, by `SidebarMenuSubject.harnessName`.
+    func itemIndex(named name: String) -> Int? {
+        items.firstIndex { $0.menuSubject?.harnessName == name }
+    }
+
+    func itemIndex(header key: String) -> Int? {
+        items.firstIndex { if case .header(key, _, _, _, _) = $0 { true } else { false } }
+    }
+
+    func rowRect(at index: Int) -> CGRect { frames[index] }
+
+    func menu(forItemAt index: Int) -> NSMenu? {
+        guard let subject = items[index].menuSubject, let entries = menuItems?(subject), !entries.isEmpty else { return nil }
+        let menu = NSMenu()
+        entries.forEach(menu.addItem)
+        return menu
+    }
+
     /// The worktree path linked to the hovered row: a branch checked out elsewhere, or the worktree row itself.
     private var hoveredWorktreePath: String? {
         guard let hovered, hovered < items.count else { return nil }
         switch items[hovered] {
-        case .row(_, _, _, _, _, _, _, _, _, _, _, let linked, _): return linked
+        case .row(_, _, _, _, _, _, _, _, _, _, _, let linked, _, _): return linked
         case .worktree(let info, let isCurrent): return isCurrent ? nil : info.worktree.path
         default: return nil
         }
@@ -226,7 +265,7 @@ final class SidebarView: NSView {
                 }
                 drawText(detail, font: Theme.caption, color: faint ? Theme.inkFaint : Theme.inkMuted, x: textX, midY: line2, maxX: valueRight)
 
-            case .row(let text, let value, let expander, let icon, let slotGlyph, let slotColor, let indent, let strong, let isCheckedOut, let ghost, let target, _, _):
+            case .row(let text, let value, let expander, let icon, let slotGlyph, let slotColor, let indent, let strong, let isCheckedOut, let ghost, let target, _, _, _):
                 if isCheckedOut {
                     fillRow(Theme.surfaceSelected)
                 } else if hovered == index, target != nil || slotGlyph == .chevronRight {

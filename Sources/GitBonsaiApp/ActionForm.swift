@@ -22,6 +22,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private let stack = NSStackView()
     private var fields: [(key: String, field: NSTextField, required: Bool)] = []
     private var checkbox: NSButton?
+    private var choices: [(key: String, popup: NSPopUpButton, values: [String])] = []
     private var messageView: NSTextView?
 
     init(title: String, info: String, confirm: String) {
@@ -39,6 +40,25 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     func addField(key: String, label: String, value: String = "", placeholder: String = "", required: Bool = true) {
         let field = makeField(key: key, value: value, placeholder: placeholder, required: required)
         addRow(label: label, control: field)
+    }
+
+    /// A text field that also offers `suggestions` in a list, for a ref that may be typed or picked.
+    func addComboField(key: String, label: String, value: String, suggestions: [String], required: Bool = true) {
+        let combo = NSComboBox()
+        combo.addItems(withObjectValues: suggestions)
+        combo.completes = true
+        combo.numberOfVisibleItems = Theme.ActionSheet.visibleSuggestions
+        configure(combo, key: key, value: value, placeholder: "", required: required)
+        addRow(label: label, control: combo)
+    }
+
+    /// A pop-up of exclusive options; `values.text[key]` holds the chosen option's value.
+    func addChoice(key: String, label: String, options: [(value: String, title: String)], selected: String) {
+        let popup = NSPopUpButton()
+        popup.addItems(withTitles: options.map(\.title))
+        popup.selectItem(at: options.firstIndex { $0.value == selected } ?? 0)
+        choices.append((key, popup, options.map(\.value)))
+        addRow(label: label, control: popup)
     }
 
     /// A folder field with a button that picks the new folder's place and name in a save panel.
@@ -76,6 +96,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     var values: Values {
         var text = Dictionary(uniqueKeysWithValues: fields.map { ($0.key, $0.field.stringValue) })
         if let messageView { text[Self.messageKey] = messageView.string }
+        for choice in choices { text[choice.key] = choice.values[max(choice.popup.indexOfSelectedItem, 0)] }
         return Values(text: text, isChecked: checkbox?.state == .on)
     }
 
@@ -84,6 +105,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         for (key, field, _) in fields { if let answer = answers[key] { field.stringValue = answer } }
         if let message = answers[Self.messageKey] { messageView?.string = message.replacingOccurrences(of: "\\n", with: "\n") }
         if let checked = answers[Self.checkboxKey] { checkbox?.state = checked == "1" ? .on : .off }
+        for choice in choices { if let answer = answers[choice.key], let index = choice.values.firstIndex(of: answer) { choice.popup.selectItem(at: index) } }
         updateConfirm()
     }
 
@@ -109,12 +131,17 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func makeField(key: String, value: String, placeholder: String, required: Bool) -> NSTextField {
-        let field = NSTextField(string: value)
+        let field = NSTextField()
+        configure(field, key: key, value: value, placeholder: placeholder, required: required)
+        return field
+    }
+
+    private func configure(_ field: NSTextField, key: String, value: String, placeholder: String, required: Bool) {
+        field.stringValue = value
         field.placeholderString = placeholder
         field.delegate = self
         fields.append((key, field, required))
         updateConfirm()
-        return field
     }
 
     private func addRow(label: String, control: NSView) {

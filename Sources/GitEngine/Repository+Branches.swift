@@ -32,3 +32,45 @@ extension Repository {
         return Int(count.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
     }
 }
+
+extension Repository {
+    /// Deletes local branch `name`. Without `force` git refuses a branch whose commits are not merged into its upstream or HEAD; that refusal is thrown with `isUnmergedBranch`.
+    /// git also refuses a branch checked out in any worktree, with or without `force`.
+    public func deleteBranch(_ name: String, force: Bool) async throws {
+        _ = try await runner.runWrite(["branch", force ? "-D" : "-d", name])
+    }
+
+    /// Renames local branch `name` to `newName`; its reflog, upstream and any worktree that has it checked out follow. Fails when `newName` exists.
+    public func renameBranch(_ name: String, to newName: String) async throws {
+        _ = try await runner.runWrite(["branch", "-m", name, newName])
+    }
+
+    /// Makes `upstream` (a remote branch such as `origin/main`) the branch that `branch` pulls from and compares with; nil removes the upstream.
+    public func setUpstream(of branch: String, to upstream: String?) async throws {
+        let arguments = upstream.map { ["branch", "--set-upstream-to=\($0)", branch] } ?? ["branch", "--unset-upstream", branch]
+        _ = try await runner.runWrite(arguments)
+    }
+
+    /// Merges `ref` into the current branch, fast-forwarding when possible.
+    /// git reports a conflict on stdout, which the thrown error does not carry; a stopped merge is therefore thrown with the conflicted paths so that `stoppedOnConflict` holds.
+    public func merge(_ ref: String) async throws {
+        do {
+            _ = try await runner.runWrite(["merge", "--no-edit", ref])
+        } catch let error as GitError {
+            guard (try? await runner.run(["rev-parse", "-q", "--verify", "MERGE_HEAD"])) != nil else { throw error }
+            let conflicted = (try? await runner.run(["diff", "--name-only", "-z", "--diff-filter=U"]))?.stdoutString.split(separator: "\0").map(String.init) ?? []
+            let lines = conflicted.map { "CONFLICT: Merge conflict in \($0)" } + [error.stderr.trimmingCharacters(in: .whitespacesAndNewlines)]
+            throw GitError(arguments: error.arguments, exitCode: error.exitCode, stderr: lines.filter { !$0.isEmpty }.joined(separator: "\n"))
+        }
+    }
+
+    /// Deletes `branch` on `remote` and the matching remote-tracking ref.
+    public func deleteRemoteBranch(_ branch: String, on remote: String) async throws {
+        _ = try await runner.runWrite(["push", remote, "--delete", branch])
+    }
+}
+
+extension GitError {
+    /// `git branch -d` refused a branch whose commits would be lost; `-D` deletes it anyway.
+    public var isUnmergedBranch: Bool { stderr.contains("is not fully merged") }
+}

@@ -17,7 +17,31 @@ enum SidebarPanel: String {
 enum SidebarItem {
     case header(key: String, title: String, count: Int, icon: Glyph, plus: Bool)
     case worktree(WorktreeInfo, isCurrent: Bool)
-    case row(text: String, value: String, expander: Glyph?, icon: Glyph?, slot: Glyph?, slotColor: NSColor?, indent: CGFloat, strong: Bool, isCheckedOut: Bool, ghost: Bool, target: String?, linkedWorktree: String?, checkout: CheckoutTarget?)
+    /// `ref` is set on branch rows; their context menu acts on it.
+    case row(text: String, value: String, expander: Glyph?, icon: Glyph?, slot: Glyph?, slotColor: NSColor?, indent: CGFloat, strong: Bool, isCheckedOut: Bool, ghost: Bool, target: String?, linkedWorktree: String?, checkout: CheckoutTarget?, ref: Ref? = nil)
+
+    /// What the row's context menu acts on, if it has one.
+    var menuSubject: SidebarMenuSubject? {
+        switch self {
+        case .worktree(let info, let isCurrent): .worktree(info, isCurrent: isCurrent)
+        case .row(_, _, _, _, _, _, _, _, _, _, _, _, _, let ref?): .branch(ref)
+        default: nil
+        }
+    }
+}
+
+/// The thing a sidebar context menu acts on.
+enum SidebarMenuSubject {
+    case branch(Ref)
+    case worktree(WorktreeInfo, isCurrent: Bool)
+
+    /// How the harness names a subject: `branch:<name>` for local and remote branches (`branch:origin/main`), `worktree:<folder>`.
+    var harnessName: String {
+        switch self {
+        case .branch(let ref): "branch:" + ref.name
+        case .worktree(let info, _): "worktree:" + (info.worktree.path as NSString).lastPathComponent
+        }
+    }
 }
 
 /// Turns the view model into sidebar lines and remembers which sections and folders are collapsed.
@@ -62,7 +86,7 @@ struct SidebarOutline {
                 case .remoteBranch(let remote): .remoteBranch(remote: remote, branch: String(ref.name.dropFirst(remote.count + 1)))
                 default: nil
                 }
-                result.append(.row(text: name, value: value, expander: nil, icon: nil, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, ghost: false, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout))
+                result.append(.row(text: name, value: value, expander: nil, icon: nil, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, ghost: false, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout, ref: ref))
             }
             for folder in folders.keys.sorted() {
                 let folderKey = key + "/" + folder
