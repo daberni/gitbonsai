@@ -6,10 +6,13 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GitEngine", targets: ["GitEngine"]),
+        .library(name: "GraphLayout", targets: ["GraphLayout"]),
     ],
     targets: [
         .target(name: "GitEngine"),
+        .target(name: "GraphLayout", dependencies: ["GitEngine"]),
         .testTarget(name: "GitEngineTests", dependencies: ["GitEngine"]),
+        .testTarget(name: "GraphLayoutTests", dependencies: ["GraphLayout", "GitEngine"]),
     ],
     swiftLanguageModes: [.v6]
 )
