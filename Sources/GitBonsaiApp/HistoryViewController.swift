@@ -25,12 +25,18 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     private let viewModel: GraphViewModel
     private let header = HistoryHeaderView()
     private let guide = ColumnGuideView()
+    /// Expands a row's ref pills that the label column cuts off.
+    let refOverlay: RefOverlayController
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
         columnsController = HistoryColumnsController(header: header, table: tableView, guide: guide)
         search = HistorySearchController(viewModel: viewModel)
+        refOverlay = RefOverlayController(table: tableView)
         super.init()
+        refOverlay.select = { [weak self] row in self?.select(row: row, scroll: false) }
+        refOverlay.activate = { [weak self] row in self?.onActivate?(row) }
+        refOverlay.menuItems = { [weak self] row in self?.menuItems?(row) ?? [] }
         columnsController.onChange = { [weak self] in self?.reloadVisibleRows() }
         search.onChange = { [weak self] in
             self?.reloadVisibleRows()

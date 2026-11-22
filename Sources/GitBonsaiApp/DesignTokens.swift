@@ -488,9 +488,34 @@ enum Theme {
         static let spacing = Space.xs
         static let textGap: CGFloat = 2
         static let trailingPadding = Space.s
-        /// Share of the strand color in the pill's ground and its border, plain and for HEAD.
-        static let tint: (plain: CGFloat, head: CGFloat) = (0.16, 0.30)
+        /// Width of the pill's outline; 0 draws filled pills only, `Stroke.hairline` brings the outline back.
+        static let stroke: CGFloat = 0
+        /// Share of the strand color in the pill's ground and its border, plain and for HEAD. Without an outline the ground alone has to set the pill off from the row and from the selection.
+        static let tint: (plain: CGFloat, head: CGFloat) = stroke > 0 ? (0.16, 0.30) : (0.24, 0.44)
         static let border: (plain: CGFloat, head: CGFloat) = (0.55, 0.75)
+    }
+
+    /// A history row's pills expanded over the columns when the label column cuts some of them off.
+    @MainActor enum RefOverlay {
+        /// Inner margin around the pills, all sides.
+        static let padding = Space.xs
+        /// Between two lines of the card.
+        static let lineSpacing = Space.xs
+        static let radius = Radius.md
+        /// Keeps the overlay this far from the left edge of the history and the right edge of the visible area.
+        static let edgeInset = Space.xs
+        /// A single line wider than this wraps into a card.
+        static let maxWidth: CGFloat = 560
+        /// shadow-popover: it floats above the rows like a popover, with a hairline edge.
+        static let shadowBlur: CGFloat = 24
+        static let shadowOffset: CGFloat = 8
+        static let shadow = dynamic(0x2a241e, 0x000000, lightAlpha: 0x24 / 255, darkAlpha: 0xa6 / 255)
+        /// Room around the overlay for its shadow; the view is this much larger than what it draws.
+        static let shadowMargin = shadowBlur + shadowOffset
+        /// How long the pointer has to rest on a row's labels before they expand; once one is open the next row expands at once.
+        static let hoverDelay: TimeInterval = 0.3
+        /// Extra reach around the "+n" counter for a click.
+        static let counterHitInset = Space.xs
     }
 
     /// The Tags and Stashes popovers of the sidebar.

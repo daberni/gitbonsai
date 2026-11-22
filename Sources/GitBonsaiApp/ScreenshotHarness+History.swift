@@ -40,6 +40,78 @@ extension ScreenshotHarness {
             _ = columns.scrollGraph(by: -CGFloat(offset), at: NSPoint(x: graph.lowerBound + 1, y: 1))
         }
         driveSearch(history)
+        driveRefPills(history)
+    }
+
+    // MARK: Ref pill expansion
+
+    /// `GITBONSAI_REF_PILLS=<step>,…` drives the expansion of a row's ref pills with real mouse events, one step a second: `hover:<row>` moves onto the row's labels,
+    /// `brush:<row>` moves onto them and away again within the hover delay, `counter:<row>` clicks the row's "+n", `away` moves onto the commit text of the last row,
+    /// `menu` prints the menu of the expanded labels, `click` and `double` click them. The expanded row, its card and its pills go to stderr after each step.
+    static func driveRefPills(_ history: HistoryViewController) {
+        guard let steps = environment["GITBONSAI_REF_PILLS"]?.split(separator: ",").map(String.init) else { return }
+        let table = history.tableView
+        var lastRow = 0
+        func report(_ step: String) {
+            let overlay = history.refOverlay.overlay
+            guard let content = overlay.content else {
+                FileHandle.standardError.write(Data("ref pills after \(step): collapsed, selected row \(history.selectedRow)\n".utf8))
+                return
+            }
+            let card = content.card
+            let names = content.placements.map { content.pills[$0.index].name + ($0.isTruncated ? "…" : "") }.joined(separator: " ")
+            let lines = Set(content.placements.map(\.rect.minY)).count
+            FileHandle.standardError.write(Data("ref pills after \(step): row \(content.row) expanded, card x \(Int(card.minX)) y \(Int(card.minY - table.rect(ofRow: content.row).minY)) from row top, \(Int(card.width))x\(Int(card.height)), \(content.isWrapped ? "wrapped" : "one line") in \(lines) lines, \(content.placements.count) of \(content.pills.count) pills: \(names); selected row \(history.selectedRow)\n".utf8))
+        }
+        func move(to point: NSPoint, in window: NSWindow) {
+            let location = table.convert(point, to: nil)
+            // Tracking areas follow the real cursor only, so the move goes to the view under the point the way tracking would deliver it.
+            if let moved = mouseEvent(.mouseMoved, at: location, in: window) { window.contentView?.superview?.hitTest(location)?.mouseMoved(with: moved) }
+        }
+        func labelPoint(_ row: Int) -> NSPoint {
+            let label = history.columnsController.columns.layout(in: table.bounds.width).label ?? 0...0
+            return NSPoint(x: label.upperBound - Theme.Pill.trailing - Theme.Space.l, y: table.rect(ofRow: row).midY)
+        }
+        for (index, step) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + Double(index)) {
+                guard let window = table.window else { return }
+                let parts = step.split(separator: ":")
+                let row = parts.count > 1 ? Int(parts[1]) ?? lastRow : lastRow
+                lastRow = row
+                switch parts.first.map(String.init) {
+                case "hover":
+                    move(to: labelPoint(row), in: window)
+                case "brush":
+                    move(to: labelPoint(row), in: window)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Theme.RefOverlay.hoverDelay / 3) { move(to: NSPoint(x: history.columnsController.columns.layout(in: table.bounds.width).commit.lowerBound + Theme.Space.xl, y: table.rect(ofRow: table.numberOfRows - 1).midY), in: window) }
+                case "counter":
+                    guard let rowView = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? GraphRowView, let model = rowView.model, let label = model.columns.layout(in: table.bounds.width).label, let counter = RefPills.compactLayout(model.pills, labelEnd: label.upperBound, midY: table.rect(ofRow: row).midY).counter else {
+                        FileHandle.standardError.write(Data("row \(row) has no counter\n".utf8))
+                        return
+                    }
+                    click(in: window, at: table.convert(NSPoint(x: counter.rect.midX, y: counter.rect.midY), to: nil))
+                case "away":
+                    move(to: NSPoint(x: history.columnsController.columns.layout(in: table.bounds.width).commit.lowerBound + Theme.Space.xl, y: table.rect(ofRow: table.numberOfRows - 1).midY), in: window)
+                case "menu":
+                    let overlay = history.refOverlay.overlay
+                    guard let card = overlay.content?.card, let event = mouseEvent(.rightMouseDown, at: table.convert(NSPoint(x: card.midX, y: card.midY), to: nil), in: window), let menu = overlay.menu(for: event) else {
+                        FileHandle.standardError.write(Data("no menu on the expanded labels\n".utf8))
+                        return
+                    }
+                    FileHandle.standardError.write(Data("ref pills menu: \(describe(menu))\n".utf8))
+                case "click", "double":
+                    guard let card = history.refOverlay.overlay.content?.card else { return }
+                    let location = table.convert(NSPoint(x: card.minX + Theme.Space.l, y: card.minY + card.height / 2), to: nil)
+                    let count = step == "double" ? 2 : 1
+                    for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                        if let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1) { window.sendEvent(event) }
+                    }
+                default:
+                    FileHandle.standardError.write(Data("unknown ref pills step \(step)\n".utf8))
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { report(step) }
+            }
+        }
     }
 
     // MARK: Commit search

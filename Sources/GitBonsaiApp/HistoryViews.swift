@@ -73,9 +73,26 @@ final class HistoryHeaderView: NSView {
 final class HistoryTableView: NSTableView {
     /// Returns true when the scroll was used for the graph.
     var onGraphScroll: ((_ deltaX: CGFloat, _ at: NSPoint) -> Bool)?
-    var columns = HistoryColumns() { didSet { if columns != oldValue { window?.invalidateCursorRects(for: self) } } }
+    var columns = HistoryColumns() {
+        didSet {
+            guard columns != oldValue else { return }
+            window?.invalidateCursorRects(for: self)
+            onLayoutChange?()
+        }
+    }
     var onDrag: ((HistoryColumns.Column, CGFloat) -> Void)?
     var onResetGraph: (() -> Void)?
+    /// The pointer moved to a point in the table, or left it (nil).
+    var onHover: ((NSPoint?) -> Void)?
+    /// A press in the label column; returns true when it was taken, such as a click on a "+n" counter.
+    var onPressLabels: ((NSPoint) -> Bool)?
+    /// Columns, width or the whole content changed, so anything placed over the rows is stale.
+    var onLayoutChange: (() -> Void)?
+    /// These rows were drawn again from new models.
+    var onRowsReloaded: ((IndexSet) -> Void)?
+    /// Escape; returns true when something closed.
+    var onCancel: (() -> Bool)?
+    private var hoverArea: NSTrackingArea?
 
     private var dividers: [(HistoryColumns.Column, CGFloat)] { columns.layout(in: bounds.width).dividers }
 
@@ -90,12 +107,50 @@ final class HistoryTableView: NSTableView {
     }
 
     override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = newSize.width != frame.width
         super.setFrameSize(newSize)
         window?.invalidateCursorRects(for: self)
+        // Loading more rows only makes the table taller; that leaves the rows on screen where they were.
+        if widthChanged { onLayoutChange?() }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        onHover?(convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        if event.trackingArea === hoverArea { onHover?(nil) }
+    }
+
+    override func reloadData() {
+        onLayoutChange?()
+        super.reloadData()
+    }
+
+    override func reloadData(forRowIndexes rowIndexes: IndexSet, columnIndexes: IndexSet) {
+        super.reloadData(forRowIndexes: rowIndexes, columnIndexes: columnIndexes)
+        onRowsReloaded?(rowIndexes)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53, onCancel?() == true { return }
+        super.keyDown(with: event)
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard let divider = ColumnDividers.hit(convert(event.locationInWindow, from: nil).x, in: dividers) else {
+        let point = convert(event.locationInWindow, from: nil)
+        guard let divider = ColumnDividers.hit(point.x, in: dividers) else {
+            if event.clickCount == 1, onPressLabels?(point) == true { return }
             super.mouseDown(with: event)
             return
         }

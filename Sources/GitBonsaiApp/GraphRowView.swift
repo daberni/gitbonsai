@@ -2,12 +2,6 @@ import AppKit
 import GitEngine
 import GraphLayout
 
-struct PillModel: Hashable {
-    let name: String
-    let glyphs: [Glyph]
-    let isHead: Bool
-}
-
 /// Draws one history row: ref labels, strands and node, commit text, author and date.
 ///
 /// Strands are drawn per transition between two rows. Each cell draws its own row's edges down to the next row and the previous row's edges down to itself; both are clipped to the cell, so a lane change is one continuous S across the boundary.
@@ -241,49 +235,12 @@ final class GraphRowView: NSView {
 
     /// Draws the pills right-aligned in the label column and returns the right edge of the last pill, where the connector starts.
     private func drawPills(_ context: CGContext, model: Model, strand: NSColor, midY: CGFloat, labelEnd: CGFloat) -> CGFloat? {
-        guard !model.pills.isEmpty else { return nil }
-        typealias P = Theme.Pill
-        let rightEdge = labelEnd - P.trailing
-        let pillHeight = P.height
-        let glyphSize = P.glyph
-        var right = rightEdge
-        var drawn = 0
-        for pill in model.pills {
-            let font = pill.isHead ? Theme.pillStrong : Theme.pill
-            let remaining = model.pills.count - drawn
-            let reserve = remaining > 1 ? P.counterReserve : 0
-            let available = right - P.padding - reserve
-            let glyphsWidth = CGFloat(pill.glyphs.count) * (glyphSize + P.glyphGap)
-            let chrome = P.padding + glyphsWidth + P.textGap + P.trailingPadding
-            guard available - chrome > P.minimumText else { break }
-            let title = NSAttributedString(string: pill.name, attributes: [.font: font, .foregroundColor: Theme.ink])
-            let textWidth = min(title.size().width, available - chrome)
-            let rect = CGRect(x: right - chrome - textWidth, y: midY - pillHeight / 2, width: chrome + textWidth, height: pillHeight)
-            let edge = Theme.Stroke.hairline / 2
-            let path = CGPath(roundedRect: rect.insetBy(dx: edge, dy: edge), cornerWidth: pillHeight / 2 - edge, cornerHeight: pillHeight / 2 - edge, transform: nil)
-            // The ground is opaque (strand mixed into the surface) so the connector never shows through.
-            context.setFillColor(strand.mixed(into: Theme.surface0, fraction: pill.isHead ? P.tint.head : P.tint.plain).cgColor)
-            context.addPath(path)
-            context.fillPath()
-            context.setStrokeColor(strand.withAlphaComponent(pill.isHead ? P.border.head : P.border.plain).cgColor)
-            context.setLineWidth(Theme.Stroke.hairline)
-            context.addPath(path)
-            context.strokePath()
-            var x = rect.minX + P.padding
-            for glyph in pill.glyphs {
-                glyph.draw(in: CGRect(x: x, y: midY - glyphSize / 2, width: glyphSize, height: glyphSize), color: Theme.ink, context: context)
-                x += glyphSize + P.glyphGap
-            }
-            let textRect = CGRect(x: x + P.textGap, y: midY - title.size().height / 2, width: textWidth, height: title.size().height)
-            title.draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
-            right = rect.minX - P.spacing
-            drawn += 1
+        let layout = RefPills.compactLayout(model.pills, labelEnd: labelEnd, midY: midY)
+        for placement in layout.placements {
+            RefPills.draw(model.pills[placement.index], in: placement.rect, textWidth: placement.textWidth, strand: strand, context: context)
         }
-        if drawn < model.pills.count {
-            let more = NSAttributedString(string: "+\(model.pills.count - drawn)", attributes: [.font: Theme.pill, .foregroundColor: Theme.inkMuted])
-            more.draw(at: CGPoint(x: right - more.size().width, y: midY - more.size().height / 2))
-        }
-        return drawn > 0 ? rightEdge : nil
+        if let counter = layout.counter { counter.text.draw(at: counter.rect.origin) }
+        return layout.end
     }
 
     // MARK: Text
