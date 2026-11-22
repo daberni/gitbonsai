@@ -149,7 +149,9 @@ public actor GitRunner {
         let result = try await task.value
         record(result, startedAt: startedAt)
         guard result.exitCode == 0 else {
-            throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr)
+            // Some commands, `git stash pop` with a conflict among them, explain the failure only on stdout.
+            let message = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? result.stdoutString : result.stderr
+            throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: message)
         }
         return result
     }

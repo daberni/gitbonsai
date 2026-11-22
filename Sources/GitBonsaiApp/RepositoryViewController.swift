@@ -25,14 +25,16 @@ final class RepositoryViewController: NSObject {
     let staging: StagingController
     let commitController: CommitController
     let diff: DiffViewController
+    let tagsController: TagsController
+    let stashesController: StashesController
     /// The history column shows the graph, or the diff of one file in its place.
     private let historyPane = ContainerView()
     /// Detail panel, and below it the commit form for the working directory.
     private var rightColumn: ColumnWithBottomBar!
     private var shownStatus: RepositoryStatus?
     private var shownCommitID: String?
-    private let toolbar = RepositoryToolbar()
-    private let sidebar = SidebarView()
+    let toolbar = RepositoryToolbar()
+    let sidebar = SidebarView()
     private let detail = DetailView()
     private let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
@@ -48,6 +50,8 @@ final class RepositoryViewController: NSObject {
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
         commitController = CommitController(viewModel: viewModel)
+        tagsController = TagsController(viewModel: viewModel)
+        stashesController = StashesController(viewModel: viewModel)
         let model = viewModel
         diff = DiffViewController(staging: staging, repository: { model.repository })
         super.init()
@@ -79,6 +83,17 @@ final class RepositoryViewController: NSObject {
         view.window?.makeFirstResponder(history.tableView)
     }
 
+    /// Selects the stash in the history, so the detail panel lists its files, and opens the first one's diff.
+    private func showStash(_ stash: Stash) {
+        history.navigate(to: stash.commitID)
+        guard let row = viewModel.rowIndex(of: stash.commitID) else { return }
+        let commit = viewModel.commits[row]
+        Task {
+            guard let file = try? await viewModel.repository.changedFiles(of: commit).first else { return }
+            openFile(FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)))
+        }
+    }
+
     func switchWorktree(to path: String) {
         viewModel.switchWorktree(to: path)
     }
@@ -93,6 +108,17 @@ final class RepositoryViewController: NSObject {
         sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }
         sidebar.onCheckout = { [weak self] target, worktreePath in self?.checkoutController.perform(target, worktreePath: worktreePath) }
         sidebar.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
+        sidebar.onOpenPanel = { [weak self] panel, anchor in
+            guard let self else { return }
+            switch panel {
+            case .tags: tagsController.show(relativeTo: anchor, of: sidebar)
+            case .stashes: stashesController.show(relativeTo: anchor, of: sidebar)
+            }
+        }
+        tagsController.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
+        tagsController.onCheckout = { [weak self] target in self?.checkoutController.perform(target, worktreePath: nil) }
+        stashesController.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
+        stashesController.onShowDiff = { [weak self] stash in self?.showStash(stash) }
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
@@ -109,6 +135,8 @@ final class RepositoryViewController: NSObject {
         detail.showNothing()
         checkoutController.window = { [weak self] in self?.view.window }
         commitActions.prompter.window = { [weak self] in self?.view.window }
+        tagsController.prompter.window = { [weak self] in self?.view.window }
+        stashesController.prompter.window = { [weak self] in self?.view.window }
         staging.window = { [weak self] in self?.view.window }
         commitController.window = { [weak self] in self?.view.window }
         staging.onChange = { [weak self] in
@@ -250,6 +278,11 @@ final class RepositoryViewController: NSObject {
         toolbar.showFetchState(hasRemote: hasRemote, lastFetch: viewModel.lastFetch)
         fetchController.refreshRemotes()
         operationBanner.update()
+        let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
+        toolbar.onStash = hasChanges ? { [weak self] in self?.stashesController.stashChanges() } : nil
+        toolbar.onPop = viewModel.stashes.isEmpty ? nil : { [weak self] in self?.stashesController.popNewest() }
+        tagsController.viewModelChanged()
+        stashesController.viewModelChanged()
         reportLoadedOnce()
     }
 
@@ -278,6 +311,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.scrollSidebar(sidebar)
             ScreenshotHarness.openCommitMenu(on: self)
             ScreenshotHarness.runRemotesAndRebase(on: self)
+            ScreenshotHarness.driveStashesAndTags(on: self)
         }
         onLoaded?()
     }

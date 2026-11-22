@@ -152,18 +152,6 @@ public final class Repository: Sendable {
         return try StatusParser.parse(result.stdout)
     }
 
-    /// All stashes, newest first. Stash commits are not reachable from any branch, so callers that
-    /// want them in the graph pass their ids as extra revisions to `log`.
-    public func stashes() async throws -> [Stash] {
-        let result = try await runner.run(["stash", "list", "--format=%gd%x1f%H%x1f%gs%x1e"])
-        return result.stdout.split(separator: 0x1E).compactMap { record in
-            let fields = record.split(separator: 0x1F, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
-            guard fields.count >= 3 else { return nil }
-            let selector = fields[0].trimmingCharacters(in: .whitespacesAndNewlines)
-            return Stash(selector: selector, commitID: fields[1], message: fields[2].trimmingCharacters(in: .newlines))
-        }
-    }
-
     public func worktrees() async throws -> [Worktree] {
         let result = try await runner.run(["worktree", "list", "--porcelain", "-z"])
         return try WorktreeParser.parse(result.stdout)

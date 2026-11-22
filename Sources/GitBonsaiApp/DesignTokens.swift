@@ -333,6 +333,23 @@ enum Theme {
         static let border: (plain: CGFloat, head: CGFloat) = (0.55, 0.75)
     }
 
+    /// The Tags and Stashes popovers of the sidebar.
+    enum Panel {
+        static let width: CGFloat = 400
+        static let padding = Space.m
+        /// The list reaches closer to the edges than the title and the buttons, so the selection wash lines up with the field.
+        static let listInset = Space.xs
+        static let rowHeight: CGFloat = 42
+        static let rowPadding = Space.s
+        /// Centre lines of the two text lines, as a share of the row height.
+        static let firstLine: CGFloat = 0.34
+        static let secondLine: CGFloat = 0.70
+        static let selectionInset: CGFloat = 1
+        static let maxVisibleRows = 9
+        /// Longer lists get a filter field.
+        static let filterThreshold = 8
+    }
+
     enum Graph {
         static let rowHeight: CGFloat = 36
         static let lane: CGFloat = 28

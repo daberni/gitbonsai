@@ -9,4 +9,45 @@ extension Repository {
             _ = try await runner.runWrite(["tag", name, commit])
         }
     }
+
+    static let tagFormat = "--format=" + ["%(refname:strip=2)", "%(objecttype)", "%(objectname)", "%(*objectname)", "%(creatordate:unix)", "%(contents:subject)"].joined(separator: "%1f") + "%1e"
+
+    /// All local tags, newest first. Tags that point at something other than a commit, such as a tree or a blob, are left out.
+    public func tags() async throws -> [Tag] {
+        let result = try await runner.run(["for-each-ref", "--sort=-creatordate", Self.tagFormat, "refs/tags"])
+        return Self.parseTags(result.stdout)
+    }
+
+    static func parseTags(_ data: Data) -> [Tag] {
+        data.split(separator: 0x1E).compactMap { record in
+            var fields = record.split(separator: 0x1F, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
+            guard fields.count == 6 else { return nil }
+            if fields[0].hasPrefix("\n") { fields[0].removeFirst() }
+            let isAnnotated = fields[1] == "tag"
+            let commitID = isAnnotated ? fields[3] : fields[2]
+            // An annotated tag of a tag peels to the innermost object; anything but a commit has no place in the history.
+            guard !fields[0].isEmpty, !commitID.isEmpty, isAnnotated || fields[1] == "commit" else { return nil }
+            let seconds = TimeInterval(fields[4]) ?? 0
+            return Tag(name: fields[0], commitID: commitID, isAnnotated: isAnnotated, date: Date(timeIntervalSince1970: seconds), subject: fields[5])
+        }
+    }
+
+    public func deleteTag(_ name: String) async throws {
+        _ = try await runner.runWrite(["tag", "--delete", name])
+    }
+
+    public func pushTag(_ name: String, to remote: String) async throws {
+        _ = try await runner.runWrite(["push", remote, "refs/tags/\(name)"])
+    }
+
+    /// Deletes the tag on the remote only; the local tag stays.
+    public func deleteRemoteTag(_ name: String, on remote: String) async throws {
+        _ = try await runner.runWrite(["push", remote, "--delete", "refs/tags/\(name)"])
+    }
+
+    /// The names of the configured remotes, in git's order.
+    public func remoteNames() async throws -> [String] {
+        let result = try await runner.run(["remote"])
+        return result.stdoutString.split(separator: "\n").map(String.init)
+    }
 }
