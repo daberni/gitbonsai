@@ -28,6 +28,10 @@ final class DiffHeaderView: BarView {
         back.target = self
         back.action = #selector(goBack(_:))
         back.keyEquivalent = "\u{1b}"
+        // One line at a constant height: the folder gives way from the front before the file name, like in the file lists.
+        title.usesSingleLineMode = true
+        title.maximumNumberOfLines = 1
+        title.cell?.wraps = false
         title.lineBreakMode = .byTruncatingHead
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for (button, symbol, action, tip) in [(previous, "chevron.up", #selector(goPrevious(_:)), "Vorheriger Hunk"), (next, "chevron.down", #selector(goNext(_:)), "Nächster Hunk")] {
@@ -73,8 +77,10 @@ final class DiffHeaderView: BarView {
     required init?(coder: NSCoder) { nil }
 
     func show(_ selection: FileSelection, diff: FileDiff?, mode: DiffMode) {
-        let text = NSMutableAttributedString(string: selection.directory, attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted])
-        text.append(NSAttributedString(string: selection.name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink]))
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingHead
+        let text = NSMutableAttributedString(string: selection.directory, attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted, .paragraphStyle: paragraph])
+        text.append(NSAttributedString(string: selection.name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink, .paragraphStyle: paragraph]))
         title.attributedStringValue = text
         title.toolTip = selection.path
         switch selection.source {
