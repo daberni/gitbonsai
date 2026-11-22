@@ -12,6 +12,14 @@ final class OperationBannerController {
     /// Each update starts a new read; only the latest one may change the banner.
     private var generation = 0
     private var isRunning = false
+    /// "Commit ändern" at an edit stop: opens the commit form with amend.
+    var onAmend: (() -> Void)?
+    /// The banner shows another state; the commit form follows whether git waits at an edit stop.
+    var onStateChange: (() -> Void)?
+    /// Says what continuing or skipping left out, in a toast.
+    var onToast: ((String) -> Void)?
+    /// The operation is over, finished or aborted, however it got there; the tab selects HEAD and leaves the conflict state behind.
+    var onEnded: (() -> Void)?
 
     init(viewModel: GraphViewModel, prompter: ActionPrompter) {
         self.viewModel = viewModel
@@ -20,6 +28,7 @@ final class OperationBannerController {
         view.onContinue = { [weak self] in self?.perform(.continue) }
         view.onSkip = { [weak self] in self?.perform(.skip) }
         view.onAbort = { [weak self] in self?.perform(.abort) }
+        view.onAmend = { [weak self] in self?.onAmend?() }
     }
 
     /// Reads git's state again; called whenever the tab's status or refs changed.
@@ -35,19 +44,30 @@ final class OperationBannerController {
     }
 
     private func show(_ progress: OperationProgress?) {
+        let wasEditStop = isEditStop
+        let wasRunning = self.progress != nil
         self.progress = progress
+        defer {
+            if wasEditStop != isEditStop { onStateChange?() }
+            if wasRunning, progress == nil { onEnded?() }
+        }
         guard let progress else {
             view.isHidden = true
             return
         }
         let conflicts = viewModel.status?.conflicted.count ?? 0
-                // A merge names what it brings in, a rebase where it replays onto.
+        // A merge names what it brings in, a rebase where it replays onto.
         let target = progress.kind == .merge ? progress.commit : progress.onto
-        view.show(text: Self.describe(progress, conflicts: conflicts, ontoName: target.map(name(of:))), conflicts: conflicts, canContinue: conflicts == 0 && !isRunning, canSkip: progress.kind.canSkip, isEnabled: !isRunning)
+        view.show(text: Self.describe(progress, conflicts: conflicts, ontoName: target.map(name(of:))), conflicts: conflicts, canContinue: conflicts == 0 && !isRunning, canSkip: progress.kind.canSkip, canAmend: isEditStop, isEnabled: !isRunning)
         view.isHidden = false
     }
 
-    /// "Rebase auf main: Schritt 3 von 7, 2 Konflikte"
+    /// True while an interactive rebase waits at an `edit` step for the commit to be amended.
+    var isEditStop: Bool {
+        if case .edit? = progress?.stop { true } else { false }
+    }
+
+    /// "Rebase auf main: Schritt 3 von 7, 2 Konflikte", or at an edit stop "Angehalten zum Bearbeiten von 1a2b3c4 „Subject“ · Schritt 3 von 7 · Rebase von „main“ auf …"
     static func describe(_ progress: OperationProgress, conflicts: Int, ontoName: String?) -> String {
         var head: String
         switch progress.kind {
@@ -60,8 +80,17 @@ final class OperationBannerController {
         case .merge:
             head = "Merge" + (ontoName.map { " von \($0)" } ?? "")
         }
-        var parts: [String] = []
-        if let step = progress.step, let total = progress.total { parts.append("Schritt \(step) von \(total)") }
+        let step = progress.step.flatMap { step in progress.total.map { "Schritt \(step) von \($0)" } }
+        // A stop that waits for the user leads, so a narrow banner still says why it waits.
+        switch (progress.stop, conflicts) {
+        case let (.edit(commit, subject)?, 0):
+            return (["Angehalten zum Bearbeiten von \(commit.prefix(7)) „\(subject)“", step].compactMap { $0 } + [head]).joined(separator: " · ")
+        case let (.exec(command)?, 0):
+            return (["„\(command)“ fehlgeschlagen", step].compactMap { $0 } + [head]).joined(separator: " · ")
+        default:
+            break
+        }
+        var parts = [step].compactMap { $0 }
         switch conflicts {
         case 0: parts.append("keine Konflikte offen")
         case 1: parts.append("1 Konflikt")
@@ -106,18 +135,22 @@ final class OperationBannerController {
             let repository = viewModel.repository
             let command = "git \(kind.command) --\(action == .continue ? "continue" : action == .skip ? "skip" : "abort")"
             do {
+                var report: OperationReport?
                 switch action {
-                case .continue: try await repository.continueOperation(kind)
-                case .skip: try await repository.skipOperation(kind)
+                case .continue: report = try await repository.continueOperation(kind)
+                case .skip: report = try await repository.skipOperation(kind)
                 case .abort: try await repository.abortOperation(kind)
                 }
                 isRunning = false
-                await viewModel.refresh(note: command)
+                // Continuing a step that the resolution left empty skips it; the toast says so.
+                await viewModel.refresh(note: report?.skippedEmptyStep == true ? "git \(kind.command) --skip" : command)
+                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
             } catch {
                 isRunning = false
+                let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil)
-                let stopped = (error as? GitError)?.stoppedOnConflict == true
-                prompter.report(error, title: stopped ? "\(label) mit Konflikten angehalten" : "\(command) fehlgeschlagen")
+                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
+                await prompter.report(error, title: "\(command) fehlgeschlagen", unlessStoppedIn: repository)
             }
             update()
         }
@@ -138,9 +171,11 @@ final class OperationBannerView: NSView {
     var onContinue: (() -> Void)?
     var onSkip: (() -> Void)?
     var onAbort: (() -> Void)?
+    var onAmend: (() -> Void)?
 
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    private(set) lazy var amendButton = button("Commit ändern …", #selector(amendCommit))
     private(set) lazy var continueButton = button("Fortsetzen", #selector(continueOperation))
     private(set) lazy var skipButton = button("Überspringen", #selector(skipOperation))
     private(set) lazy var abortButton = button("Abbrechen", #selector(abortOperation))
@@ -157,7 +192,7 @@ final class OperationBannerView: NSView {
         // The label takes the free width, so the actions sit at the right end.
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.regular, weight: .medium)
-        let buttons = NSStackView(views: [continueButton, skipButton, abortButton])
+        let buttons = NSStackView(views: [amendButton, continueButton, skipButton, abortButton])
         buttons.spacing = Theme.OperationBanner.spacing
         let row = NSStackView(views: [glyph, label, buttons])
         row.spacing = Theme.OperationBanner.spacing
@@ -176,7 +211,7 @@ final class OperationBannerView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(text: String, conflicts: Int, canContinue: Bool, canSkip: Bool, isEnabled: Bool) {
+    func show(text: String, conflicts: Int, canContinue: Bool, canSkip: Bool, canAmend: Bool, isEnabled: Bool) {
         label.stringValue = text
         label.toolTip = text
         hasConflicts = conflicts > 0
@@ -186,6 +221,9 @@ final class OperationBannerView: NSView {
         skipButton.isEnabled = isEnabled
         skipButton.isHidden = !canSkip
         abortButton.isEnabled = isEnabled
+        amendButton.isHidden = !canAmend
+        amendButton.isEnabled = isEnabled
+        amendButton.toolTip = "Öffnet das Commit-Formular mit Amend; danach Fortsetzen"
         needsDisplay = true
     }
 
@@ -210,4 +248,5 @@ final class OperationBannerView: NSView {
     @objc private func continueOperation() { onContinue?() }
     @objc private func skipOperation() { onSkip?() }
     @objc private func abortOperation() { onAbort?() }
+    @objc private func amendCommit() { onAmend?() }
 }

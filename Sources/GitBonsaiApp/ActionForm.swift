@@ -79,13 +79,14 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         stack.addArrangedSubview(box)
     }
 
-    func addMessage(label: String) {
+    func addMessage(label: String, value: String = "") {
         let scroll = NSTextView.scrollableTextView()
         scroll.borderType = .bezelBorder
         let text = scroll.documentView as! NSTextView
         text.font = Theme.body
         text.isRichText = false
         text.allowsUndo = true
+        text.string = value
         text.delegate = self
         messageView = text
         addRow(label: label, control: scroll)

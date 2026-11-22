@@ -35,20 +35,31 @@ final class ActionPrompter {
         return response == .OK ? panel.url : nil
     }
 
-    /// Shows git's own message. A conflict is not undone: the repository stays in the state git left it in.
+    /// Says in one sentence what went wrong; git's own output sits behind "Details". A conflict is not undone: the repository stays in the state git left it in.
     func report(_ error: Error, title: String) {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = title
-        let message = (error as? GitError)?.stderr ?? error.localizedDescription
-        // Progress lines overwrite themselves with carriage returns; only what stays visible in a terminal is shown.
-        let visible = message.split(separator: "\n", omittingEmptySubsequences: false).map { $0.split(separator: "\r").last.map(String.init) ?? "" }
-        alert.informativeText = visible.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        alert.informativeText = GitFailureText.summary(of: error)
+        let details = GitFailureText.details(of: error)
+        if let details, details != alert.informativeText {
+            let view = FailureDetailsView(details: details)
+            view.frame.size = view.fittingSize
+            view.onToggle = { [weak alert] in alert?.layout() }
+            alert.accessoryView = view
+        }
         if ScreenshotHarness.isActive {
-            FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
+            FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\n".utf8))
+            ScreenshotHarness.renderReport(alert)
             return
         }
         Task { _ = await present(alert) }
+    }
+
+    /// A rebase, cherry-pick, revert or merge that stopped on conflicts is a state, not an error: the banner and the conflict list show it, so only other failures are reported.
+    func report(_ error: Error, title: String, unlessStoppedIn repository: Repository) async {
+        if (error as? GitError)?.stoppedOnConflict == true, await repository.operationInProgress() != nil { return }
+        report(error, title: title)
     }
 
     private func present(_ alert: NSAlert) async -> NSApplication.ModalResponse {

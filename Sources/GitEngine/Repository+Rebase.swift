@@ -32,22 +32,55 @@ public struct OperationProgress: Sendable, Equatable {
     public let onto: String?
     /// The commit a cherry-pick or revert stopped at, or the commit a merge brings in.
     public let commit: String?
+    /// Why an interactive rebase waits; nil for the other operations.
+    public let stop: RebaseStop?
 
-    public init(kind: Kind, step: Int?, total: Int?, branch: String?, onto: String?, commit: String?) {
+    public init(kind: Kind, step: Int?, total: Int?, branch: String?, onto: String?, commit: String?, stop: RebaseStop? = nil) {
         self.kind = kind
         self.step = step
         self.total = total
         self.branch = branch
         self.onto = onto
         self.commit = commit
+        self.stop = stop
+    }
+}
+
+/// The todo line a rebase stopped at, read from the last line of git's `done` file.
+public enum RebaseStop: Sendable, Equatable {
+    /// An `edit` step: the commit is applied and waits to be amended.
+    case edit(commit: String, subject: String)
+    /// A step whose commit did not apply cleanly.
+    case conflict(commit: String, subject: String)
+    /// An `exec` command that failed.
+    case exec(String)
+    /// A `break` or another command that only waits.
+    case other(String)
+
+    /// `amend` is git's marker of an edit stop: it holds the commit that `--continue` may amend.
+    static func read(done: String?, amendMarkerExists: Bool) -> RebaseStop? {
+        guard let line = done.map(RebaseTodoLine.parseList)?.last else { return nil }
+        switch line {
+        case let .commit(action, sha, subject):
+            return action == .edit && amendMarkerExists ? .edit(commit: sha, subject: subject) : .conflict(commit: sha, subject: subject)
+        case let .exec(command):
+            return .exec(command)
+        case let .updateRef(ref):
+            return .other("update-ref \(ref)")
+        case let .other(command, _):
+            return .other(command)
+        }
     }
 }
 
 extension Repository {
     /// Replays the commits of `branch` after `oldBase` onto `newBase`: `git rebase --onto <newBase> <oldBase> <branch>`.
     /// A conflict stops git mid-rebase and is thrown; the rebase stays in progress.
-    public func rebase(onto newBase: String, from oldBase: String, branch: String) async throws {
-        _ = try await runner.runWrite(["rebase", "--onto", newBase, oldBase, branch])
+    /// Commits that become empty on the new base, because their changes are already there, are dropped and counted.
+    @discardableResult
+    public func rebase(onto newBase: String, from oldBase: String, branch: String) async throws -> OperationReport {
+        let result = try await runner.runWrite(["rebase", "--empty=drop", "--onto", newBase, oldBase, branch])
+        return OperationReport(output: result.stderr + result.stdoutString)
     }
 
     /// The number of commits in `base..tip`, which a rebase from `base` moves.
@@ -63,19 +96,44 @@ extension Repository {
         return sha.isEmpty ? nil : sha
     }
 
-    /// Commits the resolved state and goes on with the next step. The commit message is taken as git prepared it.
-    public func continueOperation(_ kind: OperationProgress.Kind) async throws {
-        _ = try await runner.runWrite([kind.command, "--continue"], environment: ["GIT_EDITOR": "true"])
+    /// Commits the resolved state and goes on with the next step. The commit message is taken as git prepared it, or, in an interactive rebase the app started, as the app prepared it.
+    /// A step whose resolved state matches HEAD has nothing left to commit; it is skipped instead, so continuing never stops at git's "nothing to commit".
+    @discardableResult
+    public func continueOperation(_ kind: OperationProgress.Kind) async throws -> OperationReport {
+        if kind.canSkip, await stoppedStepIsEmpty(kind) {
+            var report = try await proceed(kind, "--skip")
+            report.skippedEmptyStep = true
+            return report
+        }
+        return try await proceed(kind, "--continue")
     }
 
     /// Leaves out the commit git stopped at and goes on with the next step.
-    public func skipOperation(_ kind: OperationProgress.Kind) async throws {
-        _ = try await runner.runWrite([kind.command, "--skip"], environment: ["GIT_EDITOR": "true"])
+    @discardableResult
+    public func skipOperation(_ kind: OperationProgress.Kind) async throws -> OperationReport {
+        try await proceed(kind, "--skip")
+    }
+
+    private func proceed(_ kind: OperationProgress.Kind, _ option: String) async throws -> OperationReport {
+        let (options, environment) = kind == .rebase ? await rebaseContinuation() : ([], ["GIT_EDITOR": "true"])
+        let result = try await runner.runWrite(options + [kind.command, option], environment: environment)
+        return OperationReport(output: result.stderr + result.stdoutString)
+    }
+
+    /// True at a conflict stop whose conflicts are resolved to exactly what HEAD has. An `edit` stop or a failed `exec` is never empty: there, continuing is what the user asked for.
+    func stoppedStepIsEmpty(_ kind: OperationProgress.Kind) async -> Bool {
+        guard let progress = await operationInProgress(), progress.kind == kind else { return false }
+        if kind == .rebase {
+            guard case .conflict? = progress.stop else { return false }
+        }
+        guard let unmerged = try? await runner.run(["ls-files", "--unmerged"]), unmerged.stdout.isEmpty else { return false }
+        return (try? await runner.run(["diff", "--cached", "--quiet", "HEAD"])) != nil
     }
 
     /// Ends the operation and puts the branch, the index and the working tree back where they were before it started.
     public func abortOperation(_ kind: OperationProgress.Kind) async throws {
         _ = try await runner.runWrite([kind.command, "--abort"])
+        if kind == .rebase, let session = try? await rebaseSession() { session.remove() }
     }
 
     /// The operation git is in the middle of in this worktree, or nil. Git keeps that state in the worktree's own git directory, which `--git-path` locates.
@@ -102,7 +160,8 @@ extension Repository {
             if name == "rebase-apply", let directory, FileManager.default.fileExists(atPath: directory + "/applying") { continue }
             let head = read(directory, "head-name")
             let branch = head.flatMap { $0.hasPrefix("refs/heads/") ? String($0.dropFirst("refs/heads/".count)) : nil }
-            return OperationProgress(kind: .rebase, step: read(directory, stepFile).flatMap(Int.init), total: read(directory, totalFile).flatMap(Int.init), branch: branch, onto: read(directory, "onto"), commit: nil)
+            let stop = name == "rebase-merge" ? RebaseStop.read(done: read(directory, "done"), amendMarkerExists: directory.map { FileManager.default.fileExists(atPath: $0 + "/amend") } ?? false) : nil
+            return OperationProgress(kind: .rebase, step: read(directory, stepFile).flatMap(Int.init), total: read(directory, totalFile).flatMap(Int.init), branch: branch, onto: read(directory, "onto"), commit: nil, stop: stop)
         }
         for (name, kind) in [("CHERRY_PICK_HEAD", OperationProgress.Kind.cherryPick), ("REVERT_HEAD", .revert), ("MERGE_HEAD", .merge)] where exists(name) {
             // MERGE_HEAD lists one commit per line, several for an octopus merge; the first names it.

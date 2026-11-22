@@ -123,7 +123,7 @@ final class PullPushController {
             } catch {
                 await viewModel.refresh(note: nil)
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
-                prompter.report(error, title: stopped ? "Pull mit Konflikten angehalten" : "Pull fehlgeschlagen")
+                await prompter.report(error, title: stopped ? "Pull mit Konflikten angehalten" : "Pull fehlgeschlagen", unlessStoppedIn: repository)
             }
         }
     }

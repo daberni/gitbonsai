@@ -6,17 +6,25 @@ import GitEngine
 @MainActor
 final class CommitActionsController {
     let prompter = ActionPrompter()
+    let interactiveRebase: InteractiveRebaseController
     private let viewModel: GraphViewModel
+    /// Says what a rebase or cherry-pick left out, in a toast.
+    var onToast: ((String) -> Void)?
+    /// A rebase started here finished without stopping; the tab selects HEAD and leaves any open diff.
+    var onRebaseEnded: (() -> Void)? {
+        didSet { interactiveRebase.onEnded = onRebaseEnded }
+    }
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
+        interactiveRebase = InteractiveRebaseController(viewModel: viewModel, prompter: prompter)
     }
 
     /// The whole menu of a row: `checkoutItems` first, the commit's actions in groups after them. Stashes and the working directory get only the checkout items.
     func menuItems(forRow index: Int, leadingWith checkoutItems: [NSMenuItem]) -> [NSMenuItem] {
         guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .commit || viewModel.kinds[index] == .merge else { return checkoutItems }
         let commit = viewModel.commits[index]
-        let groups = [checkoutItems + [worktreeItem(commit)], historyItems(commit), copyItems(commit), tagItems(commit)].filter { !$0.isEmpty }
+        let groups = [checkoutItems + [worktreeItem(commit)], historyItems(commit), interactiveRebase.menuItems(for: commit), copyItems(commit), tagItems(commit)].filter { !$0.isEmpty }
         return groups.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
     }
 
@@ -103,18 +111,11 @@ final class CommitActionsController {
         run(failure: "Revert fehlgeschlagen", conflict: "Revert mit Konflikten angehalten", note: "git revert") { try await $0.revert(commit) }
     }
 
+    /// Rewriting published commits is harmless locally; the status line only says that the next push needs `--force-with-lease`, where the push itself asks.
     private func rebase(_ branch: String, onto commit: Commit) {
         Task {
-            let published = await viewModel.repository.publishedCommitCount(rewrittenBy: commit.id)
-            if published > 0 {
-                let alert = NSAlert()
-                alert.messageText = "„\(branch)“ auf \(commit.id.prefix(7)) rebasen?"
-                alert.informativeText = publishedWarning(published, branch: branch)
-                alert.addButton(withTitle: "Rebasen")
-                alert.addButton(withTitle: "Abbrechen")
-                guard await prompter.confirm(alert) else { return }
-            }
-            run(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: "git rebase") { try await $0.rebaseCurrentBranch(onto: commit.id) }
+            let hint = await publishedHint(rewrittenBy: commit.id)
+            runOperation(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: Self.note("git rebase", hint), endsRebase: true) { try await $0.rebaseCurrentBranch(onto: commit.id) }
         }
     }
 
@@ -132,29 +133,27 @@ final class CommitActionsController {
         let suggestion = ["main", "master", "origin/main", "origin/master"].first { candidates.contains($0) }
         Task {
             let moving = (try? await repository.commitCount(from: oldBase.id, to: branch)) ?? 0
-            let published = await repository.publishedCommitCount(rewrittenBy: oldBase.id)
-            let sheet = RebaseOntoSheet(branch: branch, oldBase: oldBase, moving: moving, candidates: candidates, suggestion: suggestion, warning: published > 0 ? publishedWarning(published, branch: branch) : nil, repository: repository)
+            let hint = await publishedHint(rewrittenBy: oldBase.id)
+            let sheet = RebaseOntoSheet(branch: branch, oldBase: oldBase, moving: moving, candidates: candidates, suggestion: suggestion, hint: hint, repository: repository)
             guard let newBase = await sheet.ask(using: prompter) else { return }
-            run(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: "git rebase --onto \(newBase)") { try await $0.rebase(onto: newBase, from: oldBase.id, branch: branch) }
+            runOperation(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: Self.note("git rebase --onto \(newBase)", hint), endsRebase: true) { try await $0.rebase(onto: newBase, from: oldBase.id, branch: branch) }
         }
     }
 
     private func reset(_ branch: String, to commit: Commit, mode: ResetMode) {
         Task {
-            let published = await viewModel.repository.publishedCommitCount(rewrittenBy: commit.id)
-            if mode == .hard || published > 0 {
+            let hint = await publishedHint(rewrittenBy: commit.id)
+            // Only a hard reset asks: it throws away uncommitted work. Published commits only get the hint.
+            if mode == .hard {
                 let alert = NSAlert()
                 alert.messageText = "„\(branch)“ auf \(commit.id.prefix(7)) zurücksetzen (\(mode.rawValue))?"
-                var warnings: [String] = []
-                if mode == .hard { warnings.append("Nicht committete Änderungen an versionierten Dateien gehen verloren.") }
-                if published > 0 { warnings.append(publishedWarning(published, branch: branch)) }
-                alert.informativeText = warnings.joined(separator: "\n\n")
+                alert.informativeText = (["Nicht committete Änderungen an versionierten Dateien gehen verloren."] + [hint].compactMap { $0 }).joined(separator: "\n\n")
                 alert.addButton(withTitle: "Zurücksetzen")
                 alert.addButton(withTitle: "Abbrechen")
-                alert.buttons.first?.hasDestructiveAction = mode == .hard
+                alert.buttons.first?.hasDestructiveAction = true
                 guard await prompter.confirm(alert) else { return }
             }
-            run(failure: "Zurücksetzen fehlgeschlagen", note: "git reset --\(mode.rawValue)") { try await $0.resetCurrentBranch(to: commit.id, mode: mode) }
+            run(failure: "Zurücksetzen fehlgeschlagen", note: Self.note("git reset --\(mode.rawValue)", hint)) { try await $0.resetCurrentBranch(to: commit.id, mode: mode) }
         }
     }
 
@@ -186,23 +185,46 @@ final class CommitActionsController {
 
     /// Runs one git write and refreshes the tab, also after a failure: a stopped cherry-pick, revert or rebase has changed the repository.
     private func run(failure: String, conflict: String? = nil, note: String, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+        runOperation(failure: failure, conflict: conflict, note: note, endsRebase: false) { repository in
+            try await operation(repository)
+            return nil
+        }
+    }
+
+    /// Runs a rebase, cherry-pick or revert. Commits it left out as already applied show in a toast; a stop on conflicts is left to the banner, other failures are reported.
+    /// A rebase that finished at once ends like one finished through the banner.
+    private func runOperation(failure: String, conflict: String?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
         let repository = viewModel.repository
         Task {
             do {
-                try await operation(repository)
+                let report = try await operation(repository)
                 await viewModel.refresh(note: note)
+                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
+                if endsRebase { onRebaseEnded?() }
             } catch {
+                let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil)
+                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
-                prompter.report(error, title: stopped ? (conflict ?? failure) : failure)
+                await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, unlessStoppedIn: repository)
             }
         }
     }
 
-    private func publishedWarning(_ count: Int, branch: String) -> String {
-        let upstream = viewModel.status?.branch.upstream ?? "dem Upstream"
-        let commits = count == 1 ? "Ein Commit, der dabei neu geschrieben wird, ist" : "\(count) Commits, die dabei neu geschrieben werden, sind"
-        return "\(commits) schon in „\(upstream)“. Danach lässt sich „\(branch)“ nur noch mit Force-Push hochladen."
+    /// "3 Commits sind schon auf origin/feature, Push danach nur mit --force-with-lease", or nil when nothing rewritten from `commit` on is published.
+    func publishedHint(rewrittenBy commit: String) async -> String? {
+        Self.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: commit), upstream: viewModel.status?.branch.upstream)
+    }
+
+    static func publishedHint(_ count: Int, upstream: String?) -> String? {
+        guard count > 0 else { return nil }
+        let place = upstream ?? "dem Upstream"
+        return (count == 1 ? "1 Commit ist" : "\(count) Commits sind") + " schon auf \(place), Push danach nur mit --force-with-lease"
+    }
+
+    /// The status line's note: the command, and the hint when there is one.
+    static func note(_ command: String, _ hint: String?) -> String {
+        ([command] + [hint].compactMap { $0 }).joined(separator: " · ")
     }
 
     /// Next to the main worktree, named after the repository and the commit.

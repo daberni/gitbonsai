@@ -19,7 +19,7 @@ struct ActionRunner {
             } catch {
                 await viewModel.refresh(note: nil)
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
-                prompter.report(error, title: stopped ? (conflict ?? failure) : failure)
+                await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, unlessStoppedIn: repository)
             }
             then?()
         }

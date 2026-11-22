@@ -274,6 +274,43 @@ enum Theme {
         static let visibleChoices = 12
     }
 
+    /// The note at the bottom of the history pane that fades out by itself.
+    enum Toast {
+        static let height: CGFloat = 34
+        static let padding = Space.m
+        static let radius = height / 2
+        /// Distance from the bottom and the sides of the history pane.
+        static let margin = Space.l
+        /// Seconds the toast stays before it fades.
+        static let duration: TimeInterval = 4
+        static let fade: TimeInterval = 0.25
+    }
+
+    /// The "Details" disclosure under a failed git command, with git's own output.
+    enum FailureDetails {
+        static let height: CGFloat = 140
+    }
+
+    /// The interactive rebase sheet: the steps on the left with the message of the selected one below them, the resulting history on the right.
+    enum InteractiveRebase {
+        static let size = NSSize(width: 920, height: 600)
+        static let minimumSize = NSSize(width: 760, height: 480)
+        static let inset = Space.xl
+        static let spacing = Space.m
+        static let previewWidth: CGFloat = 300
+        static let rowHeight: CGFloat = 32
+        static let actionWidth: CGFloat = 100
+        static let shaWidth: CGFloat = 64
+        /// Squash and fixup rows step in under the commit they melt into.
+        static let foldIndent = Space.l
+        static let messageHeight: CGFloat = 96
+        static let previewRowHeight: CGFloat = 34
+        static let previewNode: CGFloat = 6
+        static let previewStrandX: CGFloat = 18
+        static let previewTextX: CGFloat = 36
+        static let markGap = Space.xs
+    }
+
     /// The banner above the history while git is mid-rebase, cherry-pick or revert: clay-soft, persimmon-soft with conflicts.
     enum OperationBanner {
         static let height: CGFloat = 40

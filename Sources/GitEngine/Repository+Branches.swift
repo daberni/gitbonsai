@@ -18,9 +18,11 @@ extension Repository {
         _ = try await runner.runWrite(["reset", "--\(mode.rawValue)", commit])
     }
 
-    /// Replays the current branch's own commits onto `commit`. A conflict stops git mid-rebase and is thrown; the rebase stays in progress.
-    public func rebaseCurrentBranch(onto commit: String) async throws {
-        _ = try await runner.runWrite(["rebase", commit])
+    /// Replays the current branch's own commits onto `commit`; commits that become empty are dropped. A conflict stops git mid-rebase and is thrown; the rebase stays in progress.
+    @discardableResult
+    public func rebaseCurrentBranch(onto commit: String) async throws -> OperationReport {
+        let result = try await runner.runWrite(["rebase", "--empty=drop", commit])
+        return OperationReport(output: result.stderr + result.stdoutString)
     }
 
     /// How many of the commits that a reset to or a rebase onto `commit` rewrites or drops are already in the current branch's upstream.

@@ -66,11 +66,16 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 
 | Operation | Git command | Notes |
 |---|---|---|
-| Rebase the current branch onto a commit | `git rebase <commit>` | Counts published commits with `git merge-base HEAD @{upstream}` and `git rev-list --count` |
-| Rebase with --onto | `git rebase --onto <new base> <old base> <branch>` | |
-| Continue / skip / abort | `git rebase\|cherry-pick\|revert\|merge --continue\|--skip\|--abort` | Continue and skip with `GIT_EDITOR=true`; a merge has no `--skip` |
-| Operation in progress | `git rev-parse --path-format=absolute --git-path rebase-merge …` | Rebase, cherry-pick, revert or merge (`MERGE_HEAD`); banner above the history |
-| Cherry-pick | `git cherry-pick [-m 1] <commit>` | `-m 1` for merges |
+| Rebase the current branch onto a commit | `git rebase --empty=drop <commit>` | Counts published commits with `git merge-base HEAD @{upstream}` and `git rev-list --count` for a hint in the status line; no question. Commits already on the base ("skipped previously applied commit", "-- patch contents already upstream") are counted in a toast |
+| Rebase with --onto | `git rebase --empty=drop --onto <new base> <old base> <branch>` | As above |
+| Continue / skip / abort | `git rebase\|cherry-pick\|revert\|merge --continue\|--skip\|--abort` | Continue and skip with `GIT_EDITOR=true`; a merge has no `--skip`. Continue at a conflict stop first checks `git ls-files --unmerged` and `git diff --cached --quiet HEAD`; a step resolved to exactly HEAD runs `--skip` instead. While an interactive rebase of the app runs, `git -c commit.cleanup=whitespace rebase --continue\|--skip` with its message script as `GIT_EDITOR`; abort also removes the app's session folder |
+| Operation in progress | `git rev-parse --path-format=absolute --git-path rebase-merge …` | Rebase, cherry-pick, revert or merge (`MERGE_HEAD`); banner above the history. The last line of `rebase-merge/done` and the `amend` marker tell an `edit` stop from a conflict or a failed `exec` |
+| Commits of an interactive rebase | `git merge-base --is-ancestor <base> HEAD`, `git log --reverse --format=%H%x1f%P%x1f%s%x1f%B%x1e <base>..HEAD` | Refused when the base is not in HEAD's history or a merge is in the range |
+| Stacked branches in the range | `git for-each-ref --format=%(objectname)%00%(refname)%00%(worktreepath) refs/heads` | Branches checked out in a worktree are left out |
+| Interactive rebase | `git -c commit.cleanup=whitespace rebase --interactive --no-autosquash --empty=drop --update-refs\|--no-update-refs --autostash\|--no-autostash <base>` | Reads `rev-parse HEAD` and `symbolic-ref -q HEAD` first. `GIT_SEQUENCE_EDITOR` and `GIT_EDITOR` are scripts in `git rev-parse --git-path gitbonsai-rebase` that write the app's todo list and its prepared messages; no editor opens |
+| Reword, drop, move up, move down | same as interactive rebase, from `<commit>^` (move down: `<commit>^^`) | One-step todo lists; resolved with `git rev-parse --verify` |
+| Undo an interactive rebase | `git reset --keep <ORIG_HEAD>`, `git update-ref --stdin` | Only while HEAD, its branch and `ORIG_HEAD` are where the rebase left them; stacked branches go back in one transaction |
+| Cherry-pick | `git cherry-pick [--empty=drop] [-m 1] <commit>` | `-m 1` for merges; `--empty=drop` from git 2.45 on, read once per binary with `git --version` |
 | Revert | `git revert --no-edit [-m 1] <commit>` | |
 
 ## Tags and stashes

@@ -49,7 +49,8 @@ final class RebaseTests: XCTestCase {
             XCTAssertTrue(error.stoppedOnConflict, error.stderr)
         }
         let progress = await repo.operationInProgress()
-        XCTAssertEqual(progress, OperationProgress(kind: .rebase, step: 2, total: 2, branch: "stacked", onto: main, commit: nil))
+        let s2 = try fixture.git("rev-parse", "stacked")
+        XCTAssertEqual(progress, OperationProgress(kind: .rebase, step: 2, total: 2, branch: "stacked", onto: main, commit: nil, stop: .conflict(commit: s2, subject: "s2")))
         let status = try await repo.status()
         XCTAssertEqual(status.conflicted.map(\.path), ["shared.txt"])
 
@@ -142,5 +143,110 @@ final class RebaseTests: XCTestCase {
         XCTAssertEqual(byPrefix, head)
         XCTAssertNil(unknown)
         XCTAssertNil(option)
+    }
+
+    // MARK: Already applied, empty steps and failures
+
+    /// feature: x, y, f, w after the base; main has x cherry-picked and its own change of f.
+    private func partlyAppliedFixture() throws -> (fixture: FixtureRepo, base: String) {
+        let fixture = try FixtureRepo()
+        let base = try fixture.commit("Initial commit", file: "f", contents: "base\n")
+        try fixture.git("switch", "-q", "-c", "feature")
+        let x = try fixture.commit("Add x", file: "x")
+        try fixture.commit("Add y", file: "y")
+        try fixture.commit("Change f on feature", file: "f", contents: "feature\n")
+        try fixture.commit("Add w", file: "w")
+        try fixture.git("switch", "-q", "main")
+        try fixture.git("cherry-pick", x)
+        try fixture.commit("Change f on main", file: "f", contents: "main\n")
+        try fixture.git("switch", "-q", "feature")
+        return (fixture, base)
+    }
+
+    func testOntoCountsAlreadyAppliedCommitsAndContinueSkipsAStepResolvedToHead() async throws {
+        let (fixture, base) = try partlyAppliedFixture()
+        defer { fixture.remove() }
+        let repo = fixture.repository
+
+        do {
+            try await repo.rebase(onto: "main", from: base, branch: "feature")
+            XCTFail("f conflicts")
+        } catch let error as GitError {
+            XCTAssertTrue(error.stoppedOnConflict)
+            XCTAssertEqual(OperationReport(output: error.stderr).alreadyApplied, 1, error.stderr)
+            XCTAssertEqual(GitFailure(output: error.stderr), .couldNotApply(commit: String(try fixture.git("rev-parse", "feature~1").prefix(7)), subject: "Change f on feature"))
+        }
+        // Resolved in favour of the new base: nothing is left of this step.
+        try fixture.git("checkout", "HEAD", "--", "f")
+
+        let report = try await repo.continueOperation(.rebase)
+
+        XCTAssertTrue(report.skippedEmptyStep)
+        let after = await repo.operationInProgress()
+        XCTAssertNil(after)
+        XCTAssertEqual(try subjects(fixture, "main..feature"), ["Add w", "Add y"])
+    }
+
+    func testCherryPickContinueSkipsAStepResolvedToHeadAndDropsAnAlreadyAppliedCommit() async throws {
+        let (fixture, _) = try partlyAppliedFixture()
+        defer { fixture.remove() }
+        try fixture.git("switch", "-q", "main")
+        let repo = fixture.repository
+        let commits = try await repo.collectLog()
+        let head = try fixture.git("rev-parse", "HEAD")
+
+        try? await repo.cherryPick(try XCTUnwrap(commits.first { $0.subject == "Change f on feature" }))
+        let picking = await repo.operationInProgress()
+        XCTAssertEqual(picking?.kind, .cherryPick)
+        try fixture.git("checkout", "HEAD", "--", "f")
+        let report = try await repo.continueOperation(.cherryPick)
+        XCTAssertTrue(report.skippedEmptyStep)
+        let after = await repo.operationInProgress()
+        XCTAssertNil(after, "continuing did not stop at git's empty cherry-pick")
+        XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), head)
+
+        let version = await repo.gitVersion()
+        guard let version, version >= Repository.cherryPickEmptyDrop else { return }
+        try await repo.cherryPick(try XCTUnwrap(commits.first { $0.subject == "Add x" && $0.parents.first != head }))
+        XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), head, "x is already on main and is dropped instead of stopping")
+        let none = await repo.operationInProgress()
+        XCTAssertNil(none)
+    }
+
+    func testContinueAtAnEditStopIsNeverTakenForAnEmptyStep() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let base = try fixture.commit("base")
+        try fixture.commit("one", file: "one.txt")
+        try fixture.commit("two", file: "two.txt")
+        let repo = fixture.repository
+        var plan = RebasePlan(base: base, commits: try await repo.rebaseCommits(after: base))
+        plan.steps[0].action = .edit
+        _ = try await repo.startInteractiveRebase(plan)
+
+        let report = try await repo.continueOperation(.rebase)
+
+        XCTAssertFalse(report.skippedEmptyStep)
+        XCTAssertEqual(try subjects(fixture, "\(base)..main"), ["two", "one"])
+    }
+
+    func testFailuresAreReadFromGitsOutput() {
+        let rebase = """
+        Rebasing (1/4)\rdropping f4544f9c3717e70e564c3afebf9433395cb79bb7 Add x -- patch contents already upstream
+        Rebasing (2/4)\rRebasing (3/4)\rAuto-merging f
+        CONFLICT (content): Merge conflict in f
+        error: could not apply 11f8174... Add an ETP tab to Produktfinder
+        hint: Resolve all conflicts manually, mark them as resolved with
+        hint: "git add/rm <conflicted_files>", then run "git rebase --continue".
+        Could not apply 11f8174... # Add an ETP tab to Produktfinder
+        """
+        XCTAssertEqual(GitFailure(output: rebase), .couldNotApply(commit: "11f8174", subject: "Add an ETP tab to Produktfinder"))
+        XCTAssertEqual(OperationReport(output: rebase).alreadyApplied, 1)
+        XCTAssertEqual(OperationReport(output: "warning: skipped previously applied commit 1a2b3c4\nwarning: skipped previously applied commit 5d6e7f8\nhint: use --reapply-cherry-picks").alreadyApplied, 2)
+        XCTAssertEqual(GitFailure(output: "error: Your local changes to the following files would be overwritten by checkout:\n\tsrc/a.swift\n\tdocs/b.md\nPlease commit your changes or stash them before you switch branches.\nAborting"), .localChangesInTheWay(["src/a.swift", "docs/b.md"]))
+        XCTAssertEqual(GitFailure(output: "error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them."), .uncommittedChanges)
+        XCTAssertEqual(GitFailure(output: "Auto-merging f\nCONFLICT (content): Merge conflict in f\nAutomatic merge failed; fix conflicts and then commit the result."), .conflicts(["f"]))
+        XCTAssertEqual(GitFailure(output: "The previous cherry-pick is now empty, possibly due to conflict resolution."), .emptyStep)
+        XCTAssertEqual(GitFailure(output: "hint: something\nfatal: invalid upstream 'nope'"), .message("invalid upstream 'nope'"))
     }
 }

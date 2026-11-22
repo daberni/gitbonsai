@@ -49,6 +49,13 @@ final class CommitController {
         form.show(signing: signing, canCommit: canCommit && !isCommitting, buttonTitle: form.isAmend ? "Amend" : "Commit")
     }
 
+    /// Ticks amend and loads the last message, for an edit stop of an interactive rebase.
+    func beginAmend() {
+        guard !form.isAmend else { return }
+        form.isAmend = true
+        amendChanged(true)
+    }
+
     private func amendChanged(_ on: Bool) {
         if on {
             draft = (form.subjectText, form.bodyText)

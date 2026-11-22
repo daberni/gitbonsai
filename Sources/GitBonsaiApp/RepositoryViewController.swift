@@ -23,6 +23,7 @@ final class RepositoryViewController: NSObject {
     let fetchController: FetchController
     let pullPush: PullPushController
     let operationBanner: OperationBannerController
+    let rebaseUndo: RebaseUndoController
     private(set) var sidebarActions: SidebarActionsController!
     let staging: StagingController
     let fileActions: FileActionsController
@@ -43,6 +44,8 @@ final class RepositoryViewController: NSObject {
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
     private var autoFetch: AutoFetchTimer?
+    private var selectsHeadAfterLoad = false
+    let toast = Toast()
 
     init(location: RepositoryLocation) {
         viewModel = GraphViewModel(location: location)
@@ -52,6 +55,7 @@ final class RepositoryViewController: NSObject {
         fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
         pullPush = PullPushController(viewModel: viewModel, prompter: commitActions.prompter)
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
+        rebaseUndo = RebaseUndoController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
         fileActions = FileActionsController(viewModel: viewModel, staging: staging)
         commitController = CommitController(viewModel: viewModel)
@@ -167,6 +171,42 @@ final class RepositoryViewController: NSObject {
             self?.refreshWorkingDirectoryCounts()
         }
         diff.onClose = { [weak self] in self?.showGraph() }
+        operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
+        operationBanner.onEnded = { [weak self] in self?.operationEnded() }
+        commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
+        commitActions.onToast = { [weak self] text in self?.toast.show(text) }
+        operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
+        operationBanner.onStateChange = { [weak self] in
+            guard let self else { return }
+            rightColumn.showsBar = showsCommitForm(at: history.selectedRow >= 0 ? history.selectedRow : nil)
+        }
+    }
+
+    /// A rebase, cherry-pick, revert or merge is over: the history shows HEAD, and no file or diff of the conflict state stays open.
+    /// A rewrite reads the log again, so HEAD may not be a row yet; the selection then waits for the reload.
+    private func operationEnded() {
+        showGraph()
+        selectsHeadAfterLoad = true
+        selectHeadIfLoaded()
+    }
+
+    private func selectHeadIfLoaded() {
+        guard selectsHeadAfterLoad, !viewModel.isLoading, let row = viewModel.headSHA.flatMap({ viewModel.rowIndex(of: $0) }) else { return }
+        selectsHeadAfterLoad = false
+        history.select(row: row, scroll: true)
+    }
+
+    /// At an edit stop the commit form amends the stopped commit: shown under the working directory, or under HEAD while nothing changed.
+    private func amendAtEditStop() {
+        guard let row = viewModel.currentRow else { return }
+        history.select(row: row, scroll: true)
+        rightColumn.showsBar = true
+        commitController.beginAmend()
+    }
+
+    private func showsCommitForm(at row: Int?) -> Bool {
+        guard let row, viewModel.kinds.indices.contains(row) else { return false }
+        return viewModel.kinds[row] == .wip || operationBanner.isEditStop && viewModel.commits[row].id == viewModel.headSHA
     }
 
     /// The table clears its selection for a moment while it is rebuilt, and then selects the same row again; neither counts as a change.
@@ -182,7 +222,7 @@ final class RepositoryViewController: NSObject {
     /// A new selection in the history starts without a chosen file; a redraw of the same one keeps it.
     private func showDetail(for row: Int?, keepingFile: Bool = false) {
         if !keepingFile { detail.selectedFile = nil }
-        rightColumn.showsBar = row.map { viewModel.kinds[$0] == .wip } ?? false
+        rightColumn.showsBar = showsCommitForm(at: row)
         guard let row else { detail.showNothing(); return }
         if viewModel.kinds[row] == .wip, let status = viewModel.status {
             shownStatus = status
@@ -226,6 +266,8 @@ final class RepositoryViewController: NSObject {
         statusLabel.textColor = Theme.inkMuted
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusBar.addSubview(statusLabel)
+        rebaseUndo.button.translatesAutoresizingMaskIntoConstraints = false
+        statusBar.addSubview(rebaseUndo.button)
 
         for subview in [toolbar, split, statusBar] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
@@ -246,7 +288,11 @@ final class RepositoryViewController: NSObject {
             statusBar.heightAnchor.constraint(equalToConstant: Theme.Window.statusBar),
             statusLabel.leadingAnchor.constraint(equalTo: statusBar.leadingAnchor, constant: Theme.Space.m),
             statusLabel.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
+            rebaseUndo.button.leadingAnchor.constraint(greaterThanOrEqualTo: statusLabel.trailingAnchor, constant: Theme.Space.s),
+            rebaseUndo.button.trailingAnchor.constraint(equalTo: statusBar.trailingAnchor, constant: -Theme.Space.m),
+            rebaseUndo.button.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
         ])
+        toast.install(in: view, above: historyPane)
     }
 
     /// A document view laid out with constraints grows with its content, and never gets shorter than the visible area.
@@ -302,6 +348,8 @@ final class RepositoryViewController: NSObject {
         fetchController.refreshRemotes()
         pullPush.refresh()
         operationBanner.update()
+        rebaseUndo.update()
+        selectHeadIfLoaded()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
         toolbar.onStash = hasChanges ? { [weak self] in self?.stashesController.stashChanges() } : nil
         toolbar.onPop = viewModel.stashes.isEmpty ? nil : { [weak self] in self?.stashesController.popNewest() }
@@ -338,6 +386,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.runRemotesAndRebase(on: self)
             ScreenshotHarness.driveStashesAndTags(on: self)
             ScreenshotHarness.openSidebarMenu(on: self)
+            ScreenshotHarness.driveRebase(on: self)
         }
         onLoaded?()
     }

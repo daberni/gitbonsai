@@ -47,6 +47,8 @@ final class GraphViewModel {
     /// While a refresh gathers its parts, the single redraw at its end replaces the per-part ones.
     private var isRefreshing = false
     private var loadedSummary = ""
+    /// The note of a refresh that had to read the log again, such as after a rebase; the reload shows it once it has finished.
+    private var noteAfterReload: String?
     private var reachableFromHead: Set<String> = []
     private var sidebarChanges = 0
     private var hasSidebarContent = false
@@ -178,7 +180,11 @@ final class GraphViewModel {
     /// After a checkout or a worktree switch the commits are still the same: only HEAD, the working directory and the refs moved.
     /// So nothing is read from the log; the loaded commits are laid out again when HEAD sits on another commit.
     func refresh(note: String?) async {
-        guard !isLoading else { reload(); return }
+        guard !isLoading else {
+            noteAfterReload = note ?? noteAfterReload
+            reload()
+            return
+        }
         let start = ContinuousClock.now
         isRefreshing = true
         let knownStashes = Set(stashesByCommit.keys)
@@ -192,6 +198,7 @@ final class GraphViewModel {
         // A new or dropped stash changes the set of commits, and so does a worktree whose HEAD no branch contains; both need the log.
         let headIsLoaded = headSHA.map { history.contains($0) } ?? true
         guard Set(stashesByCommit.keys) == knownStashes, headIsLoaded else {
+            noteAfterReload = note ?? noteAfterReload
             reload()
             return
         }
@@ -225,7 +232,8 @@ final class GraphViewModel {
         switch outcome {
         case .finished(let laneCount):
             loadedSummary = "\(commits.count) Commits · \(laneCount) Lanes · \(stashes.count) Stashes · geladen in \(elapsed(since: start))"
-            setStatus(loadedSummary)
+            setStatus(([loadedSummary] + [noteAfterReload].compactMap { $0 }).joined(separator: " · "))
+            noteAfterReload = nil
         case .cancelled:
             break
         case .failed(let error):

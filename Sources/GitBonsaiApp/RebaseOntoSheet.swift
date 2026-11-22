@@ -17,7 +17,7 @@ final class RebaseOntoSheet: NSObject, NSComboBoxDelegate {
 
     var newBase: String { baseField.stringValue.trimmingCharacters(in: .whitespaces) }
 
-    init(branch: String, oldBase: Commit, moving: Int, candidates: [String], suggestion: String?, warning: String?, repository: Repository) {
+    init(branch: String, oldBase: Commit, moving: Int, candidates: [String], suggestion: String?, hint: String?, repository: Repository) {
         self.repository = repository
         self.oldBase = oldBase.id
         self.moving = moving
@@ -26,7 +26,7 @@ final class RebaseOntoSheet: NSObject, NSComboBoxDelegate {
         alert.messageText = "„\(branch)“ ab \(oldBase.id.prefix(7)) auf eine neue Basis verschieben"
         alert.informativeText = ([
             "\(commits) von „\(branch)“ nach \(oldBase.id.prefix(7)) „\(oldBase.subject)“ \(moving == 1 ? "kommt" : "kommen") auf die neue Basis. \(oldBase.id.prefix(7)) und alles davor bleibt, wo es ist.",
-        ] + [warning].compactMap { $0 }).joined(separator: "\n\n")
+        ] + [hint].compactMap { $0 }).joined(separator: "\n\n")
         alert.addButton(withTitle: "Verschieben")
         alert.addButton(withTitle: "Abbrechen")
 

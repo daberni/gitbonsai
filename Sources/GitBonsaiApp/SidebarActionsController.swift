@@ -50,7 +50,7 @@ final class SidebarActionRunner {
             let gitError = error as? GitError
             if report {
                 let title = gitError?.stoppedOnConflict == true ? (conflict ?? failure) : failure
-                prompter.report(error, title: title)
+                await prompter.report(error, title: title, unlessStoppedIn: viewModel.repository)
             }
             return gitError ?? GitError(arguments: [], exitCode: -1, stderr: error.localizedDescription)
         }
