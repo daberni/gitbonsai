@@ -87,11 +87,11 @@ final class RepositoryViewController: NSObject {
         split.addArrangedSubview(detailScroll)
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 2)
-        sidebarScroll.widthAnchor.constraint(equalToConstant: 264).isActive = true
-        detailScroll.widthAnchor.constraint(equalToConstant: 360).isActive = true
+        sidebarScroll.widthAnchor.constraint(equalToConstant: Theme.Window.sidebarWidth).isActive = true
+        detailScroll.widthAnchor.constraint(equalToConstant: Theme.Window.detailWidth).isActive = true
 
         let statusBar = BarView(edge: .top)
-        statusLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        statusLabel.font = Theme.captionDigits
         statusLabel.textColor = Theme.inkMuted
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusBar.addSubview(statusLabel)
@@ -104,7 +104,7 @@ final class RepositoryViewController: NSObject {
             toolbar.topAnchor.constraint(equalTo: view.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 48),
+            toolbar.heightAnchor.constraint(equalToConstant: Theme.Window.toolbar),
             split.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             split.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             split.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -112,8 +112,8 @@ final class RepositoryViewController: NSObject {
             statusBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             statusBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            statusBar.heightAnchor.constraint(equalToConstant: 28),
-            statusLabel.leadingAnchor.constraint(equalTo: statusBar.leadingAnchor, constant: 12),
+            statusBar.heightAnchor.constraint(equalToConstant: Theme.Window.statusBar),
+            statusLabel.leadingAnchor.constraint(equalTo: statusBar.leadingAnchor, constant: Theme.Space.m),
             statusLabel.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
         ])
     }

@@ -23,7 +23,7 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
             button("Pop", "tray.and.arrow.up", nil),
         ])
         actions.orientation = .horizontal
-        actions.spacing = 8
+        actions.spacing = Theme.Space.s
         actions.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.placeholderString = "Commits durchsuchen"
@@ -34,13 +34,13 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
 
         for view in [fetchLabel, actions, searchField] { addSubview(view) }
         NSLayoutConstraint.activate([
-            fetchLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            fetchLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Window.toolbarInset),
             fetchLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             actions.centerXAnchor.constraint(equalTo: centerXAnchor),
             actions.centerYAnchor.constraint(equalTo: centerYAnchor),
-            searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Space.m),
             searchField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            searchField.widthAnchor.constraint(equalToConstant: 260),
+            searchField.widthAnchor.constraint(equalToConstant: Theme.Window.searchWidth),
         ])
     }
 

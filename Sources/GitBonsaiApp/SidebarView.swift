@@ -5,11 +5,7 @@ import GitEngine
 ///
 /// Left of the text there is only hierarchy; everything that describes state (counters, ahead/behind, the checked-out mark, the worktree glyph) sits on the right.
 final class SidebarView: NSView {
-    enum Item {
-        case header(key: String, title: String, count: Int, icon: Glyph, plus: Bool)
-        case worktree(WorktreeInfo, isCurrent: Bool)
-        case row(text: String, value: String, expander: Glyph?, icon: Glyph?, slot: Glyph?, slotColor: NSColor?, indent: CGFloat, strong: Bool, isCheckedOut: Bool, ghost: Bool, target: String?, linkedWorktree: String?, checkout: CheckoutTarget?)
-    }
+    private typealias M = Theme.Sidebar
 
     var onSelectCommit: ((String) -> Void)?
     /// Double click on a branch. `worktreePath` is set when the branch is checked out in another worktree.
@@ -17,10 +13,9 @@ final class SidebarView: NSView {
     /// Double click on a worktree other than the one shown.
     var onSwitchWorktree: ((String) -> Void)?
 
-    private var items: [Item] = []
+    private var items: [SidebarItem] = []
     private var frames: [CGRect] = []
-    private var collapsed: Set<String> = []
-    private var knownSections: Set<String> = []
+    private var outline = SidebarOutline()
     private var hovered: Int?
     private weak var model: GraphViewModel?
 
@@ -34,92 +29,23 @@ final class SidebarView: NSView {
 
     func reload(from model: GraphViewModel) {
         self.model = model
-        var result: [Item] = []
-        let otherWorktrees = model.branchesInOtherWorktrees
-
-        func section(_ key: String, title: String, count: Int, icon: Glyph, plus: Bool = false, startCollapsed: Bool = false) -> Bool {
-            if knownSections.insert(key).inserted, startCollapsed { collapsed.insert(key) }
-            result.append(.header(key: key, title: title, count: count, icon: icon, plus: plus))
-            return !collapsed.contains(key)
-        }
-        /// Branches grouped by their first path segment, folders first, like Fork and Tower.
-        func branches(_ refs: [Ref], display: (Ref) -> String, section key: String) {
-            var folders: [String: [(String, Ref)]] = [:]
-            var leaves: [(String, Ref)] = []
-            for ref in refs {
-                let name = display(ref)
-                if let slash = name.firstIndex(of: "/") {
-                    folders[String(name[..<slash]) + "/", default: []].append((String(name[name.index(after: slash)...]), ref))
-                } else {
-                    leaves.append((name, ref))
-                }
-            }
-            func leaf(_ name: String, _ ref: Ref, indent: CGFloat) {
-                let value = [ref.ahead.flatMap { $0 > 0 ? "↑\($0)" : nil }, ref.behind.flatMap { $0 > 0 ? "↓\($0)" : nil }].compactMap { $0 }.joined(separator: " ")
-                let linked = otherWorktrees[ref.fullName]
-                let slot: Glyph? = ref.isHead ? .check : linked != nil ? .bonsaiLinked : nil
-                let checkout: CheckoutTarget? = switch ref.kind {
-                case .localBranch: .localBranch(ref.name)
-                case .remoteBranch(let remote): .remoteBranch(remote: remote, branch: String(ref.name.dropFirst(remote.count + 1)))
-                default: nil
-                }
-                result.append(.row(text: name, value: value, expander: nil, icon: nil, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, ghost: false, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout))
-            }
-            for folder in folders.keys.sorted() {
-                let folderKey = key + "/" + folder
-                let open = !collapsed.contains(folderKey)
-                result.append(.row(text: folder, value: open ? "" : "\(folders[folder]!.count)", expander: nil, icon: open ? .chevronDown : .chevronRight, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: "folder:" + folderKey, linkedWorktree: nil, checkout: nil))
-                if open { for (name, ref) in folders[folder]!.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 16) } }
-            }
-            for (name, ref) in leaves.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 0) }
-        }
-
-        if section("worktrees", title: "Worktrees", count: model.worktrees.count, icon: .bonsaiMain, plus: true) {
-            for info in model.worktrees {
-                result.append(.worktree(info, isCurrent: model.isCurrent(info.worktree)))
-            }
-        }
-        let tags = model.refs.filter { $0.kind == .tag }
-        result.append(.row(text: "Tags", value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
-
-        let locals = model.refs.filter { $0.kind == .localBranch }
-        if section("local", title: "Local", count: locals.count, icon: .laptop, plus: true) {
-            // The uncommitted changes of this worktree; a click selects their row in the history, or HEAD when there are none.
-            let changes = model.status?.entries.count ?? 0
-            result.append(.row(text: "Working Directory", value: "\(changes)", expander: nil, icon: .pencil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: changes > 0 ? GraphViewModel.wipID : model.headSHA, linkedWorktree: nil, checkout: nil))
-            result.append(.row(text: "Stashes", value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
-            branches(locals, display: { $0.name }, section: "local")
-        }
-
-        var remotes: [String: [Ref]] = [:]
-        for ref in model.refs {
-            if case .remoteBranch(let remote) = ref.kind, !ref.name.hasSuffix("/HEAD") { remotes[remote, default: []].append(ref) }
-        }
-        for (index, remote) in remotes.keys.sorted(by: { $0 == "origin" ? true : $1 == "origin" ? false : $0 < $1 }).enumerated() {
-            let refs = remotes[remote]!
-            if section("remote:" + remote, title: remote, count: refs.count, icon: .cloud, startCollapsed: index > 0 || refs.count > 40) {
-                branches(refs, display: { String($0.name.dropFirst(remote.count + 1)) }, section: "remote:" + remote)
-            }
-        }
-        result.append(.row(text: "Remote hinzufügen …", value: "", expander: .plus, icon: nil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: true, target: nil, linkedWorktree: nil, checkout: nil))
-
-        items = result
+        items = outline.items(from: model)
         layoutItems()
     }
 
     private func layoutItems() {
-        var y: CGFloat = 8
+        var y = Theme.Space.s
         frames = items.map { item in
             let height: CGFloat
             switch item {
-            case .header: y += 4; height = 30
-            case .worktree: height = 44
-            case .row: height = 26
+            case .header: y += Theme.Space.xs; height = M.headerHeight
+            case .worktree: height = M.worktreeHeight
+            case .row: height = M.rowHeight
             }
             defer { y += height }
-            return CGRect(x: 6, y: y, width: bounds.width - 12, height: height)
+            return CGRect(x: M.rowInset, y: y, width: bounds.width - 2 * M.rowInset, height: height)
         }
-        let total = max(y + 8, enclosingScrollView?.contentSize.height ?? 0)
+        let total = max(y + Theme.Space.s, enclosingScrollView?.contentSize.height ?? 0)
         if frame.height != total { setFrameSize(NSSize(width: frame.width, height: total)) }
         needsDisplay = true
     }
@@ -149,7 +75,7 @@ final class SidebarView: NSView {
         guard let index = index(at: convert(event.locationInWindow, from: nil)), let model else { return }
         switch items[index] {
         case .header(let key, _, _, _, _):
-            if collapsed.remove(key) == nil { collapsed.insert(key) }
+            outline.toggle(key)
             reload(from: model)
         case .worktree(let info, let isCurrent):
             // Same as a branch row: one click shows where it stands in the history, a double click goes there.
@@ -163,7 +89,7 @@ final class SidebarView: NSView {
                 onCheckout?(checkout, linked)
             } else if target.hasPrefix("folder:") {
                 let key = String(target.dropFirst(7))
-                if collapsed.remove(key) == nil { collapsed.insert(key) }
+                outline.toggle(key)
                 reload(from: model)
             } else {
                 onSelectCommit?(target)
@@ -190,41 +116,41 @@ final class SidebarView: NSView {
         let linkedPath = hoveredWorktreePath
         for (index, item) in items.enumerated() where frames[index].intersects(dirtyRect) {
             let rect = frames[index]
-            let columnA = CGRect(x: rect.minX + 6, y: rect.midY - 8, width: 16, height: 16)
-            let columnB = columnA.offsetBy(dx: 22, dy: 0)
-            let slot = CGRect(x: rect.maxX - 4 - 18, y: rect.midY - 9, width: 18, height: 18)
-            let valueRight = slot.minX - 6
-            let textX = columnB.maxX + 6
+            let columnA = CGRect(x: rect.minX + M.rowInset, y: rect.midY - M.column / 2, width: M.column, height: M.column)
+            let columnB = columnA.offsetBy(dx: M.columnStep, dy: 0)
+            let slot = CGRect(x: rect.maxX - Theme.Space.xs - M.slot, y: rect.midY - M.slot / 2, width: M.slot, height: M.slot)
+            let valueRight = slot.minX - M.textGap
+            let textX = columnB.maxX + M.textGap
 
             func fillRow(_ color: NSColor) {
                 color.setFill()
-                NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
+                NSBezierPath(roundedRect: rect, xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm).fill()
             }
             func drawValue(_ string: String, atY midY: CGFloat, color: NSColor = Theme.inkMuted) -> CGFloat {
                 guard !string.isEmpty else { return valueRight }
-                let value = NSAttributedString(string: string, attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular), .foregroundColor: color])
+                let value = NSAttributedString(string: string, attributes: [.font: Theme.captionDigits, .foregroundColor: color])
                 let x = valueRight - value.size().width
                 value.draw(at: CGPoint(x: x, y: midY - value.size().height / 2))
-                return x - 8
+                return x - Theme.Space.s
             }
             func drawText(_ string: String, font: NSFont, color: NSColor, x: CGFloat, midY: CGFloat, maxX: CGFloat) {
                 let text = NSAttributedString(string: string, attributes: [.font: font, .foregroundColor: color])
                 let height = text.size().height
-                text.draw(with: CGRect(x: x, y: midY - height / 2, width: max(maxX - x, 10), height: height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+                text.draw(with: CGRect(x: x, y: midY - height / 2, width: max(maxX - x, M.minimumText), height: height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
             }
 
             switch item {
             case .header(let key, let title, let count, let icon, let plus):
-                (collapsed.contains(key) ? Glyph.chevronRight : .chevronDown).draw(in: columnA.insetBy(dx: 2.5, dy: 2.5), color: Theme.inkMuted, context: context)
-                icon.draw(in: columnB.insetBy(dx: 1, dy: 1), color: Theme.inkMuted, context: context)
+                (outline.isCollapsed(key) ? Glyph.chevronRight : .chevronDown).draw(in: columnA.insetBy(dx: M.chevronInset, dy: M.chevronInset), color: Theme.inkMuted, context: context)
+                icon.draw(in: columnB.insetBy(dx: M.iconInset, dy: M.iconInset), color: Theme.inkMuted, context: context)
                 let limit = drawValue("\(count)", atY: rect.midY)
-                let label = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: 0.66])
+                let label = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
                 label.draw(with: CGRect(x: textX, y: rect.midY - label.size().height / 2, width: limit - textX, height: label.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
                 if plus {
-                    let circle = NSBezierPath(ovalIn: slot.insetBy(dx: 0.5, dy: 0.5))
+                    let circle = NSBezierPath(ovalIn: slot.insetBy(dx: Theme.Stroke.hairline / 2, dy: Theme.Stroke.hairline / 2))
                     Theme.surface2.setFill(); circle.fill()
                     Theme.hairline.setStroke(); circle.stroke()
-                    Glyph.plus.draw(in: slot.insetBy(dx: 4.5, dy: 4.5), color: Theme.inkMuted, context: context)
+                    Glyph.plus.draw(in: slot.insetBy(dx: M.plusInset, dy: M.plusInset), color: Theme.inkMuted, context: context)
                 }
 
             case .worktree(let info, let isCurrent):
@@ -234,16 +160,16 @@ final class SidebarView: NSView {
                 } else if linkedPath == worktree.path {
                     fillRow(Theme.claySoft)
                     Theme.clay.setStroke()
-                    let outline = NSBezierPath(roundedRect: rect.insetBy(dx: 0.75, dy: 0.75), xRadius: 6, yRadius: 6)
-                    outline.lineWidth = 1.5
+                    let outline = NSBezierPath(roundedRect: rect.insetBy(dx: Theme.Stroke.icon / 2, dy: Theme.Stroke.icon / 2), xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm)
+                    outline.lineWidth = Theme.Stroke.icon
                     outline.stroke()
                 } else if hovered == index {
                     fillRow(Theme.surface2)
                 }
                 let faint = worktree.isPrunable
                 let glyph: Glyph = worktree.isPrunable ? .bonsaiPrunable : worktree.isLocked ? .bonsaiLocked : worktree.isDetached ? .bonsaiDetached : worktree.isMain ? .bonsaiMain : .bonsaiLinked
-                let line1 = rect.minY + 14, line2 = rect.minY + 31
-                glyph.draw(in: CGRect(x: columnB.minX - 1, y: line1 - 9, width: 18, height: 18), color: faint ? Theme.inkFaint : Theme.ink, context: context)
+                let line1 = rect.minY + M.worktreeLines.first, line2 = rect.minY + M.worktreeLines.second
+                glyph.draw(in: CGRect(x: columnB.minX - M.worktreeGlyphShift, y: line1 - M.slot / 2, width: M.slot, height: M.slot), color: faint ? Theme.inkFaint : Theme.ink, context: context)
                 var value = ""
                 if worktree.isLocked { value = "gesperrt" }
                 let dirtyCount = info.status?.entries.count ?? 0
@@ -251,16 +177,16 @@ final class SidebarView: NSView {
                 if dirtyCount > 0 {
                     limit = drawValue("\(dirtyCount)", atY: line1)
                     context.setFillColor(Theme.clay.cgColor)
-                    context.fillEllipse(in: CGRect(x: limit + 8 - 4 - 7, y: line1 - 3.5, width: 7, height: 7))
-                    limit -= 11
+                    context.fillEllipse(in: CGRect(x: limit + Theme.Space.s - Theme.Space.xs - M.dirtyDot, y: line1 - M.dirtyDot / 2, width: M.dirtyDot, height: M.dirtyDot))
+                    limit -= M.dirtyDot + Theme.Space.xs
                 }
                 if !value.isEmpty {
                     let text = NSAttributedString(string: value, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
                     text.draw(at: CGPoint(x: limit - text.size().width, y: line1 - text.size().height / 2))
-                    limit -= text.size().width + 8
+                    limit -= text.size().width + Theme.Space.s
                 }
                 let name = (worktree.path as NSString).lastPathComponent
-                drawText(name, font: NSFont.systemFont(ofSize: 13, weight: isCurrent ? .semibold : .medium), color: faint ? Theme.inkFaint : Theme.ink, x: textX, midY: line1, maxX: limit)
+                drawText(name, font: isCurrent ? Theme.bodyStrong : Theme.bodyMedium, color: faint ? Theme.inkFaint : Theme.ink, x: textX, midY: line1, maxX: limit)
                 var detail: String
                 if worktree.isPrunable { detail = "Ordner fehlt · prunable" }
                 else if let branch = worktree.branchName { detail = branch }
@@ -278,13 +204,13 @@ final class SidebarView: NSView {
                     fillRow(Theme.surface2)
                 }
                 let shift = CGAffineTransform(translationX: indent, y: 0)
-                expander?.draw(in: columnA.insetBy(dx: 2, dy: 2), color: ghost ? Theme.inkFaint : Theme.inkMuted, context: context)
+                expander?.draw(in: columnA.insetBy(dx: M.expanderInset, dy: M.expanderInset), color: ghost ? Theme.inkFaint : Theme.inkMuted, context: context)
                 if let icon {
-                    let inset: CGFloat = icon == .chevronDown || icon == .chevronRight ? 2.5 : 1
+                    let inset = icon == .chevronDown || icon == .chevronRight ? M.chevronInset : M.iconInset
                     icon.draw(in: columnB.insetBy(dx: inset, dy: inset).applying(shift), color: Theme.inkMuted, context: context)
                 }
                 if let slotGlyph {
-                    let inset: CGFloat = slotGlyph == .chevronRight ? 4 : 2
+                    let inset = slotGlyph == .chevronRight ? M.slotChevronInset : M.slotInset
                     slotGlyph.draw(in: slot.insetBy(dx: inset, dy: inset), color: slotColor ?? Theme.inkMuted, context: context)
                 }
                 let limit = drawValue(value, atY: rect.midY)

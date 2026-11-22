@@ -3,6 +3,7 @@ import GitEngine
 
 /// The right panel. It has no tabs: it follows the selection in the history (a commit, or the working directory).
 final class DetailView: NSView {
+    private typealias M = Theme.Detail
     var onNavigate: ((String) -> Void)?
 
     private let stack = NSStackView()
@@ -16,8 +17,8 @@ final class DetailView: NSView {
         super.init(frame: frame)
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 16, right: 16)
+        stack.spacing = M.spacing
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: M.padding, bottom: M.padding, right: M.padding)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -38,12 +39,12 @@ final class DetailView: NSView {
         loadTask?.cancel()
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let header = label(title.uppercased(), font: Theme.label, color: Theme.inkMuted)
-        header.attributedStringValue = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: 0.66])
+        header.attributedStringValue = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
         let box = NSView()
         box.translatesAutoresizingMaskIntoConstraints = false
         box.addSubview(header)
         header.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([box.heightAnchor.constraint(equalToConstant: 34), header.centerYAnchor.constraint(equalTo: box.centerYAnchor), header.leadingAnchor.constraint(equalTo: box.leadingAnchor)])
+        NSLayoutConstraint.activate([box.heightAnchor.constraint(equalToConstant: M.headerHeight), header.centerYAnchor.constraint(equalTo: box.centerYAnchor), header.leadingAnchor.constraint(equalTo: box.leadingAnchor)])
         stack.addArrangedSubview(box)
     }
 
@@ -63,20 +64,20 @@ final class DetailView: NSView {
         line.borderWidth = 0
         line.fillColor = Theme.hairline
         line.translatesAutoresizingMaskIntoConstraints = false
-        line.heightAnchor.constraint(equalToConstant: 1).isActive = true
+        line.heightAnchor.constraint(equalToConstant: Theme.Stroke.hairline).isActive = true
         return line
     }
 
     private func add(_ view: NSView, fill: Bool = true) {
         stack.addArrangedSubview(view)
-        if fill { view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32).isActive = true }
+        if fill { view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true }
     }
 
     // MARK: Commit
 
     func show(commit: Commit, strand: NSColor, repository: Repository) {
         reset(title: "Commit")
-        add(label(commit.subject, font: NSFont.systemFont(ofSize: 15, weight: .semibold), color: Theme.ink, wraps: true))
+        add(label(commit.subject, font: Theme.title, color: Theme.ink, wraps: true))
         let body = commit.body.trimmingCharacters(in: .whitespacesAndNewlines)
         if !body.isEmpty { add(label(body, font: Theme.body, color: Theme.inkMuted, wraps: true)) }
 
@@ -93,7 +94,7 @@ final class DetailView: NSView {
         add(divider())
         let meta = NSStackView()
         meta.orientation = .horizontal
-        meta.spacing = 8
+        meta.spacing = Theme.Space.s
         meta.addArrangedSubview(label("Commit", font: Theme.caption, color: Theme.inkMuted))
         copySHA = commit.id
         let copy = NSButton(title: commit.shortID + "  ⧉", target: self, action: #selector(copyCommitSHA(_:)))
@@ -120,7 +121,7 @@ final class DetailView: NSView {
             let files = (try? await repository.changedFiles(of: commit)) ?? []
             guard let self, !Task.isCancelled else { return }
             filesHeader.stringValue = files.count == 1 ? "1 Datei" : "\(files.count) Dateien"
-            for file in files.prefix(200) { add(fileRow(path: file.path, letter: String(file.state.rawValue), color: Self.color(for: file.state))) }
+            for file in files.prefix(M.maximumFiles) { add(fileRow(path: file.path, letter: String(file.state.rawValue), color: Self.color(for: file.state))) }
             if files.count > 200 { add(label("… und \(files.count - 200) weitere", font: Theme.caption, color: Theme.inkMuted)) }
         }
     }
@@ -131,7 +132,7 @@ final class DetailView: NSView {
         reset(title: "Working Directory")
         func list(_ title: String, _ entries: [StatusEntry], state: (StatusEntry) -> (String, NSColor)) {
             add(label("\(title.uppercased())  \(entries.count)", font: Theme.label, color: Theme.inkMuted))
-            for entry in entries.prefix(200) {
+            for entry in entries.prefix(M.maximumFiles) {
                 let (letter, color) = state(entry)
                 add(fileRow(path: entry.path, letter: letter, color: color))
             }
@@ -172,17 +173,17 @@ final class DetailView: NSView {
         let text = NSStackView(views: [nameLabel, detail])
         text.orientation = .vertical
         text.alignment = .leading
-        text.spacing = 1
+        text.spacing = M.personLineGap
         let row = NSStackView(views: [avatar, text])
         row.orientation = .horizontal
-        row.spacing = 10
+        row.spacing = M.spacing
         return row
     }
 
     private func fileRow(path: String, letter: String, color: NSColor) -> NSView {
         let directory = (path as NSString).deletingLastPathComponent
         let name = (path as NSString).lastPathComponent
-        let text = NSMutableAttributedString(string: letter + "  ", attributes: [.font: NSFont.monospacedSystemFont(ofSize: 12, weight: .semibold), .foregroundColor: color])
+        let text = NSMutableAttributedString(string: letter + "  ", attributes: [.font: Theme.monoStrong, .foregroundColor: color])
         if !directory.isEmpty { text.append(NSAttributedString(string: directory + "/", attributes: [.font: Theme.mono, .foregroundColor: Theme.inkMuted])) }
         text.append(NSAttributedString(string: name, attributes: [.font: Theme.mono, .foregroundColor: Theme.ink]))
         let field = NSTextField(labelWithAttributedString: text)
@@ -211,18 +212,18 @@ private final class AvatarView: NSView {
     init(initials: String, ring: NSColor) {
         self.initials = initials
         self.ring = ring
-        super.init(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
+        super.init(frame: NSRect(x: 0, y: 0, width: Theme.Detail.avatar, height: Theme.Detail.avatar))
         translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 28), heightAnchor.constraint(equalToConstant: 28)])
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: Theme.Detail.avatar), heightAnchor.constraint(equalToConstant: Theme.Detail.avatar)])
     }
 
     required init?(coder: NSCoder) { nil }
 
     override func draw(_ dirtyRect: NSRect) {
-        let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 1, dy: 1))
+        let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: Theme.Stroke.strand / 2, dy: Theme.Stroke.strand / 2))
         Theme.surface2.setFill(); circle.fill()
-        ring.setStroke(); circle.lineWidth = 2; circle.stroke()
-        let text = NSAttributedString(string: initials, attributes: [.font: NSFont.systemFont(ofSize: 10, weight: .semibold), .foregroundColor: Theme.inkMuted])
+        ring.setStroke(); circle.lineWidth = Theme.Stroke.strand; circle.stroke()
+        let text = NSAttributedString(string: initials, attributes: [.font: Theme.initials, .foregroundColor: Theme.inkMuted])
         let size = text.size()
         text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
     }

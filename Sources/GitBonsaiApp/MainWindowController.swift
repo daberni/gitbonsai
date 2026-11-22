@@ -38,7 +38,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     init(store: SessionStore) {
         self.store = store
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: Theme.Window.defaultSize), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.backgroundColor = Theme.surface0
@@ -47,7 +47,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.toolbar = NSToolbar(identifier: "GitBonsaiTitlebar")
         window.toolbarStyle = .unifiedCompact
         window.titlebarSeparatorStyle = .none
-        window.minSize = NSSize(width: 900, height: 520)
+        window.minSize = Theme.Window.minimumSize
         window.center()
         super.init(window: window)
         window.delegate = self
@@ -282,11 +282,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private func placeTabsBesideTrafficLights() {
         guard let window else { return }
         guard !window.styleMask.contains(.fullScreen), let zoom = window.standardWindowButton(.zoomButton), let container = zoom.superview else {
-            tabBar.leadingInset = 12
+            tabBar.leadingInset = Theme.Space.m
             return
         }
         let frame = container.convert(zoom.frame, to: tabBar)
-        tabBar.leadingInset = frame.maxX + 14
+        tabBar.leadingInset = frame.maxX + Theme.Tabs.afterTrafficLights
     }
 
     override func showWindow(_ sender: Any?) {

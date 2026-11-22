@@ -64,7 +64,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
             header.topAnchor.constraint(equalTo: view.topAnchor),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 30),
+            header.heightAnchor.constraint(equalToConstant: Theme.Window.columnHeader),
             scroll.topAnchor.constraint(equalTo: header.bottomAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),

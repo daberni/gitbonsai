@@ -15,7 +15,7 @@ final class HistoryHeaderView: NSView {
     private var dividers: [(HistoryColumns.Column, CGFloat)] { columns.layout(in: bounds.width).dividers }
 
     override func resetCursorRects() {
-        for (_, x) in dividers { addCursorRect(NSRect(x: x - 4, y: 0, width: 8, height: bounds.height), cursor: .resizeLeftRight) }
+        for (_, x) in dividers { addCursorRect(NSRect(x: x - Theme.dragThreshold, y: 0, width: 2 * Theme.dragThreshold, height: bounds.height), cursor: .resizeLeftRight) }
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -27,7 +27,7 @@ final class HistoryHeaderView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let x = convert(event.locationInWindow, from: nil).x
-        guard let divider = dividers.first(where: { abs($0.1 - x) <= 4 })?.0 else { return }
+        guard let divider = dividers.first(where: { abs($0.1 - x) <= Theme.dragThreshold })?.0 else { return }
         if event.clickCount == 2, divider == .graph {
             onResetGraph?()
             return
@@ -41,16 +41,16 @@ final class HistoryHeaderView: NSView {
         Theme.surface0.setFill()
         bounds.fill()
         Theme.hairline.setFill()
-        NSRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1).fill()
+        NSRect(x: 0, y: bounds.height - Theme.Stroke.hairline, width: bounds.width, height: Theme.Stroke.hairline).fill()
         let layout = columns.layout(in: bounds.width)
-        for (_, x) in layout.dividers { NSRect(x: x.rounded() - 0.5, y: 9, width: 1, height: bounds.height - 18).fill() }
-        let attributes: [NSAttributedString.Key: Any] = [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: 0.66]
+        for (_, x) in layout.dividers { NSRect(x: x.rounded() - Theme.Stroke.hairline / 2, y: Theme.ColumnHeader.dividerInset, width: Theme.Stroke.hairline, height: bounds.height - 2 * Theme.ColumnHeader.dividerInset).fill() }
+        let attributes: [NSAttributedString.Key: Any] = [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern]
         func caption(_ column: HistoryColumns.Column, in range: ClosedRange<CGFloat>?, rightAligned: Bool = false) {
             guard let range else { return }
             let string = NSAttributedString(string: column.title.uppercased(), attributes: attributes)
             let size = string.size()
-            let x = rightAligned ? range.upperBound - 12 - size.width : range.lowerBound + 10
-            guard x >= range.lowerBound + 2, x + size.width <= range.upperBound - 2 else { return }
+            let x = rightAligned ? range.upperBound - Theme.Cell.trailing - size.width : range.lowerBound + Theme.Cell.leading
+            guard x >= range.lowerBound + Theme.Cell.captionClearance, x + size.width <= range.upperBound - Theme.Cell.captionClearance else { return }
             string.draw(at: CGPoint(x: x, y: bounds.midY - size.height / 2))
         }
         caption(.label, in: layout.label, rightAligned: true)
@@ -61,12 +61,13 @@ final class HistoryHeaderView: NSView {
         caption(.date, in: layout.date, rightAligned: true)
 
         // A thin bar under the caption shows which part of a wider graph is in view.
-        if let graph = layout.graph, graphContentWidth > columns.graph + 0.5 {
-            let track = NSRect(x: graph.lowerBound + 4, y: bounds.height - 4, width: columns.graph - 8, height: 2)
-            let knobWidth = max(track.width * columns.graph / graphContentWidth, 12)
+        if let graph = layout.graph, graphContentWidth > columns.graph + Theme.Stroke.hairline / 2 {
+            let header = Theme.ColumnHeader.self
+            let track = NSRect(x: graph.lowerBound + header.scrollTrackInset, y: bounds.height - header.scrollTrackInset, width: columns.graph - 2 * header.scrollTrackInset, height: header.scrollTrack)
+            let knobWidth = max(track.width * columns.graph / graphContentWidth, header.minimumKnob)
             let fraction = columns.graphScrollX / (graphContentWidth - columns.graph)
             Theme.inkFaint.setFill()
-            NSBezierPath(roundedRect: NSRect(x: track.minX + (track.width - knobWidth) * fraction, y: track.minY, width: knobWidth, height: 2), xRadius: 1, yRadius: 1).fill()
+            NSBezierPath(roundedRect: NSRect(x: track.minX + (track.width - knobWidth) * fraction, y: track.minY, width: knobWidth, height: header.scrollTrack), xRadius: header.scrollTrack / 2, yRadius: header.scrollTrack / 2).fill()
         }
     }
 }
@@ -88,7 +89,7 @@ final class HistoryTableView: NSTableView {
     }
 
     override func resetCursorRects() {
-        for (_, x) in dividers { addCursorRect(NSRect(x: x - 4, y: 0, width: 8, height: bounds.height), cursor: .resizeLeftRight) }
+        for (_, x) in dividers { addCursorRect(NSRect(x: x - Theme.dragThreshold, y: 0, width: 2 * Theme.dragThreshold, height: bounds.height), cursor: .resizeLeftRight) }
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -98,7 +99,7 @@ final class HistoryTableView: NSTableView {
 
     override func mouseDown(with event: NSEvent) {
         let x = convert(event.locationInWindow, from: nil).x
-        guard let divider = dividers.first(where: { abs($0.1 - x) <= 4 })?.0 else {
+        guard let divider = dividers.first(where: { abs($0.1 - x) <= Theme.dragThreshold })?.0 else {
             super.mouseDown(with: event)
             return
         }
@@ -130,7 +131,7 @@ final class ColumnGuideView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         let x = convert(event.locationInWindow, from: nil).x
-        hovered = columns.layout(in: bounds.width).dividers.first { abs($0.1 - x) <= 4 }?.0
+        hovered = columns.layout(in: bounds.width).dividers.first { abs($0.1 - x) <= Theme.dragThreshold }?.0
     }
 
     override func mouseExited(with event: NSEvent) {
@@ -139,7 +140,7 @@ final class ColumnGuideView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let hovered, let x = columns.layout(in: bounds.width).dividers.first(where: { $0.0 == hovered })?.1 else { return }
-        Theme.ink.withAlphaComponent(0.18).setFill()
-        NSRect(x: x.rounded() - 1, y: 0, width: 2, height: bounds.height).fill()
+        Theme.ink.withAlphaComponent(Theme.Wash.guide).setFill()
+        NSRect(x: x.rounded() - Theme.Stroke.strand / 2, y: 0, width: Theme.Stroke.strand, height: bounds.height).fill()
     }
 }

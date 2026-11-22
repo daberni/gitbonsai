@@ -6,10 +6,7 @@ final class WelcomeView: NSView {
     var onOpenPath: ((String) -> Void)?
     var onChooseFolder: (() -> Void)?
 
-    private static let columnWidth: CGFloat = 520
-    private static let rowHeight: CGFloat = 46
-    private static let maximumRows = 8
-    private static let toolbarHeight: CGFloat = 48
+    private typealias M = Theme.Welcome
     private let openButton = NSButton(title: "Ordner öffnen …", target: nil, action: nil)
     private var hoveredRow: Int? { didSet { if hoveredRow != oldValue { needsDisplay = true } } }
     private var tracking: NSTrackingArea?
@@ -28,20 +25,20 @@ final class WelcomeView: NSView {
 
     override var isFlipped: Bool { true }
 
-    private var visibleRecents: [String] { Array(recents.prefix(Self.maximumRows)) }
-    private var columnX: CGFloat { max((bounds.width - Self.columnWidth) / 2, 24) }
-    private var columnWidth: CGFloat { min(Self.columnWidth, bounds.width - 48) }
-    private var listTop: CGFloat { max(bounds.height * 0.16, 40) + Self.toolbarHeight + 132 }
+    private var visibleRecents: [String] { Array(recents.prefix(M.maximumRows)) }
+    private var columnX: CGFloat { max((bounds.width - M.columnWidth) / 2, Theme.Space.xl) }
+    private var columnWidth: CGFloat { min(M.columnWidth, bounds.width - 2 * Theme.Space.xl) }
+    private var listTop: CGFloat { max(bounds.height * M.topShare, M.minimumTop) + Theme.Window.toolbar + M.introHeight }
 
     private func rowFrame(_ index: Int) -> CGRect {
-        CGRect(x: columnX, y: listTop + CGFloat(index) * Self.rowHeight, width: columnWidth, height: Self.rowHeight)
+        CGRect(x: columnX, y: listTop + CGFloat(index) * M.rowHeight, width: columnWidth, height: M.rowHeight)
     }
 
     override func layout() {
         super.layout()
         let rows = max(visibleRecents.count, 1)
         openButton.sizeToFit()
-        openButton.setFrameOrigin(CGPoint(x: columnX + 10, y: listTop + CGFloat(rows) * Self.rowHeight + 20))
+        openButton.setFrameOrigin(CGPoint(x: columnX + M.textInset, y: listTop + CGFloat(rows) * M.rowHeight + M.buttonGap))
     }
 
     override func updateTrackingAreas() {
@@ -58,32 +55,32 @@ final class WelcomeView: NSView {
         bounds.fill()
         // An empty toolbar band, so the active tab has something to run into and the layout does not jump between tabs.
         Theme.surface1.setFill()
-        CGRect(x: 0, y: 0, width: bounds.width, height: Self.toolbarHeight).fill()
+        CGRect(x: 0, y: 0, width: bounds.width, height: Theme.Window.toolbar).fill()
         Theme.hairline.setFill()
-        CGRect(x: 0, y: Self.toolbarHeight - 1, width: bounds.width, height: 1).fill()
-        let top = listTop - 132
-        Glyph.bonsaiMain.draw(in: CGRect(x: columnX + 10, y: top, width: 40, height: 40), color: Theme.moss, context: context)
-        NSAttributedString(string: "Repository öffnen", attributes: [.font: NSFont.systemFont(ofSize: 22, weight: .semibold), .foregroundColor: Theme.ink]).draw(at: CGPoint(x: columnX + 10, y: top + 52))
-        NSAttributedString(string: "ZULETZT VERWENDET", attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: 0.66]).draw(at: CGPoint(x: columnX + 10, y: listTop - 24))
+        CGRect(x: 0, y: Theme.Window.toolbar - Theme.Stroke.hairline, width: bounds.width, height: Theme.Stroke.hairline).fill()
+        let top = listTop - M.introHeight
+        Glyph.bonsaiMain.draw(in: CGRect(x: columnX + M.textInset, y: top, width: M.mark, height: M.mark), color: Theme.moss, context: context)
+        NSAttributedString(string: "Repository öffnen", attributes: [.font: Theme.heading, .foregroundColor: Theme.ink]).draw(at: CGPoint(x: columnX + M.textInset, y: top + M.titleOffset))
+        NSAttributedString(string: "ZULETZT VERWENDET", attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern]).draw(at: CGPoint(x: columnX + M.textInset, y: listTop - Theme.Space.xl))
 
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingMiddle
         if visibleRecents.isEmpty {
-            NSAttributedString(string: "Noch nichts geöffnet. Ein Ordner lässt sich auch auf das Fenster ziehen.", attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted]).draw(at: CGPoint(x: columnX + 10, y: listTop + 14))
+            NSAttributedString(string: "Noch nichts geöffnet. Ein Ordner lässt sich auch auf das Fenster ziehen.", attributes: [.font: Theme.body, .foregroundColor: Theme.inkMuted]).draw(at: CGPoint(x: columnX + M.textInset, y: listTop + M.emptyTextOffset))
         }
         for (index, path) in visibleRecents.enumerated() {
             let frame = rowFrame(index)
             if hoveredRow == index {
                 Theme.surfaceSelected.setFill()
-                NSBezierPath(roundedRect: frame, xRadius: 8, yRadius: 8).fill()
+                NSBezierPath(roundedRect: frame, xRadius: M.rowRadius, yRadius: M.rowRadius).fill()
             } else if index > 0, hoveredRow != index - 1 {
                 Theme.hairline.setFill()
-                CGRect(x: frame.minX + 10, y: frame.minY, width: frame.width - 20, height: 1).fill()
+                CGRect(x: frame.minX + M.textInset, y: frame.minY, width: frame.width - 2 * M.textInset, height: Theme.Stroke.hairline).fill()
             }
             let name = URL(fileURLWithPath: path).lastPathComponent
             let folder = (URL(fileURLWithPath: path).deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
-            NSAttributedString(string: name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink, .paragraphStyle: paragraph]).draw(in: CGRect(x: frame.minX + 10, y: frame.minY + 7, width: frame.width - 20, height: 17))
-            NSAttributedString(string: folder, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted, .paragraphStyle: paragraph]).draw(in: CGRect(x: frame.minX + 10, y: frame.minY + 25, width: frame.width - 20, height: 14))
+            NSAttributedString(string: name, attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.ink, .paragraphStyle: paragraph]).draw(in: CGRect(x: frame.minX + M.textInset, y: frame.minY + M.nameLine.top, width: frame.width - 2 * M.textInset, height: M.nameLine.height))
+            NSAttributedString(string: folder, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted, .paragraphStyle: paragraph]).draw(in: CGRect(x: frame.minX + M.textInset, y: frame.minY + M.folderLine.top, width: frame.width - 2 * M.textInset, height: M.folderLine.height))
         }
     }
 

@@ -5,6 +5,12 @@ enum Glyph: Hashable {
     case check, laptop, cloud, tag, chevronRight, chevronDown, plus, pencil, staged, branch, xmark
     case bonsaiMain, bonsaiLinked, bonsaiLocked, bonsaiDetached, bonsaiPrunable, stashBowl
 
+    /// The hand-drawn paths are designed on this grid (icons/*.svg) with this stroke, then scaled to the box.
+    private static let grid: CGFloat = 24
+    private static let gridStroke: CGFloat = 1.6
+    /// SF Symbols carry their own padding; at this share of the box they match the drawn glyphs in weight.
+    private static let symbolScale: CGFloat = 0.78
+
     private var symbolName: String? {
         switch self {
         case .check: "checkmark"
@@ -26,7 +32,7 @@ enum Glyph: Hashable {
     @MainActor
     func draw(in rect: CGRect, color: NSColor, context: CGContext) {
         if let symbolName {
-            let pointSize = rect.height * 0.78
+            let pointSize = rect.height * Self.symbolScale
             let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium).applying(.init(paletteColors: [color]))
             guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else { return }
             let size = image.size
@@ -37,9 +43,9 @@ enum Glyph: Hashable {
         }
         context.saveGState()
         context.translateBy(x: rect.minX, y: rect.minY)
-        context.scaleBy(x: rect.width / 24, y: rect.height / 24)
+        context.scaleBy(x: rect.width / Self.grid, y: rect.height / Self.grid)
         context.setStrokeColor(color.cgColor)
-        context.setLineWidth(1.6)
+        context.setLineWidth(Self.gridStroke)
         context.setLineCap(.round)
         context.setLineJoin(.round)
         func line(_ points: [(CGFloat, CGFloat)], close: Bool = false) {

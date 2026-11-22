@@ -62,7 +62,7 @@ final class GraphRowView: NSView {
         let midY = height / 2
         let strand = Theme.strand(model.row.color)
         let layout = model.columns.layout(in: bounds.width)
-        let textX = layout.commit.lowerBound + 10
+        let textX = layout.commit.lowerBound + Theme.Cell.subjectLeading
 
         if model.isSelected {
             Theme.surfaceSelected.setFill()
@@ -77,16 +77,16 @@ final class GraphRowView: NSView {
         let graphRect = CGRect(x: graphRange.lowerBound, y: 0, width: graphRange.upperBound - graphRange.lowerBound, height: height)
         let nodeX = laneX(model.row.lane)
         // The strand bar closes the graph column on the right; the band runs from the node to it, with a gap above and below so rows stay separate.
-        let barX = graphRect.maxX - 6
+        let barX = graphRect.maxX - G.barInset
         let bandColor: NSColor = model.kind == .wip ? Theme.inkMuted : strand
         if nodeX < barX {
-            context.setFillColor(bandColor.withAlphaComponent(model.isHead ? 0.26 : 0.13).cgColor)
+            context.setFillColor(bandColor.withAlphaComponent(model.isHead ? G.headBandAlpha : G.bandAlpha).cgColor)
             // A node scrolled out to the left still leaves its band, starting at the column edge.
             let bandStart = max(nodeX, graphRect.minX)
             context.fill(CGRect(x: bandStart, y: G.bandInset, width: barX - bandStart, height: height - 2 * G.bandInset))
         }
         context.setFillColor(bandColor.cgColor)
-        context.fill(CGRect(x: barX, y: G.bandInset, width: 2, height: height - 2 * G.bandInset))
+        context.fill(CGRect(x: barX, y: G.bandInset, width: Theme.Stroke.strand, height: height - 2 * G.bandInset))
 
         context.saveGState()
         context.clip(to: graphRect)
@@ -113,7 +113,7 @@ final class GraphRowView: NSView {
         let pillsEnd = layout.label.flatMap { drawPills(context, model: model, strand: strand, midY: midY, labelEnd: $0.upperBound) }
         if let pillsEnd, nodeEdge > pillsEnd {
             context.setStrokeColor(strand.cgColor)
-            context.setLineWidth(1)
+            context.setLineWidth(Theme.Stroke.hairline)
             context.setLineDash(phase: 0, lengths: [])
             context.beginPath()
             context.move(to: CGPoint(x: pillsEnd, y: midY))
@@ -152,7 +152,7 @@ final class GraphRowView: NSView {
         let height = bounds.height
         let boundary = startY + height / 2
         context.setStrokeColor(color.cgColor)
-        context.setLineDash(phase: 0, lengths: dashed ? [3, 3] : [])
+        context.setLineDash(phase: 0, lengths: dashed ? Theme.Stroke.dash : [])
         context.beginPath()
         context.move(to: CGPoint(x: x0, y: startY))
         if x0 == x1 {
@@ -178,9 +178,9 @@ final class GraphRowView: NSView {
             context.fillEllipse(in: rect)
             context.setStrokeColor(strand.cgColor)
             context.setLineWidth(G.strandWidth)
-            context.strokeEllipse(in: rect.insetBy(dx: 1, dy: 1))
+            context.strokeEllipse(in: rect.insetBy(dx: G.strandWidth / 2, dy: G.strandWidth / 2))
             let initials = Self.initials(model.commit.authorName)
-            let text = NSAttributedString(string: initials, attributes: [.font: NSFont.systemFont(ofSize: 8.5, weight: .semibold), .foregroundColor: Theme.inkMuted])
+            let text = NSAttributedString(string: initials, attributes: [.font: Theme.initialsSmall, .foregroundColor: Theme.inkMuted])
             let size = text.size()
             text.draw(at: CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))
         case .merge:
@@ -188,13 +188,13 @@ final class GraphRowView: NSView {
             context.fillEllipse(in: CGRect(x: center.x - G.mergeRadius, y: center.y - G.mergeRadius, width: G.mergeRadius * 2, height: G.mergeRadius * 2))
         case .stash:
             let rect = CGRect(x: center.x - G.stashHalf, y: center.y - G.stashHalf, width: G.stashHalf * 2, height: G.stashHalf * 2)
-            let path = CGPath(roundedRect: rect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+            let path = CGPath(roundedRect: rect, cornerWidth: G.stashRadius, cornerHeight: G.stashRadius, transform: nil)
             context.setFillColor(Theme.surface0.cgColor)
             context.addPath(path)
             context.fillPath()
             context.setStrokeColor(strand.cgColor)
-            context.setLineWidth(1.5)
-            context.setLineDash(phase: 0, lengths: [2.5, 2])
+            context.setLineWidth(Theme.Stroke.icon)
+            context.setLineDash(phase: 0, lengths: Theme.Stroke.nodeDash)
             context.addPath(path)
             context.strokePath()
             context.setLineDash(phase: 0, lengths: [])
@@ -204,7 +204,7 @@ final class GraphRowView: NSView {
             context.fillEllipse(in: rect)
             context.setStrokeColor(Theme.inkMuted.cgColor)
             context.setLineWidth(G.strandWidth)
-            context.setLineDash(phase: 0, lengths: [2.5, 2])
+            context.setLineDash(phase: 0, lengths: Theme.Stroke.nodeDash)
             context.strokeEllipse(in: rect)
             context.setLineDash(phase: 0, lengths: [])
         }
@@ -221,40 +221,41 @@ final class GraphRowView: NSView {
     /// Draws the pills right-aligned in the label column and returns the right edge of the last pill, where the connector starts.
     private func drawPills(_ context: CGContext, model: Model, strand: NSColor, midY: CGFloat, labelEnd: CGFloat) -> CGFloat? {
         guard !model.pills.isEmpty else { return nil }
-        let rightEdge = labelEnd - 14
-        let pillHeight: CGFloat = 20
-        let glyphSize: CGFloat = 13
+        typealias P = Theme.Pill
+        let rightEdge = labelEnd - P.trailing
+        let pillHeight = P.height
+        let glyphSize = P.glyph
         var right = rightEdge
         var drawn = 0
         for pill in model.pills {
             let font = pill.isHead ? Theme.pillStrong : Theme.pill
             let remaining = model.pills.count - drawn
-            let reserve: CGFloat = remaining > 1 ? 34 : 0
-            let available = right - 6 - reserve
-            let glyphsWidth = CGFloat(pill.glyphs.count) * (glyphSize + 4)
-            let chrome = 6 + glyphsWidth + 2 + 8
-            guard available - chrome > 24 else { break }
+            let reserve = remaining > 1 ? P.counterReserve : 0
+            let available = right - P.padding - reserve
+            let glyphsWidth = CGFloat(pill.glyphs.count) * (glyphSize + P.glyphGap)
+            let chrome = P.padding + glyphsWidth + P.textGap + P.trailingPadding
+            guard available - chrome > P.minimumText else { break }
             let title = NSAttributedString(string: pill.name, attributes: [.font: font, .foregroundColor: Theme.ink])
             let textWidth = min(title.size().width, available - chrome)
             let rect = CGRect(x: right - chrome - textWidth, y: midY - pillHeight / 2, width: chrome + textWidth, height: pillHeight)
-            let path = CGPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerWidth: pillHeight / 2 - 0.5, cornerHeight: pillHeight / 2 - 0.5, transform: nil)
+            let edge = Theme.Stroke.hairline / 2
+            let path = CGPath(roundedRect: rect.insetBy(dx: edge, dy: edge), cornerWidth: pillHeight / 2 - edge, cornerHeight: pillHeight / 2 - edge, transform: nil)
             // The ground is opaque (strand mixed into the surface) so the connector never shows through.
-            context.setFillColor(strand.mixed(into: Theme.surface0, fraction: pill.isHead ? 0.30 : 0.16).cgColor)
+            context.setFillColor(strand.mixed(into: Theme.surface0, fraction: pill.isHead ? P.tint.head : P.tint.plain).cgColor)
             context.addPath(path)
             context.fillPath()
-            context.setStrokeColor(strand.withAlphaComponent(pill.isHead ? 0.75 : 0.55).cgColor)
-            context.setLineWidth(1)
+            context.setStrokeColor(strand.withAlphaComponent(pill.isHead ? P.border.head : P.border.plain).cgColor)
+            context.setLineWidth(Theme.Stroke.hairline)
             context.addPath(path)
             context.strokePath()
-            var x = rect.minX + 6
+            var x = rect.minX + P.padding
             for glyph in pill.glyphs {
                 glyph.draw(in: CGRect(x: x, y: midY - glyphSize / 2, width: glyphSize, height: glyphSize), color: Theme.ink, context: context)
-                x += glyphSize + 4
+                x += glyphSize + P.glyphGap
             }
-            let textRect = CGRect(x: x + 2, y: midY - title.size().height / 2, width: textWidth, height: title.size().height)
+            let textRect = CGRect(x: x + P.textGap, y: midY - title.size().height / 2, width: textWidth, height: title.size().height)
             title.draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
-            if drawn == 0 { /* the first pill is the rightmost one */ }
-            right = rect.minX - 4
+            right = rect.minX - P.spacing
             drawn += 1
         }
         if drawn < model.pills.count {
@@ -267,16 +268,17 @@ final class GraphRowView: NSView {
     // MARK: Text
 
     private func drawText(_ context: CGContext, model: Model, layout: HistoryColumns.Layout, textX: CGFloat, midY: CGFloat) {
-        let subjectWidth = max(layout.commit.upperBound - textX - 12, 40)
+        let subjectWidth = max(layout.commit.upperBound - textX - Theme.Cell.leading, Theme.Cell.minimumSubject)
 
         if let counts = model.wipCounts {
-            var x = textX + 2
+            var x = textX
             let items: [(Glyph, Int, String)] = [(.pencil, counts.changed, "geändert"), (.staged, counts.staged, "staged"), (.plus, counts.untracked, "untracked")]
             for (glyph, count, _) in items where count > 0 {
-                glyph.draw(in: CGRect(x: x, y: midY - 7, width: 14, height: 14), color: Theme.inkMuted, context: context)
-                let text = NSAttributedString(string: "\(count)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular), .foregroundColor: Theme.ink])
-                text.draw(at: CGPoint(x: x + 19, y: midY - text.size().height / 2))
-                x += 19 + text.size().width + 14
+                glyph.draw(in: CGRect(x: x, y: midY - Theme.Icon.small / 2, width: Theme.Icon.small, height: Theme.Icon.small), color: Theme.inkMuted, context: context)
+                let text = NSAttributedString(string: "\(count)", attributes: [.font: Theme.bodyDigits, .foregroundColor: Theme.ink])
+                let numberX = x + Theme.Icon.small + G.counterGap
+                text.draw(at: CGPoint(x: numberX, y: midY - text.size().height / 2))
+                x = numberX + text.size().width + G.counterSpacing
             }
             return
         }
@@ -286,15 +288,15 @@ final class GraphRowView: NSView {
         if model.kind == .stash { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
         let subject = NSAttributedString(string: model.subject, attributes: [.font: font, .foregroundColor: color])
         let subjectHeight = subject.size().height
-        subject.draw(with: CGRect(x: textX + 2, y: midY - subjectHeight / 2, width: subjectWidth, height: subjectHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+        subject.draw(with: CGRect(x: textX, y: midY - subjectHeight / 2, width: subjectWidth, height: subjectHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
 
         let muted: [NSAttributedString.Key: Any] = [.font: Theme.caption, .foregroundColor: Theme.inkMuted]
         func cell(_ string: String, in range: ClosedRange<CGFloat>?, attributes: [NSAttributedString.Key: Any], rightAligned: Bool = false) {
             guard let range else { return }
             let text = NSAttributedString(string: string, attributes: attributes)
-            let width = range.upperBound - range.lowerBound - 22
-            guard width > 8 else { return }
-            let x = rightAligned ? max(range.upperBound - 12 - text.size().width, range.lowerBound + 10) : range.lowerBound + 10
+            let width = range.upperBound - range.lowerBound - Theme.Cell.leading - Theme.Cell.trailing
+            guard width > Theme.Cell.minimumText else { return }
+            let x = rightAligned ? max(range.upperBound - Theme.Cell.trailing - text.size().width, range.lowerBound + Theme.Cell.leading) : range.lowerBound + Theme.Cell.leading
             text.draw(with: CGRect(x: x, y: midY - text.size().height / 2, width: width, height: text.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
         cell(model.commit.authorName, in: layout.author, attributes: muted)

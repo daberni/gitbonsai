@@ -41,14 +41,213 @@ enum Theme {
         strands[((index % strands.count) + strands.count) % strands.count]
     }
 
+    // MARK: Type (type in tokens.json)
+
     static let body = NSFont.systemFont(ofSize: 13)
     static let bodyStrong = NSFont.systemFont(ofSize: 13, weight: .semibold)
+    static let bodyMedium = NSFont.systemFont(ofSize: 13, weight: .medium)
+    static let bodyDigits = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
     static let caption = NSFont.systemFont(ofSize: 11)
+    static let captionDigits = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
     static let label = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    /// Tracking of `label` (0.06 em at 11 pt).
+    static let labelKern: CGFloat = 0.66
     static let pill = NSFont.systemFont(ofSize: 11, weight: .medium)
     static let pillStrong = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    static let title = NSFont.systemFont(ofSize: 15, weight: .semibold)
+    static let heading = NSFont.systemFont(ofSize: 22, weight: .semibold)
     static let mono = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    static let monoStrong = NSFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
     static let monoSmall = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+    /// Initials inside avatar rings.
+    static let initials = NSFont.systemFont(ofSize: 10, weight: .semibold)
+    static let initialsSmall = NSFont.systemFont(ofSize: 8.5, weight: .semibold)
+
+    // MARK: Scales (spacing, radius and stroke in tokens.json)
+
+    enum Space {
+        /// space-1
+        static let xs: CGFloat = 4
+        /// space-2
+        static let s: CGFloat = 8
+        /// space-3
+        static let m: CGFloat = 12
+        /// space-4
+        static let l: CGFloat = 16
+        /// space-6
+        static let xl: CGFloat = 24
+        /// space-8
+        static let xxl: CGFloat = 32
+    }
+
+    enum Radius {
+        static let xs: CGFloat = 3
+        static let sm: CGFloat = 6
+        static let md: CGFloat = 10
+        static let lg: CGFloat = 14
+    }
+
+    enum Stroke {
+        static let hairline: CGFloat = 1
+        static let icon: CGFloat = 1.5
+        static let strand: CGFloat = 2
+        /// Dash pattern of parked strands (stash, working directory) and their nodes.
+        static let dash: [CGFloat] = [3, 3]
+        static let nodeDash: [CGFloat] = [2.5, 2]
+    }
+
+    /// Glyph boxes.
+    enum Icon {
+        static let small: CGFloat = 14
+        static let regular: CGFloat = 16
+        static let large: CGFloat = 18
+    }
+
+    /// Alpha of ink washes for hover and press feedback.
+    enum Wash {
+        static let hover: CGFloat = 0.06
+        static let hoverStrong: CGFloat = 0.08
+        static let pressed: CGFloat = 0.12
+        static let guide: CGFloat = 0.18
+    }
+
+    /// Movement or distance in points before a press becomes a drag, and the reach of a draggable boundary.
+    static let dragThreshold: CGFloat = 4
+
+    // MARK: Components
+
+    enum Window {
+        static let defaultSize = NSSize(width: 1440, height: 900)
+        static let minimumSize = NSSize(width: 900, height: 520)
+        /// Same as the compact title bar, so the tabs fill it.
+        static let titleRow: CGFloat = 38
+        static let toolbar: CGFloat = 48
+        static let statusBar: CGFloat = 28
+        static let columnHeader: CGFloat = 30
+        static let sidebarWidth: CGFloat = 264
+        static let detailWidth: CGFloat = 360
+        static let searchWidth: CGFloat = 260
+        /// Leading inset of the fetch status in the toolbar.
+        static let toolbarInset: CGFloat = 14
+    }
+
+    enum Tabs {
+        static let top: CGFloat = 4
+        static let radius = Radius.md
+        static let titleInset: CGFloat = 18
+        static let closeSlot: CGFloat = 28
+        static let closeButton = Icon.regular
+        static let closeGlyphInset: CGFloat = 3.5
+        static let width: ClosedRange<CGFloat> = 96...240
+        /// Narrowest a tab gets when many share the row.
+        static let compressedWidth: CGFloat = 56
+        static let newTabSlot: CGFloat = 40
+        static let newTabGap: CGFloat = 6
+        static let newTabButton = NSSize(width: 28, height: 24)
+        static let separatorInset: CGFloat = 7
+        static let hoverInset = NSSize(width: 3, height: 4)
+        static let hoverRadius: CGFloat = 7
+        static let closeRadius: CGFloat = 5
+        /// Gap between the traffic lights and the first tab.
+        static let afterTrafficLights: CGFloat = 14
+    }
+
+    enum Sidebar {
+        static let rowHeight: CGFloat = 26
+        static let headerHeight: CGFloat = 30
+        static let worktreeHeight: CGFloat = 44
+        /// Inset of the row backgrounds from the sidebar edge.
+        static let rowInset: CGFloat = 6
+        /// Width of the expander and icon columns, and the step from one to the next.
+        static let column = Icon.regular
+        static let columnStep: CGFloat = 22
+        static let slot = Icon.large
+        static let textGap: CGFloat = 6
+        static let folderIndent = Space.l
+        static let dirtyDot: CGFloat = 7
+        /// Centre lines of the two text lines of a worktree row, from its top.
+        static let worktreeLines: (first: CGFloat, second: CGFloat) = (14, 31)
+        /// The bonsai glyph of a worktree sits one point left of the icon column, so its pot lines up with the icons below.
+        static let worktreeGlyphShift: CGFloat = 1
+        static let minimumText: CGFloat = 10
+        /// Optical insets that give the glyphs in the grid the same visual weight.
+        static let chevronInset: CGFloat = 2.5
+        static let iconInset: CGFloat = 1
+        static let expanderInset: CGFloat = 2
+        static let plusInset: CGFloat = 4.5
+        static let slotChevronInset = Space.xs
+        static let slotInset: CGFloat = 2
+    }
+
+    enum Detail {
+        static let padding = Space.l
+        static let spacing: CGFloat = 10
+        static let headerHeight: CGFloat = 34
+        static let avatar: CGFloat = 28
+        /// Between the name and the role line of a person.
+        static let personLineGap: CGFloat = 1
+        /// Longest file list shown before it is cut off.
+        static let maximumFiles = 200
+    }
+
+    enum Welcome {
+        static let columnWidth: CGFloat = 520
+        static let rowHeight: CGFloat = 46
+        static let maximumRows = 8
+        static let mark: CGFloat = 40
+        /// Distance from the top of the mark to the list caption.
+        static let introHeight: CGFloat = 132
+        /// The intro starts at this share of the height, but never closer to the toolbar than `minimumTop`.
+        static let topShare: CGFloat = 0.16
+        static let minimumTop: CGFloat = 40
+        static let titleOffset: CGFloat = 52
+        static let textInset = Cell.leading
+        static let rowRadius: CGFloat = 8
+        /// Top and height of the name and folder lines in a list row.
+        static let nameLine: (top: CGFloat, height: CGFloat) = (7, 17)
+        static let folderLine: (top: CGFloat, height: CGFloat) = (25, 14)
+        static let emptyTextOffset: CGFloat = 14
+        static let buttonGap: CGFloat = 20
+    }
+
+    /// Text cells of the history columns.
+    enum Cell {
+        static let leading: CGFloat = 10
+        static let trailing = Space.m
+        /// The commit text starts a little further in than the other cells.
+        static let subjectLeading = Space.m
+        static let minimumSubject: CGFloat = 40
+        /// Narrower cells stay empty.
+        static let minimumText = Space.s
+        /// Captions keep this distance from the column edges or are left out.
+        static let captionClearance: CGFloat = 2
+    }
+
+    /// Column boundaries in the history header and the bar that shows the visible part of a wider graph.
+    enum ColumnHeader {
+        static let dividerInset: CGFloat = 9
+        static let scrollTrack: CGFloat = 2
+        static let scrollTrackInset = Space.xs
+        static let minimumKnob = Space.m
+    }
+
+    enum Pill {
+        static let height: CGFloat = 20
+        static let glyph: CGFloat = 13
+        static let padding: CGFloat = 6
+        static let glyphGap = Space.xs
+        /// Room kept for the "+n" counter while more labels follow.
+        static let counterReserve: CGFloat = 34
+        static let minimumText: CGFloat = 24
+        /// Gap between the label column's edge and the rightmost pill.
+        static let trailing: CGFloat = 14
+        static let spacing = Space.xs
+        static let textGap: CGFloat = 2
+        static let trailingPadding = Space.s
+        /// Share of the strand color in the pill's ground and its border, plain and for HEAD.
+        static let tint: (plain: CGFloat, head: CGFloat) = (0.16, 0.30)
+        static let border: (plain: CGFloat, head: CGFloat) = (0.55, 0.75)
+    }
 
     enum Graph {
         static let rowHeight: CGFloat = 36
@@ -56,17 +255,32 @@ enum Theme {
         static let nodeRadius: CGFloat = 12
         static let mergeRadius: CGFloat = 5.5
         static let stashHalf: CGFloat = 9
+        static let stashRadius: CGFloat = 4
         static let wipRadius: CGFloat = 7.5
-        static let strandWidth: CGFloat = 2
+        static let strandWidth = Stroke.strand
         /// Height of the S transition between two lanes; outside it a strand runs straight.
         static let elbow: CGFloat = 12
         static let bandInset: CGFloat = 5
+        /// Distance of the strand bar from the right edge of the graph column.
+        static let barInset: CGFloat = 6
         static let labelColumn: CGFloat = 200
         static let firstLane: CGFloat = 22
-        /// Wider graphs are clipped at this many lanes so the commit text keeps its room; horizontal scrolling comes later.
+        /// The automatic graph width stops growing at this many lanes; wider graphs scroll.
         static let maxVisibleLanes = 5
         static let authorColumn: CGFloat = 150
+        static let shaColumn: CGFloat = 80
+        /// Smallest widths a column can be dragged to.
+        static let minimumLabelColumn: CGFloat = 80
+        static let minimumCommitColumn: CGFloat = 160
+        static let minimumAuthorColumn: CGFloat = 60
+        static let minimumShaColumn: CGFloat = 60
+        static let minimumDateColumn: CGFloat = 64
         static let dateColumn: CGFloat = 96
+        static let bandAlpha: CGFloat = 0.13
+        static let headBandAlpha: CGFloat = 0.26
+        /// Working directory counters: glyph to number, and one counter to the next.
+        static let counterGap: CGFloat = 5
+        static let counterSpacing: CGFloat = 14
     }
 }
 

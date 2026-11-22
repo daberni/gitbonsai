@@ -18,12 +18,12 @@ struct HistoryColumns: Equatable {
 
         var minimumWidth: CGFloat {
             switch self {
-            case .label: 80
+            case .label: Theme.Graph.minimumLabelColumn
             case .graph: Theme.Graph.firstLane + Theme.Graph.lane / 2
-            case .commit: 160
-            case .author: 60
-            case .sha: 60
-            case .date: 64
+            case .commit: Theme.Graph.minimumCommitColumn
+            case .author: Theme.Graph.minimumAuthorColumn
+            case .sha: Theme.Graph.minimumShaColumn
+            case .date: Theme.Graph.minimumDateColumn
             }
         }
     }
@@ -52,7 +52,7 @@ struct HistoryColumns: Equatable {
     var label: CGFloat = Theme.Graph.labelColumn
     var graph: CGFloat = Theme.Graph.firstLane + Theme.Graph.lane
     var author: CGFloat = Theme.Graph.authorColumn
-    var sha: CGFloat = 80
+    var sha: CGFloat = Theme.Graph.shaColumn
     var date: CGFloat = Theme.Graph.dateColumn
     var hidden: Set<Column> = []
     /// How far the graph is scrolled to the left inside its column.
