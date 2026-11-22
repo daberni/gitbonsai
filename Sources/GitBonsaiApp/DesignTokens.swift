@@ -253,6 +253,14 @@ enum Theme {
         static let labelGap = Space.s
     }
 
+    /// Sheets that ask for the values of a commit action: name, folder, message.
+    enum ActionSheet {
+        static let fieldWidth: CGFloat = 320
+        static let messageHeight: CGFloat = 72
+        static let rowSpacing = Space.s
+        static let labelSpacing = Space.xs
+    }
+
     /// The diff of one file in the history pane.
     enum Diff {
         static let headerHeight = Window.columnHeader + Space.m

@@ -21,6 +21,7 @@ final class RepositoryViewController: NSObject {
     let viewModel: GraphViewModel
     let history: HistoryViewController
     let checkoutController: CheckoutController
+    let commitActions: CommitActionsController
     let staging: StagingController
     let commitController: CommitController
     let diff: DiffViewController
@@ -41,6 +42,7 @@ final class RepositoryViewController: NSObject {
         viewModel = GraphViewModel(repositoryPath: repositoryPath)
         history = HistoryViewController(viewModel: viewModel)
         checkoutController = CheckoutController(viewModel: viewModel)
+        commitActions = CommitActionsController(viewModel: viewModel)
         staging = StagingController(viewModel: viewModel)
         commitController = CommitController(viewModel: viewModel)
         let model = viewModel
@@ -92,7 +94,10 @@ final class RepositoryViewController: NSObject {
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
-        history.menuItems = { [weak self] row in self?.checkoutController.menuItems(forRow: row) ?? [] }
+        history.menuItems = { [weak self] row in
+            guard let self else { return [] }
+            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row))
+        }
 
         detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
         detail.onSelectFile = { [weak self] selection in self?.showDiff(selection) }
@@ -101,6 +106,7 @@ final class RepositoryViewController: NSObject {
         detail.onDiscard = { [weak self] selection in self?.staging.discard(selection) }
         detail.showNothing()
         checkoutController.window = { [weak self] in self?.view.window }
+        commitActions.prompter.window = { [weak self] in self?.view.window }
         staging.window = { [weak self] in self?.view.window }
         commitController.window = { [weak self] in self?.view.window }
         staging.onChange = { [weak self] in
@@ -257,6 +263,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.fillCommit(on: self)
             ScreenshotHarness.discard(on: self)
             ScreenshotHarness.scrollSidebar(sidebar)
+            ScreenshotHarness.openCommitMenu(on: self)
         }
         onLoaded?()
     }
