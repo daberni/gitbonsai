@@ -32,7 +32,7 @@ Every switch gets its own line below, so parallel changes do not collide.
 Run:
 
 - Several paths open as tabs; without a path the app restores the tabs of the last session.
-- `GITBONSAI_FOREGROUND=1` runs as a normal app with Dock icon and its window in front, for checks that need it; otherwise harness runs stay in the background and never take focus. Without a key window a real click on a control that refuses first mouse, such as a sheet's button, goes to the view under the point the way a key window would deliver it; a press into a table first makes the table first responder, and the history table then selects the row as in a key window instead of taking the click as activation only; a sheet still open when the capture is taken is cancelled so the app can quit.
+- `GITBONSAI_FOREGROUND=1` runs as a normal app with Dock icon and its window in front, for checks that need it; otherwise harness runs stay in the background and never take focus. Without a key window a real click on a control that refuses first mouse, such as a sheet's button, goes to the view under the point the way a key window would deliver it; a press into a table first makes the table first responder; the history table, like every list in the app, selects on the first click into a window that is not key; a sheet still open when the capture is taken is cancelled so the app can quit.
 - Harness runs keep their session in their own defaults domain (`app.gitbonsai.harness`).
 - `GITBONSAI_CAPTURE_DELAY=<seconds>` waits longer before the capture.
 - `GITBONSAI_TRACE_STARTUP=1` prints each state of the tab row (with whether the window is visible) and each sidebar rebuild with the time since launch, to count redraws while the app opens.

@@ -12,8 +12,6 @@ enum ScreenshotHarness {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
     static var didRunOneTimeAction = false
     static var didDragTab = false
-    /// True while `press` delivers a harness press into a window that is not key.
-    static var isPressingWithoutKeyWindow = false
 
     /// Background runs never show a window: every window of the app, sheets and alerts included, stays fully transparent and lets real clicks through.
     /// Captures render the views themselves and the harness sends its events straight to the window, so both keep working.
@@ -92,8 +90,6 @@ enum ScreenshotHarness {
             return
         }
         if let table = enclosingTable(of: view), table.acceptsFirstResponder { window.makeFirstResponder(table) }
-        isPressingWithoutKeyWindow = true
-        defer { isPressingWithoutKeyWindow = false }
         if view.acceptsFirstMouse(for: event) { window.sendEvent(event) } else { view.mouseDown(with: event) }
     }
 

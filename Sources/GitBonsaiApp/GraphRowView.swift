@@ -49,6 +49,9 @@ final class GraphRowView: NSView {
 
     override var isFlipped: Bool { true }
 
+    /// The row under the pointer is the hit view, so it too takes the first click; the table then selects as a Finder list does.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     private typealias G = Theme.Graph
     /// Left edge of the graph column in the row being drawn.
     private var graphOrigin: CGFloat = 0

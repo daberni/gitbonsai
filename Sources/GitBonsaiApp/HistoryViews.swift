@@ -164,9 +164,14 @@ final class HistoryTableView: NSTableView {
         super.keyDown(with: event)
     }
 
-    /// NSTableView takes a click in a window that could become key but is not as activation only. A background harness run never has a key window, so while the harness delivers a press the table claims not to need one and the click selects as in a key window.
+    /// Like a Finder list, a click into an inactive window already selects the row.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// NSTableView takes a click in a window that is not key yet as activation only, because it needs the window to become key. During such a click it claims not to, so the click selects as in a key window.
+    /// An activating click and a background harness run both arrive before the window is key. Outside that click the table still needs a key window, or it could not become first responder.
+    private var isTakingFirstClick = false
     override var needsPanelToBecomeKey: Bool {
-        !ScreenshotHarness.isPressingWithoutKeyWindow && super.needsPanelToBecomeKey
+        !isTakingFirstClick && super.needsPanelToBecomeKey
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -175,6 +180,11 @@ final class HistoryTableView: NSTableView {
             if event.clickCount == 1, onPressLabels?(point) == true { return }
             let flags = event.modifierFlags.intersection([.command, .shift])
             if !flags.isEmpty, row(at: point) >= 0, onModifiedClick?(row(at: point), flags) == true { return }
+            guard let window, !window.isKeyWindow else { return super.mouseDown(with: event) }
+            // NSTableView makes itself first responder only for a click in a key window; the keyboard should follow a first click too.
+            window.makeFirstResponder(self)
+            isTakingFirstClick = true
+            defer { isTakingFirstClick = false }
             super.mouseDown(with: event)
             return
         }
