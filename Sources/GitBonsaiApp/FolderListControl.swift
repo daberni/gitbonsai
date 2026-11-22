@@ -36,8 +36,8 @@ final class FolderListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
         buttons.segmentCount = 2
         buttons.trackingMode = .momentary
         buttons.segmentStyle = .smallSquare
-        buttons.setImage(NSImage(systemSymbolName: "plus", accessibilityDescription: "Ordner hinzufügen"), forSegment: 0)
-        buttons.setImage(NSImage(systemSymbolName: "minus", accessibilityDescription: "Ordner entfernen"), forSegment: 1)
+        buttons.setImage(NSImage(systemSymbolName: "plus", accessibilityDescription: String(localized: "Add Folder", bundle: .module)), forSegment: 0)
+        buttons.setImage(NSImage(systemSymbolName: "minus", accessibilityDescription: String(localized: "Remove Folder", bundle: .module)), forSegment: 1)
         buttons.target = self
         buttons.action = #selector(press(_:))
         for view in [scroll, buttons] as [NSView] {
@@ -86,8 +86,8 @@ final class FolderListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
-        panel.prompt = "Hinzufügen"
-        panel.message = "Ordner wählen, in denen nach Repositories gesucht wird."
+        panel.prompt = String(localized: "Add", bundle: .module, comment: "The open panel's confirm button for adding an app or folder.")
+        panel.message = String(localized: "Choose folders to search for repositories.", bundle: .module)
         guard let window else { return }
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .OK else { return }

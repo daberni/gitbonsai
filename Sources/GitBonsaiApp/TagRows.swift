@@ -31,18 +31,18 @@ struct TagRows {
         let differing = Set(byName.filter { _, states in states.contains { if case .differs = $0.state { true } else { false } } }.keys)
         let onlyRemote = Set(remoteOnly.keys)
         scopes = [
-            PanelScope(title: "Nur lokal", empty: "Keine nur lokalen Tags") { onlyLocal.contains($0) },
-            PanelScope(title: "Abweichend", empty: "Keine abweichenden Tags") { differing.contains($0) },
-            PanelScope(title: "Nur auf Remote", empty: "Keine Tags nur auf Remote") { onlyRemote.contains($0) },
+            PanelScope(title: String(localized: "Local Only", bundle: .module, comment: "Tag filter: tags no remote has."), empty: String(localized: "No local-only tags", bundle: .module)) { onlyLocal.contains($0) },
+            PanelScope(title: String(localized: "Differing", bundle: .module, comment: "Tag filter: tags that point elsewhere on a remote."), empty: String(localized: "No differing tags", bundle: .module)) { differing.contains($0) },
+            PanelScope(title: String(localized: "Remote Only", bundle: .module, comment: "Tag filter: tags only a remote has."), empty: String(localized: "No remote-only tags", bundle: .module)) { onlyRemote.contains($0) },
         ]
     }
 
-    /// The remotes that have the tag while this repository does not, which "Holen" offers.
+    /// The remotes that have the tag while this repository does not, which "Fetch Tag" offers.
     func remotesOnlyHaving(_ name: String) -> [String] {
         (statesByName[name] ?? []).compactMap { if case .remoteOnly = $0.state { $0.remote } else { nil } }
     }
 
-    /// "Pushen" goes straight to the remotes that lack the tag; when none is known to lack it, every remote is offered.
+    /// "Push Tag" goes straight to the remotes that lack the tag; when none is known to lack it, every remote is offered.
     func remotesPreferredForPush(_ name: String, all remotes: [String]) -> [String] {
         let lacking = (statesByName[name] ?? []).filter { $0.state == .localOnly }.map(\.remote)
         return lacking.isEmpty ? remotes : lacking
@@ -51,7 +51,7 @@ struct TagRows {
     // MARK: Rows
 
     private static func row(_ tag: Tag, states: [(remote: String, state: TagSyncState)], labelled: Bool) -> PanelRow {
-        let notes = (tag.isAnnotated ? ["Annotierter Tag"] : []) + states.map { describe($0.state, of: tag.name, on: $0.remote) }
+        let notes = (tag.isAnnotated ? [String(localized: "Annotated tag", bundle: .module)] : []) + states.map { describe($0.state, of: tag.name, on: $0.remote) }
         let differs = states.contains { if case .differs = $0.state { true } else { false } }
         var row = PanelRow(id: tag.name, glyph: .tag, title: tag.name, marker: tag.isAnnotated ? "◆" : nil, tooltip: notes.isEmpty ? nil : notes.joined(separator: "\n"), detail: tag.subject, date: tag.date, sha: String(tag.commitID.prefix(7)), searchText: tag.subject)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
@@ -63,7 +63,8 @@ struct TagRows {
         let having = states.compactMap { entry -> (remote: String, target: TagTarget)? in if case .remoteOnly(let target) = entry.state { (entry.remote, target) } else { nil } }
         let target = having.first?.target
         let isAnnotated = target.map { $0.objectID != $0.commitID } ?? false
-        let detail = "Nur auf " + having.map(\.remote).joined(separator: ", ") + ", noch nicht geholt"
+        let remotes = having.map(\.remote).joined(separator: ", ")
+        let detail = String(localized: "Only on \(remotes), not fetched yet", bundle: .module, comment: "A tag only on the listed remotes.")
         var row = PanelRow(id: name, glyph: .tag, title: name, marker: isAnnotated ? "◆" : nil, tooltip: states.map { describe($0.state, of: name, on: $0.remote) }.joined(separator: "\n"), detail: detail, date: nil, sha: String((target?.commitID ?? "").prefix(7)), searchText: detail)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
         row.isDimmed = true
@@ -82,20 +83,31 @@ struct TagRows {
     private static func describe(_ state: TagSyncState, of name: String, on remote: String) -> String {
         switch state {
         case .same:
-            return "Auf \(remote)"
+            return String(localized: "On \(remote)", bundle: .module, comment: "Tooltip of a tag the remote has too.")
         case .localOnly:
-            return "Nur lokal, nicht auf \(remote)"
+            return String(localized: "Only local, not on \(remote)", bundle: .module)
         case .remoteOnly(let target):
-            return "Nur auf \(remote) (\(target.commitID.prefix(7))), noch nicht geholt"
+            let commit = String(target.commitID.prefix(RefString.shortSHA))
+            return String(localized: "Only on \(remote) (\(commit)), not fetched yet", bundle: .module)
         case .differs(let local, let other):
-            if local.commitID == other.commitID {
-                return "Abweichend von \(remote): gleicher Commit \(local.commitID.prefix(7)), aber \(kind(local)) hier und \(kind(other)) dort"
+            let here = String(local.commitID.prefix(RefString.shortSHA))
+            guard local.commitID == other.commitID else {
+                let there = String(other.commitID.prefix(RefString.shortSHA))
+                return String(localized: "Differs from \(remote): \(here) here, \(there) there", bundle: .module)
             }
-            return "Abweichend von \(remote): hier \(local.commitID.prefix(7)), dort \(other.commitID.prefix(7))"
+            // Same commit, so the tags differ in kind, or both are annotated with different tag objects.
+            switch (isAnnotated(local), isAnnotated(other)) {
+            case (false, true):
+                return String(localized: "Differs from \(remote): same commit \(here), but a lightweight tag here and an annotated tag there", bundle: .module)
+            case (true, false):
+                return String(localized: "Differs from \(remote): same commit \(here), but an annotated tag here and a lightweight tag there", bundle: .module)
+            default:
+                return String(localized: "Differs from \(remote): same commit \(here), but different annotated tags here and there", bundle: .module)
+            }
         }
     }
 
-    private static func kind(_ target: TagTarget) -> String {
-        target.objectID == target.commitID ? "einfacher Tag" : "annotierter Tag"
+    private static func isAnnotated(_ target: TagTarget) -> Bool {
+        target.objectID != target.commitID
     }
 }

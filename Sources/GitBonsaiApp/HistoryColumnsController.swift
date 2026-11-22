@@ -102,12 +102,12 @@ final class HistoryColumnsController: NSObject {
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        let automatic = NSMenuItem(title: "Graph-Breite automatisch", action: #selector(toggleAutomaticGraphWidth(_:)), keyEquivalent: "")
+        let automatic = NSMenuItem(title: String(localized: "Automatic Graph Width", bundle: .module), action: #selector(toggleAutomaticGraphWidth(_:)), keyEquivalent: "")
         automatic.target = self
         automatic.state = chosenGraphWidth == nil ? .on : .off
         menu.addItem(automatic)
         menu.addItem(.separator())
-        let reset = NSMenuItem(title: "Spalten zurücksetzen", action: #selector(resetColumns(_:)), keyEquivalent: "")
+        let reset = NSMenuItem(title: String(localized: "Reset Columns", bundle: .module), action: #selector(resetColumns(_:)), keyEquivalent: "")
         reset.target = self
         menu.addItem(reset)
         return menu

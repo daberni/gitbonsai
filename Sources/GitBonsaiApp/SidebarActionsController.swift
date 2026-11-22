@@ -47,7 +47,7 @@ final class SidebarActionRunner {
     /// Runs one git write and refreshes the tab, also after a failure: a stopped merge or rebase has changed the repository.
     /// Returns the error so a caller can offer a way out, such as force; `report` false leaves telling the user to that caller.
     @discardableResult
-    func run(failure: RefString, conflict: RefString? = nil, note: String, report: Bool = true, _ operation: @Sendable (Repository) async throws -> Void) async -> GitError? {
+    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, report: Bool = true, _ operation: @Sendable (Repository) async throws -> Void) async -> GitError? {
         do {
             try await operation(viewModel.repository)
             await viewModel.refresh(note: note)
@@ -64,38 +64,39 @@ final class SidebarActionRunner {
     }
 
     /// A question with a confirm button and Cancel; `destructive` marks the confirm button red.
-    func confirm(_ title: RefString, info: RefString, button: String, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
+    func confirm(_ title: LocalizedStringResource, info: LocalizedStringResource, button: LocalizedStringResource, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
         let alert = NSAlert()
         alert.alertStyle = style
         alert.setText(title, info: info)
-        alert.addButton(withTitle: button)
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: button.text)
+        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = destructive
         return await prompter.confirm(alert)
     }
 
     /// Deletes a local branch; when git refuses it as unmerged, shows git's message and offers to delete it anyway.
     func deleteBranch(_ name: String) async {
-        guard let error = await run(failure: "Branch nicht gelöscht", note: "git branch -d", report: false, { try await $0.deleteBranch(name, force: false) }) else { return }
+        guard let error = await run(failure: "Branch not deleted", note: "git branch -d", report: false, { try await $0.deleteBranch(name, force: false) }) else { return }
         guard error.isUnmergedBranch else {
-            prompter.report(error, title: "Branch nicht gelöscht")
+            prompter.report(error, title: "Branch not deleted")
             return
         }
         let message = Self.gitMessage(error)
-        guard await confirm("\(branch: name) ist nicht vollständig gemergt", info: "\(message)\n\nDie Commits, die nur auf diesem Branch liegen, sind danach nur noch über das Reflog erreichbar.", button: "Trotzdem löschen", destructive: true, style: .warning) else { return }
-        await run(failure: "Branch nicht gelöscht", note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
+        guard await confirm("\(RefName.branch(name)) is not fully merged", info: "\(message)\n\nCommits that are only on this branch can then only be reached through the reflog.", button: "Delete Anyway", destructive: true, style: .warning) else { return }
+        await run(failure: "Branch not deleted", note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
     }
 
     /// Removes a worktree; when git refuses it for modified or untracked files, shows git's message and offers to remove it anyway. True when it is gone.
     func removeWorktree(at path: String) async -> Bool {
-        guard let error = await run(failure: "Worktree nicht entfernt", note: "git worktree remove", report: false, { try await $0.removeWorktree(at: path, force: false) }) else { return true }
+        guard let error = await run(failure: "Worktree not removed", note: "git worktree remove", report: false, { try await $0.removeWorktree(at: path, force: false) }) else { return true }
         guard error.isDirtyWorktree else {
-            prompter.report(error, title: "Worktree nicht entfernt")
+            prompter.report(error, title: "Worktree not removed")
             return false
         }
         let name = (path as NSString).lastPathComponent
-        guard await confirm("\(worktree: name) hat nicht committete Änderungen", info: "\(Self.gitMessage(error))\n\nDie Änderungen und nicht versionierten Dateien in diesem Ordner gehen verloren.", button: "Trotzdem entfernen", destructive: true, style: .warning) else { return false }
-        return await run(failure: "Worktree nicht entfernt", note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
+        let message = Self.gitMessage(error)
+        guard await confirm("\(RefName.worktree(name)) has uncommitted changes", info: "\(message)\n\nThe changes and untracked files in this folder will be lost.", button: "Remove Anyway", destructive: true, style: .warning) else { return false }
+        return await run(failure: "Worktree not removed", note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
     }
 
     /// git's own words, without the hint lines that suggest commands.

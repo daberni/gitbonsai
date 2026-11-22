@@ -1,12 +1,13 @@
 import AppKit
 
-/// What a name inside running text stands for; it picks the inline pill's glyph and colour.
-enum RefKind {
-    case branch, remoteBranch, remote, tag, commit, path, worktree, stash
+/// What a name inside running text stands for; it picks the inline pill's glyph and colour. The raw value is its code inside a `RefName` mark.
+enum RefKind: Character {
+    case branch = "b", remoteBranch = "r", remote = "o", tag = "t", commit = "c", path = "p", worktree = "w", stash = "s"
 }
 
-/// UI copy with its names marked, written as `"Rebase \(branch: name) auf \(branch: onto)"`. `RefText` draws every name as an inline pill; `plain` is the same sentence as bare text.
-struct RefString: ExpressibleByStringInterpolation, Equatable, CustomStringConvertible {
+/// UI copy in the app's language with its names found: `RefText` draws every name as an inline pill; `plain` is the same sentence as bare text.
+/// Built from a `LocalizedStringResource` whose names were marked with `RefName`, or from text shown as it is.
+struct RefString: Equatable, CustomStringConvertible {
     enum Part: Equatable {
         case text(String)
         case name(String, RefKind)
@@ -14,29 +15,32 @@ struct RefString: ExpressibleByStringInterpolation, Equatable, CustomStringConve
 
     var parts: [Part]
 
-    struct StringInterpolation: StringInterpolationProtocol {
-        var parts: [Part] = []
-        init(literalCapacity: Int, interpolationCount: Int) {}
-        mutating func appendLiteral(_ literal: String) { parts.append(.text(literal)) }
-        mutating func appendInterpolation(_ text: String) { parts.append(.text(text)) }
-        mutating func appendInterpolation<T: CustomStringConvertible>(_ value: T) { parts.append(.text(value.description)) }
-        mutating func appendInterpolation(_ string: RefString) { parts += string.parts }
-        mutating func appendInterpolation(branch: String) { parts.append(.name(branch, .branch)) }
-        mutating func appendInterpolation(remoteBranch: String) { parts.append(.name(remoteBranch, .remoteBranch)) }
-        mutating func appendInterpolation(remote: String) { parts.append(.name(remote, .remote)) }
-        mutating func appendInterpolation(tag: String) { parts.append(.name(tag, .tag)) }
-        /// A commit is always named by its short SHA.
-        mutating func appendInterpolation(commit: String) { parts.append(.name(String(commit.prefix(RefString.shortSHA)), .commit)) }
-        mutating func appendInterpolation(path: String) { parts.append(.name(path, .path)) }
-        mutating func appendInterpolation(worktree: String) { parts.append(.name(worktree, .worktree)) }
-        mutating func appendInterpolation(stash: String) { parts.append(.name(stash, .stash)) }
-    }
-
     static let shortSHA = 7
 
-    init(stringLiteral value: String) { parts = [.text(value)] }
-    init(stringInterpolation: StringInterpolation) { parts = stringInterpolation.parts }
-    init(_ text: String) { parts = [.text(text)] }
+    init(_ resource: LocalizedStringResource) { self.init(marked: resource.marked) }
+
+    /// Text shown as it is, such as git's output or a commit subject; marks in it are not looked for.
+    init(verbatim text: String) { parts = text.isEmpty ? [] : [.text(text)] }
+
+    /// Finds the names `RefName` marked in `text`.
+    init(marked text: String) {
+        var parts: [Part] = []
+        var rest = Substring(text)
+        while let start = rest.firstIndex(of: RefName.start) {
+            if start > rest.startIndex { parts.append(.text(String(rest[..<start]))) }
+            let afterStart = rest.index(after: start)
+            guard afterStart < rest.endIndex, let kind = RefKind(rawValue: rest[afterStart]), let end = rest[afterStart...].firstIndex(of: RefName.end) else {
+                parts.append(.text(String(rest[start...])))
+                rest = ""
+                break
+            }
+            parts.append(.name(String(rest[rest.index(after: afterStart)..<end]), kind))
+            rest = rest[rest.index(after: end)...]
+        }
+        if !rest.isEmpty { parts.append(.text(String(rest))) }
+        self.parts = parts
+    }
+
     private init(parts: [Part]) { self.parts = parts }
 
     /// The sentence without pills, for tooltips, accessibility, logs and the harness.
@@ -49,17 +53,22 @@ struct RefString: ExpressibleByStringInterpolation, Equatable, CustomStringConve
         }.joined()
     }
 
+    /// The sentence with its names marked again, to pass on as an argument of another localized text.
+    var marked: String {
+        parts.map { part in
+            switch part {
+            case .text(let text): text
+            case .name(let name, let kind): RefName.mark(name, kind)
+            }
+        }.joined()
+    }
+
     /// Interpolated into a plain string, it reads as the plain sentence.
     var description: String { plain }
 
+    var isEmpty: Bool { parts.isEmpty }
+
     var containsNames: Bool { parts.contains { if case .name = $0 { true } else { false } } }
-
-    static func + (lhs: RefString, rhs: RefString) -> RefString { RefString(parts: lhs.parts + rhs.parts) }
-
-    /// Joins the pieces with `separator`, as `[String].joined(separator:)` does.
-    static func joined(_ pieces: [RefString], separator: String) -> RefString {
-        RefString(parts: pieces.enumerated().flatMap { index, piece in (index == 0 ? [] : [Part.text(separator)]) + piece.parts })
-    }
 }
 
 /// Draws the names of a `RefString` as small pills inside text: the history's ref pill in miniature, with its glyph, in the colour of its kind.
@@ -181,6 +190,8 @@ extension NSMenuItem {
         setAccessibilityLabel(title.plain)
     }
 
+    @MainActor func setTitle(_ title: LocalizedStringResource) { setTitle(RefString(title)) }
+
     /// The title as a person reads it, without the pills' attachment characters; what the harness matches entries by.
     var plainTitle: String { RefText.plain(title) }
 }
@@ -199,4 +210,6 @@ extension NSTextField {
         rendered.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: rendered.length))
         attributedStringValue = rendered
     }
+
+    @MainActor func setText(_ text: LocalizedStringResource) { setText(RefString(text)) }
 }

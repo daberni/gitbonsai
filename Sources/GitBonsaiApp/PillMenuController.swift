@@ -25,11 +25,11 @@ final class PillMenuController {
             return tags.localTagGroups(name, commit: commit).joinedWithSeparators
         case .detachedHead:
             return [
-                [ActionMenuItem("Branch hier anlegen …") { [weak self] in self?.sidebarActions.newBranch.show() }],
-                [ActionMenuItem("SHA kopieren") { SidebarActionRunner.copy(commit) }],
+                [ActionMenuItem("Create Branch Here…") { [weak self] in self?.sidebarActions.newBranch.show() }],
+                [ActionMenuItem("Copy SHA") { SidebarActionRunner.copy(commit) }],
             ].joinedWithSeparators
         case .other(let name):
-            return [ActionMenuItem("Namen kopieren") { SidebarActionRunner.copy(name) }]
+            return [ActionMenuItem("Copy Name") { SidebarActionRunner.copy(name) }]
         }
     }
 

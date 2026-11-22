@@ -13,7 +13,7 @@ final class RefPickerButton: NSControl {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setAccessibilityRole(.popUpButton)
-        setAccessibilityLabel("Startpunkt")
+        setAccessibilityLabel(String(localized: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit."))
     }
 
     required init?(coder: NSCoder) { nil }

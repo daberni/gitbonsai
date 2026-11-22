@@ -181,7 +181,7 @@ final class FileListView: NSStackView {
     struct Section {
         let title: String
         let rows: [FileRowView.Model]
-        /// For instance "Alle stagen".
+        /// For instance "Stage all".
         let action: (title: String, perform: () -> Void)?
     }
 
@@ -237,7 +237,7 @@ final class FileListView: NSStackView {
                 addFull(row)
             }
             if section.rows.count > Theme.Detail.maximumFiles {
-                addFull(Self.caption("… und \(section.rows.count - Theme.Detail.maximumFiles) weitere"))
+                addFull(Self.caption(String(localized: "… and \(section.rows.count - Theme.Detail.maximumFiles) more", bundle: .module, comment: "Below a cut-off file list")))
             }
         }
     }
@@ -283,7 +283,7 @@ final class FileListView: NSStackView {
         let box = NSView()
         box.translatesAutoresizingMaskIntoConstraints = false
         let title = Self.caption("")
-        title.attributedStringValue = NSAttributedString(string: section.title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
+        title.attributedStringValue = NSAttributedString(string: section.title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
         box.addSubview(title)
         var constraints = [
             box.heightAnchor.constraint(equalToConstant: Theme.FileList.sectionHeight),

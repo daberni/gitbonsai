@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// "von <old base> nach <target>" at the top of the interactive rebase sheet. The old base is a `RefPicker`: the detected candidates under "Vorschläge", then branches, remote branches and tags, or any commit typed.
+/// "from <old base> to <target>" at the top of the interactive rebase sheet. The old base is a `RefPicker`: the detected candidates under "Suggestions", then branches, remote branches and tags, or any commit typed.
 /// Each choice asks `changeBase` to load the new range; only the latest choice may answer.
 @MainActor
 final class RebaseBasePicker {
@@ -19,12 +19,13 @@ final class RebaseBasePicker {
     init(base: RefCatalog.Item, target: RefString, catalog: RefCatalog, repository: Repository, note: String?) {
         current = base.revision
         picker = RefPicker(repository: repository)
-        picker.sectionTitles[.current] = "Vorschläge"
+        picker.sectionTitles[.current] = String(localized: "Suggestions", bundle: .module, comment: "Section of the base picker with the detected old bases.")
         picker.setCatalog(catalog, selection: base)
-        picker.button.toolTip = "Die bisherige Basis: ihre Commits und alles davor bleiben zurück"
-        picker.button.setAccessibilityLabel("Bisherige Basis")
-        let from = Self.caption("von")
-        let to = Self.caption("nach")
+        picker.button.toolTip = String(localized: "The old base: its commits and everything before them stay behind", bundle: .module)
+        picker.button.setAccessibilityLabel(String(localized: "Old base", bundle: .module))
+        // Captions between the controls of one line, "from <old base> to <target>"; the controls cannot sit inside one sentence.
+        let from = Self.caption(String(localized: "from", bundle: .module, comment: "Rebase sheet, before the old base picker: from <old base> to <target>."))
+        let to = Self.caption(String(localized: "to", bundle: .module, comment: "Rebase sheet, before the target: from <old base> to <target>."))
         let targetLabel = NSTextField(labelWithString: "")
         targetLabel.font = Theme.bodyMedium
         targetLabel.textColor = Theme.ink
@@ -60,7 +61,7 @@ final class RebaseBasePicker {
 
     /// Under the harness `GITBONSAI_ONTO=<base>` and the `base:` step choose the base by name or revision, as picking it in the list would.
     func type(_ text: String) async {
-        guard let item = await picker.choose(text.trimmingCharacters(in: .whitespaces)) else { return show("„\(text)“ ist kein Commit", isProblem: true) }
+        guard let item = await picker.choose(text.trimmingCharacters(in: .whitespaces)) else { return show(String(localized: "“\(text)” is not a commit", bundle: .module), isProblem: true) }
         await baseChosen(item.revision)
     }
 

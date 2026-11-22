@@ -41,7 +41,7 @@ final class WelcomeListView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         settingsLink.isBordered = false
-        settingsLink.attributedTitle = NSAttributedString(string: "Repository-Ordner in den Einstellungen festlegen …", attributes: [.font: Theme.body, .foregroundColor: Theme.moss])
+        settingsLink.attributedTitle = NSAttributedString(string: String(localized: "Choose repository folders in Settings…", bundle: .module), attributes: [.font: Theme.body, .foregroundColor: Theme.moss])
         settingsLink.target = self
         settingsLink.action = #selector(openSettings(_:))
         settingsLink.isHidden = true
@@ -63,7 +63,7 @@ final class WelcomeListView: NSView {
             y += height
         }
         for section in list.sections {
-            add(.caption(section.title.uppercased()), height: M.captionHeight)
+            add(.caption(section.title.uppercased(with: AppLanguage.locale)), height: M.captionHeight)
             if section.entries.isEmpty {
                 add(.message(emptyText(section)), height: M.messageHeight)
             }
@@ -73,7 +73,7 @@ final class WelcomeListView: NSView {
             }
             if section.isRecents, showsFolderHint {
                 y += M.sectionGap
-                add(.message("Auch Repositories aus eigenen Ordnern vorschlagen:"), height: M.messageHeight)
+                add(.message(String(localized: "Also suggest repositories from your own folders:", bundle: .module)), height: M.messageHeight)
                 settingsLinkFrame = CGRect(x: M.textInset, y: y, width: bounds.width - M.textInset, height: M.messageHeight)
                 y += M.messageHeight
             }
@@ -87,8 +87,8 @@ final class WelcomeListView: NSView {
     }
 
     private func emptyText(_ section: WelcomeList.Section) -> String {
-        if list.isFiltered { return "Keine Treffer." }
-        return section.isRecents ? "Noch nichts geöffnet. Ein Ordner lässt sich auch auf das Fenster ziehen." : "Keine Repositories gefunden."
+        if list.isFiltered { return String(localized: "No matches.", bundle: .module) }
+        return section.isRecents ? String(localized: "Nothing opened yet. You can also drop a folder on the window.", bundle: .module) : String(localized: "No repositories found.", bundle: .module)
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -169,7 +169,7 @@ final class WelcomeListView: NSView {
             Glyph.branch.draw(in: CGRect(x: rightEdge - width - Theme.Space.xs - Theme.Icon.small, y: frame.minY + M.nameLine.top + M.branchShift, width: Theme.Icon.small, height: Theme.Icon.small), color: Theme.inkFaint, context: context)
         }
         if entry.isOpen {
-            NSAttributedString(string: "Geöffnet", attributes: [.font: Theme.pillStrong, .foregroundColor: Theme.moss, .paragraphStyle: trailing]).draw(in: CGRect(x: rightEdge - sideWidth, y: frame.minY + M.folderLine.top, width: sideWidth, height: M.folderLine.height))
+            NSAttributedString(string: String(localized: "Opened", bundle: .module, comment: "Badge on a welcome page entry whose repository is open in a tab."), attributes: [.font: Theme.pillStrong, .foregroundColor: Theme.moss, .paragraphStyle: trailing]).draw(in: CGRect(x: rightEdge - sideWidth, y: frame.minY + M.folderLine.top, width: sideWidth, height: M.folderLine.height))
         }
     }
 

@@ -34,12 +34,12 @@ extension Repository {
         try await runner.run(["status", "--porcelain", "--untracked-files=all"]).stdoutString
     }
 
-    /// The message the toolbar's one-click stash gives: "WIP auf <branch>: <subject of HEAD>", git's own default in the app's words.
-    public func defaultStashMessage() async -> String {
+    /// What the toolbar's one-click stash names in its message, git's own default in the app's words: the branch, nil on a detached HEAD, and the subject of HEAD, empty without a commit.
+    /// The app words the message, since it follows the interface language.
+    public func defaultStashMessageParts() async -> (branch: String?, subject: String) {
         let branch = (try? await runner.run(["symbolic-ref", "-q", "--short", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
         let subject = (try? await runner.run(["log", "-1", "--format=%s", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let place = branch.flatMap { $0.isEmpty ? nil : $0 } ?? "Detached HEAD"
-        return subject.isEmpty ? "WIP auf \(place)" : "WIP auf \(place): \(subject)"
+        return (branch.flatMap { $0.isEmpty ? nil : $0 }, subject)
     }
 
     /// Takes back a stash just made: pops it with its index, but only while it is still the newest stash, HEAD is still the commit it was made on and the working tree is as the stash left it.

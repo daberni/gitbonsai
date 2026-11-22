@@ -168,14 +168,14 @@ final class HistorySearchController {
         return viewModel.rowIndex(of: orderedMatches[wrapped])
     }
 
-    /// "3 von 42" while a match is selected, otherwise the number of matches; "Keine Treffer" for none. Nil without a search.
+    /// "3 of 42" while a match is selected, otherwise the number of matches; "No matches" for none. Nil without a search.
     func counter(selectedRow: Int) -> String? {
         guard search != nil else { return nil }
-        if orderedMatches.isEmpty || replaceOnNextChunk { return scanTask == nil && !replaceOnNextChunk ? "Keine Treffer" : "…" }
+        if orderedMatches.isEmpty || replaceOnNextChunk { return scanTask == nil && !replaceOnNextChunk ? String(localized: "No matches", bundle: .module) : "…" }
         let total = orderedMatches.count
-        guard selectedRow >= 0, selectedRow < viewModel.commits.count, matchSet.contains(viewModel.commits[selectedRow].id) else { return "\(total) Treffer" }
+        guard selectedRow >= 0, selectedRow < viewModel.commits.count, matchSet.contains(viewModel.commits[selectedRow].id) else { return String(localized: "\(total) matches", bundle: .module) }
         let position = position(ofRow: selectedRow)
-        return "\(position + 1) von \(total)"
+        return String(localized: "\(position + 1) of \(total)", bundle: .module, comment: "Search counter: the selected match of all matches")
     }
 
     /// Matches are in history order and so are their rows, so the selected match is found by bisection.

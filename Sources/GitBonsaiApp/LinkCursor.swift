@@ -15,7 +15,7 @@ enum LinkCursor {
     }
 }
 
-/// A borderless button that reads as a link or a bare icon: underlined SHAs, "Alle stagen", the copy icon.
+/// A borderless button that reads as a link or a bare icon: underlined SHAs, "Stage all", the copy icon.
 final class LinkButton: NSButton {
     private var cursorArea: NSTrackingArea?
 

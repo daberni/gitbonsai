@@ -12,7 +12,7 @@ final class OperationBannerController {
     /// Each update starts a new read; only the latest one may change the banner.
     private var generation = 0
     private var isRunning = false
-    /// "Commit ändern" at an edit stop: opens the commit form with amend.
+    /// "Amend Commit" at an edit stop: opens the commit form with amend.
     var onAmend: (() -> Void)?
     /// The banner shows another state; the commit form follows whether git waits at an edit stop.
     var onStateChange: (() -> Void)?
@@ -67,34 +67,35 @@ final class OperationBannerController {
         if case .edit? = progress?.stop { true } else { false }
     }
 
-    /// "Rebase von feature auf main: Schritt 3 von 7, 2 Konflikte", or at an edit stop "Angehalten zum Bearbeiten von 1a2b3c4 „Subject“ · Schritt 3 von 7 · Rebase von feature auf …"
+    /// "Rebase of feature onto main: step 3 of 7, 2 conflicts", or at an edit stop "Stopped to edit 1a2b3c4 “Subject” · step 3 of 7 · Rebase of feature onto …"
+    /// The operation's name is git's own word and stays the same in every language.
     static func describe(_ progress: OperationProgress, conflicts: Int, ontoName: RefString?) -> RefString {
-        let from: RefString = progress.branch.map { " von \(branch: $0)" } ?? ""
-        let onto: RefString = ontoName.map { " auf \($0)" } ?? ""
-        let commit: RefString = progress.commit.map { " von \(commit: $0)" } ?? ""
+        let label = progress.kind.label
+        let from = progress.branch.map(RefName.branch)
+        let onto = ontoName?.marked
+        let commit = progress.commit.map(RefName.commit)
         let head: RefString = switch progress.kind {
-        case .rebase: "Rebase\(from)\(onto)"
-        case .cherryPick: "Cherry-pick\(commit)"
-        case .revert: "Revert\(commit)"
-        case .merge: "Merge\(ontoName.map { " von \($0)" } ?? "")"
+        case .rebase:
+            if let from, let onto { RefString("\(label) of \(from) onto \(onto)") }
+            else if let from { RefString("\(label) of \(from)") }
+            else if let onto { RefString("\(label) onto \(onto)") }
+            else { RefString(verbatim: label) }
+        case .cherryPick, .revert: commit.map { RefString("\(label) of \($0)") } ?? RefString(verbatim: label)
+        case .merge: onto.map { RefString("\(label) of \($0)") } ?? RefString(verbatim: label)
         }
-        let step = progress.step.flatMap { step in progress.total.map { RefString("Schritt \(step) von \($0)") } }
-        // A stop that waits for the user leads, so a narrow banner still says why it waits.
-        switch (progress.stop, conflicts) {
-        case let (.edit(commit, subject)?, 0):
-            return RefString.joined(["Angehalten zum Bearbeiten von \(commit: commit) „\(subject)“", step].compactMap { $0 } + [head], separator: " · ")
-        case let (.exec(command)?, 0):
-            return RefString.joined(["„\(command)“ fehlgeschlagen", step].compactMap { $0 } + [head], separator: " · ")
-        default:
-            break
+        let step = progress.step.flatMap { step in progress.total.map { RefString("Step \(step) of \($0)") } }
+        // A stop that waits for the user leads, so a narrow banner still says why it waits. The parts are complete on their own and only listed.
+        let stop: RefString? = switch (progress.stop, conflicts) {
+        case let (.edit(commit, subject)?, 0): RefString("Stopped to edit \(RefName.commit(commit)) “\(subject)”")
+        case let (.exec(command)?, 0): RefString("“\(command)” failed")
+        default: nil
         }
-        var parts = [step?.plain].compactMap { $0 }
-        switch conflicts {
-        case 0: parts.append("keine Konflikte offen")
-        case 1: parts.append("1 Konflikt")
-        default: parts.append("\(conflicts) Konflikte")
+        if let stop {
+            return RefString(marked: ([stop, step].compactMap { $0 } + [head]).map(\.marked).joined(separator: " · "))
         }
-        return "\(head): \(parts.joined(separator: ", "))"
+        let open = conflicts == 0 ? RefString("no open conflicts") : RefString("\(conflicts) conflicts")
+        let state = ([step].compactMap { $0 } + [open]).map(\.marked).joined(separator: ", ")
+        return RefString("\(head.marked): \(state)")
     }
 
     /// The branch, remote branch or tag at a commit, or its short SHA.
@@ -109,11 +110,11 @@ final class OperationBannerController {
             default: 3
             }
         }
-        guard let ref = refs.filter({ order($0) < 3 }).min(by: { order($0) < order($1) }) else { return "\(commit: sha)" }
+        guard let ref = refs.filter({ order($0) < 3 }).min(by: { order($0) < order($1) }) else { return RefString(marked: RefName.commit(sha)) }
         return switch ref.kind {
-        case .localBranch: "\(branch: ref.name)"
-        case .tag: "\(tag: ref.name)"
-        default: "\(remoteBranch: ref.name)"
+        case .localBranch: RefString(marked: RefName.branch(ref.name))
+        case .tag: RefString(marked: RefName.tag(ref.name))
+        default: RefString(marked: RefName.remoteBranch(ref.name))
         }
     }
 
@@ -122,14 +123,14 @@ final class OperationBannerController {
     func perform(_ action: Action) {
         guard let progress, !isRunning else { return }
         let kind = progress.kind
-        let label = Self.label(of: kind)
+        let label = kind.label
         Task {
             if action == .abort {
                 let alert = NSAlert()
-                alert.messageText = "\(label) abbrechen?"
-                alert.informativeText = "Branch, Index und Arbeitsverzeichnis kommen auf den Stand vor dem \(label). Bereits gelöste Konflikte gehen verloren."
-                alert.addButton(withTitle: "\(label) abbrechen")
-                alert.addButton(withTitle: "Weiter lösen")
+                alert.messageText = String(localized: "Abort \(label)?", bundle: .module, comment: "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.")
+                alert.informativeText = String(localized: "Branch, index and working directory return to where they were before the \(label). Conflicts already resolved are lost.", bundle: .module, comment: "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.")
+                alert.addButton(withTitle: String(localized: "Abort \(label)", bundle: .module, comment: "Button; the argument is git's operation: Rebase, Cherry-pick, Revert or Merge."))
+                alert.addButton(withTitle: String(localized: "Keep Resolving", bundle: .module))
                 alert.buttons.first?.hasDestructiveAction = true
                 guard await prompter.confirm(alert) else { return }
             }
@@ -153,18 +154,9 @@ final class OperationBannerController {
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
-                await prompter.report(error, title: "\(command) fehlgeschlagen", unlessStoppedIn: repository)
+                await prompter.report(error, title: "\(command) failed", unlessStoppedIn: repository)
             }
             update()
-        }
-    }
-
-    private static func label(of kind: OperationProgress.Kind) -> String {
-        switch kind {
-        case .rebase: "Rebase"
-        case .cherryPick: "Cherry-pick"
-        case .revert: "Revert"
-        case .merge: "Merge"
         }
     }
 }
@@ -178,10 +170,10 @@ final class OperationBannerView: NSView {
 
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    private(set) lazy var amendButton = button("Commit ändern …", #selector(amendCommit))
-    private(set) lazy var continueButton = button("Fortsetzen", #selector(continueOperation))
-    private(set) lazy var skipButton = button("Überspringen", #selector(skipOperation))
-    private(set) lazy var abortButton = button("Abbrechen", #selector(abortOperation))
+    private(set) lazy var amendButton = button(String(localized: "Amend Commit…", bundle: .module), #selector(amendCommit))
+    private(set) lazy var continueButton = button(String(localized: "Continue", bundle: .module, comment: "Continues a rebase, cherry-pick, revert or merge."), #selector(continueOperation))
+    private(set) lazy var skipButton = button(String(localized: "Skip", bundle: .module, comment: "Skips the current step of a rebase, cherry-pick or revert."), #selector(skipOperation))
+    private(set) lazy var abortButton = button(String(localized: "Abort", bundle: .module, comment: "Aborts a rebase, cherry-pick, revert or merge."), #selector(abortOperation))
     private var hasConflicts = false
 
     var text: String { RefText.plain(label.stringValue) }
@@ -226,7 +218,7 @@ final class OperationBannerView: NSView {
         abortButton.isEnabled = isEnabled
         amendButton.isHidden = !canAmend
         amendButton.isEnabled = isEnabled
-        amendButton.toolTip = "Öffnet das Commit-Formular mit Amend; danach Fortsetzen"
+        amendButton.toolTip = String(localized: "Opens the commit form with amend; then Continue", bundle: .module)
         needsDisplay = true
     }
 

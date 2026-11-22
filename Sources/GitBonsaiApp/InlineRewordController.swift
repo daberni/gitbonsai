@@ -67,20 +67,21 @@ final class InlineRewordController {
         } catch {
             guard editor === self.editor else { return }
             let reason = (error as? RebasePlanError).map(InteractiveRebaseController.describe) ?? "\(error)"
-            editor.showNote(RefString(reason))
+            editor.showNote(RefString(verbatim: reason))
         }
     }
 
-    /// "Schreibt 3 Commits neu · 3 schon auf origin/develop", with what happens to uncommitted changes and branches that move along.
+    /// "Rewrites 3 commits · 3 already on origin/develop", with what happens to uncommitted changes and branches that move along.
     static func note(_ plan: RebasePlan, published: Int, upstream: String?, hasStaged: Bool) -> RefString {
-        let count = plan.steps.count
-        var parts: [RefString] = ["Schreibt \(count == 1 ? "1 Commit" : "\(count) Commits") neu"]
-        if published > 0 { parts.append("\(published) schon auf \(upstream.map { "\(remoteBranch: $0)" } ?? "dem Upstream")") }
+        var parts: [LocalizedStringResource] = ["Rewrites \(plan.steps.count) commits"]
+        if published > 0 {
+            parts.append(upstream.map { "\(published) already on \(RefName.remoteBranch($0))" } ?? "\(published) already on the upstream")
+        }
         let moving = plan.branches.values.flatMap { $0 }.map { $0.replacingOccurrences(of: "refs/heads/", with: "") }.sorted()
-        if !moving.isEmpty { parts.append("\(RefString.joined(moving.map { "\(branch: $0)" }, separator: ", ")) zieht mit") }
-        if plan.rewordsHeadAlone, hasStaged { parts.append("Vorgemerktes bleibt draußen (--only)") }
-        if plan.autostash { parts.append("lokale Änderungen werden geparkt (--autostash)") }
-        return RefString.joined(parts, separator: " · ")
+        if !moving.isEmpty { parts.append("also moves \(moving.map(RefName.branch).joined(separator: ", "))") }
+        if plan.rewordsHeadAlone, hasStaged { parts.append("staged changes stay out (--only)") }
+        if plan.autostash { parts.append("local changes are set aside (--autostash)") }
+        return RefString(marked: parts.map(\.marked).joined(separator: " · "))
     }
 
     private func save() {
@@ -100,7 +101,7 @@ final class InlineRewordController {
                     await viewModel.refresh(note: note)
                     // A conflict is a state the banner shows; only a failed command is worth a message.
                     if case let .exec(command)? = progress.stop {
-                        prompter.report(GitError(arguments: ["rebase"], exitCode: 1, stderr: output), title: "„\(command)“ fehlgeschlagen, Rebase angehalten")
+                        prompter.report(GitError(arguments: ["rebase"], exitCode: 1, stderr: output), title: "“\(command)” failed, rebase stopped")
                     }
                 }
                 finish()
@@ -109,7 +110,7 @@ final class InlineRewordController {
                 editor.isSaving = false
                 await viewModel.refresh(note: nil)
                 let planError = error as? RebasePlanError
-                prompter.report(planError.map { GitError(arguments: [], exitCode: 0, stderr: InteractiveRebaseController.describe($0)) } ?? error, title: "Nachricht nicht geändert")
+                prompter.report(planError.map { GitError(arguments: [], exitCode: 0, stderr: InteractiveRebaseController.describe($0)) } ?? error, title: "Couldn’t Change Message")
             }
         }
     }

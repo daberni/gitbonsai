@@ -7,8 +7,8 @@ enum DiffMode: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .diff: "Diff"
-        case .file: "Datei"
+        case .diff: String(localized: "Diff", bundle: .module, comment: "Diff mode: only the hunks")
+        case .file: String(localized: "Whole File", bundle: .module, comment: "Diff mode: the whole file with the changes in place")
         }
     }
 

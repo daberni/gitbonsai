@@ -3,7 +3,7 @@ import GitEngine
 
 extension InteractiveRebaseController: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
-        [Command(.rebaseInteractive, context: state.branch, blocker: CommandRules.rebaseInteractive(state), action: .choose(placeholder: "Rebase auf Branch oder Tag") { [weak self] in self?.targetChoices() ?? [] })]
+        [Command(.rebaseInteractive, context: state.branch, blocker: CommandRules.rebaseInteractive(state), action: .choose(placeholder: "Rebase onto branch or tag") { [weak self] in self?.targetChoices() ?? [] })]
     }
 
     /// Branches and tags to rebase the current branch onto, with the base the commit menu would detect.
@@ -19,23 +19,24 @@ extension InteractiveRebaseController: CommandProvider {
             default: return nil
             }
             guard let row = viewModel.rowIndex(of: ref.target) else {
-                return Command(id: ref.fullName, title: ref.name, glyph: .glyph(glyph), disabledReason: "Nicht in der geladenen Historie") {}
+                return Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(glyph), disabledReason: "Not in the loaded history") {}
             }
             let commit = viewModel.commits[row]
             let inPlace = viewModel.isReachableFromHead(commit.id)
             let reason = inPlace ? inPlaceReason(for: commit) : nil
-            return Command(id: ref.fullName, title: ref.name, glyph: .glyph(glyph), context: String(commit.id.prefix(7)), disabledReason: reason) { [weak self] in
+            return Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(glyph), context: String(commit.id.prefix(7)), disabledReason: reason.map { .verbatim($0) }) { [weak self] in
                 self?.openSheet(branch: branch, onto: commit, ref: ref, inPlace: inPlace)
             }
         }
     }
 
     private func openSheet(branch: String, onto commit: Commit, ref: Ref, inPlace: Bool) {
-        let place: RefString = switch ref.kind {
-        case .localBranch: "\(branch: ref.name)"
-        case .tag: "\(tag: ref.name)"
-        default: "\(remoteBranch: ref.name)"
+        let name = switch ref.kind {
+        case .localBranch: RefName.branch(ref.name)
+        case .tag: RefName.tag(ref.name)
+        default: RefName.remoteBranch(ref.name)
         }
+        let place = RefString(marked: name)
         guard !inPlace else { return openSheet(branch: branch, onto: commit, targetName: place, detection: .plain(moving: 0)) }
         let repository = viewModel.repository
         let targetRef = ref.kind == .tag ? nil : ref.name

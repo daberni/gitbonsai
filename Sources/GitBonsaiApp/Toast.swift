@@ -4,6 +4,17 @@ import AppKit
 struct ToastAction {
     let title: String
     let run: @MainActor () -> Void
+
+    init(title: LocalizedStringResource, run: @escaping @MainActor () -> Void) {
+        self.title = title.text
+        self.run = run
+    }
+
+    /// Wraps an action whose title is already localized.
+    init(verbatim title: String, run: @escaping @MainActor () -> Void) {
+        self.title = title
+        self.run = run
+    }
 }
 
 /// A short note at the bottom of the history pane that fades out by itself, for things worth knowing that need no answer, such as commits a rebase left out.
@@ -30,12 +41,16 @@ final class Toast {
         ])
     }
 
+    func show(_ text: LocalizedStringResource, action: ToastAction? = nil) {
+        show(RefString(text), action: action)
+    }
+
     func show(_ text: RefString, action: ToastAction? = nil) {
         generation += 1
         let current = generation
         view.text = text
         view.action = action.map { action in
-            ToastAction(title: action.title) { [weak self] in
+            ToastAction(verbatim: action.title) { [weak self] in
                 self?.hide()
                 action.run()
             }
@@ -84,7 +99,7 @@ final class ToastView: NSView {
         }
     }
 
-    var text: RefString = "" {
+    var text = RefString(verbatim: "") {
         didSet {
             label.setText(text)
             setAccessibilityLabel(text.plain)

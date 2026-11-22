@@ -228,7 +228,7 @@ final class SidebarView: NSView {
                 (outline.isCollapsed(key) ? Glyph.chevronRight : .chevronDown).draw(in: columnA.insetBy(dx: M.chevronInset, dy: M.chevronInset), color: Theme.inkMuted, context: context)
                 icon.draw(in: columnB.insetBy(dx: M.iconInset, dy: M.iconInset), color: Theme.inkMuted, context: context)
                 let limit = drawValue("\(count)", atY: rect.midY)
-                let label = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
+                let label = NSAttributedString(string: title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
                 label.draw(with: CGRect(x: textX, y: rect.midY - label.size().height / 2, width: limit - textX, height: label.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
                 if plus {
                     let circle = NSBezierPath(ovalIn: slot.insetBy(dx: Theme.Stroke.hairline / 2, dy: Theme.Stroke.hairline / 2))
@@ -255,7 +255,7 @@ final class SidebarView: NSView {
                 let line1 = rect.minY + M.worktreeLines.first, line2 = rect.minY + M.worktreeLines.second
                 glyph.draw(in: CGRect(x: columnB.minX - M.worktreeGlyphShift, y: line1 - M.slot / 2, width: M.slot, height: M.slot), color: faint ? Theme.inkFaint : Theme.ink, context: context)
                 var value = ""
-                if worktree.isLocked { value = "gesperrt" }
+                if worktree.isLocked { value = String(localized: "locked", bundle: .module, comment: "Marks a locked worktree in the sidebar.") }
                 let dirtyCount = info.status?.entries.count ?? 0
                 var limit = valueRight
                 if dirtyCount > 0 {
@@ -272,12 +272,15 @@ final class SidebarView: NSView {
                 let name = (worktree.path as NSString).lastPathComponent
                 drawText(name, font: isCurrent ? Theme.bodyStrong : Theme.bodyMedium, color: faint ? Theme.inkFaint : Theme.ink, x: textX, midY: line1, maxX: limit)
                 var detail: String
-                if worktree.isPrunable { detail = "Ordner fehlt · prunable" }
+                if worktree.isPrunable { detail = String(localized: "folder missing · prunable", bundle: .module, comment: "A worktree whose folder is gone; prunable is git's term.") }
                 else if let branch = worktree.branchName { detail = branch }
-                else { detail = "detached @ " + String((worktree.headSHA ?? "").prefix(7)) }
+                else {
+                    let sha = String((worktree.headSHA ?? "").prefix(7))
+                    detail = String(localized: "detached @ \(sha)", bundle: .module, comment: "A worktree on a detached HEAD at a short SHA.")
+                }
                 if let branch = info.status?.branch, branch.upstream != nil {
                     let sync = [branch.ahead > 0 ? "↑\(branch.ahead)" : nil, branch.behind > 0 ? "↓\(branch.behind)" : nil].compactMap { $0 }.joined(separator: " ")
-                    detail += " · " + (sync.isEmpty ? "synced" : sync)
+                    detail += " · " + (sync.isEmpty ? String(localized: "synced", bundle: .module, comment: "A worktree's branch is even with its upstream.") : sync)
                 }
                 drawText(detail, font: Theme.caption, color: faint ? Theme.inkFaint : Theme.inkMuted, x: textX, midY: line2, maxX: valueRight)
 

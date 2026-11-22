@@ -138,11 +138,12 @@ extension ScreenshotHarness {
             guard let items = tab.history.menuItems?(row) else { break }
             let menu = NSMenu()
             items.forEach(menu.addItem)
-            if let item = items.first(where: { $0.title.hasPrefix("Nachricht bearbeiten") }), item.action == nil {
+            let editMessage = String(localized: "Edit Message", bundle: .module)
+            if let item = items.first(where: { $0.title.hasPrefix(editMessage) }), item.action == nil {
                 log("menu entry „\(item.title)“ disabled: \(item.toolTip ?? "")")
                 break
             }
-            choose("Nachricht bearbeiten", in: menu)
+            choose(editMessage, in: menu)
         case "dblclick":
             guard let label = detail?.subjectLabel else { log("no subject label"); break }
             let point = label.convert(NSPoint(x: Theme.Space.s, y: label.bounds.midY), to: nil)
@@ -277,7 +278,9 @@ extension ScreenshotHarness {
     }
 
     /// Clicks the pop-up with a real press, takes the menu it opens and closes it, then chooses the entry the way the menu would.
-    private static func pick(_ title: String, from popup: NSPopUpButton) {
+    /// `title` is a todo verb such as `squash`; the pop-up shows its localized label.
+    private static func pick(_ action: String, from popup: NSPopUpButton) {
+        let title = RebaseAction(rawValue: action).map(RebaseStepRowView.label) ?? action
         guard let window = popup.window, let down = mouseEvent(.leftMouseDown, at: popup.convert(NSPoint(x: popup.bounds.midX, y: popup.bounds.midY), to: nil), in: window) else { return }
         nonisolated(unsafe) var opened: NSMenu?
         let observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { note in

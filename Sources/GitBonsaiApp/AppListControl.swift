@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private let table = NSTableView()
-    private let addButton = NSButton(title: "Andere App hinzufügen …", target: nil, action: nil)
+    private let addButton = NSButton(title: String(localized: "Add Other App…", bundle: .module), target: nil, action: nil)
     let defaultPicker = NSPopUpButton(frame: .zero, pullsDown: false)
     private let kind: ExternalApps.Kind
     private var choices: [ExternalApps.Choice] = []
@@ -66,7 +66,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
 
     private func rebuildDefaultPicker() {
         defaultPicker.removeAllItems()
-        let first = NSMenuItem(title: kind == .editor ? "Erster angehakter Editor" : "Erstes angehaktes Terminal", action: nil, keyEquivalent: "")
+        let first = NSMenuItem(title: kind == .editor ? String(localized: "First Checked Editor", bundle: .module) : String(localized: "First Checked Terminal", bundle: .module), action: nil, keyEquivalent: "")
         defaultPicker.menu?.addItem(first)
         let shown = choices.filter(\.isShown)
         if !shown.isEmpty { defaultPicker.menu?.addItem(.separator()) }
@@ -101,7 +101,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
         name.lineBreakMode = .byTruncatingTail
         var views: [NSView] = [box, icon, name]
         if choice.app.bundleID == ExternalApps.preferred(kind)?.app.bundleID {
-            let mark = NSTextField(labelWithString: "Standard")
+            let mark = NSTextField(labelWithString: String(localized: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals."))
             mark.font = Theme.caption
             mark.textColor = Theme.inkMuted
             views.append(mark)
@@ -131,7 +131,7 @@ final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.prompt = "Hinzufügen"
+        panel.prompt = String(localized: "Add", bundle: .module, comment: "The open panel's confirm button for adding an app or folder.")
         guard let window else { return }
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .OK, let url = panel.url, ExternalApps.app(at: url) != nil else { return }

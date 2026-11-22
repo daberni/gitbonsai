@@ -92,6 +92,17 @@ enum AppSettings {
         }
     }
 
+    /// The interface language from the next launch on. A choice other than the system's is stored as the app's own `AppleLanguages`, the way the system settings store a language per app;
+    /// harness runs keep it in their own domain and never touch it, `GITBONSAI_LANGUAGE` picks theirs.
+    static var language: AppLanguage.Choice {
+        get { defaults.string(forKey: "language").flatMap(AppLanguage.Choice.init) ?? .system }
+        set {
+            store(newValue == .system ? nil : newValue.rawValue, forKey: "language")
+            guard !ScreenshotHarness.isActive else { return }
+            if newValue == .system { UserDefaults.standard.removeObject(forKey: "AppleLanguages") } else { UserDefaults.standard.set([newValue.rawValue], forKey: "AppleLanguages") }
+        }
+    }
+
     /// Whether author avatars are loaded from the network. Harness runs keep them off unless `GITBONSAI_AVATARS` turns them on.
     static var avatarsEnabled: Bool {
         get { defaults.object(forKey: "avatarsEnabled") as? Bool ?? !ScreenshotHarness.isActive }

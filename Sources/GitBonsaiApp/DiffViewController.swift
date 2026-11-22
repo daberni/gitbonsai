@@ -8,7 +8,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private enum Row {
         case hunk(Int)
         case line(hunk: Int, line: Int)
-        /// A line of the whole file in the "Datei" mode.
+        /// A line of the whole file in the "Whole File" mode.
         case fileLine(Int)
     }
 
@@ -26,9 +26,9 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private let column = NSTableColumn(identifier: .init("diff"))
     private var diff: FileDiff?
     private var mode = DiffMode.remembered
-    /// Every line of the file, read only in the "Datei" mode.
+    /// Every line of the file, read only in the "Whole File" mode.
     private var fileLines: [DiffLine] = []
-    /// The rows hunk navigation stops at: hunk headers, or in the "Datei" mode the line each hunk starts with.
+    /// The rows hunk navigation stops at: hunk headers, or in the "Whole File" mode the line each hunk starts with.
     private var hunkStarts: [Int] = []
     private var rows: [Row] = []
     private var loadTask: Task<Void, Never>?
@@ -138,7 +138,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         }
     }
 
-    /// The diff, and in the "Datei" mode also the whole file; both are read before either is shown.
+    /// The diff, and in the "Whole File" mode also the whole file; both are read before either is shown.
     private static func read(_ selection: FileSelection, mode: DiffMode, from repository: Repository) async -> (FileDiff?, FileDiff?) {
         async let diff = try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
         async let full = mode == .file ? try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil
@@ -190,19 +190,19 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     /// What to say instead of lines, or nil when the diff has lines to show. A rename or mode change without content change says so rather than "no changes".
     private static func emptyContent(for diff: FileDiff?) -> EmptyStateView.Content? {
-        guard let diff else { return EmptyStateView.Content(title: "Keine Änderungen") }
-        if diff.isBinary { return EmptyStateView.Content(title: "Binärdatei", detail: ["Kein Textvergleich möglich"]) }
+        guard let diff else { return EmptyStateView.Content(title: String(localized: "No changes", bundle: .module)) }
+        if diff.isBinary { return EmptyStateView.Content(title: String(localized: "Binary File", bundle: .module), detail: [String(localized: "No text comparison possible", bundle: .module)]) }
         guard diff.hunks.isEmpty else { return nil }
         let modes = diff.modeChanged ? diff.oldMode.flatMap { old in diff.newMode.map { "\(old) → \($0)" } } : nil
         if let oldPath = diff.oldPath {
-            let title = diff.isCopy ? "Kopiert, Inhalt unverändert" : "Umbenannt, Inhalt unverändert"
-            let detail = [oldPath, "→ \(diff.path)"] + (modes.map { ["Dateimodus \($0)"] } ?? [])
+            let title = diff.isCopy ? String(localized: "Copied, content unchanged", bundle: .module) : String(localized: "Renamed, content unchanged", bundle: .module)
+            let detail = [oldPath, "→ \(diff.path)"] + (modes.map { [String(localized: "File mode \($0)", bundle: .module, comment: "e.g. File mode 100644 → 100755")] } ?? [])
             return EmptyStateView.Content(title: title, detail: detail, detailIsCode: true, toolTip: "\(oldPath) → \(diff.path)")
         }
-        if let modes { return EmptyStateView.Content(title: "Nur Dateimodus geändert", detail: [modes], detailIsCode: true) }
-        if diff.isNew { return EmptyStateView.Content(title: "Leere Datei hinzugefügt") }
-        if diff.isDeleted { return EmptyStateView.Content(title: "Leere Datei gelöscht") }
-        return EmptyStateView.Content(title: "Keine Änderungen")
+        if let modes { return EmptyStateView.Content(title: String(localized: "Only the file mode changed", bundle: .module), detail: [modes], detailIsCode: true) }
+        if diff.isNew { return EmptyStateView.Content(title: String(localized: "Empty file added", bundle: .module)) }
+        if diff.isDeleted { return EmptyStateView.Content(title: String(localized: "Empty file deleted", bundle: .module)) }
+        return EmptyStateView.Content(title: String(localized: "No changes", bundle: .module))
     }
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.
@@ -297,7 +297,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         case .hunk(let index):
             let view = (tableView.makeView(withIdentifier: .init("hunk"), owner: nil) as? DiffHunkView) ?? DiffHunkView()
             view.identifier = .init("hunk")
-            let title: String? = selection?.isUnstageable == true ? "Hunk unstagen" : selection?.isStageable == true ? "Hunk stagen" : nil
+            let title: String? = selection?.isUnstageable == true ? String(localized: "Unstage Hunk", bundle: .module) : selection?.isStageable == true ? String(localized: "Stage Hunk", bundle: .module) : nil
             if let diff { view.show(diff.hunks[index], actionTitle: title, canDiscard: selection?.isStageable == true) }
             view.onAction = { [weak self] in self?.runHunkAction(index) }
             view.onDiscard = { [weak self] in self?.discardHunk(index) }

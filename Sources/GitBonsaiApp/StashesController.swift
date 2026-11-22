@@ -15,17 +15,17 @@ final class StashesController {
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
-        popover = PanelPopover(list: PanelListView(title: "Stashes", empty: "Keine Stashes", noMatch: "Keine passenden Stashes", filterPlaceholder: "Stashes filtern"))
+        popover = PanelPopover(list: PanelListView(title: "Stashes", empty: "No stashes", noMatch: "No matching stashes", filterPlaceholder: "Filter stashes"))
         let list = popover.list
         list.onSelect = { [weak self] id in self?.onNavigate?(id) }
         list.onActivate = { [weak self] id in self?.showDiff(id) }
         list.menuItems = { [weak self] id in self?.menuItems(for: id) ?? [] }
         list.actions = [
-            PanelAction("Diff zeigen") { [weak self] id in self?.showDiff(id) },
-            PanelAction("Apply") { [weak self] id in self?.apply(id) },
+            PanelAction("Show Diff") { [weak self] id in self?.showDiff(id) },
+            PanelAction("Apply Stash") { [weak self] id in self?.apply(id) },
             PanelAction("Pop") { [weak self] id in self?.pop(id) },
-            PanelAction("Branch …") { [weak self] id in self?.createBranch(id) },
-            PanelAction("Drop …", isDestructive: true) { [weak self] id in self?.drop(id) },
+            PanelAction(LocalizedStringResource("Branch…", comment: "Creates a branch from a stash.")) { [weak self] id in self?.createBranch(id) },
+            PanelAction("Drop…", isDestructive: true) { [weak self] id in self?.drop(id) },
         ]
     }
 
@@ -46,7 +46,7 @@ final class StashesController {
     }
 
     private static func row(_ stash: Stash) -> PanelRow {
-        let detail = [stash.selector, stash.branch ?? "Detached HEAD"].joined(separator: " · ")
+        let detail = [stash.selector, stash.branch ?? String(localized: "Detached HEAD", bundle: .module)].joined(separator: " · ")
         return PanelRow(id: stash.commitID, glyph: .stashBowl, title: stash.text, marker: nil, tooltip: nil, detail: detail, date: stash.date, sha: String(stash.commitID.prefix(7)), searchText: stash.message)
     }
 
@@ -56,13 +56,13 @@ final class StashesController {
 
     func menuItems(for id: String) -> [NSMenuItem] {
         [
-            ActionMenuItem("Diff zeigen") { [weak self] in self?.showDiff(id) },
+            ActionMenuItem("Show Diff") { [weak self] in self?.showDiff(id) },
             .separator(),
-            ActionMenuItem("Apply") { [weak self] in self?.apply(id) },
+            ActionMenuItem("Apply Stash") { [weak self] in self?.apply(id) },
             ActionMenuItem("Pop") { [weak self] in self?.pop(id) },
-            ActionMenuItem("Branch aus Stash anlegen …") { [weak self] in self?.createBranch(id) },
+            ActionMenuItem("Create Branch from Stash…") { [weak self] in self?.createBranch(id) },
             .separator(),
-            ActionMenuItem("Drop …") { [weak self] in self?.drop(id) },
+            ActionMenuItem("Drop…") { [weak self] in self?.drop(id) },
         ]
     }
 
@@ -72,11 +72,11 @@ final class StashesController {
     func stashMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let all = ActionMenuItem("Alle Änderungen stashen") { [weak self] in self?.stashNow(.includingUntracked) }
-        all.toolTip = StashScope.includingUntracked.commandLine + " -m „WIP auf <Branch>: <HEAD>“"
+        let all = ActionMenuItem("Stash All Changes") { [weak self] in self?.stashNow(.includingUntracked) }
+        all.toolTip = String(localized: "\(StashScope.includingUntracked.commandLine) -m “WIP on <branch>: <HEAD>”", bundle: .module, comment: "Tooltip: the git command with the message it writes; <branch> and <HEAD> are placeholders.")
         menu.addItem(all)
-        menu.addItem(ActionMenuItem("Stash mit Nachricht …") { [weak self] in self?.stashWithMessage() })
-        let staged = ActionMenuItem("Nur gestagte Änderungen stashen") { [weak self] in self?.stashNow(.staged) }
+        menu.addItem(ActionMenuItem("Stash with Message…") { [weak self] in self?.stashWithMessage() })
+        let staged = ActionMenuItem("Stash Staged Changes Only") { [weak self] in self?.stashNow(.staged) }
         staged.toolTip = StashScope.staged.commandLine
         staged.isEnabled = hasStagedChanges
         menu.addItem(staged)
@@ -88,16 +88,23 @@ final class StashesController {
     /// Stashes without asking, under git's default style of message in the app's words; a toast offers to take it back.
     func stashNow(_ scope: StashScope) {
         Task {
-            let message = await viewModel.repository.defaultStashMessage()
-            await stash(message: message, scope: scope)
+            let parts = await viewModel.repository.defaultStashMessageParts()
+            await stash(message: Self.defaultMessage(branch: parts.branch, subject: parts.subject), scope: scope)
         }
+    }
+
+    /// "WIP on <branch>: <subject of HEAD>", written into the repository in the interface language.
+    private static func defaultMessage(branch: String?, subject: String) -> String {
+        let place = branch ?? String(localized: "Detached HEAD", bundle: .module)
+        if subject.isEmpty { return String(localized: "WIP on \(place)", bundle: .module, comment: "Stash message; the branch, or Detached HEAD.") }
+        return String(localized: "WIP on \(place): \(subject)", bundle: .module, comment: "Stash message: the branch, or Detached HEAD, then the subject of HEAD.")
     }
 
     /// Asks for a message and whether untracked files go along, then stashes.
     func stashWithMessage() {
-        let form = ActionForm(title: "Änderungen stashen", info: "Alle Änderungen im Working Directory kommen in einen neuen Stash.", confirm: "Stash")
-        form.addField(key: "message", label: "Nachricht (optional)", placeholder: "WIP", required: false)
-        form.addCheckbox("Unversionierte Dateien einschließen", checked: true)
+        let form = ActionForm(title: "Stash Changes", info: "All changes in the working directory go into a new stash.", confirm: LocalizedStringResource("Stash", comment: "Button that stashes the changes."))
+        form.addField(key: "message", label: "Message (optional)", placeholder: String(localized: "WIP", bundle: .module, comment: "Placeholder of a stash message: work in progress."), required: false)
+        form.addCheckbox("Include untracked files", checked: true)
         Task {
             guard let values = await prompter.ask(form) else { return }
             let message = values.value("message")
@@ -111,13 +118,13 @@ final class StashesController {
             let created = try await repository.stash(message: message, scope: scope)
             await viewModel.refresh(note: created == nil ? nil : scope.commandLine)
             guard let created else {
-                prompter.onToast?("Nichts zu stashen", nil)
+                prompter.onToast?(RefString("Nothing to stash"), nil)
                 return
             }
-            prompter.onToast?("Gestasht: \(stash: created.stash.text)", ToastAction(title: "Rückgängig") { [weak self] in self?.undo(created) })
+            prompter.onToast?(RefString("Stashed: \(RefName.stash(created.stash.text))"), ToastAction(title: "Undo Stash") { [weak self] in self?.undo(created) })
         } catch {
             await viewModel.refresh(note: nil)
-            prompter.report(error, title: "Stash nicht angelegt")
+            prompter.report(error, title: "Stash not created")
         }
     }
 
@@ -128,21 +135,21 @@ final class StashesController {
             do {
                 try await repository.undoStash(created)
                 await viewModel.refresh(note: "git stash pop --index stash@{0}")
-                prompter.onToast?("Stash zurückgenommen: \(stash: created.stash.text)", nil)
+                prompter.onToast?(RefString("Stash taken back: \(RefName.stash(created.stash.text))"), nil)
             } catch let error as StashUndoError {
-                prompter.onToast?("Nicht rückgängig gemacht: \(Self.reason(error)); der Stash bleibt in der Liste", nil)
+                prompter.onToast?(RefString(Self.notUndone(error)), nil)
             } catch {
                 await viewModel.refresh(note: nil)
-                prompter.report(error, title: "Stash nicht zurückgenommen")
+                prompter.report(error, title: "Stash not taken back")
             }
         }
     }
 
-    private static func reason(_ error: StashUndoError) -> String {
+    private static func notUndone(_ error: StashUndoError) -> LocalizedStringResource {
         switch error {
-        case .notNewest: "inzwischen gibt es einen neueren Stash"
-        case .headMoved: "HEAD hat sich inzwischen bewegt"
-        case .workingTreeChanged: "das Working Directory hat sich inzwischen geändert"
+        case .notNewest: "Not undone: there is a newer stash by now; the stash stays in the list"
+        case .headMoved: "Not undone: HEAD has moved since; the stash stays in the list"
+        case .workingTreeChanged: "Not undone: the working directory has changed since; the stash stays in the list"
         }
     }
 
@@ -162,30 +169,30 @@ final class StashesController {
 
     func apply(_ id: String) {
         guard let stash = stash(id) else { return }
-        runner.run(failure: "Stash nicht angewendet", conflict: "Stash mit Konflikten angewendet", note: "git stash apply \(stash.selector)") { try await $0.applyStash(stash) }
+        runner.run(failure: "Stash not applied", conflict: "Stash applied with conflicts", note: "git stash apply \(stash.selector)") { try await $0.applyStash(stash) }
     }
 
     func pop(_ id: String) {
         guard let stash = stash(id) else { return }
-        runner.run(failure: "Stash nicht angewendet", conflict: "Stash mit Konflikten angewendet, er bleibt erhalten", note: "git stash pop \(stash.selector)") { try await $0.popStash(stash) }
+        runner.run(failure: "Stash not applied", conflict: "Stash applied with conflicts; it stays", note: "git stash pop \(stash.selector)") { try await $0.popStash(stash) }
     }
 
     func drop(_ id: String) {
         guard let stash = stash(id) else { return }
         Task {
-            guard await runner.confirm("\(stash: stash.selector) droppen?", info: "„\(stash.text)“ wird gelöscht. Die Änderungen darin sind danach verloren.", button: "Drop") else { return }
-            runner.run(failure: "Stash nicht gelöscht", note: "git stash drop \(stash.selector)") { try await $0.dropStash(stash) }
+            guard await runner.confirm("Drop \(RefName.stash(stash.selector))?", info: "“\(stash.text)” is deleted. The changes in it are lost afterwards.", button: LocalizedStringResource("Drop", comment: "Button that deletes a stash.")) else { return }
+            runner.run(failure: "Stash not deleted", note: "git stash drop \(stash.selector)") { try await $0.dropStash(stash) }
         }
     }
 
     func createBranch(_ id: String) {
         guard let stash = stash(id) else { return }
-        let form = ActionForm(title: "Branch aus \(stash: stash.selector) anlegen", info: "Der Branch beginnt beim Commit, auf dem der Stash entstand. Der Stash wird dort angewendet und danach gelöscht.", confirm: "Anlegen")
-        form.addField(key: "name", label: "Name", placeholder: "feature/…")
+        let form = ActionForm(title: "Create Branch from \(RefName.stash(stash.selector))", info: "The branch starts at the commit the stash was made on. The stash is applied there and deleted afterwards.", confirm: "Create")
+        form.addField(key: "name", label: LocalizedStringResource("Name", comment: "Label of a branch name field."), placeholder: "feature/…")
         Task {
             guard let values = await prompter.ask(form), let name = values.value("name") else { return }
             popover.close()
-            runner.run(failure: "Branch nicht angelegt", note: "git stash branch \(name)") { try await $0.createBranch(name, from: stash) }
+            runner.run(failure: "Branch not created", note: "git stash branch \(name)") { try await $0.createBranch(name, from: stash) }
         }
     }
 }

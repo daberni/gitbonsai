@@ -40,7 +40,8 @@ final class CheckoutController: NSObject {
             // A branch checked out in another worktree can only be reached by going there.
             let worktree = elsewhere["refs/heads/\(checkout.branch)"]
             if let worktree {
-                return Choice(title: "Zu Worktree \(worktree: (worktree.path as NSString).lastPathComponent) wechseln (\(branch: checkout.branch))", target: .localBranch(checkout.branch), worktreePath: worktree.path)
+                let folder = (worktree.path as NSString).lastPathComponent
+                return Choice(title: RefString("Switch to Worktree \(RefName.worktree(folder)) (\(RefName.branch(checkout.branch)))"), target: .localBranch(checkout.branch), worktreePath: worktree.path)
             }
             var choice = Choice(title: title(of: checkout), target: checkout.target, worktreePath: nil)
             if case .diverged(let upstream, let lost) = checkout.kind {
@@ -49,20 +50,22 @@ final class CheckoutController: NSObject {
             return choice
         }
         if commit.id != viewModel.headSHA || viewModel.currentBranch != nil {
-            choices.append(Choice(title: "Commit \(commit: commit.id) auschecken (Detached HEAD)", target: .commit(commit.id), worktreePath: nil))
+            choices.append(Choice(title: RefString("Check Out Commit \(RefName.commit(commit.id)) (Detached HEAD)"), target: .commit(commit.id), worktreePath: nil))
         }
         return choices
     }
 
     private func title(of checkout: BranchCheckout) -> RefString {
-        switch checkout.kind {
-        case .local: "\(branch: checkout.branch) auschecken"
-        case .fastForward(let upstream) where checkout.branch == viewModel.currentBranch: "\(branch: checkout.branch) auf \(remoteBranch: upstream) vorspulen"
-        case .fastForward(let upstream): "\(branch: checkout.branch) auschecken und auf \(remoteBranch: upstream) vorspulen"
-        case .diverged(let upstream, _) where checkout.branch == viewModel.currentBranch: "\(branch: checkout.branch) auf \(remoteBranch: upstream) zurücksetzen …"
-        case .diverged(let upstream, _): "\(branch: checkout.branch) auschecken (weicht von \(remoteBranch: upstream) ab) …"
-        case .createTracking(let remote): "\(remoteBranch: "\(remote)/\(checkout.branch)") als lokalen Branch auschecken"
+        let branch = RefName.branch(checkout.branch)
+        let title: LocalizedStringResource = switch checkout.kind {
+        case .local: "Check Out \(branch)"
+        case .fastForward(let upstream) where checkout.branch == viewModel.currentBranch: "Fast-Forward \(branch) to \(RefName.remoteBranch(upstream))"
+        case .fastForward(let upstream): "Check Out \(branch) and Fast-Forward to \(RefName.remoteBranch(upstream))"
+        case .diverged(let upstream, _) where checkout.branch == viewModel.currentBranch: "Reset \(branch) to \(RefName.remoteBranch(upstream))…"
+        case .diverged(let upstream, _): "Check Out \(branch) (Diverged from \(RefName.remoteBranch(upstream)))…"
+        case .createTracking(let remote): "Check Out \(RefName.remoteBranch("\(remote)/\(checkout.branch)")) as Local Branch"
         }
+        return RefString(title)
     }
 
     /// A double click checks out the branch at the row. A row without a branch does nothing: a detached HEAD should be asked for, not happen by accident.
@@ -101,12 +104,13 @@ final class CheckoutController: NSObject {
     /// Resetting drops the local commits, so it is asked for with their number; the current branch has nothing else to offer.
     private func askReset(_ offer: ResetOffer) async -> NSApplication.ModalResponse {
         let alert = NSAlert()
-        let loss = offer.lostCommits == 1 ? "geht ein lokaler Commit verloren; das Reflog behält ihn" : "gehen \(offer.lostCommits) lokale Commits verloren; das Reflog behält sie"
-        alert.setText("\(branch: offer.branch) und \(remoteBranch: offer.upstream) sind auseinandergelaufen", info: "\(branch: offer.branch) lässt sich nicht vorspulen. Beim Zurücksetzen auf \(remoteBranch: offer.upstream) \(loss) noch eine Weile.")
+        let branch = RefName.branch(offer.branch)
+        let upstream = RefName.remoteBranch(offer.upstream)
+        alert.setText("\(branch) and \(upstream) have diverged", info: "\(branch) cannot be fast-forwarded. Resetting it to \(upstream) drops \(offer.lostCommits) local commits; the reflog keeps them for a while.")
         // Buttons take plain text only, so the name stands bare there.
-        alert.addButton(withTitle: "Auf \(offer.upstream) zurücksetzen")
-        if !offer.isCurrent { alert.addButton(withTitle: "Nur auschecken") }
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: String(localized: "Reset to \(offer.upstream)", bundle: .module))
+        if !offer.isCurrent { alert.addButton(withTitle: String(localized: "Just Check Out", bundle: .module)) }
+        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = true
         if ScreenshotHarness.isActive { return ScreenshotHarness.answerReset(alert) }
         guard let window = window?() else { return .cancel }
@@ -130,13 +134,18 @@ final class CheckoutController: NSObject {
             case .changesLeftInStash(let conflict):
                 let alert = NSAlert()
                 alert.alertStyle = .warning
-                let paths: RefString = conflict.conflictedPaths.isEmpty ? "" : "\n\n\(RefString.joined(conflict.conflictedPaths.map { "\(path: $0)" }, separator: "\n"))"
-                alert.setText("Gewechselt, aber die mitgenommenen Änderungen kollidieren", info: "Die Konflikte stehen im Arbeitsverzeichnis. Die Änderungen bleiben im Stash „\(conflict.stashMessage)“; nach dem Lösen kann er gelöscht werden.\(paths)")
+                let stash = conflict.stashMessage
+                let info: LocalizedStringResource = if conflict.conflictedPaths.isEmpty {
+                    "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted."
+                } else {
+                    "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted.\n\n\(RefName.paths(conflict.conflictedPaths, separator: "\n"))"
+                }
+                alert.setText("Switched, but the carried-over changes conflict", info: info)
                 present(alert) { _ in }
             case .failed(let message):
                 let alert = NSAlert()
                 alert.alertStyle = .warning
-                alert.messageText = "Wechsel fehlgeschlagen"
+                alert.messageText = String(localized: "Switch failed", bundle: .module)
                 alert.informativeText = message
                 present(alert) { _ in }
             }
@@ -156,5 +165,12 @@ final class CheckoutController: NSObject {
     private final class MenuChoice: NSObject {
         let choice: Choice
         init(_ choice: Choice) { self.choice = choice }
+    }
+}
+
+extension CheckoutTarget {
+    /// The message of the stash that carries uncommitted changes across this checkout, in the interface's language like everything the app writes into a repository.
+    var stashMessage: String {
+        String(localized: "GitBonsai: changes when switching to \(label)", bundle: .module, comment: "Message of the stash that carries local changes across a checkout; the argument is the branch or commit switched to.")
     }
 }

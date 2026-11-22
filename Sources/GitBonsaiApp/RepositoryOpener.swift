@@ -22,8 +22,8 @@ struct RepositoryOpener {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
-        panel.prompt = "Öffnen"
-        panel.message = "Ordner eines Repositorys wählen. Ein Unterordner genügt."
+        panel.prompt = String(localized: "Open", bundle: .module, comment: "The open panel's confirm button.")
+        panel.message = String(localized: "Choose a repository folder. A subfolder is enough.", bundle: .module)
         panel.beginSheetModal(for: window) { response in
             guard response == .OK else { return }
             open(panel.urls.map(\.path))
@@ -33,8 +33,8 @@ struct RepositoryOpener {
     func reportNotARepository(_ path: String, on window: NSWindow) {
         guard ScreenshotHarness.outputPath == nil else { return }
         let alert = NSAlert()
-        alert.messageText = "Kein Git-Repository"
-        alert.informativeText = "\((path as NSString).abbreviatingWithTildeInPath) liegt in keinem Repository."
+        alert.messageText = String(localized: "Not a Git Repository", bundle: .module)
+        alert.informativeText = String(localized: "\((path as NSString).abbreviatingWithTildeInPath) isn't inside a repository.", bundle: .module)
         alert.beginSheetModal(for: window)
     }
 }

@@ -9,7 +9,7 @@ extension ScreenshotHarness {
     /// `file:<n>` clicks file n in the detail panel, `row:<n>`, `cmd:<n>` and `shift:<n>` click history row n plainly, with ⌘ or with ⇧, `key:up|down|return` presses that key,
     /// `parent:<n>` clicks parent link n, `sidebar:<subject>` clicks a sidebar row and `sidebar2:<subject>` double-clicks it (subjects as for `GITBONSAI_SIDEBAR_MENU_LIST`), `tags:<n>` opens the tag list and presses entry n,
     /// `search:<text>` types into the commit search, `git:<argument>,<argument>…` runs a git command and refreshes the history in place like a write action, `stage:<path>` stages a file through the app,
-    /// `base` clicks the comparison's "seit gemeinsamer Basis", `close` the diff's close button, `focus:history` focuses the history, `tooltips:<row>` prints the tooltip a row registers over its labels, subject, author and date, `width:<points>` resizes the window and `shot:<png>` renders the window.
+    /// `base` clicks the comparison's "since common base", `close` the diff's close button, `focus:history` focuses the history, `tooltips:<row>` prints the tooltip a row registers over its labels, subject, author and date, `width:<points>` resizes the window and `shot:<png>` renders the window.
     static func navigate(on tab: RepositoryViewController) {
         guard let script = environment["GITBONSAI_NAVIGATE"] else { return }
         let steps = script.split(separator: ";").map(String.init)

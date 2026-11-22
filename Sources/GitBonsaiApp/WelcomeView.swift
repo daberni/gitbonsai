@@ -13,14 +13,14 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     let searchField = NSSearchField()
     let listView = WelcomeListView()
     private typealias M = Theme.Welcome
-    private let openButton = NSButton(title: "Ordner öffnen …", target: nil, action: nil)
-    let cloneButton = NSButton(title: "Klonen …", target: nil, action: nil)
+    private let openButton = NSButton(title: String(localized: "Open Folder…", bundle: .module), target: nil, action: nil)
+    let cloneButton = NSButton(title: String(localized: "Clone…", bundle: .module), target: nil, action: nil)
     private let scrollView = NSScrollView()
     private let discovery = RepositoryDiscoveryStore.shared
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        searchField.placeholderString = "Repositories durchsuchen"
+        searchField.placeholderString = String(localized: "Search repositories", bundle: .module)
         searchField.controlSize = .large
         searchField.delegate = self
         openButton.bezelStyle = .rounded
@@ -97,7 +97,7 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
         Theme.hairline.setFill()
         CGRect(x: 0, y: Theme.Window.toolbar - Theme.Stroke.hairline, width: bounds.width, height: Theme.Stroke.hairline).fill()
         Glyph.bonsaiMain.draw(in: CGRect(x: columnX + M.textInset, y: introTop, width: M.mark, height: M.mark), color: Theme.moss, context: context)
-        NSAttributedString(string: "Repository öffnen", attributes: [.font: Theme.heading, .foregroundColor: Theme.ink]).draw(at: CGPoint(x: columnX + M.textInset, y: introTop + M.titleOffset))
+        NSAttributedString(string: String(localized: "Open Repository", bundle: .module, comment: "Heading of the welcome page."), attributes: [.font: Theme.heading, .foregroundColor: Theme.ink]).draw(at: CGPoint(x: columnX + M.textInset, y: introTop + M.titleOffset))
     }
 
     // MARK: Keys

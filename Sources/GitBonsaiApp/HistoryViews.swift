@@ -44,7 +44,7 @@ final class HistoryHeaderView: NSView {
         let attributes: [NSAttributedString.Key: Any] = [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern]
         func caption(_ column: HistoryColumns.Column, in range: ClosedRange<CGFloat>?, rightAligned: Bool = false) {
             guard let range else { return }
-            let string = NSAttributedString(string: column.title.uppercased(), attributes: attributes)
+            let string = NSAttributedString(string: column.title.uppercased(with: AppLanguage.locale), attributes: attributes)
             let size = string.size()
             let x = rightAligned ? range.upperBound - Theme.Cell.trailing - size.width : range.lowerBound + Theme.Cell.leading
             guard x >= range.lowerBound + Theme.Cell.captionClearance, x + size.width <= range.upperBound - Theme.Cell.captionClearance else { return }

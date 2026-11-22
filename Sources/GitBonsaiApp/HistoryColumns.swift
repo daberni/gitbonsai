@@ -7,12 +7,12 @@ struct HistoryColumns: Equatable {
 
         var title: String {
             switch self {
-            case .label: "Branch / Tag"
-            case .graph: "Graph"
-            case .commit: "Commit"
-            case .author: "Autor"
-            case .sha: "SHA"
-            case .date: "Datum"
+            case .label: String(localized: "Branch / Tag", bundle: .module, comment: "History column header")
+            case .graph: String(localized: "Graph", bundle: .module, comment: "History column header")
+            case .commit: String(localized: "Commit", bundle: .module, comment: "History column header: the commit message")
+            case .author: String(localized: "Author", bundle: .module, comment: "History column header")
+            case .sha: String(localized: "SHA", bundle: .module, comment: "History column header")
+            case .date: String(localized: "Date", bundle: .module, comment: "History column header")
             }
         }
 

@@ -49,8 +49,12 @@ final class StagingController {
         }
         let first = changed.min() ?? hunk.newStart
         let last = changed.max() ?? first
-        let range = first == last ? "Zeile \(first)" : "Zeilen \(first)–\(last)"
-        confirm(title: "Hunk verwerfen?", text: "Die Änderungen in \(range) von \(path: file.path) gehen verloren. Das lässt sich nicht rückgängig machen.") { [weak self] in
+        let text: LocalizedStringResource = if first == last {
+            "The changes in line \(first) of \(RefName.path(file.path)) are lost. This cannot be undone."
+        } else {
+            "The changes in lines \(first)–\(last) of \(RefName.path(file.path)) are lost. This cannot be undone."
+        }
+        confirm(title: "Discard hunk?", text: text) { [weak self] in
             self?.run(failure: Self.discardFailure) { try await $0.discard(hunk, of: file) }
         }
     }
@@ -60,7 +64,7 @@ final class StagingController {
         let path = selection.path
         switch selection.source {
         case .unstaged:
-            confirm(title: "Änderungen an \(path: selection.name) verwerfen?", text: "Alle nicht gestagten Änderungen an \(path: path) gehen verloren. Gestagte Änderungen bleiben. Das lässt sich nicht rückgängig machen.") { [weak self] in
+            confirm(title: "Discard changes to \(RefName.path(selection.name))?", text: "All unstaged changes to \(RefName.path(path)) are lost. Staged changes stay. This cannot be undone.") { [weak self] in
                 self?.run(failure: Self.discardFailure) { try await $0.discardUnstagedChanges([path]) }
             }
         case .untracked:
@@ -72,24 +76,24 @@ final class StagingController {
         }
     }
 
-    private static let discardFailure = "Änderungen nicht verworfen"
+    private static let discardFailure: LocalizedStringResource = "Changes not discarded"
 
     /// Git has never seen an untracked file, so the sheet says plainly that it is gone for good.
     private func confirmDeletion(of path: String, then perform: @escaping () -> Void) {
         let name = (path as NSString).lastPathComponent
-        confirm(title: "\(path: name) löschen?", text: "Die ungetrackte Datei \(path: path) wird gelöscht. Git kennt sie nicht, sie lässt sich nicht wiederherstellen.", then: perform)
+        confirm(title: "Delete \(RefName.path(name))?", text: "The untracked file \(RefName.path(path)) is deleted. Git does not know it, so it cannot be restored.", then: perform)
     }
 
     /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard, and Esc cancels too.
-    private func confirm(title: RefString, text: RefString, then perform: @escaping () -> Void) {
+    private func confirm(title: LocalizedStringResource, text: LocalizedStringResource, then perform: @escaping () -> Void) {
         guard let window = window?() else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.setText(title, info: text)
-        let discard = alert.addButton(withTitle: "Verwerfen")
+        let discard = alert.addButton(withTitle: String(localized: "Discard", bundle: .module))
         discard.hasDestructiveAction = true
         discard.keyEquivalent = ""
-        let cancel = alert.addButton(withTitle: "Abbrechen")
+        let cancel = alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         cancel.keyEquivalent = "\r"
         if ScreenshotHarness.keysSheets { ScreenshotHarness.pressKey(on: alert) } else { ScreenshotHarness.answerDiscardSheet(alert) }
         Task {
@@ -99,7 +103,7 @@ final class StagingController {
 
     // MARK: Running
 
-    private func run(failure: String = "Index nicht geändert", _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    private func run(failure: LocalizedStringResource = "Index not changed", _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         let repository = viewModel.repository
         Task { [weak self] in
             do {
@@ -112,10 +116,10 @@ final class StagingController {
         }
     }
 
-    private func report(_ error: Error, title: String) {
+    private func report(_ error: Error, title: LocalizedStringResource) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = title
+        alert.messageText = title.text
         alert.informativeText = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
         guard ScreenshotHarness.outputPath == nil, let window = window?() else {
             FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))

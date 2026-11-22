@@ -13,8 +13,8 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
     private let bodyBox = FieldBox()
     let body = PlainTextView()
     private var bodyHeight: NSLayoutConstraint!
-    let saveButton = PrimaryButton(title: "Sichern")
-    let cancelButton = SecondaryButton(title: "Abbrechen")
+    let saveButton = PrimaryButton(title: String(localized: "Save", bundle: .module, comment: "Saves an edited commit message"))
+    let cancelButton = SecondaryButton(title: String(localized: "Cancel", bundle: .module))
     private let note = NSTextField(wrappingLabelWithString: "")
     private let original: String
     /// Saving waits for a plan; without one, or while git runs, the button stays off.
@@ -35,7 +35,7 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
         let (subjectText, bodyText) = Self.split(message)
         subject.stringValue = subjectText
         subject.font = Theme.title
-        subject.placeholder = "Subject"
+        subject.placeholder = String(localized: "Subject", bundle: .module, comment: "Placeholder: first line of a commit message")
         counter.font = Theme.captionDigits
         counter.alignment = .right
         subject.onChange = { [weak self] _ in self?.edited() }
@@ -46,10 +46,10 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
         note.isSelectable = false
         note.stringValue = " "
         saveButton.respondsToCommandReturn = true
-        saveButton.toolTip = "Sichern (⌘⏎)"
+        saveButton.toolTip = String(localized: "Save (⌘⏎)", bundle: .module)
         saveButton.target = self
         saveButton.action = #selector(savePressed(_:))
-        cancelButton.toolTip = "Abbrechen (Esc)"
+        cancelButton.toolTip = String(localized: "Cancel (Esc)", bundle: .module)
         cancelButton.target = self
         cancelButton.action = #selector(cancelPressed(_:))
         layout(views: [subject, bodyBox, saveButton, cancelButton, note])
@@ -91,7 +91,7 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
 
     private func buildBody(_ text: String) {
         body.string = text
-        body.placeholder = "Body (optional)"
+        body.placeholder = String(localized: "Body (optional)", bundle: .module, comment: "Placeholder: the commit message after the subject")
         body.font = Theme.body
         body.textColor = Theme.ink
         body.insertionPointColor = Theme.ink

@@ -35,13 +35,13 @@ final class FileActionsController {
         switch selection.source {
         case .unstaged:
             return [
-                ActionMenuItem("Stagen") { [weak self] in self?.staging.stage([path]) },
-                ActionMenuItem("Änderungen verwerfen …") { [weak self] in self?.staging.discard(selection) },
+                ActionMenuItem("Stage") { [weak self] in self?.staging.stage([path]) },
+                ActionMenuItem("Discard Changes…") { [weak self] in self?.staging.discard(selection) },
             ]
         case .untracked:
-            return [ActionMenuItem("Stagen") { [weak self] in self?.staging.stage([path]) }]
+            return [ActionMenuItem("Stage") { [weak self] in self?.staging.stage([path]) }]
         case .staged:
-            return [ActionMenuItem("Unstagen") { [weak self] in self?.staging.unstage([path]) }]
+            return [ActionMenuItem("Unstage") { [weak self] in self?.staging.unstage([path]) }]
         case .commit, .revisions:
             return []
         }
@@ -49,22 +49,22 @@ final class FileActionsController {
 
     private func openItems(_ selection: FileSelection, onDisk: Bool, isConflict: Bool) -> [NSMenuItem] {
         var items: [NSMenuItem] = []
-        if !isConflict { items.append(ActionMenuItem("Im Diff-Tool öffnen") { [weak self] in self?.openDiffTool(selection) }) }
+        if !isConflict { items.append(ActionMenuItem("Open in Diff Tool") { [weak self] in self?.openDiffTool(selection) }) }
         guard onDisk else { return items }
         let file = url(of: selection)
         let editor = ExternalApps.editor(forRepository: viewModel.repository.path)
-        let editorTitle = editor.map { "In \($0.app.name) öffnen" } ?? "Im Editor öffnen"
-        items.append(ActionMenuItem(RefString(editorTitle)) { [weak self] in self?.openInEditor(file) })
-        items.append(ActionMenuItem("Mit Standard-App öffnen") { [weak self] in self?.open(file, with: nil) })
-        items.append(ActionMenuItem("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([file]) })
+        let editorTitle: LocalizedStringResource = editor.map { editor -> LocalizedStringResource in "Open in \(editor.app.name)" } ?? "Open in Editor"
+        items.append(ActionMenuItem(editorTitle) { [weak self] in self?.openInEditor(file) })
+        items.append(ActionMenuItem("Open with Default App") { [weak self] in self?.open(file, with: nil) })
+        items.append(ActionMenuItem("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) })
         return items
     }
 
-    /// ⌥ turns "Pfad kopieren" into "Vollen Pfad kopieren".
+    /// ⌥ turns "Copy Path" into "Copy Full Path".
     private func copyItems(_ selection: FileSelection) -> [NSMenuItem] {
-        let relative = ActionMenuItem("Pfad kopieren") { Self.copy(selection.path) }
+        let relative = ActionMenuItem("Copy Path") { Self.copy(selection.path) }
         relative.keyEquivalentModifierMask = []
-        let full = ActionMenuItem("Vollen Pfad kopieren") { [weak self] in
+        let full = ActionMenuItem("Copy Full Path") { [weak self] in
             guard let self else { return }
             Self.copy(url(of: selection).path)
         }
@@ -77,13 +77,13 @@ final class FileActionsController {
         let selection = file.selection
         switch selection.source {
         case .commit(let commit):
-            let title = file.state == .deleted ? "Version vor diesem Commit wiederherstellen" : "Aus diesem Commit wiederherstellen"
-            return [ActionMenuItem(RefString(title)) { [weak self] in self?.restore(selection.path, of: commit) }]
+            let title: LocalizedStringResource = file.state == .deleted ? "Restore Version Before This Commit" : "Restore from This Commit"
+            return [ActionMenuItem(title) { [weak self] in self?.restore(selection.path, of: commit) }]
         case .revisions:
             return []
         case .unstaged, .staged, .untracked:
             guard onDisk, !isConflict else { return [] }
-            return [ActionMenuItem("In den Papierkorb legen …") { [weak self] in self?.moveToTrash(selection) }]
+            return [ActionMenuItem("Move to Trash…") { [weak self] in self?.moveToTrash(selection) }]
         }
     }
 
@@ -94,16 +94,15 @@ final class FileActionsController {
         Task {
             guard await repository.hasDiffTool() else {
                 let alert = NSAlert()
-                alert.messageText = "Kein Diff-Tool eingerichtet"
-                alert.informativeText = "Git weiß nicht, mit welchem Programm es Diffs zeigen soll. Lege eines fest, zum Beispiel mit „git config --global diff.tool opendiff“."
-                alert.addButton(withTitle: "OK")
+                alert.setText("No Diff Tool Set Up", info: "Git doesn’t know which program to show diffs with. Set one, for example with “git config --global diff.tool opendiff”.")
+                alert.addButton(withTitle: String(localized: "OK", bundle: .module))
                 _ = await prompter.confirm(alert)
                 return
             }
             do {
                 try await repository.openDiffTool(for: selection.path, originalPath: selection.originalPath, in: selection.source)
             } catch {
-                prompter.report(error, title: "Diff-Tool nicht gestartet")
+                prompter.report(error, title: "Couldn’t Start Diff Tool")
             }
         }
     }
@@ -115,16 +114,16 @@ final class FileActionsController {
         }
         NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
             guard let error else { return }
-            Task { @MainActor in self?.prompter.report(error, title: "Datei nicht geöffnet") }
+            Task { @MainActor in self?.prompter.report(error, title: "Couldn’t Open File") }
         }
     }
 
-    /// The same default editor as the command bar's "Im Editor öffnen"; without any editor the system's default app.
+    /// The same default editor as the command bar's "Open in Editor"; without any editor the system's default app.
     private func openInEditor(_ file: URL) {
         guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path) else { return open(file, with: nil) }
         ExternalApps.open(file, in: editor.app, at: editor.url) { [weak self] error in
             guard let error else { return }
-            self?.prompter.report(error, title: "Datei nicht geöffnet")
+            self?.prompter.report(error, title: "Couldn’t Open File")
         }
     }
 
@@ -138,14 +137,14 @@ final class FileActionsController {
                 if try await repository.hasLocalChanges(at: path) {
                     let alert = NSAlert()
                     alert.alertStyle = .warning
-                    alert.setText("\(path: name) aus \(commit: revision) wiederherstellen?", info: "Die lokalen Änderungen an \(path: path) werden überschrieben. Das lässt sich nicht rückgängig machen. Gestagte Änderungen bleiben im Index.")
-                    Self.addButtons(to: alert, confirm: "Wiederherstellen")
+                    alert.setText("Restore \(RefName.path(name)) from \(RefName.commit(revision))?", info: "The local changes to \(RefName.path(path)) will be overwritten. This can’t be undone. Staged changes stay in the index.")
+                    Self.addButtons(to: alert, confirm: "Restore")
                     guard await prompter.confirm(alert) else { return }
                 }
                 try await repository.restore(path, of: commit)
                 await viewModel.refresh(note: "git restore --source=\(revision.prefix(7))")
             } catch {
-                prompter.report(error, title: "Datei nicht wiederhergestellt")
+                prompter.report(error, title: "Couldn’t Restore File")
                 await viewModel.refresh(note: nil)
             }
             onChange?()
@@ -157,14 +156,14 @@ final class FileActionsController {
         Task {
             let alert = NSAlert()
             alert.alertStyle = .warning
-            let tracked = selection.source == .untracked ? "" : " Git zeigt sie danach als gelöscht."
-            alert.setText("\(path: selection.name) in den Papierkorb legen?", info: "\(path: selection.path) wird aus dem Arbeitsverzeichnis entfernt und landet im Papierkorb.\(tracked)")
-            Self.addButtons(to: alert, confirm: "In den Papierkorb")
+            let info: LocalizedStringResource = selection.source == .untracked ? "\(RefName.path(selection.path)) is removed from the working directory and goes to the Trash." : "\(RefName.path(selection.path)) is removed from the working directory and goes to the Trash. Git then shows it as deleted."
+            alert.setText("Move \(RefName.path(selection.name)) to the Trash?", info: info)
+            Self.addButtons(to: alert, confirm: "Move to Trash")
             guard await prompter.confirm(alert) else { return }
             do {
                 try FileManager.default.trashItem(at: file, resultingItemURL: nil)
             } catch {
-                prompter.report(error, title: "Datei nicht gelöscht")
+                prompter.report(error, title: "Couldn’t Move File to Trash")
             }
             await viewModel.refresh(note: nil)
             onChange?()
@@ -178,11 +177,11 @@ final class FileActionsController {
     }
 
     /// The destructive button is never the default, so Return cancels.
-    private static func addButtons(to alert: NSAlert, confirm: String) {
-        let button = alert.addButton(withTitle: confirm)
+    private static func addButtons(to alert: NSAlert, confirm: LocalizedStringResource) {
+        let button = alert.addButton(withTitle: confirm.text)
         button.hasDestructiveAction = true
         button.keyEquivalent = ""
-        alert.addButton(withTitle: "Abbrechen").keyEquivalent = "\r"
+        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module)).keyEquivalent = "\r"
     }
 
     private static func copy(_ text: String) {

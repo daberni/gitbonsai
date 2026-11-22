@@ -15,7 +15,7 @@ struct Command {
     enum Action {
         case run(@MainActor () -> Void)
         /// Opens a second list in the bar; the closure builds its entries when the step opens.
-        case choose(placeholder: String, @MainActor () -> [Command])
+        case choose(placeholder: LocalizedStringResource, @MainActor () -> [Command])
     }
 
     /// Stable across launches; recently used commands are remembered by it.
@@ -33,19 +33,19 @@ struct Command {
 
     var isEnabled: Bool { disabledReason == nil }
 
-    init(id: String, title: String, keywords: [String] = [], glyph: CommandGlyph, shortcut: CommandShortcut? = nil, scope: Scope = .repository, context: String? = nil, blocker: CommandBlocker? = nil, disabledReason: String? = nil, action: Action) {
+    init(id: String, title: LocalizedStringResource, keywords: [String] = [], glyph: CommandGlyph, shortcut: CommandShortcut? = nil, scope: Scope = .repository, context: String? = nil, blocker: CommandBlocker? = nil, disabledReason: LocalizedStringResource? = nil, action: Action) {
         self.id = id
-        self.title = title
+        self.title = title.text
         self.keywords = keywords
         self.glyph = glyph
         self.shortcut = shortcut
         self.scope = scope
         self.context = context
-        self.disabledReason = disabledReason ?? blocker?.reason
+        self.disabledReason = (disabledReason ?? blocker?.reason)?.text
         self.action = action
     }
 
-    init(id: String, title: String, keywords: [String] = [], glyph: CommandGlyph, shortcut: CommandShortcut? = nil, scope: Scope = .repository, context: String? = nil, blocker: CommandBlocker? = nil, disabledReason: String? = nil, run: @escaping @MainActor () -> Void) {
+    init(id: String, title: LocalizedStringResource, keywords: [String] = [], glyph: CommandGlyph, shortcut: CommandShortcut? = nil, scope: Scope = .repository, context: String? = nil, blocker: CommandBlocker? = nil, disabledReason: LocalizedStringResource? = nil, run: @escaping @MainActor () -> Void) {
         self.init(id: id, title: title, keywords: keywords, glyph: glyph, shortcut: shortcut, scope: scope, context: context, blocker: blocker, disabledReason: disabledReason, action: .run(run))
     }
 }
@@ -120,21 +120,21 @@ struct CommandShortcut: Equatable {
 
 extension CommandBlocker {
     /// The short reason a disabled command shows, in the bar's muted text.
-    var reason: String {
+    var reason: LocalizedStringResource {
         switch self {
         case .detachedHead: "Detached HEAD"
-        case .noCommits: "Noch kein Commit"
-        case .noRemote: "Kein Remote"
-        case .noUpstream: "Kein Upstream"
-        case .nothingStaged: "Nichts vorgemerkt"
-        case .nothingToStage: "Nichts zu stagen"
-        case .nothingToUnstage: "Nichts gestaged"
-        case .noTrackedChanges: "Keine Änderungen an versionierten Dateien"
-        case .noChanges: "Keine Änderungen"
-        case .noStash: "Kein Stash"
-        case .conflicts: "Offene Konflikte"
-        case .operationInProgress(let kind): "\(kind.label) läuft"
-        case .noOperation: "Nichts läuft"
+        case .noCommits: "No commits yet"
+        case .noRemote: "No remote"
+        case .noUpstream: "No upstream"
+        case .nothingStaged: "Nothing staged"
+        case .nothingToStage: "Nothing to stage"
+        case .nothingToUnstage: "Nothing staged to unstage"
+        case .noTrackedChanges: "No changes to tracked files"
+        case .noChanges: "No changes"
+        case .noStash: "No stash"
+        case .conflicts: "Unresolved conflicts"
+        case .operationInProgress(let kind): "\(kind.label) in progress"
+        case .noOperation: "Nothing in progress"
         }
     }
 }

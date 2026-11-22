@@ -9,7 +9,7 @@ struct ActionRunner {
 
     /// The tab is refreshed after a failure too: a conflicting apply or pop has changed the working tree.
     /// When local changes stopped the command before it changed anything, the failure offers to stash them, run it again and bring them back.
-    func run(failure: RefString, conflict: RefString? = nil, note: String, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         let repository = viewModel.repository
         let viewModel = viewModel
         let prompter = prompter
@@ -28,11 +28,12 @@ struct ActionRunner {
     }
 
     /// Runs the operation again with the local changes set aside. If they conflict on the way back, the working directory shows the conflicts and the stash stays; if the operation stops on conflicts itself, they wait in the stash.
-    private func stashAndRetry(failure: RefString, conflict: RefString?, note: String, then: (() -> Void)?, _ operation: @escaping @Sendable (Repository) async throws -> Void) -> FailureAction {
-        let message = "GitBonsai: vor \(note)"
+    private func stashAndRetry(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, then: (() -> Void)?, _ operation: @escaping @Sendable (Repository) async throws -> Void) -> FailureAction {
+        let message = String(localized: "GitBonsai: before \(note)", bundle: .module, comment: "Message of the stash that carries local changes past a command; the argument is the git command.")
         let prompter = prompter
-        return FailureAction(title: "Änderungen stashen und erneut versuchen") {
-            run(failure: failure, conflict: conflict, note: note + " · lokale Änderungen per Stash mitgenommen", then: then) { repository in
+        let carried = String(localized: "\(note) · local changes carried along in a stash", bundle: .module, comment: "Status line after a command ran with the local changes stashed around it; the argument is the git command.")
+        return FailureAction(title: "Stash Changes and Try Again") {
+            run(failure: failure, conflict: conflict, note: carried, then: then) { repository in
                 let conflicted = try await repository.withLocalChangesStashed(message: message) { try await operation(repository) }
                 if conflicted { await prompter.reportConflictingReturn(of: message) }
             }
@@ -40,11 +41,11 @@ struct ActionRunner {
     }
 
     /// A yes-or-no question with a destructive first button.
-    func confirm(_ title: RefString, info: RefString, button: String) async -> Bool {
+    func confirm(_ title: LocalizedStringResource, info: LocalizedStringResource, button: LocalizedStringResource) async -> Bool {
         let alert = NSAlert()
         alert.setText(title, info: info)
-        alert.addButton(withTitle: button)
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: button.text)
+        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = true
         return await prompter.confirm(alert)
     }

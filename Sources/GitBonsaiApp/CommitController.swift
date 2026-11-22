@@ -46,7 +46,7 @@ final class CommitController {
         } else {
             hasSubject && stagedCount > 0
         }
-        form.show(signing: signing, canCommit: canCommit && !isCommitting, buttonTitle: form.isAmend ? "Amend" : "Commit")
+        form.show(signing: signing, canCommit: canCommit && !isCommitting, buttonTitle: form.isAmend ? LocalizedStringResource("Amend", comment: "Button that amends the last commit.") : LocalizedStringResource("Commit", comment: "Button that commits."))
     }
 
     /// Ticks amend and loads the last message, for an edit stop of an interactive rebase.
@@ -82,10 +82,10 @@ final class CommitController {
             guard let self else { return }
             guard await viewModel.repository.headIsPushed() else { run(amend: true); return }
             let alert = NSAlert()
-            alert.messageText = "Erfordert Force-Push"
-            alert.informativeText = "Der letzte Commit ist schon im Upstream. Nach dem Amend unterscheiden sich lokaler und entfernter Branch, und ein Push geht nur noch mit Force."
-            alert.addButton(withTitle: "Trotzdem ändern")
-            alert.addButton(withTitle: "Abbrechen")
+            alert.messageText = String(localized: "Requires a force push", bundle: .module)
+            alert.informativeText = String(localized: "The last commit is already in the upstream. After the amend, the local and the remote branch differ, and a push only works with force.", bundle: .module)
+            alert.addButton(withTitle: String(localized: "Amend Anyway", bundle: .module))
+            alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
             present(alert) { [weak self] response in
                 if response == .alertFirstButtonReturn { self?.run(amend: true) }
             }
@@ -104,7 +104,7 @@ final class CommitController {
             } catch {
                 let alert = NSAlert()
                 alert.alertStyle = .warning
-                alert.messageText = amend ? "Amend fehlgeschlagen" : "Commit fehlgeschlagen"
+                alert.messageText = amend ? String(localized: "Amend failed", bundle: .module) : String(localized: "Commit failed", bundle: .module)
                 alert.informativeText = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
                 self?.present(alert) { _ in }
             }

@@ -27,7 +27,7 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         table.columnAutoresizingStyle = .noColumnAutoresizing
         table.dataSource = self
         table.delegate = self
-        table.setAccessibilityLabel("Commits des Rebase, älteste zuerst")
+        table.setAccessibilityLabel(String(localized: "Commits of the rebase, oldest first", bundle: .module))
         table.onMove = { [weak self] from, to in self?.move(from: from, to: to) }
         table.onShift = { [weak self] offset in self?.shiftSelection(by: offset) }
         table.onAction = { [weak self] action in

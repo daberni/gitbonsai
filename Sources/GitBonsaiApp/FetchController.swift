@@ -27,26 +27,26 @@ final class FetchController {
     func menu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(item("Alle Remotes fetchen", .allRemotes))
+        menu.addItem(item("Fetch All Remotes", .allRemotes))
         if !remotes.isEmpty { menu.addItem(.separator()) }
         for remote in remotes {
-            menu.addItem(item("\(remote: remote) fetchen", .remote(remote, prune: false)))
-            menu.addItem(item("\(remote: remote) fetchen und gelöschte Branches entfernen", .remote(remote, prune: true)))
+            menu.addItem(item("Fetch \(RefName.remote(remote))", .remote(remote, prune: false)))
+            menu.addItem(item("Fetch \(RefName.remote(remote)) and Prune Deleted Branches", .remote(remote, prune: true)))
         }
         menu.addItem(.separator())
-        menu.addItem(item("Tags aller Remotes fetchen", .tags))
+        menu.addItem(item("Fetch Tags from All Remotes", .tags))
         return menu
     }
 
     func fetch(_ variant: FetchVariant) {
         Task {
             if let error = await viewModel.fetch(variant) {
-                prompter.report(error, title: "Fetch fehlgeschlagen")
+                prompter.report(error, title: "Fetch failed")
             }
         }
     }
 
-    private func item(_ title: RefString, _ variant: FetchVariant) -> NSMenuItem {
+    private func item(_ title: LocalizedStringResource, _ variant: FetchVariant) -> NSMenuItem {
         let item = ActionMenuItem(title) { [weak self] in self?.fetch(variant) }
         item.toolTip = variant.commandLine
         item.isEnabled = !remotes.isEmpty

@@ -74,7 +74,7 @@ final class TabBarView: NSView, NSViewToolTipOwner {
 
     func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
         switch hit(at: point) {
-        case .plus: "Repository öffnen (⌘T)"
+        case .plus: String(localized: "Open Repository (⌘T)", bundle: .module, comment: "Tooltip of the tab row's plus button.")
         case .tab(let index), .close(let index): items.indices.contains(index) ? items[index].toolTip ?? "" : ""
         case .none: ""
         }

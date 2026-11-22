@@ -48,8 +48,8 @@ struct PanelAction {
     let isShown: (String?) -> Bool
     let perform: (String) -> Void
 
-    init(_ title: String, isDestructive: Bool = false, isEnabled: @escaping (String) -> Bool = { _ in true }, isShown: @escaping (String?) -> Bool = { _ in true }, perform: @escaping (String) -> Void) {
-        self.title = title
+    init(_ title: LocalizedStringResource, isDestructive: Bool = false, isEnabled: @escaping (String) -> Bool = { _ in true }, isShown: @escaping (String?) -> Bool = { _ in true }, perform: @escaping (String) -> Void) {
+        self.title = title.text
         self.isDestructive = isDestructive
         self.isEnabled = isEnabled
         self.isShown = isShown
@@ -109,12 +109,12 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     private var filterHeight: NSLayoutConstraint!
 
     /// `empty` is shown without entries, `noMatch` when the filter text matches none.
-    init(title: String, empty: String, noMatch: String, filterPlaceholder: String) {
-        self.filterPlaceholder = filterPlaceholder
-        self.empty = empty
-        self.noMatch = noMatch
+    init(title: LocalizedStringResource, empty: LocalizedStringResource, noMatch: LocalizedStringResource, filterPlaceholder: LocalizedStringResource) {
+        self.filterPlaceholder = filterPlaceholder.text
+        self.empty = empty.text
+        self.noMatch = noMatch.text
         super.init(frame: .zero)
-        titleLabel.stringValue = title
+        titleLabel.stringValue = title.text
         titleLabel.font = Theme.bodyStrong
         titleLabel.textColor = Theme.ink
         countLabel.font = Theme.captionDigits
@@ -126,12 +126,12 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         busyIndicator.style = .spinning
         busyIndicator.controlSize = .mini
         busyIndicator.isDisplayedWhenStopped = false
-        emptyLabel.stringValue = empty
+        emptyLabel.stringValue = empty.text
         emptyLabel.textColor = Theme.inkMuted
         emptyLabel.font = Theme.body
         emptyLabel.alignment = .center
 
-        filterField.placeholderString = filterPlaceholder
+        filterField.placeholderString = filterPlaceholder.text
         filterField.delegate = self
         filterField.sendsSearchStringImmediately = true
 
@@ -341,7 +341,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             return
         }
         let menu = NSMenu()
-        for (index, title) in (["Alle"] + scopes.map(\.title)).enumerated() {
+        for (index, title) in ([String(localized: "All", bundle: .module, comment: "Filter scope of a panel list that searches every field.")] + scopes.map(\.title)).enumerated() {
             let item = NSMenuItem(title: title, action: #selector(scopeChosen(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index - 1

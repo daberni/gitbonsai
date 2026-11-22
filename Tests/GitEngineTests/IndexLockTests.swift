@@ -22,7 +22,7 @@ final class IndexLockTests: XCTestCase {
             async let unstaged = reader.workingStats(staged: false)
             async let fileDiff = reader.diff(of: "files/0.txt", in: .unstaged)
             do {
-                try await writer.checkout(.localBranch(target))
+                try await writer.checkout(.localBranch(target), stashMessage: "carried by the test")
             } catch {
                 failures.append("round \(round): \(error)")
             }

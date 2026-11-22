@@ -25,7 +25,15 @@ final class RebasePreviewView: NSView {
 
     /// Lines of text the preview shows, top to bottom, for checks without a picture.
     var textLines: [String] {
-        rows.map { row in ([row.isBase ? "Basis" : "•", row.sha, row.subject] + row.marks.map(\.0) + row.branches.map { "[\($0)]" }).joined(separator: " ") } + (dropped.isEmpty ? [] : ["verworfen: " + dropped.joined(separator: ", ")])
+        rows.map { row in ([row.isBase ? Self.baseText(row.sha) : "• \(row.sha)", row.subject] + row.marks.map(\.0) + row.branches.map { "[\($0)]" }).joined(separator: " ") } + (dropped.isEmpty ? [] : [droppedText])
+    }
+
+    private static func baseText(_ sha: String) -> String {
+        String(localized: "Base \(sha)", bundle: .module, comment: "Rebase preview: the commit the steps land on, followed by its short SHA.")
+    }
+
+    private var droppedText: String {
+        String(localized: "Dropped: \(dropped.joined(separator: ", "))", bundle: .module, comment: "Rebase preview: short SHAs of the dropped commits.")
     }
 
     func show(_ model: InteractiveRebaseModel) {
@@ -38,10 +46,13 @@ final class RebasePreviewView: NSView {
         let inOriginalOrder = heads.sorted { position[$0, default: 0] < position[$1, default: 0] }
         for (offset, commit) in result.enumerated().reversed() {
             var marks: [(String, NSColor)] = []
-            if commit.isMessageChanged { marks.append((commit.folded.contains { $0.action == .squash } ? "Nachrichten vereint" : "neu formuliert", Theme.sky)) }
-            if !commit.folded.isEmpty { marks.append(("+\(commit.folded.count) zusammengeführt", Theme.moss)) }
-            if commit.stopsForEdit { marks.append(("hält zum Bearbeiten an", Theme.ochre)) }
-            if inOriginalOrder[offset] != commit.head.id { marks.append(("verschoben", Theme.clay)) }
+            if commit.isMessageChanged {
+                let squashed = commit.folded.contains { $0.action == .squash }
+                marks.append((squashed ? String(localized: "messages joined", bundle: .module, comment: "Rebase preview mark: a squash joins the messages.") : String(localized: "reworded", bundle: .module, comment: "Rebase preview mark: the message changes."), Theme.sky))
+            }
+            if !commit.folded.isEmpty { marks.append((String(localized: "+\(commit.folded.count) combined", bundle: .module, comment: "Rebase preview mark: how many commits squash or fixup into this one."), Theme.moss)) }
+            if commit.stopsForEdit { marks.append((String(localized: "stops for editing", bundle: .module, comment: "Rebase preview mark: the rebase stops at this commit (edit)."), Theme.ochre)) }
+            if inOriginalOrder[offset] != commit.head.id { marks.append((String(localized: "moved", bundle: .module, comment: "Rebase preview mark: the commit changed its place."), Theme.clay)) }
             var branches = commit.branches.map { $0.hasPrefix("refs/heads/") ? String($0.dropFirst("refs/heads/".count)) : $0 }
             if offset == result.count - 1 { branches.insert(model.branch, at: 0) }
             rows.append(Row(subject: commit.subject, sha: commit.head.shortID, marks: marks, branches: branches, isBase: false))
@@ -81,7 +92,7 @@ final class RebasePreviewView: NSView {
             drawText(of: row, centeredAt: center)
         }
         if !dropped.isEmpty, let last = centers.last {
-            let text = NSAttributedString(string: "Verworfen: " + dropped.joined(separator: ", "), attributes: [.font: Theme.caption, .foregroundColor: Theme.persimmon])
+            let text = NSAttributedString(string: droppedText, attributes: [.font: Theme.caption, .foregroundColor: Theme.persimmon])
             let lineHeight = ceil(text.size().height)
             text.draw(with: NSRect(x: M.previewTextX, y: last + height - lineHeight / 2, width: bounds.width - M.previewTextX - Theme.Space.s, height: lineHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
@@ -93,7 +104,7 @@ final class RebasePreviewView: NSView {
         let subject = NSAttributedString(string: row.subject, attributes: [.font: row.isBase ? Theme.caption : Theme.bodyMedium, .foregroundColor: row.isBase ? Theme.inkMuted : Theme.ink])
         let lineHeight = M.rowHeight / 2
         subject.draw(with: NSRect(x: M.previewTextX, y: center - lineHeight + Theme.Stroke.hairline, width: width, height: lineHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
-        let detail = NSMutableAttributedString(string: row.isBase ? "Basis \(row.sha)" : row.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkFaint])
+        let detail = NSMutableAttributedString(string: row.isBase ? Self.baseText(row.sha) : row.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkFaint])
         for (text, color) in row.marks {
             detail.append(NSAttributedString(string: "  " + text, attributes: [.font: Theme.caption, .foregroundColor: color]))
         }

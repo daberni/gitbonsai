@@ -18,6 +18,10 @@ extension NSAlert {
         objc_setAssociatedObject(self, &infoKey, RefStringBox(info), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 
+    func setText(_ message: LocalizedStringResource, info: LocalizedStringResource) {
+        setText(RefString(message), info: RefString(info))
+    }
+
     /// Lays the alert out and replaces the plain title and message in its labels with the pill versions; called right before it is shown or rendered.
     func applyRefText() {
         let message = (objc_getAssociatedObject(self, &messageKey) as? RefStringBox)?.string

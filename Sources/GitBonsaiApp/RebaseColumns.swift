@@ -10,10 +10,10 @@ struct RebaseColumns: Equatable {
 
         var title: String {
             switch self {
-            case .action: "Aktion"
-            case .sha: "SHA"
-            case .subject: "Nachricht"
-            case .branches: "Branches"
+            case .action: String(localized: "Action", bundle: .module, comment: "Column header in the rebase sheet: pick, reword, squash …")
+            case .sha: String(localized: "SHA", bundle: .module)
+            case .subject: String(localized: "Message", bundle: .module, comment: "Caption above the commit message editor; also a column header.")
+            case .branches: String(localized: "Branches", bundle: .module, comment: "Column header in the rebase sheet.")
             }
         }
 
@@ -122,7 +122,7 @@ final class RebaseColumnHeaderView: NSTableHeaderView {
         for (_, x) in dividers { NSRect(x: x.rounded() - Theme.Stroke.hairline / 2, y: Theme.ColumnHeader.dividerInset, width: Theme.Stroke.hairline, height: bounds.height - 2 * Theme.ColumnHeader.dividerInset).fill() }
         let attributes: [NSAttributedString.Key: Any] = [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern]
         for (column, range) in columns.layout(in: visibleWidth) {
-            let string = NSAttributedString(string: column.title.uppercased(), attributes: attributes)
+            let string = NSAttributedString(string: column.title.uppercased(with: AppLanguage.locale), attributes: attributes)
             let size = string.size()
             let x = range.lowerBound + Theme.Cell.leading
             guard x + size.width <= range.upperBound - Theme.Cell.captionClearance else { continue }
@@ -142,7 +142,7 @@ final class CaptionBarView: NSView {
         bounds.fill()
         Theme.hairline.setFill()
         NSRect(x: 0, y: bounds.height - Theme.Stroke.hairline, width: bounds.width, height: Theme.Stroke.hairline).fill()
-        let string = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
+        let string = NSAttributedString(string: title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
         string.draw(at: CGPoint(x: Theme.Cell.leading, y: bounds.midY - string.size().height / 2))
     }
 }

@@ -37,7 +37,7 @@ final class CommandBarPanel: NSView {
     /// Background harness captures render views with `cacheDisplay`, which draws a glass view's surroundings blank; they get a matte stand-in. Foreground runs and the app use real glass.
     private let glass: NSView = ScreenshotHarness.runsInBackground ? FillView(color: Theme.surface2) : NSGlassEffectView()
     private let stepLabel = NSTextField(labelWithString: "")
-    private let emptyLabel = NSTextField(labelWithString: "Keine passenden Befehle")
+    private let emptyLabel = NSTextField(labelWithString: String(localized: "No matching commands", bundle: .module))
     private var listHeight: NSLayoutConstraint!
     private var stepHeight: NSLayoutConstraint!
 

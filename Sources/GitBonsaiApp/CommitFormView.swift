@@ -16,8 +16,8 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     private let bodyScroll = NSScrollView()
     private let body = PlainTextView()
     private let signing = NSTextField(labelWithString: "")
-    private let amend = LabeledCheckbox(title: "Amend")
-    private let commit = PrimaryButton(title: "Commit")
+    private let amend = LabeledCheckbox(title: String(localized: "Amend", bundle: .module, comment: "Checkbox: amend the last commit instead of making a new one."))
+    private let commit = PrimaryButton(title: String(localized: "Commit", bundle: .module, comment: "Button that commits."))
 
     init() {
         super.init(edge: .top)
@@ -32,7 +32,7 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         commit.target = self
         commit.action = #selector(commitPressed(_:))
         commit.respondsToCommandReturn = true
-        commit.toolTip = "Commit (⌘⏎)"
+        commit.toolTip = String(localized: "Commit (⌘⏎)", bundle: .module, comment: "Tooltip of the commit button with its shortcut.")
         layout(views: [subjectBox, bodyBox, signing, amend, commit])
         updateCounter()
     }
@@ -40,7 +40,7 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     required init?(coder: NSCoder) { nil }
 
     private func buildSubject() {
-        subject.placeholderString = "Subject"
+        subject.placeholderString = String(localized: "Subject", bundle: .module, comment: "Placeholder of the commit message subject.")
         subject.delegate = self
         subject.onFocusChange = { [weak self] focused in self?.subjectBox.isFocused = focused }
         counter.font = Theme.captionDigits
@@ -61,7 +61,7 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func buildBody() {
-        body.placeholder = "Body (optional)"
+        body.placeholder = String(localized: "Body (optional)", bundle: .module, comment: "Placeholder of the commit message body.")
         body.font = Theme.body
         body.textColor = Theme.ink
         body.insertionPointColor = Theme.ink
@@ -136,10 +136,10 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         set { amend.isOn = newValue }
     }
 
-    func show(signing format: String?, canCommit: Bool, buttonTitle: String) {
-        signing.stringValue = format.map { "Signiert mit \($0)" } ?? ""
+    func show(signing format: String?, canCommit: Bool, buttonTitle: LocalizedStringResource) {
+        signing.stringValue = format.map { String(localized: "Signed with \($0)", bundle: .module, comment: "The signing format, such as ssh or openpgp.") } ?? ""
         commit.isEnabled = canCommit
-        commit.title = buttonTitle
+        commit.title = buttonTitle.text
     }
 
     /// Clicks the commit button, for the screenshot harness.

@@ -25,24 +25,25 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private var choices: [(key: String, popup: NSPopUpButton, values: [String])] = []
     private var messageView: NSTextView?
 
-    init(title: RefString, info: RefString, confirm: String) {
+    init(title: LocalizedStringResource, info: LocalizedStringResource, confirm: LocalizedStringResource) {
         super.init()
         alert.setText(title, info: info)
-        alert.addButton(withTitle: confirm)
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: confirm.text)
+        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Theme.ActionSheet.rowSpacing
         alert.accessoryView = stack
     }
 
-    func addField(key: String, label: String, value: String = "", placeholder: String = "", required: Bool = true) {
+    /// `placeholder` is example input such as `feature/…`, shown as it is.
+    func addField(key: String, label: LocalizedStringResource, value: String = "", placeholder: String = "", required: Bool = true) {
         let field = makeField(key: key, value: value, placeholder: placeholder, required: required)
         addRow(label: label, control: field)
     }
 
     /// A text field that also offers `suggestions` in a list, for a ref that may be typed or picked.
-    func addComboField(key: String, label: String, value: String, suggestions: [String], required: Bool = true) {
+    func addComboField(key: String, label: LocalizedStringResource, value: String, suggestions: [String], required: Bool = true) {
         let combo = NSComboBox()
         combo.addItems(withObjectValues: suggestions)
         combo.completes = true
@@ -52,18 +53,18 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     /// A pop-up of exclusive options; `values.text[key]` holds the chosen option's value.
-    func addChoice(key: String, label: String, options: [(value: String, title: String)], selected: String) {
+    func addChoice(key: String, label: LocalizedStringResource, options: [(value: String, title: LocalizedStringResource)], selected: String) {
         let popup = NSPopUpButton()
-        popup.addItems(withTitles: options.map(\.title))
+        popup.addItems(withTitles: options.map(\.title.text))
         popup.selectItem(at: options.firstIndex { $0.value == selected } ?? 0)
         choices.append((key, popup, options.map(\.value)))
         addRow(label: label, control: popup)
     }
 
     /// A folder field with a button that picks the new folder's place and name in a save panel.
-    func addFolderField(key: String, label: String, value: String) {
+    func addFolderField(key: String, label: LocalizedStringResource, value: String) {
         let field = makeField(key: key, value: value, placeholder: "", required: true)
-        let choose = NSButton(title: "Wählen …", target: self, action: #selector(chooseFolder(_:)))
+        let choose = NSButton(title: String(localized: "Choose …", bundle: .module), target: self, action: #selector(chooseFolder(_:)))
         choose.identifier = NSUserInterfaceItemIdentifier(key)
         let row = NSStackView(views: [field, choose])
         row.spacing = Theme.ActionSheet.labelSpacing
@@ -71,7 +72,8 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
     }
 
-    func addCheckbox(_ title: RefString, checked: Bool) {
+    func addCheckbox(_ title: LocalizedStringResource, checked: Bool) {
+        let title = RefString(title)
         let box = NSButton(checkboxWithTitle: title.plain, target: nil, action: nil)
         if title.containsNames, let font = box.font { box.attributedTitle = RefText.attributed(title, font: font, color: .labelColor) }
         box.state = checked ? .on : .off
@@ -79,7 +81,7 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         stack.addArrangedSubview(box)
     }
 
-    func addMessage(label: String, value: String = "") {
+    func addMessage(label: LocalizedStringResource, value: String = "") {
         let scroll = NSTextView.scrollableTextView()
         scroll.borderType = .bezelBorder
         let text = scroll.documentView as! NSTextView
@@ -165,8 +167,8 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         updateConfirm()
     }
 
-    private func addRow(label: String, control: NSView) {
-        let caption = NSTextField(labelWithString: label)
+    private func addRow(label: LocalizedStringResource, control: NSView) {
+        let caption = NSTextField(labelWithString: label.text)
         caption.font = Theme.caption
         caption.textColor = .secondaryLabelColor
         let row = NSStackView(views: [caption, control])
@@ -181,8 +183,8 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         guard let field = fields.first(where: { $0.key == sender.identifier?.rawValue })?.field else { return }
         let current = URL(fileURLWithPath: (field.stringValue as NSString).expandingTildeInPath)
         let panel = NSSavePanel()
-        panel.title = "Ordner für den Worktree"
-        panel.prompt = "Wählen"
+        panel.title = String(localized: "Folder for the Worktree", bundle: .module)
+        panel.prompt = String(localized: "Choose", bundle: .module)
         panel.canCreateDirectories = true
         panel.directoryURL = current.deletingLastPathComponent()
         panel.nameFieldStringValue = current.lastPathComponent

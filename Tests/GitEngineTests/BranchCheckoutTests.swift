@@ -101,7 +101,7 @@ final class BranchCheckoutTests: XCTestCase {
 
     func testFastForwardSwitchesAndMovesTheBranch() async throws {
         let tip = try advanceRemote("main")
-        try await Repository(path: fixture.path).checkout(.fastForward(branch: "main", to: "origin/main"))
+        try await Repository(path: fixture.path).checkout(.fastForward(branch: "main", to: "origin/main"), stashMessage: "carried by the test")
         XCTAssertEqual(try fixture.git("rev-parse", "--abbrev-ref", "HEAD"), "main")
         XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), tip)
     }

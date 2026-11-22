@@ -1,6 +1,6 @@
 import AppKit
 
-/// git's output under a failure: a "Git-Ausgabe" disclosure with "Kopieren" beside it, and below it, collapsed by default, a selectable monospace box in the text field style.
+/// git's output under a failure: a "Git Output" disclosure with "Copy" beside it, and below it, collapsed by default, a selectable monospace box in the text field style.
 /// The box is as tall as the output, up to `Theme.Failure.outputMaxHeight`; longer output scrolls. Lines wrap, so nothing is cut off at either edge.
 @MainActor
 final class FailureDetailsView: NSView {
@@ -24,12 +24,12 @@ final class FailureDetailsView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         disclosure.imagePosition = .imageLeading
         disclosure.imageHugsTitle = true
-        disclosure.setAccessibilityLabel("Git-Ausgabe")
+        disclosure.setAccessibilityLabel(Self.outputTitle)
         copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: M.copyGlyph, weight: .regular))
         copyButton.imagePosition = .imageLeading
         copyButton.imageHugsTitle = true
         copyButton.contentTintColor = Theme.inkMuted
-        setCopyTitle("Kopieren")
+        setCopyTitle(Self.copyTitle)
 
         output.string = details
         output.font = Theme.monoSmall
@@ -95,7 +95,7 @@ final class FailureDetailsView: NSView {
             let symbol = newValue ? "chevron.down" : "chevron.right"
             disclosure.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: M.chevron, weight: .semibold))
             disclosure.contentTintColor = Theme.inkMuted
-            disclosure.attributedTitle = NSAttributedString(string: "Git-Ausgabe", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
+            disclosure.attributedTitle = NSAttributedString(string: Self.outputTitle, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
             disclosure.setAccessibilityExpanded(newValue)
             layoutSubtreeIfNeeded()
             onToggle?()
@@ -118,9 +118,12 @@ final class FailureDetailsView: NSView {
 
     @objc private func copy(_ sender: Any?) {
         ActionRunner.copy(details)
-        setCopyTitle("Kopiert")
-        DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Detail.copiedFeedback) { [weak self] in self?.setCopyTitle("Kopieren") }
+        setCopyTitle(String(localized: "Copied", bundle: .module, comment: "Shown briefly after git's output was copied."))
+        DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Detail.copiedFeedback) { [weak self] in self?.setCopyTitle(Self.copyTitle) }
     }
+
+    private static let outputTitle = String(localized: "Git Output", bundle: .module, comment: "Disclosure that shows git's own output under a failure.")
+    private static let copyTitle = String(localized: "Copy", bundle: .module, comment: "Copies git's output.")
 
     private func setCopyTitle(_ title: String) {
         copyButton.attributedTitle = NSAttributedString(string: title, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])

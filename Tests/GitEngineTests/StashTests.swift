@@ -55,18 +55,24 @@ final class StashTests: XCTestCase {
         XCTAssertTrue(stash.text.hasSuffix("base"), stash.text)
     }
 
-    func testDefaultMessageNamesBranchAndHeadSubject() async throws {
+    func testDefaultMessagePartsNameBranchAndHeadSubject() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
         try fixture.commit("Add the parser", contents: "base\n")
         try fixture.write("file.txt", "changed\n")
         let repo = fixture.repository
 
-        let message = await repo.defaultStashMessage()
-        XCTAssertEqual(message, "WIP auf main: Add the parser")
-        let created = try await repo.stash(message: message, scope: .includingUntracked)
-        XCTAssertEqual(created?.stash.text, "WIP auf main: Add the parser")
+        let parts = await repo.defaultStashMessageParts()
+        XCTAssertEqual(parts.branch, "main")
+        XCTAssertEqual(parts.subject, "Add the parser")
+        let created = try await repo.stash(message: "WIP on main: Add the parser", scope: .includingUntracked)
+        XCTAssertEqual(created?.stash.text, "WIP on main: Add the parser")
         XCTAssertEqual(created?.remaining, "")
+
+        try fixture.git("checkout", "--detach")
+        let detached = await repo.defaultStashMessageParts()
+        XCTAssertNil(detached.branch)
+        XCTAssertEqual(detached.subject, "Add the parser")
     }
 
     func testNothingToStashReturnsNil() async throws {

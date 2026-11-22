@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The "Neuer Branch" sheet of the Local header's plus and the toolbar's Branch button: loads what the start point picker offers, shows the sheet and runs git with the answer.
+/// The "New Branch" sheet of the Local header's plus and the toolbar's Branch button: loads what the start point picker offers, shows the sheet and runs git with the answer.
 @MainActor
 final class NewBranchController {
     private let runner: SidebarActionRunner
@@ -13,7 +13,7 @@ final class NewBranchController {
         self.runner = runner
     }
 
-    /// `commit` is offered under "Aktuell" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
+    /// `commit` is offered under "Current" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
     func show(commit: Commit? = nil) {
         guard sheet == nil, let parent = runner.prompter.window?() else { return }
         let repository = viewModel.repository
@@ -42,11 +42,11 @@ final class NewBranchController {
         let start = request.start
         switch request.follow {
         case .stay:
-            await runner.run(failure: "Branch nicht angelegt", note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
+            await runner.run(failure: "Branch not created", note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
         case .checkout:
-            await runner.run(failure: "Branch nicht angelegt", note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
+            await runner.run(failure: "Branch not created", note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
         case .worktree(let path):
-            await runner.run(failure: "Worktree nicht angelegt", note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
+            await runner.run(failure: "Worktree not created", note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
         }
     }
 }

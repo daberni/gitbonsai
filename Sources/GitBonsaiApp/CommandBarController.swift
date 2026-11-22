@@ -50,9 +50,9 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         panel.table.delegate = self
         panel.search.onChange = { [weak self] text in self?.queryChanged(text) }
         panel.search.onCommand = { [weak self] command in self?.handle(command) ?? false }
-        steps = [Step(title: nil, placeholder: "Befehl suchen", commands: commands)]
+        steps = [Step(title: nil, placeholder: String(localized: "Search commands", bundle: .module), commands: commands)]
         if let step, case .choose(let placeholder, let build) = step.action {
-            steps.append(Step(title: step.title, placeholder: placeholder, commands: build()))
+            steps.append(Step(title: step.title, placeholder: placeholder.text, commands: build()))
         }
         showStep()
         window.makeFirstResponder(panel.search.field)
@@ -72,10 +72,16 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
 
     private func showStep() {
         guard let panel, let step = steps.last else { return }
-        panel.showStep(steps.count > 1 ? step.title?.replacingOccurrences(of: " …", with: "") : nil)
+        panel.showStep(steps.count > 1 ? step.title.map(Self.withoutEllipsis) : nil)
         panel.search.placeholder = step.placeholder
         panel.search.stringValue = step.query
         reload()
+    }
+
+    /// A step's title is the command that opened it, without the ellipsis that promised the step: "Switch to Tab…" heads its list as "Switch to Tab".
+    private static func withoutEllipsis(_ title: String) -> String {
+        guard title.hasSuffix("…") else { return title }
+        return String(title.dropLast()).trimmingCharacters(in: .whitespaces)
     }
 
     private func queryChanged(_ text: String) {
@@ -137,7 +143,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
             close()
             perform()
         case .choose(let placeholder, let build):
-            steps.append(Step(title: command.title, placeholder: placeholder, commands: build()))
+            steps.append(Step(title: command.title, placeholder: placeholder.text, commands: build()))
             showStep()
         }
     }

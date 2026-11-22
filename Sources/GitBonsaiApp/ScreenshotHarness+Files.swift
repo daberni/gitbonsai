@@ -49,7 +49,7 @@ extension ScreenshotHarness {
         }
     }
 
-    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top and bottom line after each step.
+    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Whole File" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top and bottom line after each step.
     static func driveDiffHeader(on tab: RepositoryViewController) {
         let environment = environment
         let mode = environment["GITBONSAI_CLICK_DIFF_MODE"].flatMap(DiffMode.init)
@@ -151,7 +151,7 @@ extension ScreenshotHarness {
 
     // MARK: Discarding
 
-    /// `GITBONSAI_CLICK_HUNK_DISCARD=<n>` clicks "Hunk verwerfen" of hunk n in the open diff, `GITBONSAI_HOVER_FILE=<n>` moves the mouse onto file row n,
+    /// `GITBONSAI_CLICK_HUNK_DISCARD=<n>` clicks "Discard Hunk" of hunk n in the open diff, `GITBONSAI_HOVER_FILE=<n>` moves the mouse onto file row n,
     /// `GITBONSAI_CLICK_FILE_DISCARD=<n>` also clicks that row's discard button; all with real mouse events through the window.
     static func discard(on tab: RepositoryViewController, attempt: Int = 0) {
         let environment = environment

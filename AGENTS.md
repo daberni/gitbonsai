@@ -45,6 +45,14 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 - Link-like clickable text and bare icons show the pointing hand through `LinkButton` or `LinkCursor`; bordered buttons, toolbar buttons, segmented controls, menus and table rows keep the arrow, as in native macOS apps.
 - Verify UI changes in the running app through `ScreenshotHarness`, in light and dark. Interactions are checked with real mouse events through the window (see the click and drag switches in the README), not by calling the handler directly. Harness runs stay in the background; `GITBONSAI_FOREGROUND=1` is for a single check that cannot work otherwise, never for loops or batches, and only after telling the coordinator why.
 
+## Localization
+
+- English is the development language, German the first translation; keys are the English source text in `Sources/GitBonsaiApp/Resources/Localizable.xcstrings`. `scripts/sync-strings.sh` adds new keys from the code and marks unused ones stale; translate or delete them in the same change. `LocalizationTests` fails on untranslated, stale, missing or German keys and on literals that bypass the catalog.
+- User-facing text goes through `String(localized: "…", bundle: .module, comment: "…")` or a `LocalizedStringResource` parameter (own APIs take those, so call sites pass literals). Always `bundle: .module`; add a comment where the meaning is not obvious.
+- Never build sentences by concatenation: one key per sentence with placeholders. Counts are `Int` arguments with plural variants in the catalog. Names (refs, commits, paths, worktrees, stashes) are `RefName` arguments, shown as pills through `RefString`; text shown as it is goes in with `.verbatim`.
+- Dates, relative dates, numbers, durations and sizes use formatters with `AppLanguage.locale`; no fixed locales.
+- Never translate git commands, the command line shown in the status line, git output, ref names, paths or SHAs.
+
 ## Task intake and backlog
 
 - There are no GitHub issues or pull requests yet. The backlog is kept outside the repository by the coordinating session (until it moves to GitHub issues): one entry per independently shippable task with the problem, the desired behavior and its state. Task briefs quote the entries they need; the backlog's location is given in the brief when a session must read it.

@@ -17,19 +17,19 @@ final class GitSettingsViewController: SettingsPaneController {
         pathField.target = self
         pathField.action = #selector(commitPath(_:))
         pathField.widthAnchor.constraint(equalToConstant: Theme.Settings.pathFieldWidth).isActive = true
-        let choose = NSButton(title: "Auswählen …", target: self, action: #selector(choosePath(_:)))
+        let choose = NSButton(title: String(localized: "Select…", bundle: .module), target: self, action: #selector(choosePath(_:)))
         let row = NSStackView(views: [pathField, choose])
         row.spacing = Theme.Settings.columnSpacing
-        form.addRow("Git-Programm", row)
+        form.addRow("Git program", row)
         form.addCaption(status)
-        form.addCaption(SettingsForm.caption("Leer lassen, um git automatisch zu finden. Gilt für Repositories, die danach geöffnet werden."))
+        form.addCaption(SettingsForm.caption("Leave empty to find git automatically. Applies to repositories opened afterwards."))
         showVersion()
     }
 
     @objc private func commitPath(_ sender: Any?) {
         let path = pathField.stringValue.trimmingCharacters(in: .whitespaces)
         guard path.isEmpty || FileManager.default.isExecutableFile(atPath: path) else {
-            show("Unter „\(path)“ liegt kein ausführbares Programm. Nicht übernommen.", color: Theme.persimmon)
+            show(String(localized: "There is no executable at “\(path)”. Not applied.", bundle: .module), color: Theme.persimmon)
             return
         }
         guard path != (AppSettings.gitPath ?? "") else { return showVersion() }
@@ -41,7 +41,7 @@ final class GitSettingsViewController: SettingsPaneController {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = false
         panel.directoryURL = URL(fileURLWithPath: (GitRunner.defaultGitPath() as NSString).deletingLastPathComponent)
-        panel.prompt = "Auswählen"
+        panel.prompt = String(localized: "Select", bundle: .module, comment: "The open panel's confirm button for the git program.")
         guard let window = view.window else { return }
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .OK, let url = panel.url else { return }
@@ -53,7 +53,7 @@ final class GitSettingsViewController: SettingsPaneController {
     /// Asks the git the app would run now for its version.
     private func showVersion() {
         let path = GitRunner.defaultGitPath()
-        show("Prüfe git …", color: Theme.inkMuted)
+        show(String(localized: "Checking git…", bundle: .module), color: Theme.inkMuted)
         versionCheck?.cancel()
         versionCheck = Task { [weak self] in
             let result: Result<GitVersion, Error>
@@ -61,11 +61,14 @@ final class GitSettingsViewController: SettingsPaneController {
             guard !Task.isCancelled, let self else { return }
             switch result {
             case .success(let version) where version < .minimumSupported:
-                show("git \(version) ist zu alt. GitBonsai braucht git \(GitVersion.minimumSupported.major).\(GitVersion.minimumSupported.minor) oder neuer.", color: Theme.ochre)
+                let found = version.description
+                let minimum = "\(GitVersion.minimumSupported.major).\(GitVersion.minimumSupported.minor)"
+                show(String(localized: "git \(found) is too old. GitBonsai needs git \(minimum) or later.", bundle: .module), color: Theme.ochre)
             case .success(let version):
-                show("git \(version) unter \(path)", color: Theme.inkMuted)
+                let found = version.description
+                show(String(localized: "git \(found) at \(path)", bundle: .module, comment: "The git version and the path of the git program."), color: Theme.inkMuted)
             case .failure:
-                show("Dieses Programm meldet sich nicht als git.", color: Theme.persimmon)
+                show(String(localized: "This program doesn't identify itself as git.", bundle: .module), color: Theme.persimmon)
             }
         }
     }

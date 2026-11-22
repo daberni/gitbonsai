@@ -18,12 +18,12 @@ final class BranchPullController {
         self.pullPush = pullPush
     }
 
-    /// "<branch> pullen" for a local branch with an upstream, nil for anything else.
+    /// "Pull <branch>" for a local branch with an upstream, nil for anything else.
     func item(for ref: Ref) -> NSMenuItem? {
         guard ref.kind == .localBranch, let upstream = ref.upstream else { return nil }
         let name = ref.name
-        let item = ActionMenuItem("\(branch: name) pullen") { [weak self] in self?.pull(name) }
-        item.toolTip = "Holt \(upstream) und spult \(name) vor, wenn das ohne Merge geht."
+        let item = ActionMenuItem("Pull \(RefName.branch(name))") { [weak self] in self?.pull(name) }
+        item.toolTip = String(localized: "Fetches \(upstream) and fast-forwards \(name) when that works without a merge.", bundle: .module)
         return item
     }
 
@@ -38,33 +38,42 @@ final class BranchPullController {
                 return
             } catch {
                 await viewModel.refresh(note: nil)
-                prompter.report(error, title: "\(branch: branch) nicht gepullt")
+                prompter.report(error, title: "\(RefName.branch(branch)) not pulled")
                 return
             }
-            let upstreamName = await repository.upstream(of: branch)?.name
-            let upstream = upstreamName ?? "Upstream"
-            let upstreamText: RefString = upstreamName.map { "\(remoteBranch: $0)" } ?? "Upstream"
+            // The pull needed the upstream, so only a race can lose it here; git's own name for it stands in then.
+            let upstream = await repository.upstream(of: branch)?.name ?? "\(branch)@{upstream}"
             switch result.outcome {
             case .fastForwarded(let commits):
-                let what = commits == 1 ? "1 Commit" : "\(commits) Commits"
-                let summary: RefString = "\(branch: branch) um \(what) auf \(upstreamText) vorgespult\(Self.whereText(result.place))"
-                let conflicted = result.localChangesConflicted ? ", " + PullPushController.conflictedChanges : ""
-                await viewModel.refresh(note: summary.plain + conflicted + " · " + result.commandLine)
-                onToast?(summary + RefString(conflicted))
+                let summary = Self.fastForwarded(branch, by: commits, to: upstream, place: result.place, conflicted: result.localChangesConflicted)
+                await viewModel.refresh(note: summary.plain + " · " + result.commandLine)
+                onToast?(summary)
             case .upToDate(let ahead):
-                let summary: RefString = "\(branch: branch) ist auf dem Stand von \(upstreamText)\(ahead > 0 ? ", \(ahead) lokale Commits noch nicht gepusht" : "")"
+                let summary: RefString = if ahead > 0 {
+                    RefString("\(RefName.branch(branch)) is up to date with \(RefName.remoteBranch(upstream)), \(ahead) local commits not pushed yet")
+                } else {
+                    RefString("\(RefName.branch(branch)) is up to date with \(RefName.remoteBranch(upstream))")
+                }
                 await viewModel.refresh(note: summary.plain + " · " + result.commandLine)
                 onToast?(summary)
             case .diverged(let ahead, let behind):
-                await viewModel.refresh(note: "\(branch) weicht von \(upstream) ab · " + result.commandLine)
+                let diverged = String(localized: "\(branch) has diverged from \(upstream)", bundle: .module, comment: "Status line; the arguments are a local branch and its upstream.")
+                await viewModel.refresh(note: diverged + " · " + result.commandLine)
                 await offerWayOut(branch: branch, upstream: upstream, ahead: ahead, behind: behind, place: result.place)
             }
         }
     }
 
-    private static func whereText(_ place: BranchPullPlace) -> RefString {
-        guard case .worktree(let path) = place else { return "" }
-        return " (im Worktree \(worktree: (path as NSString).lastPathComponent))"
+    /// A pull in another worktree carries its local changes; only there can bringing them back conflict.
+    private static func fastForwarded(_ branch: String, by commits: Int, to upstream: String, place: BranchPullPlace, conflicted: Bool) -> RefString {
+        let name = RefName.branch(branch)
+        let target = RefName.remoteBranch(upstream)
+        guard case .worktree(let path) = place else { return RefString("Fast-forwarded \(name) by \(commits) commits to \(target)") }
+        let folder = RefName.worktree((path as NSString).lastPathComponent)
+        if conflicted {
+            return RefString("Fast-forwarded \(name) by \(commits) commits to \(target) (in worktree \(folder)); local changes came back with conflicts, the stash “autostash” stays")
+        }
+        return RefString("Fast-forwarded \(name) by \(commits) commits to \(target) (in worktree \(folder))")
     }
 
     // MARK: Diverged
@@ -73,20 +82,22 @@ final class BranchPullController {
     /// A branch checked out in another worktree is pulled there, so the tab moves to that worktree instead.
     private func offerWayOut(branch: String, upstream: String, ahead: Int, behind: Int, place: BranchPullPlace) async {
         let alert = NSAlert()
-        let title: RefString = "\(branch: branch) und \(remoteBranch: upstream) sind auseinandergelaufen"
-        let counts: RefString = "Lokal \(Self.commits(ahead)), auf \(remoteBranch: upstream) \(Self.commits(behind)). Ein Fast-Forward ist nicht möglich; geändert wurde nichts."
+        let title = RefString("\(RefName.branch(branch)) and \(RefName.remoteBranch(upstream)) have diverged")
+        let local = Self.newCommits(ahead)
+        let remote = Self.newCommits(behind)
+        let cancel = String(localized: "Cancel", bundle: .module)
         if case .worktree(let path) = place {
             let folder = (path as NSString).lastPathComponent
-            alert.setText(title, info: "\(counts) \(branch: branch) ist im Worktree \(worktree: folder) ausgecheckt; dort lässt es sich mit Merge oder Rebase pullen.")
-            alert.addButton(withTitle: "Zu Worktree \(folder) wechseln")
-            alert.addButton(withTitle: "Abbrechen")
+            alert.setText(title, info: RefString("Local has \(local), \(RefName.remoteBranch(upstream)) has \(remote). A fast-forward is not possible; nothing was changed. \(RefName.branch(branch)) is checked out in the worktree \(RefName.worktree(folder)); it can be pulled there with merge or rebase."))
+            alert.addButton(withTitle: String(localized: "Switch to Worktree \(folder)", bundle: .module))
+            alert.addButton(withTitle: cancel)
             if await prompter.confirm(alert) { onSwitchWorktree?(path) }
             return
         }
-        alert.setText(title, info: "\(counts) Auschecken und pullen bietet Merge und Rebase; Zurücksetzen verwirft die lokalen Commits.")
-        alert.addButton(withTitle: "Auschecken und pullen …")
-        alert.addButton(withTitle: "Auf \(upstream) zurücksetzen …")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.setText(title, info: RefString("Local has \(local), \(RefName.remoteBranch(upstream)) has \(remote). A fast-forward is not possible; nothing was changed. Check Out and Pull offers merge and rebase; resetting drops the local commits."))
+        alert.addButton(withTitle: String(localized: "Check Out and Pull…", bundle: .module))
+        alert.addButton(withTitle: String(localized: "Reset to \(upstream)…", bundle: .module))
+        alert.addButton(withTitle: cancel)
         switch await prompter.choose(alert) {
         case .alertFirstButtonReturn: await checkoutAndPull(branch)
         case .alertSecondButtonReturn: await reset(branch, to: upstream, losing: ahead)
@@ -101,9 +112,9 @@ final class BranchPullController {
             await pullPush.refresh().value
             pullPush.pull(PullVariant(mode: pullPush.defaultMode))
         case .changesLeftInStash(let conflict):
-            prompter.report(GitError(arguments: ["switch", branch], exitCode: 1, stderr: conflict.conflictedPaths.joined(separator: "\n")), title: "Gewechselt, aber die mitgenommenen Änderungen kollidieren; nicht gepullt")
+            prompter.report(GitError(arguments: ["switch", branch], exitCode: 1, stderr: conflict.conflictedPaths.joined(separator: "\n")), title: "Switched, but the carried-over changes conflict; not pulled")
         case .failed(let message):
-            prompter.report(GitError(arguments: ["switch", branch], exitCode: 1, stderr: message), title: "\(branch: branch) nicht ausgecheckt")
+            prompter.report(GitError(arguments: ["switch", branch], exitCode: 1, stderr: message), title: "\(RefName.branch(branch)) not checked out")
         }
     }
 
@@ -113,23 +124,24 @@ final class BranchPullController {
         guard let head = try? await repository.branchHead(branch) else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        let loss = ahead == 1 ? "Ein lokaler Commit geht verloren; das Reflog behält ihn" : "\(ahead) lokale Commits gehen verloren; das Reflog behält sie"
-        alert.setText("\(branch: branch) auf \(remoteBranch: upstream) zurücksetzen?", info: "\(loss) noch eine Weile.")
-        alert.addButton(withTitle: "Zurücksetzen")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.setText("Reset \(RefName.branch(branch)) to \(RefName.remoteBranch(upstream))?", info: "\(ahead) local commits will be lost; the reflog keeps them for a while.")
+        alert.addButton(withTitle: String(localized: "Reset", bundle: .module, comment: "Button that resets a branch."))
+        alert.addButton(withTitle: String(localized: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = true
         guard await prompter.confirm(alert) else { return }
         do {
             try await repository.resetBranchToUpstream(branch, expecting: head)
-            await viewModel.refresh(note: "\(branch) auf \(upstream) zurückgesetzt · git update-ref refs/heads/\(branch)")
-            onToast?("\(branch: branch) auf \(remoteBranch: upstream) zurückgesetzt")
+            let done = String(localized: "\(branch) reset to \(upstream)", bundle: .module)
+            await viewModel.refresh(note: done + " · git update-ref refs/heads/\(branch)")
+            onToast?(RefString("\(RefName.branch(branch)) reset to \(RefName.remoteBranch(upstream))"))
         } catch {
             await viewModel.refresh(note: nil)
-            prompter.report(error, title: "\(branch: branch) nicht zurückgesetzt")
+            prompter.report(error, title: "\(RefName.branch(branch)) not reset")
         }
     }
 
-    private static func commits(_ count: Int) -> String {
-        count == 1 ? "1 neuer Commit" : "\(count) neue Commits"
+    /// A count of its own inside the diverged message, which names two of them.
+    private static func newCommits(_ count: Int) -> String {
+        String(localized: "\(count) new commits", bundle: .module, comment: "One side's count in “Local has 2 new commits, origin/main has 1 new commit.”")
     }
 }

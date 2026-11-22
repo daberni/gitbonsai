@@ -3,8 +3,14 @@ import AppKit
 /// A way forward that a failure sheet offers, such as "Änderungen stashen und erneut versuchen". The first one is the sheet's default button.
 struct FailureAction {
     let title: String
-    var isDestructive = false
+    let isDestructive: Bool
     let run: @MainActor () -> Void
+
+    init(title: LocalizedStringResource, isDestructive: Bool = false, run: @escaping @MainActor () -> Void) {
+        self.title = title.text
+        self.isDestructive = isDestructive
+        self.run = run
+    }
 }
 
 /// The sheet of a failed git command: a title, one sentence of what happened, the ways forward as buttons and git's output collapsed below.
@@ -39,7 +45,7 @@ final class FailureSheet {
     }
 
     private func layout(contentWidth: CGFloat) -> NSView {
-        let glyph = NSImageView(image: NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Fehler") ?? NSImage())
+        let glyph = NSImageView(image: NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: String(localized: "Error", bundle: .module)) ?? NSImage())
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: M.glyph, weight: .regular)
         glyph.contentTintColor = Theme.ochre
         let heading = NSTextField(wrappingLabelWithString: "")
@@ -86,9 +92,9 @@ final class FailureSheet {
     private func buttonRow(contentWidth: CGFloat) -> NSView {
         var controls: [NSControl] = []
         if actions.isEmpty {
-            controls.append(button(PrimaryButton(title: "OK"), choice: nil))
+            controls.append(button(PrimaryButton(title: String(localized: "OK", bundle: .module)), choice: nil))
         } else {
-            controls.append(button(SecondaryButton(title: "Abbrechen"), choice: nil))
+            controls.append(button(SecondaryButton(title: String(localized: "Cancel", bundle: .module)), choice: nil))
             for (index, action) in actions.enumerated().dropFirst() {
                 let control = SecondaryButton(title: action.title)
                 if action.isDestructive { control.tint = Theme.persimmon }

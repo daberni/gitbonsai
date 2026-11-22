@@ -8,11 +8,11 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
     let urlField = NSTextField()
     let destinationField = NSTextField()
     let branchField = NSTextField()
-    let submodules = NSButton(checkboxWithTitle: "Submodule mitklonen", target: nil, action: nil)
-    let shallow = NSButton(checkboxWithTitle: "Nur den neuesten Stand (--depth 1)", target: nil, action: nil)
-    let cloneButton = NSButton(title: "Klonen", target: nil, action: nil)
-    let cancelButton = NSButton(title: "Abbrechen", target: nil, action: nil)
-    let chooseButton = NSButton(title: "Wählen …", target: nil, action: nil)
+    let submodules = NSButton(checkboxWithTitle: String(localized: "Clone submodules too", bundle: .module), target: nil, action: nil)
+    let shallow = NSButton(checkboxWithTitle: String(localized: "Latest snapshot only (--depth 1)", bundle: .module), target: nil, action: nil)
+    let cloneButton = NSButton(title: String(localized: "Clone", bundle: .module, comment: "The clone sheet's confirm button."), target: nil, action: nil)
+    let cancelButton = NSButton(title: String(localized: "Cancel", bundle: .module), target: nil, action: nil)
+    let chooseButton = NSButton(title: String(localized: "Choose …", bundle: .module), target: nil, action: nil)
     /// Under the destination: why the folder cannot take the clone.
     let warning = NSTextField(wrappingLabelWithString: "")
     let progressBar = CloneProgressBar()
@@ -32,13 +32,13 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
     }
 
     private func build() {
-        let title = NSTextField(labelWithString: "Repository klonen")
+        let title = NSTextField(labelWithString: String(localized: "Clone Repository", bundle: .module))
         title.font = Theme.title
-        let info = NSTextField(wrappingLabelWithString: "git clone lädt das Repository herunter. Anmeldung über den Credential-Helper oder den SSH-Agent.")
+        let info = NSTextField(wrappingLabelWithString: String(localized: "git clone downloads the repository. Sign-in goes through the credential helper or the SSH agent.", bundle: .module))
         info.font = Theme.caption
         info.textColor = .secondaryLabelColor
-        urlField.placeholderString = "https://… oder git@host:pfad.git"
-        branchField.placeholderString = "Standard-Branch des Remotes"
+        urlField.placeholderString = String(localized: "https://… or git@host:path.git", bundle: .module)
+        branchField.placeholderString = String(localized: "The remote's default branch", bundle: .module)
         for field in [urlField, destinationField, branchField] {
             field.delegate = self
             field.usesSingleLineMode = true
@@ -77,9 +77,9 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         stack.addArrangedSubview(info)
         stack.setCustomSpacing(M.sectionGap, after: info)
         stack.addArrangedSubview(row("URL", urlField))
-        stack.addArrangedSubview(row("Ziel", destinationRow))
+        stack.addArrangedSubview(row(LocalizedStringResource("Destination", comment: "Label of the clone sheet's folder field."), destinationRow))
         stack.addArrangedSubview(warning)
-        stack.addArrangedSubview(row("Branch", branchField))
+        stack.addArrangedSubview(row(LocalizedStringResource("Branch", comment: "Label of the clone sheet's branch field."), branchField))
         stack.addArrangedSubview(submodules)
         stack.addArrangedSubview(shallow)
         stack.setCustomSpacing(M.sectionGap, after: shallow)
@@ -98,8 +98,8 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
 
     private var progressRow: NSView?
 
-    private func row(_ label: String, _ control: NSView) -> NSView {
-        let caption = NSTextField(labelWithString: label)
+    private func row(_ label: LocalizedStringResource, _ control: NSView) -> NSView {
+        let caption = NSTextField(labelWithString: label.text)
         caption.font = Theme.caption
         caption.textColor = .secondaryLabelColor
         let row = NSStackView(views: [caption, control])
@@ -116,22 +116,23 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
 
     // MARK: States
 
-    /// While git runs the form is locked; only Abbrechen stays, and it stops git.
+    /// While git runs the form is locked; only Cancel stays, and it stops git.
     func showRunning(_ running: Bool) {
         for control in [urlField, destinationField, branchField, submodules, shallow, chooseButton, cloneButton] as [NSControl] { control.isEnabled = !running }
         progressRow?.isHidden = !running
         if running {
             failure.isHidden = true
             progressBar.fraction = 0
-            progressLabel.stringValue = "Verbinde …"
+            progressLabel.stringValue = String(localized: "Connecting…", bundle: .module)
         }
         fitWindow()
     }
 
     func show(_ progress: CloneProgress) {
         progressBar.fraction = progress.fraction
-        let counts = "\(progress.completed.formatted()) von \(progress.total.formatted())"
-        progressLabel.stringValue = "\(Self.title(of: progress.phase)): \(counts)"
+        let completed = progress.completed.formatted(.number.locale(AppLanguage.locale))
+        let total = progress.total.formatted(.number.locale(AppLanguage.locale))
+        progressLabel.stringValue = String(localized: "\(Self.title(of: progress.phase)): \(completed) of \(total)", bundle: .module, comment: "Clone progress: the phase, then objects done and all objects.")
     }
 
     func showWarning(_ text: String?) {
@@ -166,11 +167,11 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
 
     private static func title(of phase: CloneProgress.Phase) -> String {
         switch phase {
-        case .counting: "Objekte zählen"
-        case .compressing: "Objekte komprimieren"
-        case .receiving: "Objekte empfangen"
-        case .resolving: "Deltas auflösen"
-        case .updatingFiles: "Dateien auschecken"
+        case .counting: String(localized: "Counting objects", bundle: .module)
+        case .compressing: String(localized: "Compressing objects", bundle: .module)
+        case .receiving: String(localized: "Receiving objects", bundle: .module)
+        case .resolving: String(localized: "Resolving deltas", bundle: .module)
+        case .updatingFiles: String(localized: "Checking out files", bundle: .module)
         }
     }
 }

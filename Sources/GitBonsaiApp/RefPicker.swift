@@ -13,7 +13,7 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
     }
 
     let button = RefPickerButton()
-    let search = TextInput(placeholder: "Branch, Tag oder SHA suchen")
+    let search = TextInput(placeholder: String(localized: "Search branch, tag or SHA", bundle: .module))
     let table = NSTableView()
     private let scroll = NSScrollView()
     private let popover = NSPopover()
@@ -28,7 +28,7 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
         didSet { button.item = selection }
     }
     var onChange: ((RefCatalog.Item) -> Void)?
-    /// Section headers that read differently here than the defaults, such as "Vorschläge" for the current section.
+    /// Section headers that read differently here than the defaults, such as "Suggestions" for the current section.
     var sectionTitles: [RefCatalog.Section: String] = [:]
 
     var isOpen: Bool { popover.isShown }

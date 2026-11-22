@@ -3,7 +3,7 @@ import GitEngine
 
 extension CheckoutController: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
-        [Command(.checkout, context: state.branch, blocker: CommandRules.checkout(state), action: .choose(placeholder: "Branch suchen") { [weak self] in self?.branchChoices() ?? [] })]
+        [Command(.checkout, context: state.branch, blocker: CommandRules.checkout(state), action: .choose(placeholder: "Search Branches") { [weak self] in self?.branchChoices() ?? [] })]
     }
 
     /// Local branches with the sidebar's glyphs, then remote branches; the checked-out branch stays listed, greyed out.
@@ -15,13 +15,13 @@ extension CheckoutController: CommandProvider {
             switch ref.kind {
             case .localBranch:
                 let worktree = elsewhere[ref.fullName]
-                let context = worktree.map { "in Worktree \(($0.path as NSString).lastPathComponent)" }
-                commands.append(Command(id: ref.fullName, title: ref.name, glyph: .glyph(ref.isHead ? .check : .laptop), context: context, disabledReason: ref.isHead ? "Ausgecheckt" : nil) { [weak self] in
+                let context = worktree.map { String(localized: "in worktree \(($0.path as NSString).lastPathComponent)", bundle: .module, comment: "Where a branch in the checkout list is checked out.") }
+                commands.append(Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(ref.isHead ? .check : .laptop), context: context, disabledReason: ref.isHead ? "Checked out" : nil) { [weak self] in
                     self?.perform(.localBranch(ref.name), worktreePath: worktree?.path)
                 })
             case .remoteBranch(let remote) where !ref.name.hasSuffix("/HEAD"):
                 let branch = String(ref.name.dropFirst(remote.count + 1))
-                commands.append(Command(id: ref.fullName, title: ref.name, glyph: .glyph(.cloud), context: remote) { [weak self] in
+                commands.append(Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(.cloud), context: remote) { [weak self] in
                     self?.perform(.remoteBranch(remote: remote, branch: branch), worktreePath: nil)
                 })
             default:

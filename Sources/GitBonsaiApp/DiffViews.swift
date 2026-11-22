@@ -22,7 +22,7 @@ final class DiffHeaderView: BarView {
 
     init() {
         super.init(edge: .bottom)
-        back.title = "Graph"
+        back.title = String(localized: "Graph", bundle: .module, comment: "Button back from a diff to the history graph")
         back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: nil)
         back.imagePosition = .imageLeading
         back.bezelStyle = .rounded
@@ -37,7 +37,7 @@ final class DiffHeaderView: BarView {
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         indicator.font = Theme.monoStrong
         indicator.setContentCompressionResistancePriority(.required, for: .horizontal)
-        for (button, symbol, action, tip) in [(previous, "chevron.up", #selector(goPrevious(_:)), "Vorheriger Hunk"), (next, "chevron.down", #selector(goNext(_:)), "Nächster Hunk")] {
+        for (button, symbol, action, tip) in [(previous, "chevron.up", #selector(goPrevious(_:)), String(localized: "Previous Hunk", bundle: .module)), (next, "chevron.down", #selector(goNext(_:)), String(localized: "Next Hunk", bundle: .module))] {
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tip)
             button.bezelStyle = .rounded
             button.target = self
@@ -46,11 +46,11 @@ final class DiffHeaderView: BarView {
         }
         modes.target = self
         modes.action = #selector(changeMode(_:))
-        modes.toolTip = "Nur die Änderungen oder die ganze Datei zeigen"
+        modes.toolTip = String(localized: "Show only the changes or the whole file", bundle: .module)
         let closeSymbol = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
-        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Schließen")?.withSymbolConfiguration(closeSymbol)
+        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close", bundle: .module))?.withSymbolConfiguration(closeSymbol)
         close.bezelStyle = .rounded
-        close.toolTip = "Schließen (Esc)"
+        close.toolTip = String(localized: "Close (Esc)", bundle: .module)
         close.target = self
         close.action = #selector(goBack(_:))
         fileAction.bezelStyle = .rounded
@@ -98,9 +98,9 @@ final class DiffHeaderView: BarView {
         switch selection.source {
         case .commit: badge.text = nil
         case .revisions(let base, let target): badge.text = "\(base.prefix(7)) → \(target.prefix(7))"
-        case .unstaged: badge.text = "unstaged"
-        case .staged: badge.text = "staged"
-        case .untracked: badge.text = "untracked"
+        case .unstaged: badge.text = String(localized: "unstaged", bundle: .module, comment: "Badge on a diff of unstaged changes")
+        case .staged: badge.text = String(localized: "staged", bundle: .module, comment: "Badge on a diff of staged changes")
+        case .untracked: badge.text = String(localized: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
         }
         stat.attributedStringValue = diff.map { FileRowView.statText($0.stat) } ?? NSAttributedString()
         // Binary files and files without changes have nothing to show in full.
@@ -110,7 +110,7 @@ final class DiffHeaderView: BarView {
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
         fileAction.isHidden = !(selection.isStageable || selection.isUnstageable) || diff == nil
-        fileAction.title = selection.isUnstageable ? "Datei unstagen" : "Datei stagen"
+        fileAction.title = selection.isUnstageable ? String(localized: "Unstage File", bundle: .module) : String(localized: "Stage File", bundle: .module)
     }
 
     /// The change letter, the path as shown and its tooltip; harness checks print them.
@@ -143,7 +143,7 @@ struct DiffChange {
         if selection.source == .untracked {
             letter = "?"
             color = Theme.inkMuted
-            word = "untracked"
+            word = String(localized: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
         } else if let state {
             letter = String(state.rawValue)
             color = state.tint
@@ -155,24 +155,33 @@ struct DiffChange {
         }
         var lines: [String] = []
         if let oldPath {
-            let similarity = diff?.similarity.map { " (Ähnlichkeit \($0) %)" } ?? ""
-            lines.append("\(word) von \(oldPath) nach \(selection.path)\(similarity)")
+            lines.append(Self.move(copied: state == .copied, from: oldPath, to: selection.path, similarity: diff?.similarity))
         } else {
             lines.append(selection.path)
         }
-        if let diff, diff.modeChanged, let oldMode = diff.oldMode, let newMode = diff.newMode { lines.append("Dateimodus \(oldMode) → \(newMode)") }
+        if let diff, diff.modeChanged, let oldMode = diff.oldMode, let newMode = diff.newMode { lines.append(String(localized: "File mode \("\(oldMode) → \(newMode)")", bundle: .module, comment: "e.g. File mode 100644 → 100755")) }
         description = lines.joined(separator: "\n")
+    }
+
+    /// A path with an old path was renamed unless git says it was copied.
+    private static func move(copied: Bool, from oldPath: String, to path: String, similarity: Int?) -> String {
+        switch (copied, similarity) {
+        case (true, let similarity?): String(localized: "copied from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
+        case (true, nil): String(localized: "copied from \(oldPath) to \(path)", bundle: .module)
+        case (false, let similarity?): String(localized: "renamed from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
+        case (false, nil): String(localized: "renamed from \(oldPath) to \(path)", bundle: .module)
+        }
     }
 
     private static func word(for state: FileState) -> String {
         switch state {
-        case .added: "hinzugefügt"
-        case .deleted: "gelöscht"
-        case .renamed: "umbenannt"
-        case .copied: "kopiert"
-        case .typeChanged: "Typ geändert"
-        case .unmerged: "Konflikt"
-        case .modified, .unmodified: "geändert"
+        case .added: String(localized: "added", bundle: .module, comment: "What happened to a file")
+        case .deleted: String(localized: "deleted", bundle: .module, comment: "What happened to a file")
+        case .renamed: String(localized: "renamed", bundle: .module, comment: "What happened to a file")
+        case .copied: String(localized: "copied", bundle: .module, comment: "What happened to a file")
+        case .typeChanged: String(localized: "type changed", bundle: .module, comment: "What happened to a file")
+        case .unmerged: String(localized: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts")
+        case .modified, .unmodified: String(localized: "modified", bundle: .module, comment: "What happened to a file")
         }
     }
 }
@@ -256,7 +265,7 @@ final class DiffLineView: NSView {
         let signText = NSAttributedString(string: sign, attributes: [.font: Theme.mono, .foregroundColor: tint ?? Theme.inkMuted])
         signText.draw(at: CGPoint(x: numbers.maxX + D.textInset, y: bounds.midY - signText.size().height / 2))
         let body = NSMutableAttributedString(string: Self.display(line.text), attributes: [.font: Theme.mono, .foregroundColor: Theme.ink])
-        if line.missingNewline { body.append(NSAttributedString(string: "  ⏎ fehlt am Dateiende", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkFaint])) }
+        if line.missingNewline { body.append(NSAttributedString(string: "  " + String(localized: "⏎ missing at end of file", bundle: .module, comment: "Marks a last line without a newline"), attributes: [.font: Theme.caption, .foregroundColor: Theme.inkFaint])) }
         body.draw(at: CGPoint(x: Self.textX, y: bounds.midY - body.size().height / 2))
     }
 
@@ -287,7 +296,7 @@ final class DiffHunkView: NSView {
         action.action = #selector(run(_:))
         discard.bezelStyle = .rounded
         discard.controlSize = .small
-        discard.title = "Hunk verwerfen"
+        discard.title = String(localized: "Discard Hunk", bundle: .module)
         discard.target = self
         discard.action = #selector(runDiscard(_:))
         label.translatesAutoresizingMaskIntoConstraints = false

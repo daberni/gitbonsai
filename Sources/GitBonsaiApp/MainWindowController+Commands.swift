@@ -5,7 +5,7 @@ import GitEngine
 extension MainWindowController: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         let (titles, active) = commandTabs
-        let several = titles.count > 1 ? nil : "Nur ein Tab offen"
+        let several: LocalizedStringResource? = titles.count > 1 ? nil : "Only one tab is open"
         return [
             Command(.newTab) { [weak self] in self?.newTab(nil) },
             Command(.openRepository) { [weak self] in self?.openRepository(nil) },
@@ -13,9 +13,9 @@ extension MainWindowController: CommandProvider {
             Command(.closeTab, context: titles.indices.contains(active) ? titles[active] : nil) { [weak self] in self?.closeTab(nil) },
             Command(.nextTab, disabledReason: several) { [weak self] in self?.selectNextTab(nil) },
             Command(.previousTab, disabledReason: several) { [weak self] in self?.selectPreviousTab(nil) },
-            Command(.switchTab, disabledReason: several, action: .choose(placeholder: "Tab suchen") { [weak self] in
+            Command(.switchTab, disabledReason: several, action: .choose(placeholder: "Search tabs") { [weak self] in
                 titles.enumerated().map { index, title in
-                    Command(id: "tab.\(index)", title: title, glyph: .symbol("square"), scope: .app, context: index == active ? "Aktiv" : nil) { self?.showTab(at: index) }
+                    Command(id: "tab.\(index)", title: .verbatim(title), glyph: .symbol("square"), scope: .app, context: index == active ? String(localized: "Active", bundle: .module, comment: "Marks the current tab in the command bar's tab list.") : nil) { self?.showTab(at: index) }
                 }
             }),
             Command(.settings) { SettingsWindowController.shared.show() },

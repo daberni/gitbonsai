@@ -7,7 +7,7 @@ enum RefItemStyle {
     static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        formatter.locale = Locale(identifier: "de_DE")
+        formatter.locale = AppLanguage.locale
         return formatter
     }()
 
@@ -47,11 +47,11 @@ enum RefItemStyle {
 
     static func sectionTitle(_ section: RefCatalog.Section) -> String {
         switch section {
-        case .current: "Aktuell"
-        case .local: "Lokale Branches"
-        case .remote(let remote): "Remote-Branches · \(remote)"
-        case .tags: "Tags"
-        case .commit: "Commit"
+        case .current: String(localized: "Current", bundle: .module, comment: "Ref picker section with HEAD and the commit the picker was opened for.")
+        case .local: String(localized: "Local Branches", bundle: .module)
+        case .remote(let remote): String(localized: "Remote Branches · \(remote)", bundle: .module)
+        case .tags: String(localized: "Tags", bundle: .module)
+        case .commit: String(localized: "Commit", bundle: .module)
         }
     }
 }
@@ -83,7 +83,7 @@ final class RefPickerRowView: NSView {
         switch content {
         case .header(let title):
             let attributes: [NSAttributedString.Key: Any] = [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern]
-            let text = NSAttributedString(string: title.uppercased(), attributes: attributes)
+            let text = NSAttributedString(string: title.uppercased(with: AppLanguage.locale), attributes: attributes)
             text.draw(at: CGPoint(x: left, y: bounds.maxY - Theme.Space.xs - text.size().height))
         case .item(let match):
             let item = match.item

@@ -39,6 +39,7 @@ Run:
 
 Window and tabs:
 
+- `GITBONSAI_LANGUAGE=en|de` runs in that language for this launch only, without storing it.
 - `GITBONSAI_APPEARANCE=light|dark` forces the appearance, `GITBONSAI_SELECT_ROW=n` selects a history row first.
 - `GITBONSAI_NEW_TAB=1` shows the empty tab with the recently used repositories, `GITBONSAI_CLICK_TAB=n` switches tabs with a real click first.
 - `GITBONSAI_REPOSITORY_FOLDERS=<folder>:<folder>` stores the repository folders in the harness defaults (empty for none); the empty tab is captured once their first scan finished, and each scan prints its duration and counts.

@@ -11,9 +11,9 @@ final class SettingsForm {
         grid.translatesAutoresizingMaskIntoConstraints = false
     }
 
-    /// A control with its label; an empty label leaves the label column free.
-    func addRow(_ label: String, _ control: NSView) {
-        let title = NSTextField(labelWithString: label.isEmpty ? "" : "\(label):")
+    /// A control with its label; nil leaves the label column free.
+    func addRow(_ label: LocalizedStringResource?, _ control: NSView) {
+        let title = NSTextField(labelWithString: label.map { String(localized: "\($0.text):", bundle: .module, comment: "A settings label in front of its control.") } ?? "")
         title.alignment = .right
         let row = grid.addRow(with: [title, control])
         row.rowAlignment = .firstBaseline
@@ -50,8 +50,8 @@ final class SettingsForm {
         return field
     }
 
-    static func caption(_ text: String) -> NSTextField {
-        let field = NSTextField(wrappingLabelWithString: text)
+    static func caption(_ text: LocalizedStringResource) -> NSTextField {
+        let field = NSTextField(wrappingLabelWithString: text.text)
         field.font = Theme.caption
         field.textColor = Theme.inkMuted
         field.preferredMaxLayoutWidth = Theme.Settings.captionWidth

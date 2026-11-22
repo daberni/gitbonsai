@@ -66,7 +66,7 @@ extension ScreenshotHarness {
         var shotTaken = shotTaken
         var cancelled = cancelled
         let fraction = sheet.progressBar.fraction
-        if !shotTaken, fraction > 0.33, sheet.progressLabel.stringValue.hasPrefix("Objekte empfangen"), let path = environment["GITBONSAI_CLONE_SHOT_DURING"] {
+        if !shotTaken, fraction > 0.33, sheet.progressLabel.stringValue.hasPrefix(String(localized: "Receiving objects", bundle: .module)), let path = environment["GITBONSAI_CLONE_SHOT_DURING"] {
             shotTaken = true
             traceClone("progress \(sheet.progressLabel.stringValue)")
             render(sheet.window, to: path)

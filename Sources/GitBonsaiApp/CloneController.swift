@@ -67,9 +67,9 @@ final class CloneController {
         guard !destination.isEmpty else { return nil }
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: destination, isDirectory: &isDirectory) else { return nil }
-        guard isDirectory.boolValue else { return "Unter diesem Pfad liegt eine Datei." }
+        guard isDirectory.boolValue else { return String(localized: "A file is in the way at this path.", bundle: .module) }
         let contents = (try? FileManager.default.contentsOfDirectory(atPath: destination)) ?? []
-        return contents.filter { $0 != ".DS_Store" }.isEmpty ? nil : "Der Ordner existiert schon und ist nicht leer."
+        return contents.filter { $0 != ".DS_Store" }.isEmpty ? nil : String(localized: "The folder already exists and isn't empty.", bundle: .module)
     }
 
     var options: CloneOptions {
@@ -92,8 +92,8 @@ final class CloneController {
         guard let sheet else { return }
         let current = URL(fileURLWithPath: destination.isEmpty ? Self.destinationBase : destination)
         let panel = NSSavePanel()
-        panel.title = "Ziel des Klons"
-        panel.prompt = "Wählen"
+        panel.title = String(localized: "Clone Destination", bundle: .module)
+        panel.prompt = String(localized: "Choose", bundle: .module)
         panel.canCreateDirectories = true
         panel.directoryURL = current.deletingLastPathComponent()
         panel.nameFieldStringValue = current.lastPathComponent

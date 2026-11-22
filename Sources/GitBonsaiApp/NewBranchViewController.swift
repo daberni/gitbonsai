@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The form of the "Neuer Branch" sheet: name with live validation, start point in a ref picker, and either a new worktree or whether to switch here.
+/// The form of the "New Branch" sheet: name with live validation, start point in a ref picker, and either a new worktree or whether to switch here.
 /// It validates and collects; `NewBranchController` runs git.
 @MainActor
 final class NewBranchViewController: NSViewController {
@@ -9,14 +9,14 @@ final class NewBranchViewController: NSViewController {
 
     let nameInput = TextInput(placeholder: "feature/…")
     let picker: RefPicker
-    let worktreeBox = LabeledCheckbox(title: "In neuem Worktree auschecken")
-    let checkoutBox = LabeledCheckbox(title: "Auschecken")
-    private(set) lazy var pathInput = TextInput(placeholder: "Ordner", accessory: FieldIconButton(symbol: "folder", label: "Ordner wählen …", target: self, action: #selector(choosePath(_:))))
-    let createButton = PrimaryButton(title: "Branch anlegen")
-    let cancelButton = SecondaryButton(title: "Abbrechen")
+    let worktreeBox = LabeledCheckbox(title: String(localized: "Check out in a new worktree", bundle: .module))
+    let checkoutBox = LabeledCheckbox(title: String(localized: "Check out", bundle: .module, comment: "Checkbox in the New Branch sheet: switch to the new branch."))
+    private(set) lazy var pathInput = TextInput(placeholder: String(localized: "Folder", bundle: .module, comment: "Placeholder of the worktree folder field."), accessory: FieldIconButton(symbol: "folder", label: String(localized: "Choose Folder…", bundle: .module), target: self, action: #selector(choosePath(_:))))
+    let createButton = PrimaryButton(title: String(localized: "Create Branch", bundle: .module))
+    let cancelButton = SecondaryButton(title: String(localized: "Cancel", bundle: .module))
     let nameMessage = NSTextField(wrappingLabelWithString: "")
     let pathMessage = NSTextField(wrappingLabelWithString: "")
-    private let worktreeHint = NSTextField(wrappingLabelWithString: "Der Branch wird in einem eigenen Ordner ausgecheckt. Der aktuelle Ordner bleibt unverändert.")
+    private let worktreeHint = NSTextField(wrappingLabelWithString: String(localized: "The branch is checked out in a folder of its own. The current folder stays unchanged.", bundle: .module))
     private var pathGroup: NSView!
 
     var onFinish: ((NewBranchRequest?) -> Void)?
@@ -44,7 +44,7 @@ final class NewBranchViewController: NSViewController {
     // MARK: Layout
 
     override func loadView() {
-        let title = NSTextField(labelWithString: "Neuer Branch")
+        let title = NSTextField(labelWithString: String(localized: "New Branch", bundle: .module, comment: "Title of the sheet that creates a branch."))
         title.font = Theme.title
         title.textColor = Theme.ink
 
@@ -75,8 +75,8 @@ final class NewBranchViewController: NSViewController {
         cancelButton.action = #selector(cancelPressed(_:))
         picker.onChange = { [weak self] _ in self?.view.window?.makeFirstResponder(self?.nameInput.field) }
 
-        let name = field(caption: "Name", control: nameInput, message: nameMessage)
-        let start = field(caption: "Startpunkt", control: picker.button, message: nil)
+        let name = field(caption: String(localized: "Name", bundle: .module, comment: "Caption of the branch name field."), control: nameInput, message: nameMessage)
+        let start = field(caption: String(localized: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit."), control: picker.button, message: nil)
         pathGroup = stack([pathInput, pathMessage, worktreeHint], spacing: Theme.TextField.captionGap)
         pathGroup.isHidden = true
         let follow = stack([worktreeBox, pathGroup, checkoutBox], spacing: Theme.Space.s)
@@ -134,14 +134,14 @@ final class NewBranchViewController: NSViewController {
             return
         }
         if existingBranches.contains(candidate) {
-            show("Es gibt schon einen Branch \(branch: candidate).", in: nameMessage, input: nameInput)
+            show(RefString("A branch \(RefName.branch(candidate)) already exists."), in: nameMessage, input: nameInput)
             return
         }
         Task {
             let valid = await repository.isValidBranchName(candidate)
             guard current == check else { return }
             isNameValid = valid
-            show(valid ? nil : "Kein gültiger Branch-Name. Leerzeichen, ~ ^ : ? * [ \\ und „..“ sind nicht erlaubt.", in: nameMessage, input: nameInput)
+            show(valid ? nil : RefString("Not a valid branch name. Spaces, ~ ^ : ? * [ \\ and “..” are not allowed."), in: nameMessage, input: nameInput)
         }
         updateState()
     }
@@ -153,11 +153,11 @@ final class NewBranchViewController: NSViewController {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { return nil }
         let isEmptyFolder = isDirectory.boolValue && ((try? FileManager.default.contentsOfDirectory(atPath: path))?.isEmpty ?? false)
-        return isEmptyFolder ? nil : "Dort liegt schon etwas. git legt den Worktree nur in einem neuen oder leeren Ordner an."
+        return isEmptyFolder ? nil : String(localized: "Something is already there. git only creates a worktree in a new or empty folder.", bundle: .module)
     }
 
     private func show(_ message: RefString?, in label: NSTextField, input: TextInput?) {
-        label.setText(message ?? "")
+        label.setText(message ?? RefString(verbatim: ""))
         let changed = label.isHidden != (message == nil)
         label.isHidden = message == nil
         input?.isInvalid = message != nil
@@ -192,8 +192,8 @@ final class NewBranchViewController: NSViewController {
     @objc private func choosePath(_ sender: Any?) {
         guard let window = view.window else { return }
         let panel = NSSavePanel()
-        panel.title = "Ordner des Worktrees"
-        panel.prompt = "Wählen"
+        panel.title = String(localized: "Worktree Folder", bundle: .module)
+        panel.prompt = String(localized: "Choose", bundle: .module)
         panel.canCreateDirectories = true
         let current = (pathInput.stringValue as NSString).expandingTildeInPath
         panel.directoryURL = URL(fileURLWithPath: (current as NSString).deletingLastPathComponent)

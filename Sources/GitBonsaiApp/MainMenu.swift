@@ -7,12 +7,12 @@ final class MainMenu: NSObject, NSMenuDelegate {
     enum Entry {
         /// Always listed; disabled from its spec while the tab offers no such command, as in the empty tab.
         case command(CommandSpec)
-        /// Listed only while the tab offers it, such as "Upstream setzen und pullen …".
+        /// Listed only while the tab offers it, such as "Set Upstream and Pull…".
         case ifPresent(CommandSpec)
         /// Every command whose id starts with the prefix and is not placed on its own elsewhere: per remote, per pull mode, the running operation.
         case family(String)
         /// An action AppKit implements, sent along the responder chain.
-        case standard(String, Selector, CommandShortcut?)
+        case standard(LocalizedStringResource, Selector, CommandShortcut?)
         case separator
         case recent
         case services
@@ -20,53 +20,59 @@ final class MainMenu: NSObject, NSMenuDelegate {
     }
 
     struct Section {
-        let title: String
+        /// The menus AppKit fills itself: the window list and the help search.
+        enum Role {
+            case plain, window, help
+        }
+
+        let title: LocalizedStringResource
+        var role: Role = .plain
         let entries: [Entry]
     }
 
     static let sections: [Section] = [
-        Section(title: "GitBonsai", entries: [
-            .standard("Über GitBonsai", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), nil),
+        Section(title: .verbatim("GitBonsai"), entries: [
+            .standard("About GitBonsai", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), nil),
             .separator,
             .command(.settings),
             .separator,
             .services,
             .separator,
-            .standard("GitBonsai ausblenden", #selector(NSApplication.hide(_:)), CommandShortcut("h")),
-            .standard("Andere ausblenden", #selector(NSApplication.hideOtherApplications(_:)), CommandShortcut("h", [.command, .option])),
-            .standard("Alle einblenden", #selector(NSApplication.unhideAllApplications(_:)), nil),
+            .standard("Hide GitBonsai", #selector(NSApplication.hide(_:)), CommandShortcut("h")),
+            .standard("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), CommandShortcut("h", [.command, .option])),
+            .standard("Show All", #selector(NSApplication.unhideAllApplications(_:)), nil),
             .separator,
-            .standard("GitBonsai beenden", #selector(NSApplication.terminate(_:)), CommandShortcut("q")),
+            .standard("Quit GitBonsai", #selector(NSApplication.terminate(_:)), CommandShortcut("q")),
         ]),
-        Section(title: "Ablage", entries: [
+        Section(title: LocalizedStringResource("File", comment: "The File menu."), entries: [
             .command(.newTab),
             .command(.openRepository),
             .command(.clone),
             .recent,
             .separator,
             .command(.closeTab),
-            .standard("Fenster schließen", #selector(NSWindow.performClose(_:)), CommandShortcut("w", [.command, .shift])),
+            .standard("Close Window", #selector(NSWindow.performClose(_:)), CommandShortcut("w", [.command, .shift])),
         ]),
-        Section(title: "Bearbeiten", entries: [
-            .standard("Widerrufen", Selector(("undo:")), CommandShortcut("z")),
-            .standard("Wiederholen", Selector(("redo:")), CommandShortcut("z", [.command, .shift])),
+        Section(title: "Edit", entries: [
+            .standard("Undo", Selector(("undo:")), CommandShortcut("z")),
+            .standard("Redo", Selector(("redo:")), CommandShortcut("z", [.command, .shift])),
             .separator,
-            .standard("Ausschneiden", #selector(NSText.cut(_:)), CommandShortcut("x")),
-            .standard("Kopieren", #selector(NSText.copy(_:)), CommandShortcut("c")),
-            .standard("Einsetzen", #selector(NSText.paste(_:)), CommandShortcut("v")),
-            .standard("Alles auswählen", #selector(NSText.selectAll(_:)), CommandShortcut("a")),
+            .standard("Cut", #selector(NSText.cut(_:)), CommandShortcut("x")),
+            .standard("Copy", #selector(NSText.copy(_:)), CommandShortcut("c")),
+            .standard("Paste", #selector(NSText.paste(_:)), CommandShortcut("v")),
+            .standard("Select All", #selector(NSText.selectAll(_:)), CommandShortcut("a")),
             .separator,
             .command(.search),
         ]),
-        Section(title: "Darstellung", entries: [
+        Section(title: LocalizedStringResource("View", comment: "The View menu."), entries: [
             .commandBar,
             .separator,
             .command(.toggleSidebar),
             .command(.toggleDetail),
             .separator,
-            .standard("Vollbild", #selector(NSWindow.toggleFullScreen(_:)), CommandShortcut("f", [.command, .control])),
+            .standard("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), CommandShortcut("f", [.command, .control])),
         ]),
-        Section(title: "Repository", entries: [
+        Section(title: LocalizedStringResource("Repository", comment: "The Repository menu."), entries: [
             .command(.fetchAll),
             .family("fetch."),
             .command(.fetchTags),
@@ -99,7 +105,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.copyBranch),
             .command(.copyHead),
         ]),
-        Section(title: "Branch", entries: [
+        Section(title: LocalizedStringResource("Branch", comment: "The Branch menu."), entries: [
             .command(.newBranch),
             .command(.checkout),
             .command(.switchWorktree),
@@ -107,17 +113,17 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.rebaseInteractive),
             .family("operation."),
         ]),
-        Section(title: "Fenster", entries: [
-            .standard("Im Dock ablegen", #selector(NSWindow.performMiniaturize(_:)), CommandShortcut("m")),
-            .standard("Zoomen", #selector(NSWindow.performZoom(_:)), nil),
+        Section(title: "Window", role: .window, entries: [
+            .standard("Minimize", #selector(NSWindow.performMiniaturize(_:)), CommandShortcut("m")),
+            .standard("Zoom", #selector(NSWindow.performZoom(_:)), nil),
             .separator,
             .command(.nextTab),
             .command(.previousTab),
             .command(.switchTab),
             .separator,
-            .standard("Alle nach vorne bringen", #selector(NSApplication.arrangeInFront(_:)), nil),
+            .standard("Bring All to Front", #selector(NSApplication.arrangeInFront(_:)), nil),
         ]),
-        Section(title: "Hilfe", entries: []),
+        Section(title: "Help", role: .help, entries: []),
     ]
 
     /// Ids placed on their own somewhere; a family leaves them out.
@@ -134,7 +140,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
     private let runAction: Selector
     private let commandBarAction: Selector
     private var menus: [ObjectIdentifier: Section] = [:]
-    private let recentMenu = NSMenu(title: "Zuletzt verwendet")
+    private let recentMenu = NSMenu(title: String(localized: "Open Recent", bundle: .module))
 
     /// `target` receives `runAction` with the command id as the item's `representedObject`, and `commandBarAction`.
     init(target: AnyObject, runAction: Selector, commandBarAction: Selector, commands: @escaping () -> [Command], recents: @escaping () -> [String]) {
@@ -151,17 +157,18 @@ final class MainMenu: NSObject, NSMenuDelegate {
     func install() {
         let bar = NSMenu()
         for section in Self.sections {
-            let menu = NSMenu(title: section.title)
+            let title = section.title.text
+            let menu = NSMenu(title: title)
             menu.delegate = self
             menus[ObjectIdentifier(menu)] = section
             for item in items(for: section, commands: [:], order: []) { menu.addItem(item) }
-            let holder = NSMenuItem(title: section.title, action: nil, keyEquivalent: "")
+            let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             holder.submenu = menu
             bar.addItem(holder)
-            switch section.title {
-            case "Fenster": NSApp.windowsMenu = menu
-            case "Hilfe": NSApp.helpMenu = menu
-            default: break
+            switch section.role {
+            case .window: NSApp.windowsMenu = menu
+            case .help: NSApp.helpMenu = menu
+            case .plain: break
             }
         }
         NSApp.mainMenu = bar
@@ -182,7 +189,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
         }
         for item in menu.items {
             guard let id = item.representedObject as? String, let spec = Self.spec(id: id) else { continue }
-            item.title = byID[id]?.title ?? spec.title
+            item.title = byID[id]?.title ?? spec.title.text
             item.toolTip = byID[id]?.disabledReason
         }
     }
@@ -210,13 +217,13 @@ final class MainMenu: NSObject, NSMenuDelegate {
         for entry in section.entries {
             switch entry {
             case .command(let spec):
-                items.append(commands[spec.id].map(item(for:)) ?? item(title: spec.title, id: spec.id, shortcut: spec.shortcut))
+                items.append(commands[spec.id].map(item(for:)) ?? item(title: spec.title.text, id: spec.id, shortcut: spec.shortcut))
             case .ifPresent(let spec):
                 if let command = commands[spec.id] { items.append(item(for: command)) }
             case .family(let prefix):
                 items += order.filter { $0.hasPrefix(prefix) && !Self.placedIDs.contains($0) }.compactMap { commands[$0] }.map(item(for:))
             case .standard(let title, let action, let shortcut):
-                let entry = NSMenuItem(title: title, action: action, keyEquivalent: shortcut?.key ?? "")
+                let entry = NSMenuItem(title: title.text, action: action, keyEquivalent: shortcut?.key ?? "")
                 entry.keyEquivalentModifierMask = shortcut?.modifiers ?? []
                 items.append(entry)
             case .separator:
@@ -226,13 +233,13 @@ final class MainMenu: NSObject, NSMenuDelegate {
                 holder.submenu = recentMenu
                 items.append(holder)
             case .services:
-                let services = NSMenu(title: "Dienste")
+                let services = NSMenu(title: String(localized: "Services", bundle: .module, comment: "The Services submenu of the app menu."))
                 NSApp.servicesMenu = services
                 let holder = NSMenuItem(title: services.title, action: nil, keyEquivalent: "")
                 holder.submenu = services
                 items.append(holder)
             case .commandBar:
-                let entry = NSMenuItem(title: "Befehlsleiste …", action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
+                let entry = NSMenuItem(title: String(localized: "Command Bar…", bundle: .module), action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
                 entry.keyEquivalentModifierMask = CommandShortcut.commandBar.modifiers
                 entry.target = target
                 items.append(entry)
@@ -284,7 +291,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             recentMenu.addItem(item)
         }
         if paths.isEmpty {
-            let empty = NSMenuItem(title: "Noch nichts geöffnet", action: nil, keyEquivalent: "")
+            let empty = NSMenuItem(title: String(localized: "Nothing Opened Yet", bundle: .module, comment: "The empty Open Recent menu."), action: nil, keyEquivalent: "")
             empty.isEnabled = false
             recentMenu.addItem(empty)
         }

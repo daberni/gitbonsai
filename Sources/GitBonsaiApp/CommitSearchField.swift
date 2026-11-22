@@ -16,7 +16,7 @@ final class CommitSearchField: NSSearchField, NSSearchFieldDelegate {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        placeholderString = "Commits durchsuchen"
+        placeholderString = String(localized: "Search Commits", bundle: .module)
         controlSize = .large
         sendsWholeSearchString = true
         delegate = self
@@ -30,7 +30,7 @@ final class CommitSearchField: NSSearchField, NSSearchFieldDelegate {
 
     required init?(coder: NSCoder) { nil }
 
-    /// The counter text, such as "3 von 42" or "Keine Treffer"; nil hides it.
+    /// The counter text, such as "3 of 42" or "No matches"; nil hides it.
     var counterText: String? {
         get { counter.isHidden ? nil : counter.stringValue }
         set {

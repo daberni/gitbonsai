@@ -9,7 +9,7 @@ final class ComparisonDetail: NSObject {
     let headline: NSTextField
     let command: NSTextField
     let note: NSTextField
-    let baseSwitch = LabeledCheckbox(title: "seit gemeinsamer Basis")
+    let baseSwitch = LabeledCheckbox(title: String(localized: "since common base", bundle: .module, comment: "Checkbox: compare two commits from their merge base"))
     let filesHeader: NSTextField
     var list: FileListView?
     /// The file list was replaced after the base switch changed; an open diff follows its file.
@@ -27,12 +27,12 @@ final class ComparisonDetail: NSObject {
         note = label(Theme.caption, Theme.inkMuted)
         filesHeader = label(Theme.caption, Theme.inkMuted)
         super.init()
-        headline.stringValue = "\(commits.count) Commits"
+        headline.stringValue = String(localized: "\(commits.count) commits", bundle: .module)
         note.isHidden = true
         baseSwitch.isHidden = true
         baseSwitch.target = self
         baseSwitch.action = #selector(toggleBase(_:))
-        baseSwitch.toolTip = "Nur die Änderungen des neueren Commits seit dem gemeinsamen Vorfahren (git diff <a>...<b>)"
+        baseSwitch.toolTip = String(localized: "Only the changes of the newer commit since the common ancestor (git diff <a>...<b>)", bundle: .module)
     }
 
     func load() {
@@ -65,23 +65,24 @@ final class ComparisonDetail: NSObject {
         guard let comparison else { return }
         switch comparison {
         case .pair(let older, let newer, let base):
-            headline.stringValue = "\(older.shortID) → \(newer.shortID) · 2 Commits"
+            headline.stringValue = "\(older.shortID) → \(newer.shortID) · " + String(localized: "\(2) commits", bundle: .module)
             command.stringValue = sinceMergeBase ? "git diff \(older.shortID)...\(newer.shortID)" : "git diff \(older.shortID) \(newer.shortID)"
             baseSwitch.isHidden = base == nil
             note.isHidden = base == nil
             if let base {
-                note.setText(sinceMergeBase ? "Nur was \(commit: newer.id) seit der gemeinsamen Basis \(commit: base) geändert hat." : "Die Commits liegen auf verschiedenen Branches; der Diff enthält auch, was nur \(commit: older.id) hat.")
+                let text: LocalizedStringResource = sinceMergeBase ? "Only what \(RefName.commit(newer.id)) changed since the common base \(RefName.commit(base))." : "The commits are on different branches; the diff also contains what only \(RefName.commit(older.id)) has."
+                note.setText(text)
             }
         case .run(let run):
             let oldest = run[run.count - 1]
-            headline.stringValue = "\(oldest.shortID) → \(run[0].shortID) · \(run.count) Commits"
-            command.stringValue = oldest.parents.isEmpty ? "git diff <leerer Baum> \(run[0].shortID)" : "git diff \(oldest.shortID)^ \(run[0].shortID)"
-            note.stringValue = "Zusammengefasst wie ein Squash."
+            headline.stringValue = "\(oldest.shortID) → \(run[0].shortID) · " + String(localized: "\(run.count) commits", bundle: .module)
+            command.stringValue = oldest.parents.isEmpty ? "git diff " + String(localized: "<empty tree>", bundle: .module, comment: "Stands for git's empty tree in a shown git command") + " \(run[0].shortID)" : "git diff \(oldest.shortID)^ \(run[0].shortID)"
+            note.stringValue = String(localized: "Combined like a squash.", bundle: .module)
             note.isHidden = false
         case .separate(let commits):
-            headline.stringValue = commits.reversed().map(\.shortID).joined(separator: ", ") + " · \(commits.count) Commits"
+            headline.stringValue = commits.reversed().map(\.shortID).joined(separator: ", ") + " · " + String(localized: "\(commits.count) commits", bundle: .module)
             command.stringValue = "git show " + commits.map(\.shortID).joined(separator: " ")
-            note.stringValue = "Kein kombinierter Diff: Die Commits folgen nicht direkt aufeinander auf einer Linie, ein gemeinsamer Diff zeigte auch die Änderungen dazwischen. Jeder Commit steht für sich."
+            note.stringValue = String(localized: "No combined diff: the commits don’t follow each other directly on one line, so a single diff would also show the changes in between. Each commit stands on its own.", bundle: .module)
             note.isHidden = false
         }
     }
@@ -97,12 +98,12 @@ final class ComparisonDetail: NSObject {
             let from = sinceMergeBase ? base ?? older.id : older.id
             let files = (try? await repository.changedFiles(from: from, to: newer.id)) ?? []
             all = files
-            sections = [FileListView.Section(title: "Dateien", rows: files.map { Self.row($0, source: .revisions(base: from, target: newer.id)) }, action: nil)]
+            sections = [FileListView.Section(title: String(localized: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: newer.id)) }, action: nil)]
         case .run(let run):
             guard let oldest = run.last, let from = try? await repository.base(before: oldest) else { return }
             let files = (try? await repository.changedFiles(from: from, to: run[0].id)) ?? []
             all = files
-            sections = [FileListView.Section(title: "Dateien", rows: files.map { Self.row($0, source: .revisions(base: from, target: run[0].id)) }, action: nil)]
+            sections = [FileListView.Section(title: String(localized: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: run[0].id)) }, action: nil)]
         case .separate(let commits):
             let repository = repository
             let perCommit = await withTaskGroup(of: (Int, [ChangedFile]).self) { group in
@@ -120,7 +121,7 @@ final class ComparisonDetail: NSObject {
         }
         guard !Task.isCancelled, let list else { return }
         let total = all.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
-        let summary = NSMutableAttributedString(string: (all.count == 1 ? "1 Datei" : "\(all.count) Dateien") + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
+        let summary = NSMutableAttributedString(string: String(localized: "\(all.count) files", bundle: .module) + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
         summary.append(FileRowView.statText(total))
         filesHeader.attributedStringValue = summary
         list.show(sections)
@@ -128,7 +129,7 @@ final class ComparisonDetail: NSObject {
     }
 
     private static func row(_ file: ChangedFile, source: DiffSource) -> FileRowView.Model {
-        FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: source), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil, state: file.state)
+        FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: source), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
     }
 
     /// Everything the panel says, for harness checks.
@@ -142,7 +143,7 @@ final class ComparisonDetail: NSObject {
 extension DetailView {
     /// Several selected commits: what they compare and the files that differ.
     func showComparison(of commits: [Commit], repository: Repository) -> ComparisonDetail {
-        reset(title: "Vergleich")
+        reset(title: String(localized: "Comparison", bundle: .module, comment: "Detail panel title while several commits are selected"))
         let panel = ComparisonDetail(commits: commits, repository: repository) { [unowned self] font, color in label("", font: font, color: color, wraps: true) }
         add(panel.headline)
         add(panel.command)

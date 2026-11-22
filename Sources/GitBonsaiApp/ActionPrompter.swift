@@ -39,11 +39,11 @@ final class ActionPrompter {
         return await present(alert)
     }
 
-    func saveLocation(title: String, suggestedName: String) async -> URL? {
+    func saveLocation(title: LocalizedStringResource, suggestedName: String) async -> URL? {
         if ScreenshotHarness.isActive { return ScreenshotHarness.saveLocation }
         guard let window = window?() else { return nil }
         let panel = NSSavePanel()
-        panel.title = title
+        panel.title = title.text
         panel.nameFieldStringValue = suggestedName
         panel.canCreateDirectories = true
         let response = await withCheckedContinuation { continuation in
@@ -59,24 +59,25 @@ final class ActionPrompter {
 
     /// Says what went wrong. A failure that changed nothing and needs no decision, such as an unreachable server, is a toast whose "Details" opens the sheet;
     /// anything else is a sheet with one sentence, the ways forward as buttons and git's output collapsed below. `summary` replaces the app's sentence for git's message.
-    func report(_ error: Error, title: RefString, summary: RefString? = nil, actions: [FailureAction] = []) {
-        let sentence = summary ?? GitFailureText.summary(of: error)
+    func report(_ error: Error, title: LocalizedStringResource, summary: LocalizedStringResource? = nil, actions: [FailureAction] = []) {
+        let title = RefString(title)
+        let sentence = summary.map(RefString.init) ?? GitFailureText.summary(of: error)
         let details = GitFailureText.details(of: error).flatMap { $0 == sentence.plain ? nil : $0 }
         if actions.isEmpty, GitFailureText.isPassing(error), let onToast {
-            let more = details.map { _ in ToastAction(title: "Details") { [weak self] in self?.showSheet(title: title, summary: sentence, details: details, actions: []) } }
-            onToast("\(title): \(sentence)", more)
+            let more = details.map { _ in ToastAction(title: "Details") { [weak self] in self?.showSheet(title: .verbatim(title), summary: .verbatim(sentence), details: details, actions: []) } }
+            onToast(RefString(LocalizedStringResource("\(title.marked): \(sentence.marked)", comment: "Toast of a failure: what failed, then git's reason.")), more)
             return
         }
-        showSheet(title: title, summary: sentence, details: details, actions: actions)
+        showSheet(title: .verbatim(title), summary: .verbatim(sentence), details: details, actions: actions)
     }
 
     /// A rebase, cherry-pick, revert or merge that stopped on conflicts is a state, not an error: the banner and the conflict list show it, so only other failures are reported.
     /// A stash that applied with conflicts leaves no operation behind; the working directory shows the conflicts, and a toast leads there.
-    func report(_ error: Error, title: RefString, actions: [FailureAction] = [], unlessStoppedIn repository: Repository) async {
+    func report(_ error: Error, title: LocalizedStringResource, actions: [FailureAction] = [], unlessStoppedIn repository: Repository) async {
         if (error as? GitError)?.stoppedOnConflict == true {
             if await repository.operationInProgress() != nil { return }
             if let onToast {
-                onToast(title, onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } })
+                onToast(RefString(title), onShowConflicts.map { show in ToastAction(title: "Show Conflicts") { show() } })
                 return
             }
         }
@@ -85,11 +86,13 @@ final class ActionPrompter {
 
     /// Changes set aside for a command conflicted when they came back: the working directory shows the conflicts, and the stash named `stash` stays.
     func reportConflictingReturn(of stash: String) {
-        onToast?("Lokale Änderungen kollidieren beim Zurückholen; der Stash „\(stash)“ bleibt erhalten", onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } })
+        onToast?(RefString("Local changes conflict on their way back; the stash “\(stash)” stays"), onShowConflicts.map { show in ToastAction(title: "Show Conflicts") { show() } })
     }
 
     /// The sheet of a failure, also for a decision that a failure leads to, such as a rejected push. The chosen action runs once the sheet is gone.
-    func showSheet(title: RefString, summary: RefString, details: String?, actions: [FailureAction]) {
+    func showSheet(title: LocalizedStringResource, summary: LocalizedStringResource, details: String?, actions: [FailureAction]) {
+        let title = RefString(title)
+        let summary = RefString(summary)
         let sheet = FailureSheet(title: title, summary: summary, details: details, actions: actions)
         if ScreenshotHarness.isActive {
             FileHandle.standardError.write(Data("\(title.plain): \(summary.plain)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\(actions.isEmpty ? "" : " {\(actions.map(\.title).joined(separator: " | "))}")\n".utf8))
@@ -110,9 +113,9 @@ final class ActionPrompter {
 }
 
 extension NSAlert {
-    /// The button Esc presses: "Abbrechen", otherwise the last button, which is where an alert puts the choice that changes nothing.
+    /// The button Esc presses: Cancel, otherwise the last button, which is where an alert puts the choice that changes nothing.
     var cancelButton: NSButton? {
-        buttons.first { $0.title == "Abbrechen" } ?? buttons.last
+        buttons.first { $0.title == String(localized: "Cancel", bundle: .module) } ?? buttons.last
     }
 
     /// Shows the alert as a sheet on which Esc presses `cancelButton`, as macOS dialogs do.

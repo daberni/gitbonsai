@@ -8,11 +8,11 @@ final class SettingsWindowController: NSWindowController {
 
         var title: String {
             switch self {
-            case .general: "Allgemein"
-            case .git: "Git"
-            case .appearance: "Darstellung"
-            case .fetch: "Fetch"
-            case .avatars: "Avatare"
+            case .general: String(localized: "General", bundle: .module, comment: "Settings tab.")
+            case .git: String(localized: "Git", bundle: .module, comment: "Settings tab.")
+            case .appearance: String(localized: "Appearance", bundle: .module, comment: "Settings tab.")
+            case .fetch: String(localized: "Fetch", bundle: .module, comment: "Settings tab.")
+            case .avatars: String(localized: "Avatars", bundle: .module, comment: "Settings tab.")
             }
         }
 

@@ -24,7 +24,7 @@ final class PanelRowView: NSView {
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        formatter.locale = Locale(identifier: "de_DE")
+        formatter.locale = AppLanguage.locale
         return formatter
     }()
 

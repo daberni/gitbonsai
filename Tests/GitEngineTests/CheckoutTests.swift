@@ -21,18 +21,18 @@ final class CheckoutTests: XCTestCase {
         try fixture.git("switch", "-q", "-c", "main", "--track", "origin/main")
         let repo = Repository(path: fixture.path)
 
-        try await repo.checkout(.remoteBranch(remote: "origin", branch: "feature/login"))
+        try await repo.checkout(.remoteBranch(remote: "origin", branch: "feature/login"), stashMessage: "carried by the test")
         XCTAssertEqual(try currentBranch(fixture), "feature/login")
         XCTAssertEqual(try fixture.git("rev-parse", "--abbrev-ref", "feature/login@{upstream}"), "origin/feature/login")
 
         let localTip = try fixture.commit("local only", file: "local.txt")
-        try await repo.checkout(.localBranch("main"))
+        try await repo.checkout(.localBranch("main"), stashMessage: "carried by the test")
         XCTAssertEqual(try currentBranch(fixture), "main")
 
-        try await repo.checkout(.remoteBranch(remote: "origin", branch: "feature/login"))
+        try await repo.checkout(.remoteBranch(remote: "origin", branch: "feature/login"), stashMessage: "carried by the test")
         XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), localTip, "the existing local branch must be reused, not reset to the remote tip")
 
-        try await repo.checkout(.commit(remoteTip))
+        try await repo.checkout(.commit(remoteTip), stashMessage: "carried by the test")
         XCTAssertEqual(try currentBranch(fixture), "HEAD")
         XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), remoteTip)
     }
@@ -54,7 +54,7 @@ final class CheckoutTests: XCTestCase {
         try fixture.write("untracked.txt", "new\n")
         let repo = Repository(path: fixture.path)
 
-        try await repo.checkout(.localBranch("feature"))
+        try await repo.checkout(.localBranch("feature"), stashMessage: "carried by the test")
         XCTAssertEqual(try currentBranch(fixture), "feature")
         XCTAssertEqual(try contents(fixture, "shared.txt"), "ONE\ntwo\nthree\nfour\n", "the edit merges onto the target's version")
         XCTAssertEqual(try contents(fixture, "untracked.txt"), "new\n")
@@ -73,12 +73,12 @@ final class CheckoutTests: XCTestCase {
         let repo = Repository(path: fixture.path)
 
         do {
-            try await repo.checkout(.localBranch("feature"))
+            try await repo.checkout(.localBranch("feature"), stashMessage: "carried to feature")
             XCTFail("popping the edit onto feature's version must conflict")
         } catch let conflict as CarriedChangesConflict {
             XCTAssertEqual(try currentBranch(fixture), "feature", "the switch itself happened")
             XCTAssertEqual(try fixture.git("stash", "list", "--format=%gs"), "On main: \(conflict.stashMessage)")
-            XCTAssertTrue(conflict.stashMessage.contains("feature"), conflict.stashMessage)
+            XCTAssertEqual(conflict.stashMessage, "carried to feature")
             XCTAssertEqual(conflict.conflictedPaths, ["shared.txt"])
             XCTAssertTrue(try contents(fixture, "shared.txt").contains("<<<<<<<"), "the conflict is in the working tree")
         }
@@ -92,7 +92,7 @@ final class CheckoutTests: XCTestCase {
         let repo = Repository(path: fixture.path)
 
         do {
-            try await repo.checkout(.localBranch("missing"))
+            try await repo.checkout(.localBranch("missing"), stashMessage: "carried by the test")
             XCTFail("there is no branch to switch to")
         } catch is GitError {}
         XCTAssertEqual(try currentBranch(fixture), "main")
@@ -117,12 +117,12 @@ final class CheckoutTests: XCTestCase {
         let repo = Repository(path: fixture.path)
 
         do {
-            try await repo.checkout(.fastForward(branch: "main", to: "origin/main"))
+            try await repo.checkout(.fastForward(branch: "main", to: "origin/main"), stashMessage: "carried by the test")
             XCTFail("a diverged branch cannot fast-forward")
         } catch is GitError {}
 
-        try await repo.checkout(.localBranch("work"))
-        try await repo.checkout(.reset(branch: "main", to: "origin/main"))
+        try await repo.checkout(.localBranch("work"), stashMessage: "carried by the test")
+        try await repo.checkout(.reset(branch: "main", to: "origin/main"), stashMessage: "carried by the test")
         XCTAssertEqual(try currentBranch(fixture), "main")
         XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), remoteTip)
         XCTAssertEqual(try fixture.git("rev-parse", "--abbrev-ref", "main@{upstream}"), "origin/main")

@@ -33,7 +33,7 @@ final class GraphViewModel {
     let repositoryName: String
     private(set) var lastFetch: Date?
     private(set) var isFetching = false
-    private var statusLine = StatusLine(summary: "Loading…")
+    private var statusLine = StatusLine(summary: String(localized: "Loading…", bundle: .module))
     var statusText: String { statusLine.text }
     private(set) var isLoading = false
     private(set) var maxLaneCount = 1
@@ -58,7 +58,7 @@ final class GraphViewModel {
     private var isRefreshing = false
     private var loadDuration = ""
     /// Counted live, because a refresh can drop commits and lay them out again.
-    private var loadedSummary: String { "\(history.commitCount) Commits · \(maxLaneCount) Lanes · \(stashes.count) Stashes · geladen in \(loadDuration)" }
+    private var loadedSummary: String { [String(localized: "\(history.commitCount) commits", bundle: .module), String(localized: "\(maxLaneCount) lanes", bundle: .module, comment: "Status line: lanes of the commit graph"), String(localized: "\(stashes.count) stashes", bundle: .module), String(localized: "loaded in \(loadDuration)", bundle: .module, comment: "Status line: how long reading the history took, e.g. 26 ms")].joined(separator: " · ") }
     private var reachableFromHead: Set<String> = []
     private var sidebarChanges = 0
     private var hasSidebarContent = false
@@ -115,10 +115,10 @@ final class GraphViewModel {
     // MARK: Actions
 
     func checkout(_ target: CheckoutTarget) async -> CheckoutOutcome {
-        setNote("Wechsle …")
+        setNote(String(localized: "Switching…", bundle: .module, comment: "Status line while checking out"))
         let start = ContinuousClock.now
         do {
-            try await repository.checkout(target)
+            try await repository.checkout(target, stashMessage: target.stashMessage)
             await refresh(note: "git switch \(elapsed(since: start))", focus: .current)
             return .done
         } catch let conflict as CarriedChangesConflict {
@@ -155,7 +155,7 @@ final class GraphViewModel {
         } catch {
             await loadLastFetch()
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
-            await refresh(note: "\(variant.commandLine) fehlgeschlagen nach \(elapsed(since: start)): \(message)")
+            await refresh(note: String(localized: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"))
             return error
         }
     }
@@ -257,7 +257,7 @@ final class GraphViewModel {
         if historyMoved { computeReachability() }
         onRowsRebuilt?(focus)
         onMetadataChanged?()
-        setSummary("\(loadedSummary) · Ansicht \(elapsed(since: start))")
+        setSummary(loadedSummary + " · " + String(localized: "view \(elapsed(since: start))", bundle: .module, comment: "Status line: how long updating the history view took, e.g. view 3 ms"))
         // The other worktrees' change counters are slow to gather and nothing waits for them.
         Task { await loadWorktreeStatuses() }
     }
@@ -275,7 +275,7 @@ final class GraphViewModel {
                 if history.wipRow != nil { onRowsShifted?() }
             }
         }, onProgress: {
-            setSummary("\(commits.count) Commits · \(elapsed(since: start))")
+            setSummary(String(localized: "\(commits.count) commits", bundle: .module) + " · " + elapsed(since: start))
         })
         switch outcome {
         case .finished:
@@ -284,7 +284,7 @@ final class GraphViewModel {
         case .cancelled:
             break
         case .failed(let error):
-            setSummary("git log fehlgeschlagen: \(error)")
+            setSummary(String(localized: "git log failed: \(String(describing: error))", bundle: .module))
         }
     }
 
@@ -313,7 +313,7 @@ final class GraphViewModel {
             (refs, refsByCommit) = try await RefLoader.refs(of: repository)
             if !isRefreshing { onMetadataChanged?() }
         } catch {
-            setSummary("refs failed: \(error)")
+            setSummary(String(localized: "Reading refs failed: \(String(describing: error))", bundle: .module))
         }
     }
 
@@ -372,6 +372,8 @@ final class GraphViewModel {
     private func elapsed(since start: ContinuousClock.Instant) -> String {
         let duration = start.duration(to: .now)
         let milliseconds = Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15
-        return milliseconds < 1000 ? String(format: "%.0f ms", milliseconds) : String(format: "%.2f s", milliseconds / 1000)
+        let measurement = milliseconds < 1000 ? Measurement(value: milliseconds.rounded(), unit: UnitDuration.milliseconds) : Measurement(value: milliseconds / 1000, unit: UnitDuration.seconds)
+        let digits = milliseconds < 1000 ? 0 : 2
+        return measurement.formatted(.measurement(width: .abbreviated, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(digits)).locale(AppLanguage.locale)).locale(AppLanguage.locale))
     }
 }

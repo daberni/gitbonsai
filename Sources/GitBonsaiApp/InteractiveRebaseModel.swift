@@ -162,21 +162,22 @@ final class InteractiveRebaseModel {
     /// Why the plan cannot start, in the sheet's words.
     var problemText: RefString? {
         switch plan.problem {
-        case let .nothingToFoldInto(commit)?: "\(commit: commit.id) kann nicht in den Commit darüber aufgehen: Über ihm bleibt keiner stehen."
-        case let .emptyMessage(commit)?: "Der Commit aus \(commit: commit.id) braucht eine Nachricht."
+        case let .nothingToFoldInto(commit)?: RefString("\(RefName.commit(commit.id)) can’t fold into the commit above: no commit stays above it.")
+        case let .emptyMessage(commit)?: RefString("The commit from \(RefName.commit(commit.id)) needs a message.")
         case nil: nil
         }
     }
 
-    /// "3 Commits danach, 1 verworfen"; for an unchanged list onto another commit, how many move there.
+    /// "3 commits afterwards, 1 dropped"; for an unchanged list onto another commit, how many move there.
     var summary: RefString {
-        if isUnchanged, plan.movesBase { return original.count == 1 ? "1 Commit wandert auf \(targetName)" : "\(original.count) Commits wandern auf \(targetName)" }
+        if isUnchanged, plan.movesBase { return RefString("\(original.count) commits move onto \(targetName.marked)") }
         let dropped = plan.steps.filter { $0.action == .drop }.count
         let resulting = plan.result.count
-        var parts = [resulting == 1 ? "1 Commit danach" : "\(resulting) Commits danach"]
-        if dropped > 0 { parts.append(dropped == 1 ? "1 verworfen" : "\(dropped) verworfen") }
+        // Each count is a complete item of its own, listed like a status line.
+        var parts = [String(localized: "\(resulting) commits afterwards", bundle: .module, comment: "Rebase sheet summary: how many commits the branch has after the rebase.")]
+        if dropped > 0 { parts.append(String(localized: "\(dropped) dropped", bundle: .module, comment: "Rebase sheet summary: how many commits are dropped.")) }
         let folded = plan.steps.filter { $0.action.foldsIntoPrevious }.count
-        if folded > 0 { parts.append(folded == 1 ? "1 zusammengeführt" : "\(folded) zusammengeführt") }
-        return RefString(parts.joined(separator: ", "))
+        if folded > 0 { parts.append(String(localized: "\(folded) combined", bundle: .module, comment: "Rebase sheet summary: how many commits squash or fixup into the commit above.")) }
+        return RefString(verbatim: parts.joined(separator: ", "))
     }
 }

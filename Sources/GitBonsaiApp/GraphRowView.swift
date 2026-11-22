@@ -37,13 +37,14 @@ final class GraphRowView: NSView {
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
-        formatter.locale = Locale(identifier: "de_DE")
+        formatter.locale = AppLanguage.locale
         return formatter
     }()
     static let exactFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "de_DE")
-        formatter.dateFormat = "EEE, d. MMM yyyy, HH:mm"
+        formatter.locale = AppLanguage.locale
+        // A pattern per language rather than a template, so the German pattern stays exactly the one the history has always shown.
+        formatter.dateFormat = String(localized: "EEE, MMM d, yyyy, HH:mm", bundle: .module, comment: "Date format pattern (Unicode/ICU) for a commit's exact date in tooltips")
         return formatter
     }()
 
@@ -239,7 +240,7 @@ final class GraphRowView: NSView {
     static func initials(_ name: String) -> String {
         let parts = name.split(whereSeparator: { $0 == " " || $0 == "." || $0 == "-" || $0 == "_" })
         let letters = parts.prefix(2).compactMap(\.first)
-        return String(letters).uppercased()
+        return String(letters).uppercased(with: AppLanguage.locale)
     }
 
     // MARK: Labels
@@ -261,8 +262,8 @@ final class GraphRowView: NSView {
 
         if let counts = model.wipCounts {
             var x = textX
-            let items: [(Glyph, Int, String)] = [(.pencil, counts.changed, "geändert"), (.staged, counts.staged, "staged"), (.plus, counts.untracked, "untracked")]
-            for (glyph, count, _) in items where count > 0 {
+            let items: [(Glyph, Int)] = [(.pencil, counts.changed), (.staged, counts.staged), (.plus, counts.untracked)]
+            for (glyph, count) in items where count > 0 {
                 glyph.draw(in: CGRect(x: x, y: midY - Theme.Icon.small / 2, width: Theme.Icon.small, height: Theme.Icon.small), color: Theme.inkMuted, context: context)
                 let text = NSAttributedString(string: "\(count)", attributes: [.font: Theme.bodyDigits, .foregroundColor: Theme.ink])
                 let numberX = x + Theme.Icon.small + G.counterGap

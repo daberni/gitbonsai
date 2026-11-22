@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// What the "Neuer Branch" sheet asks git to do.
+/// What the "New Branch" sheet asks git to do.
 struct NewBranchRequest: Equatable {
     enum Follow: Equatable {
         /// Only creates the branch.
@@ -17,7 +17,7 @@ struct NewBranchRequest: Equatable {
     let follow: Follow
 }
 
-/// The "Neuer Branch" sheet: a window of its own, run as a sheet on the repository window, with `NewBranchViewController` as its content.
+/// The "New Branch" sheet: a window of its own, run as a sheet on the repository window, with `NewBranchViewController` as its content.
 @MainActor
 final class NewBranchSheet {
     let window: SheetWindow
@@ -27,7 +27,7 @@ final class NewBranchSheet {
         self.form = form
         window = SheetWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: Theme.NewBranch.width, height: Theme.NewBranch.width)), styleMask: [.titled, .docModalWindow], backing: .buffered, defer: false)
         window.contentViewController = form
-        window.title = "Neuer Branch"
+        window.title = String(localized: "New Branch", bundle: .module, comment: "Title of the sheet that creates a branch.")
         window.onCancel = { [weak form] in form?.cancel() }
         window.onReturn = { [weak form] in form?.confirm() }
         form.onFinish = { [weak self] request in self?.finish(request) }

@@ -43,7 +43,7 @@ final class HistoryRowToolTips {
         let layout = model.columns.layout(in: width)
         var tips: [Tip] = []
         if model.wipCounts != nil {
-            return [Tip(range: layout.commit, text: "Uncommittete Änderungen")]
+            return [Tip(range: layout.commit, text: String(localized: "Uncommitted changes", bundle: .module))]
         }
         let textX = layout.commit.lowerBound + C.subjectLeading
         let subjectWidth = max(layout.commit.upperBound - textX - C.leading, C.minimumSubject)

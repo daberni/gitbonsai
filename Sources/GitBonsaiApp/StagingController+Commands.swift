@@ -24,10 +24,9 @@ extension StagingController: CommandProvider {
         let prompter = ActionPrompter()
         prompter.window = window
         let runner = ActionRunner(viewModel: viewModel, prompter: prompter)
-        let count = paths.count == 1 ? "einer Datei" : "\(paths.count) Dateien"
         Task { [weak self] in
-            guard await runner.confirm("Alle Änderungen verwerfen?", info: "Die nicht gestagten Änderungen an \(count) gehen verloren. Gestagte Änderungen und neue Dateien bleiben.", button: "Verwerfen") else { return }
-            runner.run(failure: "Änderungen nicht verworfen", note: "git restore --worktree -- …", then: { self?.onChange?() }) { repository in
+            guard await runner.confirm("Discard all changes?", info: "The unstaged changes to \(paths.count) files are lost. Staged changes and new files stay.", button: "Discard") else { return }
+            runner.run(failure: "Changes not discarded", note: "git restore --worktree -- …", then: { self?.onChange?() }) { repository in
                 try await repository.discardUnstagedChanges(paths)
             }
         }

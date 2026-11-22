@@ -292,13 +292,13 @@ final class RepositoryViewController: NSObject {
     }
 
     /// Why ⌘E cannot edit the selected commit's message right now; nil when it can.
-    var editMessageReason: String? {
-        guard let commit = selectedCommitForMessage else { return "Kein Commit ausgewählt" }
-        if inlineReword.isEditing { return "Wird schon bearbeitet" }
+    var editMessageReason: LocalizedStringResource? {
+        guard let commit = selectedCommitForMessage else { return "No commit selected" }
+        if inlineReword.isEditing { return "Already being edited" }
         switch commitActions.interactiveRebase.rewordAccess(for: commit) {
         case .allowed: return nil
-        case let .disabled(reason): return reason
-        case nil: return viewModel.currentBranch.map { "Liegt nicht auf der Linie von \($0)" } ?? "Detached HEAD"
+        case let .disabled(reason): return .verbatim(reason)
+        case nil: return viewModel.currentBranch.map { "Not in the history of \($0)" } ?? "Detached HEAD"
         }
     }
 

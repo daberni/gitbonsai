@@ -25,9 +25,14 @@ extension RepositoryViewController: CommandProvider {
     // MARK: View
 
     private func viewCommands() -> [Command] {
-        [
-            Command(.toggleSidebar, title: split.showsSidebar ? "Seitenleiste ausblenden" : "Seitenleiste einblenden") { [weak self] in self?.split.toggleSidebar() },
-            Command(.toggleDetail, title: split.showsDetail ? "Detail-Panel ausblenden" : "Detail-Panel einblenden") { [weak self] in self?.split.toggleDetail() },
+        // Each title on its own: the compiler extracts only the first branch of a conditional expression into the String Catalog.
+        let sidebarTitle: LocalizedStringResource
+        if split.showsSidebar { sidebarTitle = "Hide Sidebar" } else { sidebarTitle = "Show Sidebar" }
+        let detailTitle: LocalizedStringResource
+        if split.showsDetail { detailTitle = "Hide Detail Panel" } else { detailTitle = "Show Detail Panel" }
+        return [
+            Command(.toggleSidebar, title: sidebarTitle) { [weak self] in self?.split.toggleSidebar() },
+            Command(.toggleDetail, title: detailTitle) { [weak self] in self?.split.toggleDetail() },
         ]
     }
 
@@ -35,7 +40,7 @@ extension RepositoryViewController: CommandProvider {
 
     private func commitCommands(_ state: RepositoryCommandState) -> [Command] {
         [
-            Command(.commit, context: state.stagedCount > 0 ? "\(state.stagedCount) gestaged" : nil, blocker: CommandRules.commit(state)) { [weak self] in self?.showCommitForm(amend: false) },
+            Command(.commit, context: state.stagedCount > 0 ? String(localized: "\(state.stagedCount) staged", bundle: .module, comment: "Count of staged files after the Commit command.") : nil, blocker: CommandRules.commit(state)) { [weak self] in self?.showCommitForm(amend: false) },
             Command(.amend, blocker: CommandRules.amend(state)) { [weak self] in self?.showCommitForm(amend: true) },
             Command(.editMessage, context: selectedCommitForMessage?.shortID, disabledReason: editMessageReason) { [weak self] in self?.editSelectedCommitMessage() },
         ]
@@ -54,10 +59,10 @@ extension RepositoryViewController: CommandProvider {
         let others = viewModel.worktrees.map(\.worktree).filter { !viewModel.isCurrent($0) && !$0.isBare && !$0.isPrunable }
         let current = (repositoryPath as NSString).lastPathComponent
         return [
-            Command(.switchWorktree, context: current, disabledReason: others.isEmpty ? "Kein anderer Worktree" : nil, action: .choose(placeholder: "Worktree suchen") { [weak self] in
+            Command(.switchWorktree, context: current, disabledReason: others.isEmpty ? "No other worktree" : nil, action: .choose(placeholder: "Search worktrees") { [weak self] in
                 others.map { worktree in
                     let folder = (worktree.path as NSString).lastPathComponent
-                    return Command(id: worktree.path, title: folder, glyph: .glyph(worktree.isMain ? .bonsaiMain : .bonsaiLinked), context: worktree.branch ?? "Detached HEAD") { self?.onSwitchWorktree?(worktree.path) }
+                    return Command(id: worktree.path, title: .verbatim(folder), glyph: .glyph(worktree.isMain ? .bonsaiMain : .bonsaiLinked), context: worktree.branch ?? String(localized: "Detached HEAD", bundle: .module)) { self?.onSwitchWorktree?(worktree.path) }
                 }
             }),
             Command(.search) { [weak self] in
@@ -75,11 +80,11 @@ extension RepositoryViewController: CommandProvider {
         let terminal = ExternalApps.terminal()
         let editor = ExternalApps.editor(forRepository: repositoryPath)
         return [
-            Command(.openTerminal, keywords: [terminal?.app.name].compactMap { $0 }, context: terminal.map { "\(name) · \($0.app.name)" }, disabledReason: terminal == nil ? "Kein Terminal gefunden" : nil) {
+            Command(.openTerminal, keywords: [terminal?.app.name].compactMap { $0 }, context: terminal.map { "\(name) · \($0.app.name)" }, disabledReason: terminal == nil ? "No terminal found" : nil) {
                 ExternalApps.openInTerminal(folder)
             },
             Self.chooseApp(.chooseTerminal, kind: .terminal, folder: folder, context: name, preferred: terminal),
-            Command(.openEditor, keywords: [editor?.app.name].compactMap { $0 }, context: editor.map { "\(name) · \($0.app.name)" }, disabledReason: editor == nil ? "Kein Editor gefunden" : nil) {
+            Command(.openEditor, keywords: [editor?.app.name].compactMap { $0 }, context: editor.map { "\(name) · \($0.app.name)" }, disabledReason: editor == nil ? "No editor found" : nil) {
                 guard let editor else { return }
                 ExternalApps.open(folder, in: editor.app, at: editor.url)
             },
@@ -91,13 +96,14 @@ extension RepositoryViewController: CommandProvider {
         ]
     }
 
-    /// "Im Editor öffnen mit …" and "Im Terminal öffnen mit …": the apps checked in the settings, the default marked.
+    /// "Open in Editor With…" and "Open in Terminal With…": the apps checked in the settings, the default marked.
     private static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?) -> Command {
         let shown = ExternalApps.shown(kind)
-        let none = kind == .editor ? "Kein Editor gefunden" : "Kein Terminal gefunden"
-        return Command(spec, keywords: shown.map(\.app.name), context: context, disabledReason: shown.isEmpty ? none : nil, action: .choose(placeholder: kind == .editor ? "Editor suchen" : "Terminal suchen") {
+        let none: LocalizedStringResource = kind == .editor ? "No editor found" : "No terminal found"
+        let placeholder: LocalizedStringResource = kind == .editor ? "Search editors" : "Search terminals"
+        return Command(spec, keywords: shown.map(\.app.name), context: context, disabledReason: shown.isEmpty ? none : nil, action: .choose(placeholder: placeholder) {
             shown.map { choice in
-                Command(id: choice.app.bundleID, title: choice.app.name, glyph: .app(choice.url), context: choice.app.bundleID == preferred?.app.bundleID ? "Standard" : nil) {
+                Command(id: choice.app.bundleID, title: .verbatim(choice.app.name), glyph: .app(choice.url), context: choice.app.bundleID == preferred?.app.bundleID ? String(localized: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals.") : nil) {
                     ExternalApps.open(folder, in: choice.app, at: choice.url)
                 }
             }

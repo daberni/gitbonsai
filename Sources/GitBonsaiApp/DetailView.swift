@@ -80,8 +80,8 @@ final class DetailView: NSView {
         commitFiles = nil
         fileList = nil
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let header = label(title.uppercased(), font: Theme.label, color: Theme.inkMuted)
-        header.attributedStringValue = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
+        let header = label(title.uppercased(with: AppLanguage.locale), font: Theme.label, color: Theme.inkMuted)
+        header.attributedStringValue = NSAttributedString(string: title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
         let box = NSView()
         box.translatesAutoresizingMaskIntoConstraints = false
         box.addSubview(header)
@@ -121,7 +121,7 @@ final class DetailView: NSView {
     /// The header is known at once and replaces the old one; the file list and its stats line follow together once git has answered.
     func show(commit: Commit, strand: NSColor, repository: Repository) {
         let previous = commitFiles
-        let header = reset(title: "Commit")
+        let header = reset(title: String(localized: "Commit", bundle: .module, comment: "Detail panel title for one commit"))
         let access = messageAccess?(commit)
         if let access { addEditButton(to: header, access: access) }
         let subject = SubjectLabel(wrappingLabelWithString: commit.subject)
@@ -131,7 +131,7 @@ final class DetailView: NSView {
         subject.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         if access == .allowed {
             subject.onDoubleClick = { [weak self] in self?.onEditMessage?() }
-            subject.toolTip = "Doppelklick bearbeitet die Nachricht (\(CommandShortcut.editMessage.display))"
+            subject.toolTip = String(localized: "Double-click to edit the message (\(CommandShortcut.editMessage.display))", bundle: .module)
         }
         add(subject)
         subjectLabel = subject
@@ -148,17 +148,17 @@ final class DetailView: NSView {
         let samePerson = commit.authorName == commit.committerName && commit.authorEmail == commit.committerEmail
         let sameTime = abs(commit.authorDate.timeIntervalSince(commit.committerDate)) < 1
         if samePerson && sameTime {
-            add(person(commit.authorName, role: "Author und Committer", date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
+            add(person(commit.authorName, role: String(localized: "Authored and committed", bundle: .module, comment: "Detail panel: role of the one person who wrote and committed a commit, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
         } else {
-            add(person(commit.authorName, role: "Author", date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
-            add(person(commit.committerName, role: "Committer", date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository)))
+            add(person(commit.authorName, role: String(localized: "Authored", bundle: .module, comment: "Detail panel: role of the commit's author, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
+            add(person(commit.committerName, role: String(localized: "Committed", bundle: .module, comment: "Detail panel: role of the commit's committer, followed by the date"), date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository)))
         }
 
         add(divider())
         let meta = NSStackView()
         meta.orientation = .horizontal
         meta.spacing = Theme.Space.s
-        meta.addArrangedSubview(label("Commit", font: Theme.caption, color: Theme.inkMuted))
+        meta.addArrangedSubview(label(String(localized: "Commit", bundle: .module, comment: "Detail panel title for one commit"), font: Theme.caption, color: Theme.inkMuted))
         copySHA = (full: commit.id, short: commit.shortID)
         let copy = LinkButton(target: self, action: #selector(copyCommitSHA(_:)))
         copy.attributedTitle = NSAttributedString(string: commit.shortID, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.ink])
@@ -168,12 +168,12 @@ final class DetailView: NSView {
         copyButton = copy
         parentTargets = commit.parents
         parentLinks = []
-        if !commit.parents.isEmpty { meta.addArrangedSubview(label(commit.parents.count > 1 ? "Parents" : "Parent", font: Theme.caption, color: Theme.inkMuted)) }
+        if !commit.parents.isEmpty { meta.addArrangedSubview(label(commit.parents.count == 1 ? String(localized: "Parent", bundle: .module, comment: "Label before the one parent SHA") : String(localized: "Parents", bundle: .module, comment: "Label before the parent SHAs of a merge"), font: Theme.caption, color: Theme.inkMuted)) }
         for (index, parent) in commit.parents.enumerated() {
             let link = LinkButton(target: self, action: #selector(openParent(_:)))
             link.tag = index
             link.attributedTitle = NSAttributedString(string: String(parent.prefix(7)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
-            link.toolTip = "Zum Parent-Commit im Graph springen"
+            link.toolTip = String(localized: "Jump to the parent commit in the graph", bundle: .module)
             meta.addArrangedSubview(link)
             parentLinks.append(link)
         }
@@ -205,20 +205,20 @@ final class DetailView: NSView {
             guard let self, !Task.isCancelled else { return }
             loadingNoteTask?.cancel()
             let total = files.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
-            let summary = NSMutableAttributedString(string: (files.count == 1 ? "1 Datei" : "\(files.count) Dateien") + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
+            let summary = NSMutableAttributedString(string: String(localized: "\(files.count) files", bundle: .module) + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
             summary.append(FileRowView.statText(total))
             let rows = files.map { file in
-                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil, state: file.state)
+                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
             }
             filesHeader.attributedStringValue = summary
-            list.show([FileListView.Section(title: "Dateien", rows: rows, action: nil)])
+            list.show([FileListView.Section(title: String(localized: "Files", bundle: .module, comment: "Section header of a file list"), rows: rows, action: nil)])
         }
         // A quick answer swaps the lists without anything in between; a slow one gets a note in place, at the old height.
         let deadline = filesOutdatedSince + M.loadingDelay
         loadingNoteTask = Task {
             try? await Task.sleep(until: deadline, clock: .continuous)
             guard !Task.isCancelled else { return }
-            filesHeader.stringValue = "Dateien werden geladen …"
+            filesHeader.stringValue = String(localized: "Loading files…", bundle: .module)
             list.freshness = .loading
         }
     }
@@ -229,15 +229,15 @@ final class DetailView: NSView {
     private func addEditButton(to header: NSView, access: InteractiveRebaseController.RewordAccess) {
         let button = LinkButton(target: self, action: #selector(editMessagePressed(_:)))
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.MessageEditor.pencilSymbol, weight: .regular)
-        button.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: "Nachricht bearbeiten")?.withSymbolConfiguration(configuration)
+        button.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: String(localized: "Edit Message", bundle: .module))?.withSymbolConfiguration(configuration)
         button.imagePosition = .imageOnly
         button.contentTintColor = Theme.inkMuted
         switch access {
         case .allowed:
-            button.toolTip = "Nachricht bearbeiten (\(CommandShortcut.editMessage.display))"
+            button.toolTip = String(localized: "Edit message (\(CommandShortcut.editMessage.display))", bundle: .module)
         case let .disabled(reason):
             button.isEnabled = false
-            button.toolTip = "Nachricht bearbeiten nicht möglich: \(reason)"
+            button.toolTip = String(localized: "Can’t edit the message: \(reason)", bundle: .module)
         }
         button.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(button)
@@ -288,7 +288,7 @@ final class DetailView: NSView {
         if isUpdate, let fileList {
             list = fileList
         } else {
-            reset(title: "Working Directory")
+            reset(title: String(localized: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"))
             isShowingWorkingDirectory = true
             list = makeFileList()
         }
@@ -297,19 +297,19 @@ final class DetailView: NSView {
         func sections(unstagedStats: [String: DiffStat], stagedStats: [String: DiffStat]) -> [FileListView.Section] {
             let unstagedRows = unstaged.map { entry in
                 entry.isUntracked
-                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", actions: [.stage, .discard], state: nil)
+                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: String(localized: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet"), actions: [.stage, .discard], state: nil)
                     : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: entry.worktreeState.tint, stat: unstagedStats[entry.path], note: nil, actions: [.stage, .discard], state: entry.worktreeState)
             }
             let stagedRows = staged.map { entry in
                 FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: entry.indexState.tint, stat: stagedStats[entry.path], note: nil, actions: [.unstage], state: entry.indexState)
             }
             var result = [
-                FileListView.Section(title: "Unstaged  \(unstaged.count)", rows: unstagedRows, action: unstaged.isEmpty ? nil : ("Alle stagen", { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
-                FileListView.Section(title: "Staged  \(staged.count)", rows: stagedRows, action: staged.isEmpty ? nil : ("Alle unstagen", { [weak self] in self?.onUnstage?(staged.map(\.path)) })),
+                FileListView.Section(title: String(localized: "Unstaged  \(unstaged.count)", bundle: .module, comment: "File list section header with its count"), rows: unstagedRows, action: unstaged.isEmpty ? nil : (String(localized: "Stage all", bundle: .module, comment: "Link in the Unstaged section header"), { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
+                FileListView.Section(title: String(localized: "Staged  \(staged.count)", bundle: .module, comment: "File list section header with its count"), rows: stagedRows, action: staged.isEmpty ? nil : (String(localized: "Unstage all", bundle: .module, comment: "Link in the Staged section header"), { [weak self] in self?.onUnstage?(staged.map(\.path)) })),
             ]
             if status.hasConflicts {
-                let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: "Konflikt", state: .unmerged) }
-                result.append(FileListView.Section(title: "Konflikte  \(conflictRows.count)", rows: conflictRows, action: nil))
+                let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: String(localized: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts"), state: .unmerged) }
+                result.append(FileListView.Section(title: String(localized: "Conflicts  \(conflictRows.count)", bundle: .module, comment: "File list section header with its count"), rows: conflictRows, action: nil))
             }
             return result
         }
@@ -354,7 +354,7 @@ final class DetailView: NSView {
     }
 
     func showNothing() {
-        reset(title: "Auswahl")
+        reset(title: String(localized: "Selection", bundle: .module, comment: "Detail panel title when nothing is selected"))
     }
 
     // MARK: Parts
@@ -363,7 +363,7 @@ final class DetailView: NSView {
         let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring, source: source)
         let nameLabel = label(name, font: Theme.body, color: Theme.ink)
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "de_DE")
+        formatter.locale = AppLanguage.locale
         let detail = label("\(role) · \(formatter.localizedString(for: date, relativeTo: Date()))", font: Theme.caption, color: Theme.inkMuted)
         detail.toolTip = GraphRowView.exactFormatter.string(from: date)
         let text = NSStackView(views: [nameLabel, detail])
@@ -390,7 +390,7 @@ final class DetailView: NSView {
 
     private func showCopyIcon(on button: NSButton, copied: Bool) {
         button.image = Self.copyIcon(copied: copied)
-        button.toolTip = copied ? "Kopiert" : "Vollen SHA kopieren, mit ⌥ den kurzen: \(copySHA.full)"
+        button.toolTip = copied ? String(localized: "Copied", bundle: .module) : String(localized: "Copy the full SHA, with ⌥ the short one: \(copySHA.full)", bundle: .module)
     }
 
     /// Both states share the box of the copy symbol, so the checkmark does not shift the parents beside it.
@@ -398,7 +398,7 @@ final class DetailView: NSView {
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.monoSmall.pointSize, weight: .regular).applying(.init(paletteColors: [copied ? Theme.moss : Theme.inkMuted]))
         guard let copy = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else { return nil }
         guard copied, let check = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else {
-            copy.accessibilityDescription = "SHA kopieren"
+            copy.accessibilityDescription = String(localized: "Copy SHA", bundle: .module)
             return copy
         }
         let box = copy.size
@@ -407,7 +407,7 @@ final class DetailView: NSView {
             check.draw(in: CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height))
             return true
         }
-        icon.accessibilityDescription = "Kopiert"
+        icon.accessibilityDescription = String(localized: "Copied", bundle: .module)
         return icon
     }
 
