@@ -84,6 +84,9 @@ final class SidebarView: NSView {
 
         let locals = model.refs.filter { $0.kind == .localBranch }
         if section("local", title: "Local", count: locals.count, icon: .laptop, plus: true) {
+            // The uncommitted changes of this worktree; a click selects their row in the history, or HEAD when there are none.
+            let changes = model.status?.entries.count ?? 0
+            result.append(.row(text: "Working Directory", value: "\(changes)", expander: nil, icon: .pencil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: changes > 0 ? GraphViewModel.wipID : model.headSHA, linkedWorktree: nil, checkout: nil))
             result.append(.row(text: "Stashes", value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
             branches(locals, display: { $0.name }, section: "local")
         }
