@@ -1,4 +1,5 @@
 import AppKit
+import GitEngine
 import GraphLayout
 
 /// Harness switch that traces the history table frame by frame, to see whether a refresh ever shows an empty, partial or shifted table.
@@ -56,5 +57,42 @@ extension ScreenshotHarness {
         let duration = start.duration(to: .now)
         let milliseconds = duration.components.seconds * 1000 + duration.components.attoseconds / 1_000_000_000_000_000
         FileHandle.standardError.write(Data("history +\(milliseconds) ms \(event())\n".utf8))
+    }
+
+    /// `GITBONSAI_CHECK_ORDER=1` compares the shown commits with a fresh `git log` over the same starting points after loading and after each delay of `GITBONSAI_PRINT_HISTORY`, and prints the first commit where they differ.
+    static func checkHistoryOrder(of tab: RepositoryViewController, when: String) {
+        guard environment["GITBONSAI_CHECK_ORDER"] == "1" else { return }
+        let viewModel = tab.viewModel
+        let shown = viewModel.commits.filter { $0.id != GraphViewModel.wipID }.map(\.id)
+        // The row views draw what they were last given; a table update that misses a row leaves it drawing another commit than the model has there.
+        let table = tab.history.tableView
+        var stale: [String] = []
+        for row in 0..<table.numberOfRows {
+            guard let view = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? GraphRowView, let drawn = view.model?.commit.id else { continue }
+            let expected = viewModel.commits.indices.contains(row) ? viewModel.commits[row].id : "none"
+            if drawn != expected { stale.append("row \(row) draws \(drawn.prefix(7)), model \(expected.prefix(7))") }
+        }
+        FileHandle.standardError.write(Data("order \(when): table \(table.numberOfRows) rows, model \(viewModel.commits.count); \(stale.isEmpty ? "every row view draws its model's commit" : stale.prefix(8).joined(separator: "; "))\n".utf8))
+        Task {
+            var options = LogOptions()
+            options.extraArguments = viewModel.stashesByCommit.keys.sorted()
+            var expected: [String] = []
+            do {
+                for try await commit in viewModel.repository.log(options) { expected.append(commit.id) }
+            } catch {
+                FileHandle.standardError.write(Data("order \(when): git log failed: \(error)\n".utf8))
+                return
+            }
+            // Helper commits of stashes are hidden in the history; they count as not shown.
+            let shownSet = Set(shown)
+            let gitOrder = expected.filter { shownSet.contains($0) }
+            let missing = expected.count - gitOrder.count
+            guard let index = zip(shown, gitOrder).enumerated().first(where: { $0.element.0 != $0.element.1 })?.offset else {
+                FileHandle.standardError.write(Data("order \(when): \(shown.count) shown commits in git's order, \(missing) of git's not shown\n".utf8))
+                return
+            }
+            let gitPosition = gitOrder.firstIndex(of: shown[index]) ?? -1
+            FileHandle.standardError.write(Data("order \(when): differs at row \(index): shown \(shown[index].prefix(9)), git \(gitOrder[index].prefix(9)); git has the shown one at \(gitPosition); \(missing) of git's not shown\n".utf8))
+        }
     }
 }

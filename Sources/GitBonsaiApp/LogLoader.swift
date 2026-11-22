@@ -44,7 +44,7 @@ struct LogLoader {
         }
         do {
             var options = LogOptions()
-            options.extraArguments = Array(stashesByCommit.keys)
+            options.extraArguments = stashesByCommit.keys.sorted()
             for try await commit in repository.log(options) {
                 if Task.isCancelled { return .cancelled }
                 // Index and untracked helper commits of stashes follow their stash in topological order and are skipped.

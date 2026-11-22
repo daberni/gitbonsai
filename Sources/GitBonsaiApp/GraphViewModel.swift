@@ -263,7 +263,17 @@ final class GraphViewModel {
                 guard let streamed = await readHistory(head: head) else { return }
                 (next, laneCount) = streamed
             case .keep(let dropping):
-                if !dropping.isEmpty { next.remove(dropping) }
+                if !dropping.isEmpty {
+                    next.remove(dropping)
+                    // The rest can move in git's topological order once commits left it, so git names the order again; without it the whole log is read.
+                    if let order = try? await repository.historyOrder(stashCommits: stashesByCommit.keys.sorted()) {
+                        next.reorder(as: order)
+                    } else if let streamed = await readHistory(head: head) {
+                        (next, laneCount) = streamed
+                    } else {
+                        return
+                    }
+                }
                 // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
                 if head != layoutHead || !dropping.isEmpty {
                     let result = await LogLoader.relayout(next.commits, head: head, stashesByCommit: stashesByCommit)

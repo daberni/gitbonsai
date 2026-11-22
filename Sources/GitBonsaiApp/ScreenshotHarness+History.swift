@@ -245,6 +245,7 @@ extension ScreenshotHarness {
         let table = tab.history.tableView
         let scrollY = Int(table.visibleRect.minY)
         let rowOnScreen = row >= 0 ? "\(Int(table.rect(ofRow: row).minY - table.visibleRect.minY))" : "-"
+        checkHistoryOrder(of: tab, when: when)
         FileHandle.standardError.write(Data("history \(when): \(commits.count) commits, HEAD \(head), selected row \(row) (\(selected)), scroll y \(scrollY), selected row \(rowOnScreen) pt below the top, status: \(viewModel.statusText)\n  rows: \(rows)\n".utf8))
     }
 

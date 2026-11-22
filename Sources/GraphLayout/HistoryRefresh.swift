@@ -22,6 +22,15 @@ public enum HistoryRefresh: Equatable, Sendable {
         return tips
     }
 
+    /// Where each of `ids` goes in git's `order`, as a permutation: the commit that comes `n`-th is `ids[result[n]]`. IDs git does not list keep their relative order at the end.
+    /// Git's topological order depends on the whole set of commits, so commits that leave the history can move the ones that stay; the loaded order is then put in line with a fresh `rev-list`.
+    public static func positions(of ids: [String], as order: [String]) -> [Int] {
+        var rank: [String: Int] = [:]
+        rank.reserveCapacity(order.count)
+        for (index, id) in order.enumerated() where rank[id] == nil { rank[id] = index }
+        return ids.indices.sorted { (rank[ids[$0]] ?? Int.max, $0) < (rank[ids[$1]] ?? Int.max, $1) }
+    }
+
     /// Walks parents over the loaded commits only, so nothing is read from git. Linear in the history size.
     public static func plan(loaded commits: [Commit], tips: Set<String>) -> HistoryRefresh {
         var parentsByID: [String: [String]] = [:]

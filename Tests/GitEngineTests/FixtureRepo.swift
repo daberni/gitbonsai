@@ -35,15 +35,15 @@ final class FixtureRepo {
     }
 
     @discardableResult
-    func git(_ arguments: [String]) throws -> String {
+    func git(_ arguments: [String], date: String? = nil) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git"] + arguments
         process.currentDirectoryURL = url
         var environment = ProcessInfo.processInfo.environment
         environment["GIT_TERMINAL_PROMPT"] = "0"
-        environment["GIT_AUTHOR_DATE"] = environment["GIT_AUTHOR_DATE"] ?? "2024-01-01T12:00:00+0000"
-        environment["GIT_COMMITTER_DATE"] = environment["GIT_COMMITTER_DATE"] ?? "2024-01-01T12:00:00+0000"
+        environment["GIT_AUTHOR_DATE"] = date ?? environment["GIT_AUTHOR_DATE"] ?? "2024-01-01T12:00:00+0000"
+        environment["GIT_COMMITTER_DATE"] = date ?? environment["GIT_COMMITTER_DATE"] ?? "2024-01-01T12:00:00+0000"
         process.environment = environment
         let stdout = Pipe()
         let stderr = Pipe()
@@ -71,6 +71,15 @@ final class FixtureRepo {
         try write(file, contents ?? "\(message)\n")
         try git("add", "-A")
         try git("commit", "-q", "-m", message)
+        return try git("rev-parse", "HEAD")
+    }
+
+    /// A commit with author and committer date `date` (ISO 8601), for tests that depend on git's date order.
+    @discardableResult
+    func commit(_ message: String, date: String) throws -> String {
+        try write("file.txt", "\(message)\n")
+        try git("add", "-A")
+        try git(["commit", "-q", "-m", message], date: date)
         return try git("rev-parse", "HEAD")
     }
 

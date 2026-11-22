@@ -32,6 +32,39 @@ final class HistoryRefreshTests: XCTestCase {
         return HistoryRefresh.plan(loaded: loaded, tips: HistoryRefresh.tips(refs: refs, head: head, stashCommits: stashes))
     }
 
+    /// Main A–B–M with branch x off A and branch d off B, d dated before x. With d, B waits for d and git lists M X D B A; without it git lists M B X A.
+    /// Keeping the loaded order after d left showed X above B, unlike git.
+    func testCommitsThatLeaveCanMoveTheOthersInGitsOrder() async throws {
+        let a = try repo.commit("A", date: "2024-01-01T12:00:00+0000")
+        let b = try repo.commit("B", date: "2024-01-02T12:00:00+0000")
+        try repo.commit("M", date: "2024-01-07T12:00:00+0000")
+        try repo.git("switch", "-q", "-c", "x", a)
+        let x = try repo.commit("X", date: "2024-01-05T12:00:00+0000")
+        try repo.git("switch", "-q", "-c", "d", b)
+        let d = try repo.commit("D", date: "2024-01-04T12:00:00+0000")
+        try repo.git("switch", "-q", "main")
+        let loaded = try await loadHistory()
+        XCTAssertEqual(loaded.map(\.subject), ["M", "X", "D", "B", "A"])
+
+        try repo.git("branch", "-q", "-D", "d")
+        let plan = try await plan(after: loaded)
+        XCTAssertEqual(plan, .keep(dropping: [d]))
+        let kept = loaded.filter { $0.id != d }
+        let fresh = try await loadHistory()
+        XCTAssertEqual(fresh.map(\.subject), ["M", "B", "X", "A"])
+        XCTAssertNotEqual(kept.map(\.id), fresh.map(\.id), "the kept order is no longer git's")
+
+        let order = try await repo.repository.historyOrder(stashCommits: [])
+        let reordered = HistoryRefresh.positions(of: kept.map(\.id), as: order).map { kept[$0] }
+        XCTAssertEqual(reordered.map(\.id), fresh.map(\.id))
+        XCTAssertEqual(reordered.firstIndex { $0.id == b }, 1)
+        XCTAssertEqual(reordered.firstIndex { $0.id == x }, 2)
+    }
+
+    func testOrderLeavesUnlistedCommitsAtTheEndInTheirOrder() {
+        XCTAssertEqual(HistoryRefresh.positions(of: ["p", "q", "r", "s"], as: ["s", "q"]), [3, 1, 0, 2])
+    }
+
     func testResetDropsTheCommitNoRefReachesAnymore() async throws {
         for mode in ["--hard", "--mixed", "--soft"] {
             repo.remove()

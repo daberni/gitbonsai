@@ -21,7 +21,16 @@ public struct LogOptions: Sendable, Hashable {
 
     /// An unborn HEAD (no commit yet) would make git fail, so it is only named when it exists.
     func arguments(includingHead: Bool) -> [String] {
-        var args = ["log", LogFormat.formatArgument]
+        ["log", LogFormat.formatArgument] + selection(includingHead: includingHead)
+    }
+
+    /// The same commits in the same order, as bare IDs from `git rev-list`.
+    func revListArguments(includingHead: Bool) -> [String] {
+        ["rev-list"] + selection(includingHead: includingHead)
+    }
+
+    private func selection(includingHead: Bool) -> [String] {
+        var args: [String] = []
         if topoOrder { args.append("--topo-order") }
         if allRefs { args.append(contentsOf: Self.historyRefs + (includingHead ? ["HEAD"] : [])) }
         if let limit { args.append("-n\(limit)") }
@@ -158,6 +167,14 @@ public final class Repository: Sendable {
     }
 
     /// Total number of commits in the history: reachable from branches, remote branches, tags and this worktree's HEAD.
+    /// The IDs of the history in the order the history's `git log` lists them, for the stash commits it adds. Cheaper than the log: no message is read.
+    public func historyOrder(stashCommits: [String]) async throws -> [String] {
+        var options = LogOptions()
+        options.extraArguments = stashCommits
+        let result = try await runner.run(options.revListArguments(includingHead: await Self.headExists(runner)))
+        return result.stdoutString.split(separator: "\n").map(String.init)
+    }
+
     public func commitCount() async throws -> Int {
         let result = try await runner.run(["rev-list"] + LogOptions.historyRefs + (await Self.headExists(runner) ? ["HEAD"] : []) + ["--count"])
         return Int(result.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0

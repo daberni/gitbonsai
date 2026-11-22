@@ -46,6 +46,15 @@ struct HistoryRows {
         commitIndexByID = Dictionary(uniqueKeysWithValues: commits.enumerated().map { ($1.id, $0) })
     }
 
+    /// Puts the commits into git's `order`; their rows have to be laid out again afterwards. Only valid without the working directory row.
+    mutating func reorder(as order: [String]) {
+        let positions = HistoryRefresh.positions(of: commits.map(\.id), as: order)
+        commits = positions.map { commits[$0] }
+        rows = positions.map { rows[$0] }
+        kinds = positions.map { kinds[$0] }
+        commitIndexByID = Dictionary(uniqueKeysWithValues: commits.enumerated().map { ($1.id, $0) })
+    }
+
     /// Replaces the graph rows with another layout of the same commits. Only valid without the working directory row.
     mutating func replaceRows(_ newRows: [GraphRow]) {
         rows = newRows
