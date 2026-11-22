@@ -4,12 +4,17 @@ import GraphLayout
 
 /// The content of one repository tab: toolbar row, then sidebar, history and detail panel side by side, then the status line.
 @MainActor
-final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
-    let repositoryPath: String
+final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate {
+    /// The worktree this tab shows; changes when the tab moves to another worktree.
+    var repositoryPath: String { viewModel.repository.path }
     let view: NSView = FillView(color: Theme.surface1)
     /// Called once, when the first full load has finished and the initial selection is set.
     var onLoaded: (() -> Void)?
-    var name: String { URL(fileURLWithPath: repositoryPath).lastPathComponent }
+    /// A worktree was chosen. The window decides whether this tab moves there or another tab already shows it.
+    var onSwitchWorktree: ((String) -> Void)?
+    /// The repository name became known or changed.
+    var onNameChanged: (() -> Void)?
+    var name: String { viewModel.repositoryName }
     var preferredFirstResponder: NSView { tableView }
 
     private let viewModel: GraphViewModel
@@ -23,9 +28,9 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
     private var graphWidth: CGFloat = Theme.Graph.firstLane + Theme.Graph.lane
     private var selectedRow = -1
     private var didReportLoaded = false
+    private var lastReportedName = ""
 
     init(repositoryPath: String) {
-        self.repositoryPath = repositoryPath
         viewModel = GraphViewModel(repositoryPath: repositoryPath)
         super.init()
         buildContent()
@@ -45,6 +50,11 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
         let sidebarScroll = scroll(sidebar, background: Theme.surface1)
         sidebar.autoresizingMask = [.width]
         sidebar.onSelectCommit = { [weak self] sha in self?.navigate(to: sha) }
+        sidebar.onCheckout = { [weak self] target, worktreePath in
+            // A branch can be checked out only once; if another worktree has it, going there is the checkout.
+            if let worktreePath { self?.onSwitchWorktree?(worktreePath) } else { self?.checkout(target) }
+        }
+        sidebar.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
 
         tableView.dataSource = self
         tableView.delegate = self
@@ -55,6 +65,11 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
         tableView.backgroundColor = Theme.surface0
         tableView.selectionHighlightStyle = .none
         tableView.gridStyleMask = []
+        tableView.target = self
+        tableView.doubleAction = #selector(checkoutClickedRow(_:))
+        let menu = NSMenu()
+        menu.delegate = self
+        tableView.menu = menu
         let column = NSTableColumn(identifier: .init("history"))
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
@@ -182,8 +197,27 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             if range.lowerBound > 0 { tableView.reloadData(forRowIndexes: IndexSet(integer: range.lowerBound - 1), columnIndexes: IndexSet(integer: 0)) }
             updateGraphWidth()
         }
+        viewModel.onReset = { [weak self] in
+            guard let self else { return }
+            selectedRow = -1
+            tableView.reloadData()
+            detail.showNothing()
+        }
+        viewModel.onRowsRebuilt = { [weak self] in
+            guard let self else { return }
+            // Same commits, new HEAD: the newly checked-out commit becomes the selection and is brought into view.
+            selectedRow = -1
+            tableView.deselectAll(nil)
+            tableView.reloadData()
+            updateGraphWidth()
+            if let head = viewModel.headSHA, let index = viewModel.rowIndex(of: head) { select(row: index, scroll: true) }
+        }
         viewModel.onMetadataChanged = { [weak self] in
             guard let self else { return }
+            if name != lastReportedName {
+                lastReportedName = name
+                onNameChanged?()
+            }
             sidebar.reload(from: viewModel)
             reloadVisibleRows()
             updateFetchLabel()
@@ -240,6 +274,98 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             }
         }
         NSSound.beep()
+    }
+
+    // MARK: Checkout
+
+    /// What a double click or the context menu offers on a history row: its branches first, the bare commit last.
+    private func checkoutChoices(forRow index: Int) -> [(title: String, target: CheckoutTarget, worktreePath: String?)] {
+        guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .commit || viewModel.kinds[index] == .merge else { return [] }
+        let commit = viewModel.commits[index]
+        let refs = viewModel.refsByCommit[commit.id] ?? []
+        let elsewhere = viewModel.branchesInOtherWorktrees
+        var choices: [(title: String, target: CheckoutTarget, worktreePath: String?)] = []
+        var localNames: Set<String> = []
+        for ref in refs where ref.kind == .localBranch && !ref.isHead {
+            localNames.insert(ref.name)
+            let worktree = elsewhere[ref.fullName]
+            let title = worktree.map { "Zu Worktree „\(($0.path as NSString).lastPathComponent)“ wechseln (\(ref.name))" } ?? "„\(ref.name)“ auschecken"
+            choices.append((title, .localBranch(ref.name), worktree?.path))
+        }
+        for ref in refs {
+            guard case .remoteBranch(let remote) = ref.kind, !ref.name.hasSuffix("/HEAD") else { continue }
+            let branch = String(ref.name.dropFirst(remote.count + 1))
+            let hasLocalHere = localNames.contains(branch) || refs.contains { $0.kind == .localBranch && $0.name == branch }
+            if !hasLocalHere { choices.append(("„\(ref.name)“ als lokalen Branch auschecken", .remoteBranch(remote: remote, branch: branch), nil)) }
+        }
+        if commit.id != viewModel.headSHA || viewModel.currentBranch != nil {
+            choices.append(("Commit \(commit.id.prefix(7)) auschecken (Detached HEAD)", .commit(commit.id), nil))
+        }
+        return choices
+    }
+
+    /// A double click checks out the branch at the row. A row without a branch does nothing: a detached HEAD should be asked for, not happen by accident.
+    @objc private func checkoutClickedRow(_ sender: Any?) {
+        let index = tableView.clickedRow >= 0 ? tableView.clickedRow : selectedRow
+        guard let choice = checkoutChoices(forRow: index).first, choice.target != .commit(viewModel.commits[index].id) else { return }
+        perform(choice.target, worktreePath: choice.worktreePath)
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        for (offset, choice) in checkoutChoices(forRow: tableView.clickedRow).enumerated() {
+            if case .commit = choice.target, offset > 0 { menu.addItem(.separator()) }
+            let item = NSMenuItem(title: choice.title, action: #selector(checkoutFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = offset
+            menu.addItem(item)
+        }
+    }
+
+    @objc private func checkoutFromMenu(_ sender: NSMenuItem) {
+        let choices = checkoutChoices(forRow: tableView.clickedRow)
+        guard let offset = sender.representedObject as? Int, choices.indices.contains(offset) else { return }
+        perform(choices[offset].target, worktreePath: choices[offset].worktreePath)
+    }
+
+    private func perform(_ target: CheckoutTarget, worktreePath: String?) {
+        if let worktreePath { onSwitchWorktree?(worktreePath) } else { checkout(target) }
+    }
+
+    func checkout(_ target: CheckoutTarget, carryingChanges: Bool = false) {
+        Task {
+            switch await viewModel.checkout(target, carryingChanges: carryingChanges) {
+            case .done:
+                break
+            case .blockedByLocalChanges(let message):
+                let alert = NSAlert()
+                alert.messageText = "Lokale Änderungen stehen dem Wechsel im Weg"
+                alert.informativeText = message
+                alert.addButton(withTitle: "Stashen und wechseln")
+                alert.addButton(withTitle: "Abbrechen")
+                present(alert) { [weak self] response in
+                    if response == .alertFirstButtonReturn { self?.checkout(target, carryingChanges: true) }
+                }
+            case .failed(let message):
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "Wechsel fehlgeschlagen"
+                alert.informativeText = message
+                present(alert) { _ in }
+            }
+        }
+    }
+
+    private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
+        guard ScreenshotHarness.outputPath == nil, let window = view.window else {
+            FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
+            return
+        }
+        alert.beginSheetModal(for: window) { response in completion(response) }
+    }
+
+    func switchWorktree(to path: String) {
+        viewModel.switchWorktree(to: path)
     }
 
     private func navigate(to sha: String) {
@@ -349,10 +475,32 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
     private func reportLoadedOnce() {
         guard !didReportLoaded, !viewModel.isLoading else { return }
         didReportLoaded = true
+        if ScreenshotHarness.outputPath != nil, runHarnessAction() { return }
         if ScreenshotHarness.outputPath != nil {
             if let row = ScreenshotHarness.selectRow, row < viewModel.rows.count { select(row: row, scroll: true) }
             if ProcessInfo.processInfo.environment["GITBONSAI_SCROLL_TO_STASH"] != nil, let row = viewModel.kinds.firstIndex(of: .stash) { select(row: row, scroll: true) }
         }
         onLoaded?()
     }
+
+    /// `GITBONSAI_CHECKOUT=<branch>` checks a local branch out and `GITBONSAI_SWITCH_WORKTREE=<folder name>` switches the tab, each once, before the capture.
+    private func runHarnessAction() -> Bool {
+        guard !Self.didRunHarnessAction else { return false }
+        let environment = ProcessInfo.processInfo.environment
+        if let branch = environment["GITBONSAI_CHECKOUT"] {
+            Self.didRunHarnessAction = true
+            didReportLoaded = false
+            checkout(.localBranch(branch))
+            return true
+        }
+        if let folder = environment["GITBONSAI_SWITCH_WORKTREE"], let info = viewModel.worktrees.first(where: { $0.worktree.path == folder || ($0.worktree.path as NSString).lastPathComponent == folder }) {
+            Self.didRunHarnessAction = true
+            didReportLoaded = false
+            onSwitchWorktree?(info.worktree.path)
+            return true
+        }
+        return false
+    }
+
+    private static var didRunHarnessAction = false
 }

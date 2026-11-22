@@ -45,7 +45,7 @@ Fehler: Auth-Fehler → Dialog mit stderr und Hinweis Credential-Helper/SSH-Agen
 3. Checkout eines bestehenden Branches: Doppelklick in Sidebar oder ⏎ im Graph → `git switch <name>`; Remote-Branch → `git switch -c <name> --track <remote>/<name>`; Commit → `git switch --detach <sha>` mit Hinweis "Detached HEAD".
 4. UI: HEAD-Label springt, Sidebar markiert, WIP-Zeile wechselt den Elternteil.
 
-Fehler: lokale Änderungen kollidieren → Dialog "Änderungen stashen und wechseln" (`git stash push -u`, `git switch`, `git stash pop`) oder Abbrechen; Name existiert → Inline-Validierung; Branch in anderem Worktree ausgecheckt → Dialog "In Worktree <pfad> ausgecheckt — dorthin wechseln?".
+Fehler: lokale Änderungen kollidieren → Dialog "Änderungen stashen und wechseln" (`git stash push -u`, `git switch`, `git stash pop`) oder Abbrechen; Name existiert → Inline-Validierung; Branch in anderem Worktree ausgecheckt → kein Dialog, der Tab wechselt direkt in diesen Worktree (ein Branch kann nur einmal ausgecheckt sein, der Wechsel ändert nichts am Repository).
 
 ## 5. Merge per Drag-and-drop mit Ghost-Preview (V1)
 

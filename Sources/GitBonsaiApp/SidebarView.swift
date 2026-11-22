@@ -8,10 +8,14 @@ final class SidebarView: NSView {
     enum Item {
         case header(key: String, title: String, count: Int, icon: Glyph, plus: Bool)
         case worktree(WorktreeInfo, isCurrent: Bool)
-        case row(text: String, value: String, expander: Glyph?, icon: Glyph?, slot: Glyph?, slotColor: NSColor?, indent: CGFloat, strong: Bool, isCheckedOut: Bool, ghost: Bool, target: String?, linkedWorktree: String?)
+        case row(text: String, value: String, expander: Glyph?, icon: Glyph?, slot: Glyph?, slotColor: NSColor?, indent: CGFloat, strong: Bool, isCheckedOut: Bool, ghost: Bool, target: String?, linkedWorktree: String?, checkout: CheckoutTarget?)
     }
 
     var onSelectCommit: ((String) -> Void)?
+    /// Double click on a branch. `worktreePath` is set when the branch is checked out in another worktree.
+    var onCheckout: ((CheckoutTarget, _ worktreePath: String?) -> Void)?
+    /// Double click on a worktree other than the one shown.
+    var onSwitchWorktree: ((String) -> Void)?
 
     private var items: [Item] = []
     private var frames: [CGRect] = []
@@ -54,12 +58,17 @@ final class SidebarView: NSView {
                 let value = [ref.ahead.flatMap { $0 > 0 ? "↑\($0)" : nil }, ref.behind.flatMap { $0 > 0 ? "↓\($0)" : nil }].compactMap { $0 }.joined(separator: " ")
                 let linked = otherWorktrees[ref.fullName]
                 let slot: Glyph? = ref.isHead ? .check : linked != nil ? .bonsaiLinked : nil
-                result.append(.row(text: name, value: value, expander: nil, icon: nil, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, ghost: false, target: ref.target, linkedWorktree: linked?.path))
+                let checkout: CheckoutTarget? = switch ref.kind {
+                case .localBranch: .localBranch(ref.name)
+                case .remoteBranch(let remote): .remoteBranch(remote: remote, branch: String(ref.name.dropFirst(remote.count + 1)))
+                default: nil
+                }
+                result.append(.row(text: name, value: value, expander: nil, icon: nil, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, ghost: false, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout))
             }
             for folder in folders.keys.sorted() {
                 let folderKey = key + "/" + folder
                 let open = !collapsed.contains(folderKey)
-                result.append(.row(text: folder, value: open ? "" : "\(folders[folder]!.count)", expander: nil, icon: open ? .chevronDown : .chevronRight, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: "folder:" + folderKey, linkedWorktree: nil))
+                result.append(.row(text: folder, value: open ? "" : "\(folders[folder]!.count)", expander: nil, icon: open ? .chevronDown : .chevronRight, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: "folder:" + folderKey, linkedWorktree: nil, checkout: nil))
                 if open { for (name, ref) in folders[folder]!.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 16) } }
             }
             for (name, ref) in leaves.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 0) }
@@ -67,15 +76,15 @@ final class SidebarView: NSView {
 
         if section("worktrees", title: "Worktrees", count: model.worktrees.count, icon: .bonsaiMain, plus: true) {
             for info in model.worktrees {
-                result.append(.worktree(info, isCurrent: info.worktree.branchName == model.currentBranch && model.currentBranch != nil))
+                result.append(.worktree(info, isCurrent: model.isCurrent(info.worktree)))
             }
         }
         let tags = model.refs.filter { $0.kind == .tag }
-        result.append(.row(text: "Tags", value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil))
+        result.append(.row(text: "Tags", value: "\(tags.count)", expander: nil, icon: .tag, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
 
         let locals = model.refs.filter { $0.kind == .localBranch }
         if section("local", title: "Local", count: locals.count, icon: .laptop, plus: true) {
-            result.append(.row(text: "Stashes", value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil))
+            result.append(.row(text: "Stashes", value: "\(model.stashes.count)", expander: nil, icon: .stashBowl, slot: .chevronRight, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: false, target: nil, linkedWorktree: nil, checkout: nil))
             branches(locals, display: { $0.name }, section: "local")
         }
 
@@ -89,7 +98,7 @@ final class SidebarView: NSView {
                 branches(refs, display: { String($0.name.dropFirst(remote.count + 1)) }, section: "remote:" + remote)
             }
         }
-        result.append(.row(text: "Remote hinzufügen …", value: "", expander: .plus, icon: nil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: true, target: nil, linkedWorktree: nil))
+        result.append(.row(text: "Remote hinzufügen …", value: "", expander: .plus, icon: nil, slot: nil, slotColor: nil, indent: 0, strong: false, isCheckedOut: false, ghost: true, target: nil, linkedWorktree: nil, checkout: nil))
 
         items = result
         layoutItems()
@@ -139,8 +148,12 @@ final class SidebarView: NSView {
         case .header(let key, _, _, _, _):
             if collapsed.remove(key) == nil { collapsed.insert(key) }
             reload(from: model)
-        case .row(_, _, _, _, _, _, _, _, _, _, let target?, _):
-            if target.hasPrefix("folder:") {
+        case .worktree(let info, let isCurrent):
+            if event.clickCount == 2, !isCurrent, !info.worktree.isPrunable, !info.worktree.isBare { onSwitchWorktree?(info.worktree.path) }
+        case .row(_, _, _, _, _, _, _, _, _, _, let target?, let linked, let checkout):
+            if event.clickCount == 2, let checkout {
+                onCheckout?(checkout, linked)
+            } else if target.hasPrefix("folder:") {
                 let key = String(target.dropFirst(7))
                 if collapsed.remove(key) == nil { collapsed.insert(key) }
                 reload(from: model)
@@ -156,7 +169,7 @@ final class SidebarView: NSView {
     private var hoveredWorktreePath: String? {
         guard let hovered, hovered < items.count else { return nil }
         switch items[hovered] {
-        case .row(_, _, _, _, _, _, _, _, _, _, _, let linked): return linked
+        case .row(_, _, _, _, _, _, _, _, _, _, _, let linked, _): return linked
         case .worktree(let info, let isCurrent): return isCurrent ? nil : info.worktree.path
         default: return nil
         }
@@ -250,7 +263,7 @@ final class SidebarView: NSView {
                 }
                 drawText(detail, font: Theme.caption, color: faint ? Theme.inkFaint : Theme.inkMuted, x: textX, midY: line2, maxX: valueRight)
 
-            case .row(let text, let value, let expander, let icon, let slotGlyph, let slotColor, let indent, let strong, let isCheckedOut, let ghost, let target, _):
+            case .row(let text, let value, let expander, let icon, let slotGlyph, let slotColor, let indent, let strong, let isCheckedOut, let ghost, let target, _, _):
                 if isCheckedOut {
                     fillRow(Theme.surfaceSelected)
                 } else if hovered == index, target != nil || slotGlyph == .chevronRight {

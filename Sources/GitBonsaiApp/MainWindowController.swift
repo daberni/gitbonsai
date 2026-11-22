@@ -111,18 +111,38 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private func showRepository(at root: String) -> Int {
         store.noteOpened(root)
         if let existing = tabs.firstIndex(where: { $0.repository?.repositoryPath == root }) { return existing }
-        let controller = RepositoryViewController(repositoryPath: root)
-        let tab = Tab(repository: controller)
-        controller.onLoaded = { [weak self, weak tab] in
-            tab?.isLoaded = true
-            self?.captureIfRequested()
-        }
+        let tab = makeTab(for: root)
         if tabs.indices.contains(activeIndex), tabs[activeIndex].welcome != nil {
             tabs[activeIndex] = tab
             return activeIndex
         }
         tabs.append(tab)
         return tabs.count - 1
+    }
+
+    private func makeTab(for root: String) -> Tab {
+        let controller = RepositoryViewController(repositoryPath: root)
+        let tab = Tab(repository: controller)
+        controller.onLoaded = { [weak self, weak tab] in
+            tab?.isLoaded = true
+            self?.captureIfRequested()
+        }
+        controller.onNameChanged = { [weak self] in self?.refreshTabBar() }
+        controller.onSwitchWorktree = { [weak self, weak tab] path in
+            guard let self, let tab, let index = tabs.firstIndex(where: { $0 === tab }) else { return }
+            showWorktree(at: path, inTab: index)
+        }
+        return tab
+    }
+
+    /// The tab and everything loaded in it stay; only HEAD and the working directory change. A tab that already shows that worktree wins.
+    private func showWorktree(at path: String, inTab index: Int) {
+        if let existing = tabs.firstIndex(where: { $0.repository?.repositoryPath == path }) {
+            activate(existing)
+            return
+        }
+        tabs[index].repository?.switchWorktree(to: path)
+        refreshTabBar()
     }
 
     private func reportNotARepository(_ path: String) {
@@ -156,7 +176,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let tab = tabs[index]
         tab.welcome?.recents = store.recentRepositories
         content.show(tab.view)
-        window?.title = tab.title
         if let responder = tab.repository?.preferredFirstResponder { window?.makeFirstResponder(responder) }
         refreshTabBar()
         captureIfRequested()
@@ -177,6 +196,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             TabBarView.Item(title: tab.title, toolTip: tab.repository.map { ($0.repositoryPath as NSString).abbreviatingWithTildeInPath })
         }
         tabBar.activeIndex = activeIndex
+        if tabs.indices.contains(activeIndex) { window?.title = tabs[activeIndex].title }
         let repositoryIndices = tabs.indices.filter { tabs[$0].repository != nil }
         store.saveTabs(repositoryIndices.compactMap { tabs[$0].repository?.repositoryPath }, active: repositoryIndices.firstIndex(of: activeIndex) ?? 0)
     }
