@@ -39,6 +39,47 @@ extension ScreenshotHarness {
         if let offset = environment["GITBONSAI_GRAPH_SCROLL"].flatMap(Double.init), let graph = columns.columns.layout(in: table.bounds.width).graph {
             _ = columns.scrollGraph(by: -CGFloat(offset), at: NSPoint(x: graph.lowerBound + 1, y: 1))
         }
+        driveSearch(history)
+    }
+
+    // MARK: Commit search
+
+    /// `GITBONSAI_SEARCH=<text>` types into the commit search with real key events through the window; `GITBONSAI_SEARCH_KEYS=return,shift-return,escape` then presses those keys in the field.
+    /// After the typing and after each key the counter, the selected row and the dimmed visible rows go to stderr.
+    static func driveSearch(_ history: HistoryViewController) {
+        guard let text = environment["GITBONSAI_SEARCH"], let field = history.searchField, let window = field.window else { return }
+        // Key events reach the field editor through the application only in the key window, and ⇧⏎ is read from the application's current event.
+        window.makeKey()
+        window.makeFirstResponder(field)
+        let typedAt = ContinuousClock.now
+        for character in text {
+            let string = String(character)
+            if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: string, charactersIgnoringModifiers: string, isARepeat: false, keyCode: 0) {
+                NSApp.postEvent(event, atStart: false)
+            }
+        }
+        func report(_ step: String) {
+            let visible = history.tableView.rows(in: history.tableView.visibleRect)
+            let rows = visible.location..<(visible.location + visible.length)
+            let dimmed = rows.filter { !history.search.isMatch(row: $0) }.count
+            let line = "search \(step): field \"\(field.stringValue)\", counter \(field.counterText ?? "none"), selected row \(history.selectedRow), \(dimmed) of \(rows.count) visible rows dimmed, \(ContinuousClock.now - typedAt) after typing\n"
+            FileHandle.standardError.write(Data(line.utf8))
+        }
+        let keys = environment["GITBONSAI_SEARCH_KEYS"]?.split(separator: ",").map(String.init) ?? []
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { report("typed") }
+        for (step, key) in keys.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8 + 0.3 * Double(step)) {
+                let stroke: (characters: String, code: UInt16, flags: NSEvent.ModifierFlags)? = switch key {
+                case "return": ("\r", 36, [])
+                case "shift-return": ("\r", 36, [.shift])
+                case "escape": ("\u{1b}", 53, [])
+                default: nil
+                }
+                guard let stroke, let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: stroke.flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: stroke.characters, charactersIgnoringModifiers: stroke.characters, isARepeat: false, keyCode: stroke.code) else { return }
+                NSApp.postEvent(event, atStart: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { report(key) }
+            }
+        }
     }
 
 

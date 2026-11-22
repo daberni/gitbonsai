@@ -112,6 +112,11 @@ enum Theme {
         static let guide: CGFloat = 0.18
     }
 
+    /// Rows and lanes outside the current focus, such as commits a search does not match or everything but source and target during a drag-and-drop merge.
+    enum Focus {
+        static let dimmedAlpha: CGFloat = 0.35
+    }
+
     /// Movement or distance in points before a press becomes a drag, and the reach of a draggable boundary.
     static let dragThreshold: CGFloat = 4
 
@@ -294,6 +299,13 @@ enum Theme {
         static let badgeHeight: CGFloat = 20
         /// Long hunk sections are cut here so the hunk's button stays in view.
         static let hunkLabelWidth: CGFloat = 480
+    }
+
+    /// The commit search: the ground behind matched text and the counter inside the search field.
+    @MainActor enum Search {
+        /// search-highlight: stronger than ochre-soft so it still reads on a selected row.
+        static let highlight = dynamic(0xf0d48a, 0x76602a)
+        static let counterGap = Space.xs
     }
 
     /// Text cells of the history columns.

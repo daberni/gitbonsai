@@ -28,8 +28,13 @@ final class GraphRowView: NSView {
         var isSelected: Bool
         var subject: String
         var wipCounts: (changed: Int, staged: Int, untracked: Int)?
+        /// A search is active and this row does not match: everything but the strands is drawn at `Theme.Focus.dimmedAlpha`.
+        var isSearchMiss = false
+        var highlights = Highlights()
         var columns: HistoryColumns
     }
+
+    static let shortSHALength = 7
 
     var model: Model? { didSet { needsDisplay = true } }
 
@@ -68,9 +73,17 @@ final class GraphRowView: NSView {
             Theme.surfaceSelected.setFill()
             bounds.fill()
         }
-        defer { drawText(context, model: model, layout: layout, textX: textX, midY: midY) }
+        defer {
+            beginDimming(context, model)
+            drawText(context, model: model, layout: layout, textX: textX, midY: midY)
+            endDimming(context, model)
+        }
         guard let graphRange = layout.graph else {
-            if layout.label != nil { _ = drawPills(context, model: model, strand: strand, midY: midY, labelEnd: layout.label!.upperBound) }
+            if let label = layout.label {
+                beginDimming(context, model)
+                _ = drawPills(context, model: model, strand: strand, midY: midY, labelEnd: label.upperBound)
+                endDimming(context, model)
+            }
             return
         }
         graphOrigin = graphRange.lowerBound
@@ -79,6 +92,7 @@ final class GraphRowView: NSView {
         // The strand bar closes the graph column on the right; the band runs from the node to it, with a gap above and below so rows stay separate.
         let barX = graphRect.maxX - G.barInset
         let bandColor: NSColor = model.kind == .wip ? Theme.inkMuted : strand
+        beginDimming(context, model)
         if nodeX < barX {
             context.setFillColor(bandColor.withAlphaComponent(model.isHead ? G.headBandAlpha : G.bandAlpha).cgColor)
             // A node scrolled out to the left still leaves its band, starting at the column edge.
@@ -87,6 +101,7 @@ final class GraphRowView: NSView {
         }
         context.setFillColor(bandColor.cgColor)
         context.fill(CGRect(x: barX, y: G.bandInset, width: Theme.Stroke.strand, height: height - 2 * G.bandInset))
+        endDimming(context, model)
 
         context.saveGState()
         context.clip(to: graphRect)
@@ -106,9 +121,15 @@ final class GraphRowView: NSView {
             let dashed = isWipStrand || (Self.isParked(model.kind) && edge.fromLane == model.row.lane)
             stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY, color: isWipStrand ? Theme.inkMuted : Self.color(of: edge, kind: model.kind, row: model.row), dashed: dashed)
         }
-        drawNode(context, at: CGPoint(x: nodeX, y: midY), strand: strand, model: model)
+        let nodeCenter = CGPoint(x: nodeX, y: midY)
+        if model.isSearchMiss { eraseStrands(context, under: nodeCenter, model: model) }
+        beginDimming(context, model)
+        drawNode(context, at: nodeCenter, strand: strand, model: model)
+        endDimming(context, model)
         context.restoreGState()
 
+        beginDimming(context, model)
+        defer { endDimming(context, model) }
         let nodeEdge = nodeX - Self.nodeExtent(model.kind)
         let pillsEnd = layout.label.flatMap { drawPills(context, model: model, strand: strand, midY: midY, labelEnd: $0.upperBound) }
         if let pillsEnd, nodeEdge > pillsEnd {
@@ -132,7 +153,7 @@ final class GraphRowView: NSView {
         kind == .wip && edge.fromLane == row.lane ? Theme.inkMuted : Theme.strand(edge.color)
     }
 
-    private static func nodeExtent(_ kind: GraphViewModel.RowKind) -> CGFloat {
+    static func nodeExtent(_ kind: GraphViewModel.RowKind) -> CGFloat {
         switch kind {
         case .commit: G.nodeRadius
         case .merge: G.mergeRadius
@@ -286,21 +307,22 @@ final class GraphRowView: NSView {
         let color = model.dimmed ? Theme.inkFaint : Theme.ink
         var font = model.isHead ? Theme.bodyStrong : Theme.body
         if model.kind == .stash { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
-        let subject = NSAttributedString(string: model.subject, attributes: [.font: font, .foregroundColor: color])
+        let subject = Self.highlighted(model.subject, ranges: model.highlights.subject, attributes: [.font: font, .foregroundColor: color])
         let subjectHeight = subject.size().height
         subject.draw(with: CGRect(x: textX, y: midY - subjectHeight / 2, width: subjectWidth, height: subjectHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
 
         let muted: [NSAttributedString.Key: Any] = [.font: Theme.caption, .foregroundColor: Theme.inkMuted]
-        func cell(_ string: String, in range: ClosedRange<CGFloat>?, attributes: [NSAttributedString.Key: Any], rightAligned: Bool = false) {
+        func cell(_ string: String, in range: ClosedRange<CGFloat>?, attributes: [NSAttributedString.Key: Any], highlights: [NSRange] = [], rightAligned: Bool = false) {
             guard let range else { return }
-            let text = NSAttributedString(string: string, attributes: attributes)
+            let text = Self.highlighted(string, ranges: highlights, attributes: attributes)
             let width = range.upperBound - range.lowerBound - Theme.Cell.leading - Theme.Cell.trailing
             guard width > Theme.Cell.minimumText else { return }
             let x = rightAligned ? max(range.upperBound - Theme.Cell.trailing - text.size().width, range.lowerBound + Theme.Cell.leading) : range.lowerBound + Theme.Cell.leading
             text.draw(with: CGRect(x: x, y: midY - text.size().height / 2, width: width, height: text.size().height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
-        cell(model.commit.authorName, in: layout.author, attributes: muted)
-        cell(String(model.commit.id.prefix(7)), in: layout.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkMuted])
+        cell(model.commit.authorName, in: layout.author, attributes: muted, highlights: model.highlights.author)
+        let shaHighlight = model.highlights.shaPrefix > 0 ? [NSRange(location: 0, length: model.highlights.shaPrefix)] : []
+        cell(String(model.commit.id.prefix(Self.shortSHALength)), in: layout.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkMuted], highlights: shaHighlight)
         cell(Self.relativeFormatter.localizedString(for: model.commit.authorDate, relativeTo: Date()), in: layout.date, attributes: muted, rightAligned: true)
     }
 }

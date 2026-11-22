@@ -41,6 +41,7 @@ History:
 - `GITBONSAI_GRAPH_WIDTH=<points>` sets the width of the graph column and `GITBONSAI_GRAPH_SCROLL=<points>` scrolls the graph sideways.
 - `GITBONSAI_DRAG_GRAPH_TO=<points>` drags the boundary between graph and commit over the rows with real mouse events and prints the resulting width.
 - `GITBONSAI_HIDDEN_COLUMNS=label,sha` hides columns (label, graph, author, sha, date).
+- `GITBONSAI_SEARCH=<text>` types into the commit search with real key events and `GITBONSAI_SEARCH_KEYS=return,shift-return,escape` presses those keys in the field; the counter, the selected row and the dimmed visible rows are printed after each.
 - `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event and prints the menu (AppKit shows it on screen above other apps for a moment), `GITBONSAI_MENU_SHOT=<png>` renders it, and `GITBONSAI_MENU_PICK=<title>` or `<title>/<title>` chooses an entry; `GITBONSAI_MENU_LIST=<row>` only prints the entries without opening the menu.
 - Sheets of commit actions are answered by `GITBONSAI_FORM=key=value;…` (name, branch, path, message, checked=0|1), `GITBONSAI_CONFIRM=1` and `GITBONSAI_SAVE_PATH=<file>`, and `GITBONSAI_SHEET_SHOT=<png>` renders the sheet.
 

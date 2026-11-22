@@ -4,7 +4,7 @@ import GitEngine
 /// Turns one row of the view model into what a history row draws.
 @MainActor
 enum HistoryRowModel {
-    static func make(row index: Int, in viewModel: GraphViewModel, isSelected: Bool, columns: HistoryColumns) -> GraphRowView.Model {
+    static func make(row index: Int, in viewModel: GraphViewModel, isSelected: Bool, columns: HistoryColumns, search: HistorySearchController) -> GraphRowView.Model {
         let commit = viewModel.commits[index]
         let kind = viewModel.kinds[index]
         let refs = viewModel.refsByCommit[commit.id] ?? []
@@ -15,6 +15,8 @@ enum HistoryRowModel {
             let untracked = status.entries.filter(\.isUntracked).count
             wipCounts = (status.unstaged.count - untracked + status.conflicted.count, status.staged.count, untracked)
         }
+        let subject = stash.map { "\($0.selector): \($0.message)" } ?? commit.subject
+        let isMatch = search.isMatch(row: index)
         return GraphRowView.Model(
             commit: commit,
             row: viewModel.rows[index],
@@ -28,10 +30,19 @@ enum HistoryRowModel {
             isHead: isDetachedHead || refs.contains(where: \.isHead),
             dimmed: kind != .stash && !viewModel.isReachableFromHead(commit.id),
             isSelected: isSelected,
-            subject: stash.map { "\($0.selector): \($0.message)" } ?? commit.subject,
+            subject: subject,
             wipCounts: wipCounts,
+            isSearchMiss: !isMatch,
+            highlights: isMatch ? highlights(of: search.search, subject: subject, commit: commit) : GraphRowView.Highlights(),
             columns: columns
         )
+    }
+
+    /// What a match shows of the query: its occurrences in the subject and author, and the SHA prefix it names.
+    private static func highlights(of search: CommitSearch?, subject: String, commit: Commit) -> GraphRowView.Highlights {
+        guard let search else { return GraphRowView.Highlights() }
+        let shaLength = search.matchesSHA(commit.id) ? min(search.text.utf16.count, GraphRowView.shortSHALength) : 0
+        return GraphRowView.Highlights(subject: search.occurrences(in: subject), author: search.occurrences(in: commit.authorName), shaPrefix: shaLength)
     }
 
     /// A local branch and its same-named remote branches share one label. The first glyph says where the branch stands: checked out here, checked out in another worktree, or just local.

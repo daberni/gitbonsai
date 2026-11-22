@@ -8,6 +8,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     let tableView = HistoryTableView()
     let columnsController: HistoryColumnsController
     private(set) var selectedRow = -1
+    let search: HistorySearchController
+    private(set) weak var searchField: CommitSearchField?
 
     /// The selection changed; nil when nothing is selected.
     var onSelect: ((Int?) -> Void)?
@@ -23,8 +25,13 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
         columnsController = HistoryColumnsController(header: header, table: tableView, guide: guide)
+        search = HistorySearchController(viewModel: viewModel)
         super.init()
         columnsController.onChange = { [weak self] in self?.reloadVisibleRows() }
+        search.onChange = { [weak self] in
+            self?.reloadVisibleRows()
+            self?.updateSearchCounter()
+        }
         configureTable()
         layout()
     }
@@ -82,17 +89,20 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         tableView.insertRows(at: IndexSet(integersIn: range), withAnimation: [])
         if range.lowerBound > 0 { tableView.reloadData(forRowIndexes: IndexSet(integer: range.lowerBound - 1), columnIndexes: IndexSet(integer: 0)) }
         columnsController.update(laneCount: viewModel.maxLaneCount)
+        search.commitsAppended()
     }
 
     func rowsReset() {
         selectedRow = -1
         tableView.reloadData()
+        search.historyChanged()
         onSelect?(nil)
     }
 
     func rowsShifted() {
         tableView.reloadData()
         columnsController.update(laneCount: viewModel.maxLaneCount)
+        search.historyChanged()
     }
 
     /// Same commits, new HEAD: the selection follows the working tree and the newly checked-out commit is brought into view.
@@ -101,10 +111,12 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         tableView.deselectAll(nil)
         tableView.reloadData()
         columnsController.update(laneCount: viewModel.maxLaneCount)
+        search.historyChanged()
         selectCurrentRow(scrollToHead: true)
     }
 
     func metadataChanged() {
+        search.refsMayHaveChanged()
         reloadVisibleRows()
         if selectedRow < 0, !viewModel.isLoading { selectCurrentRow(scrollToHead: false) }
     }
@@ -141,20 +153,26 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         tableView.scrollRowToVisible(max(row - 3, 0))
     }
 
-    /// Selects the next commit after the selection whose subject, author or SHA matches.
-    func search(_ text: String) {
-        let query = text.lowercased()
-        guard !query.isEmpty else { return }
-        let count = viewModel.commits.count
-        for offset in 0..<count {
-            let index = (selectedRow + 1 + offset) % count
-            let commit = viewModel.commits[index]
-            if commit.subject.lowercased().contains(query) || commit.authorName.lowercased().contains(query) || commit.id.hasPrefix(query) {
-                select(row: index, scroll: true)
-                return
-            }
+    // MARK: Search
+
+    /// The field drives the search; its counter follows the matches and the selection.
+    func connect(searchField field: CommitSearchField) {
+        searchField = field
+        field.onChange = { [weak self] text in
+            self?.search.setQuery(text)
+            self?.updateSearchCounter()
         }
-        NSSound.beep()
+        field.onStep = { [weak self] forward in self?.stepSearch(forward: forward) }
+    }
+
+    /// Selects the next or previous match; without matches the counter already says so.
+    func stepSearch(forward: Bool) {
+        guard let row = search.step(from: selectedRow, forward: forward) else { return }
+        select(row: row, scroll: true)
+    }
+
+    private func updateSearchCounter() {
+        searchField?.counterText = search.counter(selectedRow: selectedRow)
     }
 
     @objc private func activateClickedRow(_ sender: Any?) {
@@ -178,6 +196,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         selectedRow = tableView.selectedRow
         let changed = IndexSet([previous, selectedRow].filter { $0 >= 0 && $0 < viewModel.rows.count })
         tableView.reloadData(forRowIndexes: changed, columnIndexes: IndexSet(integer: 0))
+        updateSearchCounter()
         onSelect?(selectedRow >= 0 ? selectedRow : nil)
     }
 
@@ -186,7 +205,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         let identifier = NSUserInterfaceItemIdentifier("row")
         let view = (tableView.makeView(withIdentifier: identifier, owner: nil) as? GraphRowView) ?? GraphRowView()
         view.identifier = identifier
-        view.model = HistoryRowModel.make(row: index, in: viewModel, isSelected: index == selectedRow, columns: columnsController.columns)
+        view.model = HistoryRowModel.make(row: index, in: viewModel, isSelected: index == selectedRow, columns: columnsController.columns, search: search)
         view.toolTip = viewModel.kinds[index] == .wip ? "Uncommittete Änderungen" : GraphRowView.exactFormatter.string(from: viewModel.commits[index].authorDate)
         return view
     }

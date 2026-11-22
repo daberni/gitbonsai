@@ -1,9 +1,8 @@
 import AppKit
 
 /// The toolbar of a repository tab in three parts: fetch status on the left, the actions centred in the window, search on the right.
-final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
+final class RepositoryToolbar: BarView {
     var onFetch: (() -> Void)?
-    var onSearch: ((String) -> Void)?
     /// Each action button is enabled once its handler is set.
     var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
     var onStash: (() -> Void)? { didSet { stash.isEnabled = onStash != nil } }
@@ -25,7 +24,7 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
     private let behindLabel = NSTextField(labelWithString: "")
     private let aheadLabel = NSTextField(labelWithString: "")
     private let fetchLabel = NSTextField(labelWithString: "")
-    private let searchField = NSSearchField()
+    let searchField = CommitSearchField()
 
     init() {
         super.init(edge: .bottom)
@@ -52,11 +51,6 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         }
         actions.translatesAutoresizingMaskIntoConstraints = false
 
-        searchField.placeholderString = "Commits durchsuchen"
-        searchField.controlSize = .large
-        searchField.delegate = self
-        searchField.target = self
-        searchField.action = #selector(search(_:))
         searchField.translatesAutoresizingMaskIntoConstraints = false
 
         for view in [fetchLabel, actions, searchField] { addSubview(view) }
@@ -132,9 +126,5 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
     private func popUp(_ menu: NSMenu?, below sender: Any?) {
         guard let menu, let button = sender as? NSButton else { return }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + Theme.Space.xs), in: button)
-    }
-
-    @objc private func search(_ sender: NSSearchField) {
-        onSearch?(sender.stringValue)
     }
 }

@@ -116,7 +116,7 @@ final class RepositoryViewController: NSObject {
             guard let self else { return }
             toolbar.showUpstream(canPull: pullPush.canPull, canPush: pullPush.canPush, ahead: pullPush.upstream?.ahead, behind: pullPush.upstream?.behind)
         }
-        toolbar.onSearch = { [weak self] text in self?.history.search(text) }
+        history.connect(searchField: toolbar.searchField)
 
         sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }
         sidebar.onCheckout = { [weak self] target, worktreePath in self?.checkoutController.perform(target, worktreePath: worktreePath) }
