@@ -31,6 +31,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private var tabs: [Tab] = []
     private var activeIndex = 0
     private var didCapture = false
+    private var didDragTab = false
     /// True once the launch arguments or the saved session have been opened; the harness waits for it.
     private var didFinishInitialOpen = false
 
@@ -71,6 +72,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         tabBar.onSelect = { [weak self] index in self?.activate(index) }
         tabBar.onClose = { [weak self] index in self?.close(index) }
         tabBar.onNew = { [weak self] in self?.newTab(nil) }
+        tabBar.onMove = { [weak self] from, to in self?.moveTab(from: from, to: to) }
         content.onDropFolders = { [weak self] paths in self?.open(paths: paths, activate: paths.count - 1) }
     }
 
@@ -181,6 +183,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         captureIfRequested()
     }
 
+    private func moveTab(from: Int, to: Int) {
+        guard tabs.indices.contains(from), tabs.indices.contains(to) else { return }
+        tabs.swapAt(from, to)
+        if activeIndex == from { activeIndex = to } else if activeIndex == to { activeIndex = from }
+        refreshTabBar()
+    }
+
     private func close(_ index: Int) {
         guard tabs.indices.contains(index) else { return }
         tabs.remove(at: index)
@@ -284,14 +293,33 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         // A real click through the window proves that the tab row receives events under the title bar.
         if let target = ProcessInfo.processInfo.environment["GITBONSAI_CLICK_TAB"].flatMap(Int.init), target != activeIndex, let frame = tabBar.frameOfTab(target) {
             let point = tabBar.convert(CGPoint(x: frame.midX - 10, y: frame.midY), to: nil)
-            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                if let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { window.sendEvent(event) }
-            }
+            // The tab row follows the button until it comes up, so the release is queued before the press is delivered.
+            if let up = mouseEvent(.leftMouseUp, at: point, in: window) { NSApp.postEvent(up, atStart: false) }
+            if let down = mouseEvent(.leftMouseDown, at: point, in: window) { window.sendEvent(down) }
             if activeIndex != target { FileHandle.standardError.write(Data("click on tab \(target) did not reach the tab row\n".utf8)) }
             guard tabs[activeIndex].isLoaded else { return }
+        }
+        // A real drag through the window: `from:to` moves the tab at `from` onto the place of the tab at `to`.
+        // Selecting the dragged tab calls back into this method; the flag keeps the drag from starting again.
+        if !didDragTab, let spec = ProcessInfo.processInfo.environment["GITBONSAI_DRAG_TAB"], let parts = Optional(spec.split(separator: ":").compactMap { Int($0) }), parts.count == 2, let source = tabBar.frameOfTab(parts[0]), let target = tabBar.frameOfTab(parts[1]) {
+            didDragTab = true
+            let start = tabBar.convert(CGPoint(x: source.midX, y: source.midY), to: nil)
+            let end = tabBar.convert(CGPoint(x: target.midX + (parts[1] > parts[0] ? 8 : -8), y: target.midY), to: nil)
+            let steps = 12
+            for step in 1...steps {
+                let fraction = CGFloat(step) / CGFloat(steps)
+                if let drag = mouseEvent(.leftMouseDragged, at: CGPoint(x: start.x + (end.x - start.x) * fraction, y: start.y), in: window) { NSApp.postEvent(drag, atStart: false) }
+            }
+            if let up = mouseEvent(.leftMouseUp, at: end, in: window) { NSApp.postEvent(up, atStart: false) }
+            if let down = mouseEvent(.leftMouseDown, at: start, in: window) { window.sendEvent(down) }
+            FileHandle.standardError.write(Data("tab order after drag: \(tabs.map(\.title).joined(separator: ", ")), active \(tabs[activeIndex].title)\n".utf8))
         }
         didCapture = true
         alignTitleBar()
         ScreenshotHarness.captureAndQuit(window: window)
+    }
+
+    private func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in window: NSWindow) -> NSEvent? {
+        NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
     }
 }

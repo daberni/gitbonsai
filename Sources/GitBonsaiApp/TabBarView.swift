@@ -23,6 +23,8 @@ final class TabBarView: NSView, NSViewToolTipOwner {
     var onSelect: ((Int) -> Void)?
     var onClose: ((Int) -> Void)?
     var onNew: (() -> Void)?
+    /// A dragged tab passed the middle of its neighbour; the two swap places.
+    var onMove: ((_ from: Int, _ to: Int) -> Void)?
 
     private enum Hit: Equatable { case none, tab(Int), close(Int), plus }
     private var tabFrames: [CGRect] = []
@@ -30,6 +32,8 @@ final class TabBarView: NSView, NSViewToolTipOwner {
     private var hover = Hit.none { didSet { if hover != oldValue { needsDisplay = true } } }
     private var pressedClose: Int?
     private var mayDragWindow = false
+    /// The tab being dragged and where its left edge currently is.
+    private var dragging: (index: Int, minX: CGFloat)?
     private var tracking: NSTrackingArea?
 
     override var isFlipped: Bool { true }
@@ -100,7 +104,11 @@ final class TabBarView: NSView, NSViewToolTipOwner {
         Theme.surface0.setFill()
         bounds.fill()
 
-        for (index, frame) in tabFrames.enumerated() {
+        // The dragged tab follows the mouse and is drawn last, on top of its neighbours.
+        let order = tabFrames.indices.filter { $0 != dragging?.index } + (dragging.map { [$0.index] } ?? [])
+        for index in order {
+            var frame = tabFrames[index]
+            if let dragging, dragging.index == index { frame.origin.x = dragging.minX }
             let isActive = index == activeIndex
             let isHovered = hover == .tab(index) || hover == .close(index)
             if isActive {
@@ -162,6 +170,36 @@ final class TabBarView: NSView, NSViewToolTipOwner {
 
     // MARK: Mouse
 
+    /// Follows the mouse until the button comes up. Past a few points of movement the tab comes loose and follows the mouse, swapping places with the neighbours it passes.
+    private func trackTabDrag(from start: Int, event: NSEvent) {
+        let startX = convert(event.locationInWindow, from: nil).x
+        guard tabFrames.indices.contains(start), tabFrames.count > 1 else { return }
+        let grab = startX - tabFrames[start].minX
+        var index = start
+        while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]), next.type == .leftMouseDragged {
+            let x = convert(next.locationInWindow, from: nil).x
+            guard dragging != nil || abs(x - startX) > 4 else { continue }
+            let width = tabFrames[index].width
+            let lowest = tabFrames.first!.minX
+            let highest = tabFrames.last!.maxX - width
+            let minX = min(max(x - grab, lowest), highest)
+            // A tab swaps once its leading edge in the direction of travel passes the neighbour's middle, so wide and narrow tabs both reach every place.
+            if index + 1 < tabFrames.count, minX + width > tabFrames[index + 1].midX {
+                onMove?(index, index + 1)
+                index += 1
+                layoutSubtreeIfNeeded()
+            } else if index > 0, minX < tabFrames[index - 1].midX {
+                onMove?(index, index - 1)
+                index -= 1
+                layoutSubtreeIfNeeded()
+            }
+            dragging = (index, minX)
+            needsDisplay = true
+        }
+        dragging = nil
+        needsDisplay = true
+    }
+
     override func mouseMoved(with event: NSEvent) {
         hover = hit(at: convert(event.locationInWindow, from: nil))
     }
@@ -174,6 +212,7 @@ final class TabBarView: NSView, NSViewToolTipOwner {
         switch hit(at: convert(event.locationInWindow, from: nil)) {
         case .tab(let index):
             onSelect?(index)
+            trackTabDrag(from: index, event: event)
         case .close(let index):
             pressedClose = index
         case .plus:
