@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+.DS_Store
+/fixtures/
+/bench/
+*.png
+!docs/**/*.png
