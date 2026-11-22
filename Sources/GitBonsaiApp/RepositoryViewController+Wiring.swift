@@ -1,0 +1,90 @@
+import AppKit
+import GitEngine
+
+/// Connects the tab's parts and controllers to each other.
+extension RepositoryViewController {
+    // MARK: Wiring
+
+    func wire() {
+        toolbar.onFetch = { [weak self] in self?.fetchController.fetch(.allRemotes) }
+        toolbar.fetchMenu = { [weak self] in self?.fetchController.menu() ?? NSMenu() }
+        toolbar.pullMenu = { [weak self] in self?.pullPush.pullMenu() ?? NSMenu() }
+        toolbar.pushMenu = { [weak self] in self?.pullPush.pushMenu() ?? NSMenu() }
+        pullPush.onChange = { [weak self] in
+            guard let self else { return }
+            toolbar.showUpstream(canPull: pullPush.canPull, canPush: pullPush.canPush, upstream: pullPush.upstream, lacksUpstream: pullPush.lacksUpstream)
+        }
+        history.connect(searchField: toolbar.searchField)
+
+        sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }
+        sidebar.onCheckout = { [weak self] target, worktreePath in self?.checkoutController.perform(target, worktreePath: worktreePath) }
+        sidebar.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
+        sidebar.onOpenPanel = { [weak self] panel, anchor in
+            guard let self else { return }
+            switch panel {
+            case .tags: tagsController.show(relativeTo: anchor, of: sidebar)
+            case .stashes: stashesController.show(relativeTo: anchor, of: sidebar)
+            }
+        }
+        tagsController.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
+        tagsController.onCheckout = { [weak self] target in self?.checkoutController.perform(target, worktreePath: nil) }
+        stashesController.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
+        stashesController.onShowDiff = { [weak self] stash in self?.showStash(stash) }
+        sidebar.menuItems = { [weak self] subject in self?.sidebarActions.menuItems(for: subject) ?? [] }
+        sidebar.onNewBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        toolbar.onBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        sidebarActions.prompter.window = { [weak self] in self?.view.window }
+
+        history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
+        history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
+        history.menuItems = { [weak self] row in
+            guard let self else { return [] }
+            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row))
+        }
+        history.pillMenuItems = { [weak self] row, ref in self?.pillMenu.menuItems(forRow: row, ref: ref) ?? [] }
+
+        detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
+        detail.onSelectFile = { [weak self] selection in self?.showDiff(selection) }
+        detail.onStage = { [weak self] paths in self?.staging.stage(paths) }
+        detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
+        detail.onDiscard = { [weak self] selection in self?.staging.discard(selection) }
+        detail.fileMenuItems = { [weak self] file in self?.fileActions.menuItems(for: file) ?? [] }
+        detail.messageAccess = { [weak self] commit in self?.commitActions.interactiveRebase.rewordAccess(for: commit) }
+        detail.onEditMessage = { [weak self] in self?.editSelectedCommitMessage() }
+        commitActions.interactiveRebase.onReword = { [weak self] commit in self?.editMessage(of: commit) }
+        inlineReword.onRewritten = { [weak self] old, new in self?.history.followRewrite(of: old, to: new) }
+        inlineReword.onClosed = { [weak self] in self?.messageEditingClosed() }
+        fileActions.prompter.window = { [weak self] in self?.view.window }
+        fileActions.onChange = { [weak self] in
+            self?.diff.reload()
+            self?.refreshWorkingDirectoryCounts()
+        }
+        detail.showNothing()
+        checkoutController.window = { [weak self] in self?.view.window }
+        commitActions.prompter.window = { [weak self] in self?.view.window }
+        tagsController.prompter.window = { [weak self] in self?.view.window }
+        stashesController.prompter.window = { [weak self] in self?.view.window }
+        staging.window = { [weak self] in self?.view.window }
+        commitController.window = { [weak self] in self?.view.window }
+        staging.onChange = { [weak self] in
+            self?.diff.reload()
+            self?.refreshWorkingDirectoryCounts()
+        }
+        diff.onClose = { [weak self] in self?.showGraph() }
+        operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
+        operationBanner.onEnded = { [weak self] in self?.operationEnded() }
+        commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
+        commitActions.onToast = { [weak self] text in self?.toast.show(text) }
+        branchPull.onToast = { [weak self] text in self?.toast.show(text) }
+        branchPull.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
+        operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
+        for prompter in [sidebarActions.prompter, fileActions.prompter, commitActions.prompter, tagsController.prompter, stashesController.prompter] {
+            prompter.onToast = { [weak self] text, action in self?.toast.show(text, action: action) }
+            prompter.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
+        }
+        operationBanner.onStateChange = { [weak self] in
+            guard let self else { return }
+            rightColumn.showsBar = showsCommitForm(at: singleSelectedRow)
+        }
+    }
+}

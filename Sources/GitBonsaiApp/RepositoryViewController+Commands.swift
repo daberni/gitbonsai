@@ -7,7 +7,7 @@ extension RepositoryViewController: CommandProvider {
         RepositoryCommandState(status: viewModel.status, remotes: fetchController.remotes, stashCount: viewModel.stashes.count, operation: operationBanner.progress?.kind)
     }
 
-    private var commandProviders: [CommandProvider] {
+    var commandProviders: [CommandProvider] {
         [fetchController, pullPush, checkoutController, sidebarActions, stashesController, staging, commitActions.interactiveRebase, operationBanner]
     }
 
@@ -24,7 +24,7 @@ extension RepositoryViewController: CommandProvider {
 
     // MARK: View
 
-    private func viewCommands() -> [Command] {
+    func viewCommands() -> [Command] {
         // Each title on its own: the compiler extracts only the first branch of a conditional expression into the String Catalog.
         let sidebarTitle: LocalizedStringResource
         if split.showsSidebar { sidebarTitle = LocalizedStringResource("command.hideSidebar.title", defaultValue: "Hide sidebar", bundle: .module) } else { sidebarTitle = LocalizedStringResource("command.showSidebar.title", defaultValue: "Show sidebar", bundle: .module) }
@@ -38,7 +38,7 @@ extension RepositoryViewController: CommandProvider {
 
     // MARK: Commit form
 
-    private func commitCommands(_ state: RepositoryCommandState) -> [Command] {
+    func commitCommands(_ state: RepositoryCommandState) -> [Command] {
         [
             Command(.commit, context: state.stagedCount > 0 ? String(localized: "command.commit.stagedCount", defaultValue: "\(state.stagedCount) staged", bundle: .module, comment: "Count of staged files after the Commit command.") : nil, blocker: CommandRules.commit(state)) { [weak self] in self?.showCommitForm(amend: false) },
             Command(.amend, blocker: CommandRules.amend(state)) { [weak self] in self?.showCommitForm(amend: true) },
@@ -47,7 +47,7 @@ extension RepositoryViewController: CommandProvider {
     }
 
     /// Selects the working directory so the commit form shows, and puts the cursor into its subject; amend ticks the box and loads the last message.
-    private func showCommitForm(amend: Bool) {
+    func showCommitForm(amend: Bool) {
         if let row = viewModel.currentRow { history.select(row: row, scroll: true) }
         if amend { commitController.beginAmend() }
         commitController.form.focusSubject()
@@ -55,7 +55,7 @@ extension RepositoryViewController: CommandProvider {
 
     // MARK: Worktrees and search
 
-    private func worktreeCommands(_ state: RepositoryCommandState) -> [Command] {
+    func worktreeCommands(_ state: RepositoryCommandState) -> [Command] {
         let others = viewModel.worktrees.map(\.worktree).filter { !viewModel.isCurrent($0) && !$0.isBare && !$0.isPrunable }
         let current = (repositoryPath as NSString).lastPathComponent
         return [
@@ -74,7 +74,7 @@ extension RepositoryViewController: CommandProvider {
 
     // MARK: Elsewhere
 
-    private func openCommands() -> [Command] {
+    func openCommands() -> [Command] {
         let folder = URL(fileURLWithPath: repositoryPath, isDirectory: true)
         let name = (repositoryPath as NSString).lastPathComponent
         let terminal = ExternalApps.terminal()
@@ -97,7 +97,7 @@ extension RepositoryViewController: CommandProvider {
     }
 
     /// "Open in editor with…" and "Open in terminal with…": the apps checked in the settings, the default marked.
-    private static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?) -> Command {
+    static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?) -> Command {
         let shown = ExternalApps.shown(kind)
         let none: LocalizedStringResource = kind == .editor ? LocalizedStringResource("command.openEditor.notFound", defaultValue: "No editor found", bundle: .module) : LocalizedStringResource("command.openTerminal.notFound", defaultValue: "No terminal found", bundle: .module)
         let placeholder: LocalizedStringResource = kind == .editor ? LocalizedStringResource("command.chooseEditor.searchPlaceholder", defaultValue: "Search editors", bundle: .module) : LocalizedStringResource("command.chooseTerminal.searchPlaceholder", defaultValue: "Search terminals", bundle: .module)
@@ -110,7 +110,7 @@ extension RepositoryViewController: CommandProvider {
         })
     }
 
-    private func copyCommands(_ state: RepositoryCommandState) -> [Command] {
+    func copyCommands(_ state: RepositoryCommandState) -> [Command] {
         [
             Command(.copyBranch, context: state.branch, blocker: CommandRules.copyBranchName(state)) {
                 if let branch = state.branch { ActionRunner.copy(branch) }

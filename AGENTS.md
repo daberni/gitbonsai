@@ -18,10 +18,10 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
   - Window: `MainWindowController` (tabs, opening, title bar), `TabBarView`, `WelcomeView`, `SessionStore`.
   - Repository tab: `RepositoryViewController` only assembles the parts and routes `GraphViewModel` changes to them; `RepositoryToolbar`, `SidebarView`, `DetailView`, `CheckoutController`.
   - History: `HistoryViewController` (table, selection, search), `HistoryColumnsController` (widths, visibility, graph scroll, column menu), `HistoryColumns` (layout math and `ColumnStore`), `HistoryViews` (header, table, hover guide), `HistoryRowModel` (row and label models), `GraphRowView` (drawing).
-  - Shared: `DesignTokens.swift` mirrors `docs/design/tokens.json`, `Glyphs`, `ChromeViews`. `ScreenshotHarness` holds all verification switches.
+  - Shared: the design tokens in `DesignTokens.swift` (shared scales) and `DesignTokens+<Area>.swift` (component namespaces by area: Window, History, Detail, Sheets, SwiftUI bridge), `Glyphs`, `ChromeViews`. `ScreenshotHarness` holds all verification switches.
   - When a type starts mixing responsibilities or passes about 300 lines, split it before adding more.
   - Minimum is macOS 26. A SwiftPM build records the minimum as its SDK version, and AppKit draws the current window style (larger traffic lights, Liquid Glass controls) only for SDK 26 and later. An Xcode-built app bundle records the real SDK; revisit the minimum once the app is packaged that way.
-  - No literal sizes, spacings, radii, strokes, fonts or alphas in views. Use the scales in `Theme` (colours, fonts, `Space`, `Radius`, `Stroke`, `Icon`, `Wash`, `Focus`), which mirror the shared scales in `docs/design/tokens.json`; sizes that belong to one component go only into its namespace in `DesignTokens.swift` (`Theme.Tabs`, `Theme.Sidebar`, …), not into `tokens.json`. Check a refactor of numbers with before/after screenshots: they must be pixel-identical apart from times.
+  - No literal sizes, spacings, radii, strokes, fonts or alphas in views. Use the scales in `Theme` (colours, fonts, `Space`, `Radius`, `Stroke`, `Icon`, `Wash`, `Focus`), which mirror the shared scales in `docs/design/tokens.json`; sizes that belong to one component go only into its namespace in the matching `DesignTokens+<Area>.swift` (`Theme.Tabs`, `Theme.Sidebar`, …), not into `tokens.json`. Check a refactor of numbers with before/after screenshots: they must be pixel-identical apart from times.
 - `Tests/` — XCTest. Fixture repos are built on the fly with `git` in a temp dir (see `GitEngineTests/FixtureRepo.swift`).
 - `docs/` — product and architecture docs, design language.
 - `scripts/` — app bundle, string catalog sync and synthetic-repository helpers.
@@ -65,7 +65,7 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
 
 ## Agent coordination
 
-- The coordinating session owns architecture, shared contracts (`GitEngine` API, `DesignTokens.swift`, `ScreenshotHarness`, this file), integration into `main` and the status the user sees. It does not implement backlog tasks itself.
+- The coordinating session owns architecture, shared contracts (`GitEngine` API, the `DesignTokens` files, `ScreenshotHarness`, this file), integration into `main` and the status the user sees. It does not implement backlog tasks itself.
 - Every independently scoped task runs in its own fresh linked session with its own worktree and branch `task/<short-name>` cut from local `main`. Its brief names the scope, the files it owns, dependencies, expected checks and the limits below. Follow-up feedback goes to that session; its report comes back to the coordinator.
 - A task session commits on its branch only. It never merges, rebases `main`, pushes or touches another task's files. Before reporting it rebases its branch onto the current local `main`, runs `swift build`, `swift test` and the relevant harness checks, and reports the branch, its commits, the checks with their results, screenshot paths and remaining limitations.
 - The coordinator reviews each reported branch (diff, build, tests, screenshots), then puts its commits directly onto local `main` with a fast-forward: no merge commits, linear history. If `main` moved meanwhile, the branch is rebased onto it first. Afterwards the branch and worktree are removed.

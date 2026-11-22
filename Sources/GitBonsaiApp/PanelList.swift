@@ -1,62 +1,5 @@
 import AppKit
 
-/// One entry of a sidebar panel: two lines, a glyph on the left and the age and short SHA on the right.
-struct PanelRow: Equatable {
-    let id: String
-    let glyph: Glyph
-    let title: String
-    /// Drawn after the title in muted ink, for example ◆ for an annotated tag.
-    let marker: String?
-    let tooltip: String?
-    let detail: String
-    /// Nil for an entry that exists only elsewhere, a tag not fetched yet for instance.
-    let date: Date?
-    let sha: String
-    /// Extra words the filter matches besides the title.
-    let searchText: String
-    /// Small marks before the age, such as where a tag exists.
-    var badges: [PanelBadge] = []
-    /// A row that needs attention gets a clay wash.
-    var isHighlighted = false
-    /// A row that is not here yet draws its title and glyph muted.
-    var isDimmed = false
-}
-
-/// A glyph with an optional caption, drawn on the first line of a row.
-struct PanelBadge: Equatable {
-    enum Tone: Equatable { case muted, faint, alert }
-
-    let glyph: Glyph
-    let label: String?
-    let tone: Tone
-}
-
-/// A choice in the filter's menu that narrows the list to some entries, by their id.
-struct PanelScope {
-    let title: String
-    /// Shown in the empty list when no entry is in this scope.
-    let empty: String
-    let includes: (String) -> Bool
-}
-
-/// A button below the list that acts on the selected entry.
-struct PanelAction {
-    let title: String
-    let isDestructive: Bool
-    let isEnabled: (String) -> Bool
-    /// Whether the button is there at all for the selected entry, or with nil for no selection; for actions that only some kinds of entries have.
-    let isShown: (String?) -> Bool
-    let perform: (String) -> Void
-
-    init(_ title: LocalizedStringResource, isDestructive: Bool = false, isEnabled: @escaping (String) -> Bool = { _ in true }, isShown: @escaping (String?) -> Bool = { _ in true }, perform: @escaping (String) -> Void) {
-        self.title = title.text
-        self.isDestructive = isDestructive
-        self.isEnabled = isEnabled
-        self.isShown = isShown
-        self.perform = perform
-    }
-}
-
 /// The content of a sidebar popover: title with counter, a filter once the list is long, the entries, and the actions for the selected one.
 /// A click selects an entry, a double click activates it, a right click opens its menu.
 final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate {
@@ -73,7 +16,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             rebuildScopeMenu()
         }
     }
-    private(set) var activeScope: Int?
+    var activeScope: Int?
     /// A quiet line next to the counter, for example why something could not be shown.
     var note: String? {
         didSet {
@@ -96,15 +39,15 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     let countLabel = NSTextField(labelWithString: "")
     private let noteLabel = NSTextField(labelWithString: "")
     let busyIndicator = NSProgressIndicator()
-    private let filterPlaceholder: String
+    let filterPlaceholder: String
     private let empty: String
     private let noMatch: String
     let filterField = NSSearchField()
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: "")
-    private let footer = NSStackView()
-    private(set) var footerButtons: [NSButton] = []
+    let footer = NSStackView()
+    var footerButtons: [NSButton] = []
     private var tableHeight: NSLayoutConstraint!
     private var filterHeight: NSLayoutConstraint!
 
@@ -252,7 +195,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         return false
     }
 
-    private func applyFilter() {
+    func applyFilter() {
         let query = filterField.stringValue
         let scope = activeScope.map { scopes[$0] }
         shownRows = rows.filter { row in Self.matches(row, query: query) && (scope?.includes(row.id) ?? true) }
@@ -319,68 +262,5 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         let row = tableView.clickedRow
         guard shownRows.indices.contains(row), let items = menuItems?(shownRows[row].id) else { return }
         items.forEach(menu.addItem)
-    }
-
-    // MARK: Scopes
-
-    /// Narrows the list to one scope, or shows everything again with nil.
-    func selectScope(_ index: Int?) {
-        activeScope = index.flatMap { scopes.indices.contains($0) ? $0 : nil }
-        rebuildScopeMenu()
-        applyFilter()
-        if !shownRows.isEmpty, selectedID == nil { tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false) }
-        updateFooter()
-    }
-
-    /// The magnifier's menu: everything, then each scope; the chosen one is checked and named in the placeholder.
-    private func rebuildScopeMenu() {
-        guard !scopes.isEmpty else {
-            filterField.searchMenuTemplate = nil
-            filterField.placeholderString = filterPlaceholder
-            return
-        }
-        let menu = NSMenu()
-        for (index, title) in ([String(localized: "panel.filter.all", defaultValue: "All", bundle: .module, comment: "Filter scope of a panel list that searches every field.")] + scopes.map(\.title)).enumerated() {
-            let item = NSMenuItem(title: title, action: #selector(scopeChosen(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = index - 1
-            item.state = (activeScope ?? -1) == index - 1 ? .on : .off
-            menu.addItem(item)
-        }
-        filterField.searchMenuTemplate = menu
-        filterField.placeholderString = activeScope.map { "\(scopes[$0].title) · \(filterPlaceholder)" } ?? filterPlaceholder
-    }
-
-    @objc private func scopeChosen(_ sender: NSMenuItem) {
-        selectScope(sender.tag >= 0 ? sender.tag : nil)
-    }
-
-    // MARK: Footer
-
-    private func rebuildFooter() {
-        footer.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        footerButtons = actions.enumerated().map { index, action in
-            let button = NSButton(title: action.title, target: self, action: #selector(runAction(_:)))
-            button.tag = index
-            button.bezelStyle = .rounded
-            button.controlSize = .small
-            button.hasDestructiveAction = action.isDestructive
-            footer.addArrangedSubview(button)
-            return button
-        }
-        updateFooter()
-    }
-
-    private func updateFooter() {
-        let selected = selectedID
-        for (button, action) in zip(footerButtons, actions) {
-            button.isHidden = !action.isShown(selected)
-            button.isEnabled = selected.map(action.isEnabled) ?? false
-        }
-    }
-
-    @objc private func runAction(_ sender: NSButton) {
-        guard let id = selectedID, actions.indices.contains(sender.tag) else { return }
-        actions[sender.tag].perform(id)
     }
 }

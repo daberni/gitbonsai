@@ -21,27 +21,27 @@ final class DetailView: NSView {
     var selectedFile: FileSelection? { didSet { fileList?.selected = selectedFile } }
 
     private let stack = NSStackView()
-    private var loadTask: Task<Void, Never>?
-    private var loadingNoteTask: Task<Void, Never>?
-    private var parentTargets: [String] = []
-    private var copySHA = (full: "", short: "")
+    var loadTask: Task<Void, Never>?
+    var loadingNoteTask: Task<Void, Never>?
+    var parentTargets: [String] = []
+    var copySHA = (full: "", short: "")
     /// Reached by the harness for real clicks.
-    private(set) var copyButton: NSButton?
-    private(set) var parentLinks: [NSButton] = []
+    var copyButton: NSButton?
+    var parentLinks: [NSButton] = []
     /// Harness runs copy into a pasteboard of their own instead of the user's clipboard.
     static var pasteboard = NSPasteboard.general
-    private var fileList: FileListView?
+    var fileList: FileListView?
     /// The file section of the commit shown last. The next commit keeps it on screen until its own files and stats are known and replace both at once.
-    private var commitFiles: (commitID: String, header: NSTextField, list: FileListView)?
+    var commitFiles: (commitID: String, header: NSTextField, list: FileListView)?
     /// When the shown file list stopped matching the selection; quick stepping through the history does not push the loading note further out.
-    private var filesOutdatedSince = ContinuousClock.now
+    var filesOutdatedSince = ContinuousClock.now
     private var isShowingWorkingDirectory = false
     /// The shown commit's subject and body labels, which the message editor takes the place of.
-    private var message: (commitID: String, views: [NSView])?
+    var message: (commitID: String, views: [NSView])?
     private(set) var messageEditor: CommitMessageEditor?
     /// Reached by the harness for real clicks.
     private(set) var editMessageButton: NSButton?
-    private(set) var subjectLabel: NSTextField?
+    var subjectLabel: NSTextField?
 
     override var isFlipped: Bool { true }
 
@@ -116,117 +116,10 @@ final class DetailView: NSView {
         if fill { view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true }
     }
 
-    // MARK: Commit
-
-    /// The header is known at once and replaces the old one; the file list and its stats line follow together once git has answered.
-    func show(commit: Commit, strand: NSColor, repository: Repository) {
-        let previous = commitFiles
-        let header = reset(title: String(localized: "detail.commit.title", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"))
-        let access = messageAccess?(commit)
-        if let access { addEditButton(to: header, access: access) }
-        let subject = SubjectLabel(wrappingLabelWithString: commit.subject)
-        subject.font = Theme.title
-        subject.textColor = Theme.ink
-        subject.isSelectable = false
-        subject.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        if access == .allowed {
-            subject.onDoubleClick = { [weak self] in self?.onEditMessage?() }
-            subject.toolTip = String(localized: "detail.commit.subjectToolTip", defaultValue: "Double-click to edit the message (\(CommandShortcut.editMessage.display))", bundle: .module)
-        }
-        add(subject)
-        subjectLabel = subject
-        var messageViews: [NSView] = [subject]
-        let body = commit.body.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !body.isEmpty {
-            let bodyLabel = label(body, font: Theme.body, color: Theme.inkMuted, wraps: true)
-            add(bodyLabel)
-            messageViews.append(bodyLabel)
-        }
-        message = (commit.id, messageViews)
-
-        // Author and committer appear separately as soon as anything differs; otherwise one line says both.
-        let samePerson = commit.authorName == commit.committerName && commit.authorEmail == commit.committerEmail
-        let sameTime = abs(commit.authorDate.timeIntervalSince(commit.committerDate)) < 1
-        if samePerson && sameTime {
-            add(person(commit.authorName, role: String(localized: "detail.commit.authoredAndCommitted", defaultValue: "Authored and committed", bundle: .module, comment: "Detail panel: role of the one person who wrote and committed a commit, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
-        } else {
-            add(person(commit.authorName, role: String(localized: "detail.commit.authored", defaultValue: "Authored", bundle: .module, comment: "Detail panel: role of the commit's author, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
-            add(person(commit.committerName, role: String(localized: "detail.commit.committed", defaultValue: "Committed", bundle: .module, comment: "Detail panel: role of the commit's committer, followed by the date"), date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository)))
-        }
-
-        add(divider())
-        let meta = NSStackView()
-        meta.orientation = .horizontal
-        meta.spacing = Theme.Space.s
-        meta.addArrangedSubview(label(String(localized: "detail.meta.commit", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"), font: Theme.caption, color: Theme.inkMuted))
-        copySHA = (full: commit.id, short: commit.shortID)
-        let copy = LinkButton(target: self, action: #selector(copyCommitSHA(_:)))
-        copy.attributedTitle = NSAttributedString(string: commit.shortID, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.ink])
-        copy.imagePosition = .imageTrailing
-        showCopyIcon(on: copy, copied: false)
-        meta.addArrangedSubview(copy)
-        copyButton = copy
-        parentTargets = commit.parents
-        parentLinks = []
-        if !commit.parents.isEmpty { meta.addArrangedSubview(label(commit.parents.count == 1 ? String(localized: "detail.meta.parent", defaultValue: "Parent", bundle: .module, comment: "Label before the one parent SHA") : String(localized: "detail.meta.parents", defaultValue: "Parents", bundle: .module, comment: "Label before the parent SHAs of a merge"), font: Theme.caption, color: Theme.inkMuted)) }
-        for (index, parent) in commit.parents.enumerated() {
-            let link = LinkButton(target: self, action: #selector(openParent(_:)))
-            link.tag = index
-            link.attributedTitle = NSAttributedString(string: String(parent.prefix(RefString.shortSHA)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
-            link.toolTip = String(localized: "detail.meta.parentToolTip", defaultValue: "Jump to the parent commit in the graph", bundle: .module)
-            meta.addArrangedSubview(link)
-            parentLinks.append(link)
-        }
-        add(meta, fill: false)
-        add(divider())
-
-        let filesHeader: NSTextField
-        let list: FileListView
-        if let previous {
-            filesHeader = previous.header
-            list = previous.list
-            if list.freshness == .current {
-                list.freshness = .stale
-                filesOutdatedSince = .now
-            }
-            add(filesHeader)
-            add(list)
-            fileList = list
-        } else {
-            filesHeader = label("", font: Theme.caption, color: Theme.inkMuted)
-            add(filesHeader)
-            list = makeFileList()
-            filesOutdatedSince = .now
-        }
-        commitFiles = (commit.id, filesHeader, list)
-        if previous?.commitID != commit.id { scroll(.zero) }
-        loadTask = Task { [weak self] in
-            let files = (try? await repository.changedFiles(of: commit)) ?? []
-            guard let self, !Task.isCancelled else { return }
-            loadingNoteTask?.cancel()
-            let total = files.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
-            let summary = NSMutableAttributedString(string: String(localized: "detail.files.count", defaultValue: "\(files.count) files", bundle: .module) + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
-            summary.append(FileRowView.statText(total))
-            let rows = files.map { file in
-                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "detail.files.binary", defaultValue: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
-            }
-            filesHeader.attributedStringValue = summary
-            list.show([FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: rows, action: nil)])
-        }
-        // A quick answer swaps the lists without anything in between; a slow one gets a note in place, at the old height.
-        let deadline = filesOutdatedSince + M.loadingDelay
-        loadingNoteTask = Task {
-            try? await Task.sleep(until: deadline, clock: .continuous)
-            guard !Task.isCancelled else { return }
-            filesHeader.stringValue = String(localized: "detail.files.loading", defaultValue: "Loading files…", bundle: .module)
-            list.freshness = .loading
-        }
-    }
-
     // MARK: Message editing
 
     /// The pencil at the right of the panel's title; disabled with the reason as tooltip where the message cannot be edited.
-    private func addEditButton(to header: NSView, access: InteractiveRebaseController.RewordAccess) {
+    func addEditButton(to header: NSView, access: InteractiveRebaseController.RewordAccess) {
         let button = LinkButton(target: self, action: #selector(editMessagePressed(_:)))
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.MessageEditor.pencilSymbol, weight: .regular)
         button.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: String(localized: "commit.action.editMessage", defaultValue: "Edit Message", bundle: .module))?.withSymbolConfiguration(configuration)
@@ -349,118 +242,5 @@ final class DetailView: NSView {
 
     func showNothing() {
         reset(title: String(localized: "detail.selection.title", defaultValue: "Selection", bundle: .module, comment: "Detail panel title when nothing is selected"))
-    }
-
-    // MARK: Parts
-
-    private func person(_ name: String, role: String, date: Date, ring: NSColor, avatar source: AvatarView.Source) -> NSView {
-        let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring, source: source)
-        let nameLabel = label(name, font: Theme.body, color: Theme.ink)
-        let detail = label("\(role) · \(DateText.relative(date))", font: Theme.caption, color: Theme.inkMuted)
-        detail.toolTip = DateText.exact(date)
-        let text = NSStackView(views: [nameLabel, detail])
-        text.orientation = .vertical
-        text.alignment = .leading
-        text.spacing = M.personLineGap
-        let row = NSStackView(views: [avatar, text])
-        row.orientation = .horizontal
-        row.spacing = M.spacing
-        return row
-    }
-
-    /// A click copies the full SHA, ⌥-click the short one; the icon turns into a checkmark for a moment as the confirmation.
-    @objc private func copyCommitSHA(_ sender: NSButton) {
-        let short = NSApp.currentEvent?.modifierFlags.contains(.option) == true
-        Self.pasteboard.clearContents()
-        Self.pasteboard.setString(short ? copySHA.short : copySHA.full, forType: .string)
-        showCopyIcon(on: sender, copied: true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + M.copiedFeedback) { [weak self, weak sender] in
-            guard let self, let sender else { return }
-            showCopyIcon(on: sender, copied: false)
-        }
-    }
-
-    private func showCopyIcon(on button: NSButton, copied: Bool) {
-        button.image = Self.copyIcon(copied: copied)
-        button.toolTip = copied ? String(localized: "common.copied", defaultValue: "Copied", bundle: .module) : String(localized: "detail.meta.copySHAToolTip", defaultValue: "Copy the full SHA, with ⌥ the short one: \(copySHA.full)", bundle: .module)
-    }
-
-    /// Both states share the box and the alignment rect of the copy symbol, so the checkmark changes neither the button's size nor its baseline and nothing around it moves.
-    private static func copyIcon(copied: Bool) -> NSImage? {
-        let configuration = NSImage.SymbolConfiguration(pointSize: Theme.monoSmall.pointSize, weight: .regular).applying(.init(paletteColors: [copied ? Theme.moss : Theme.inkMuted]))
-        guard let copy = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else { return nil }
-        guard copied, let check = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else {
-            copy.accessibilityDescription = String(localized: "common.copySHA", defaultValue: "Copy SHA", bundle: .module)
-            return copy
-        }
-        let box = copy.size
-        let icon = NSImage(size: box, flipped: false) { rect in
-            let size = check.size
-            check.draw(in: CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height))
-            return true
-        }
-        icon.alignmentRect = copy.alignmentRect
-        icon.accessibilityDescription = String(localized: "common.copied", defaultValue: "Copied", bundle: .module)
-        return icon
-    }
-
-    @objc private func openParent(_ sender: NSButton) {
-        guard sender.tag < parentTargets.count else { return }
-        onNavigate?(parentTargets[sender.tag])
-    }
-}
-
-/// The subject of the shown commit; a double click asks to edit the message.
-private final class SubjectLabel: NSTextField {
-    var onDoubleClick: (() -> Void)?
-
-    override func mouseDown(with event: NSEvent) {
-        guard event.clickCount == 2, let onDoubleClick else { return super.mouseDown(with: event) }
-        onDoubleClick()
-    }
-}
-
-private final class AvatarView: NSView {
-    /// Whose picture to show, as the avatar store looks it up.
-    struct Source {
-        let email: String
-        let commit: String
-        let repository: Repository
-    }
-
-    private let initials: String
-    private let ring: NSColor
-    private let source: Source
-    private var observer: NSObjectProtocol?
-
-    init(initials: String, ring: NSColor, source: Source) {
-        self.initials = initials
-        self.ring = ring
-        self.source = source
-        super.init(frame: NSRect(x: 0, y: 0, width: Theme.Detail.avatar, height: Theme.Detail.avatar))
-        translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: Theme.Detail.avatar), heightAnchor.constraint(equalToConstant: Theme.Detail.avatar)])
-        observer = NotificationCenter.default.addObserver(forName: AvatarStore.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.needsDisplay = true }
-        }
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    isolated deinit {
-        if let observer { NotificationCenter.default.removeObserver(observer) }
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: Theme.Stroke.strand / 2, dy: Theme.Stroke.strand / 2))
-        Theme.surface2.setFill(); circle.fill()
-        if let image = AvatarStore.shared.image(email: source.email, commit: source.commit, in: source.repository), let context = NSGraphicsContext.current?.cgContext {
-            AvatarDrawing.draw(image, in: bounds, ring: Theme.Stroke.strand, context: context)
-        } else {
-            let text = NSAttributedString(string: initials, attributes: [.font: Theme.initials, .foregroundColor: Theme.inkMuted])
-            let size = text.size()
-            text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
-        }
-        ring.setStroke(); circle.lineWidth = Theme.Stroke.strand; circle.stroke()
     }
 }
