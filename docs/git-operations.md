@@ -49,9 +49,11 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | Check out a local branch | `git switch <branch>` | |
-| Check out a remote branch | `git switch -c <branch> --track <remote>/<branch>`; if the local branch exists `git switch <branch>` | Being changed: fast-forward or reset the local branch |
+| Check out a remote branch without local branch | `git switch -c <branch> --track <remote>/<branch>` | |
+| Check out a remote branch whose local branch is behind | `git switch <branch>`, `git merge --ff-only <remote>/<branch>` | The local branch tracks the remote one; a local branch that only has its name is checked out as it is |
+| Reset a diverged local branch to its remote branch | `git switch -C <branch> <remote>/<branch>` | Asks first, naming the local commits that are lost |
 | Check out a commit | `git switch --detach <commit>` | |
-| Check out carrying local changes | `git stash push --include-untracked -m "GitBonsai: Wechsel"`, the switch, `git stash pop` | A failed switch restores with `git stash pop --index` |
+| Carry local changes through any checkout | `git status --porcelain -z --untracked-files=normal --ignore-submodules=all`; with changes `git stash push --include-untracked -m "GitBonsai: Änderungen beim Wechsel zu <target>"`, the switch, `git stash pop --index` (retried as `git stash pop` when git cannot restore the index) | `git rev-parse --verify --quiet refs/stash` before and after the push tells whether a stash was made. A failed switch pops at once; a conflicting pop keeps the stash and lists `git diff --name-only -z --diff-filter=U` (index queue) |
 | New branch | `git switch -c <name> <start>` or `git branch <name> <start>` | |
 | Rename | `git branch -m <old> <new>` | |
 | Set / unset upstream | `git branch --set-upstream-to=<upstream> <branch>` / `git branch --unset-upstream <branch>` | |

@@ -144,6 +144,16 @@ extension ScreenshotHarness {
         return environment["GITBONSAI_CONFIRM"] == "1"
     }
 
+    /// `GITBONSAI_RESET_ANSWER=reset|checkout|cancel` answers the question of checking out a diverged branch; without it the harness cancels.
+    static func answerReset(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        alert.layout()
+        render(alert)
+        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.informativeText) [\(alert.buttons.map(\.title).joined(separator: " | "))]\n".utf8))
+        let wanted = ["reset": 0, "checkout": 1][environment["GITBONSAI_RESET_ANSWER"] ?? ""]
+        guard let wanted, wanted < alert.buttons.count - 1 else { return .cancel }
+        return NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertFirstButtonReturn.rawValue + wanted)
+    }
+
     /// `GITBONSAI_SAVE_PATH=<file>` answers a save panel.
     static var saveLocation: URL? { environment["GITBONSAI_SAVE_PATH"].map { URL(fileURLWithPath: $0) } }
 

@@ -37,35 +37,96 @@ final class CheckoutTests: XCTestCase {
         XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), remoteTip)
     }
 
-    func testConflictingLocalChangesBlockCheckoutAndCanBeCarriedAlong() async throws {
+    private func contents(_ fixture: FixtureRepo, _ path: String) throws -> String {
+        try String(contentsOf: fixture.url.appendingPathComponent(path), encoding: .utf8)
+    }
+
+    func testLocalChangesComeAlongEvenWhereGitAloneWouldRefuse() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "shared.txt", contents: "one\ntwo\nthree\n")
+        try fixture.git("switch", "-q", "-c", "feature")
+        try fixture.commit("feature edit", file: "shared.txt", contents: "one\ntwo\nthree\nfour\n")
+        try fixture.git("switch", "-q", "main")
+        try fixture.write("shared.txt", "ONE\ntwo\nthree\n")
+        try fixture.write("staged.txt", "staged\n")
+        try fixture.git("add", "staged.txt")
+        try fixture.write("untracked.txt", "new\n")
+        let repo = Repository(path: fixture.path)
+
+        try await repo.checkout(.localBranch("feature"))
+        XCTAssertEqual(try currentBranch(fixture), "feature")
+        XCTAssertEqual(try contents(fixture, "shared.txt"), "ONE\ntwo\nthree\nfour\n", "the edit merges onto the target's version")
+        XCTAssertEqual(try contents(fixture, "untracked.txt"), "new\n")
+        XCTAssertEqual(try fixture.git("diff", "--cached", "--name-only"), "staged.txt", "staged changes stay staged")
+        XCTAssertEqual(try fixture.git("stash", "list"), "")
+    }
+
+    func testConflictingCarriedChangesStayInTheStash() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
         try fixture.commit("base", file: "shared.txt", contents: "one\n")
-        try fixture.write("other.txt", "keep\n")
-        try fixture.git("add", "-A")
-        try fixture.git("commit", "-q", "-m", "other")
         try fixture.git("switch", "-q", "-c", "feature")
         try fixture.commit("feature edit", file: "shared.txt", contents: "two\n")
         try fixture.git("switch", "-q", "main")
-        try fixture.write("other.txt", "edited locally\n")
         try fixture.write("shared.txt", "dirty\n")
-        try fixture.write("untracked.txt", "new\n")
         let repo = Repository(path: fixture.path)
 
         do {
             try await repo.checkout(.localBranch("feature"))
-            XCTFail("git must refuse to overwrite the edit in shared.txt")
-        } catch let error as GitError {
-            XCTAssertTrue(error.isBlockedByLocalChanges, error.stderr)
+            XCTFail("popping the edit onto feature's version must conflict")
+        } catch let conflict as CarriedChangesConflict {
+            XCTAssertEqual(try currentBranch(fixture), "feature", "the switch itself happened")
+            XCTAssertEqual(try fixture.git("stash", "list", "--format=%gs"), "On main: \(conflict.stashMessage)")
+            XCTAssertTrue(conflict.stashMessage.contains("feature"), conflict.stashMessage)
+            XCTAssertEqual(conflict.conflictedPaths, ["shared.txt"])
+            XCTAssertTrue(try contents(fixture, "shared.txt").contains("<<<<<<<"), "the conflict is in the working tree")
         }
-        XCTAssertEqual(try currentBranch(fixture), "main")
+    }
 
-        // Without the colliding edit the remaining changes travel along, untracked file included.
-        try fixture.git("checkout", "--", "shared.txt")
-        try await repo.checkoutCarryingChanges(.localBranch("feature"))
-        XCTAssertEqual(try currentBranch(fixture), "feature")
-        XCTAssertEqual(try String(contentsOf: fixture.url.appendingPathComponent("other.txt"), encoding: .utf8), "edited locally\n")
-        XCTAssertEqual(try String(contentsOf: fixture.url.appendingPathComponent("untracked.txt"), encoding: .utf8), "new\n")
+    func testFailedSwitchRestoresTheChanges() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base")
+        try fixture.write("file.txt", "dirty\n")
+        let repo = Repository(path: fixture.path)
+
+        do {
+            try await repo.checkout(.localBranch("missing"))
+            XCTFail("there is no branch to switch to")
+        } catch is GitError {}
+        XCTAssertEqual(try currentBranch(fixture), "main")
+        XCTAssertEqual(try contents(fixture, "file.txt"), "dirty\n")
+        XCTAssertEqual(try fixture.git("stash", "list"), "")
+    }
+
+    func testDivergedBranchIsResetToItsRemoteAndKeepsChanges() async throws {
+        let upstream = try FixtureRepo(name: "upstream")
+        defer { upstream.remove() }
+        try upstream.commit("base")
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.git("remote", "add", "origin", upstream.path)
+        try fixture.git("fetch", "-q", "origin")
+        try fixture.git("switch", "-q", "-c", "main", "--track", "origin/main")
+        try fixture.commit("local only", file: "local.txt")
+        try fixture.git("switch", "-q", "-c", "work")
+        let remoteTip = try upstream.commit("remote work", file: "remote.txt")
+        try fixture.git("fetch", "-q", "origin")
+        try fixture.write("untracked.txt", "new\n")
+        let repo = Repository(path: fixture.path)
+
+        do {
+            try await repo.checkout(.fastForward(branch: "main", to: "origin/main"))
+            XCTFail("a diverged branch cannot fast-forward")
+        } catch is GitError {}
+
+        try await repo.checkout(.localBranch("work"))
+        try await repo.checkout(.reset(branch: "main", to: "origin/main"))
+        XCTAssertEqual(try currentBranch(fixture), "main")
+        XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), remoteTip)
+        XCTAssertEqual(try fixture.git("rev-parse", "--abbrev-ref", "main@{upstream}"), "origin/main")
+        XCTAssertEqual(try contents(fixture, "untracked.txt"), "new\n")
         XCTAssertEqual(try fixture.git("stash", "list"), "")
     }
 }

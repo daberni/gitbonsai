@@ -9,6 +9,15 @@ final class CheckoutController: NSObject {
         let target: CheckoutTarget
         /// Set when the branch is checked out in another worktree; going there is the checkout.
         let worktreePath: String?
+        /// Set for a local branch that diverged from the remote branch it follows: the checkout first asks whether to reset it there.
+        var reset: ResetOffer? = nil
+    }
+
+    struct ResetOffer {
+        let branch: String
+        let upstream: String
+        let lostCommits: Int
+        let isCurrent: Bool
     }
 
     /// A worktree was chosen instead of a checkout.
@@ -26,26 +35,34 @@ final class CheckoutController: NSObject {
     func choices(forRow index: Int) -> [Choice] {
         guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .commit || viewModel.kinds[index] == .merge else { return [] }
         let commit = viewModel.commits[index]
-        let refs = viewModel.refsByCommit[commit.id] ?? []
         let elsewhere = viewModel.branchesInOtherWorktrees
-        var choices: [Choice] = []
-        var localNames: Set<String> = []
-        for ref in refs where ref.kind == .localBranch && !ref.isHead {
-            localNames.insert(ref.name)
-            let worktree = elsewhere[ref.fullName]
-            let title = worktree.map { "Zu Worktree „\(($0.path as NSString).lastPathComponent)“ wechseln (\(ref.name))" } ?? "„\(ref.name)“ auschecken"
-            choices.append(Choice(title: title, target: .localBranch(ref.name), worktreePath: worktree?.path))
-        }
-        for ref in refs {
-            guard case .remoteBranch(let remote) = ref.kind, !ref.name.hasSuffix("/HEAD") else { continue }
-            let branch = String(ref.name.dropFirst(remote.count + 1))
-            let hasLocalHere = localNames.contains(branch) || refs.contains { $0.kind == .localBranch && $0.name == branch }
-            if !hasLocalHere { choices.append(Choice(title: "„\(ref.name)“ als lokalen Branch auschecken", target: .remoteBranch(remote: remote, branch: branch), worktreePath: nil)) }
+        var choices = BranchCheckout.choices(at: commit.id, refs: viewModel.refs).map { checkout in
+            // A branch checked out in another worktree can only be reached by going there.
+            let worktree = elsewhere["refs/heads/\(checkout.branch)"]
+            if let worktree {
+                return Choice(title: "Zu Worktree „\((worktree.path as NSString).lastPathComponent)“ wechseln (\(checkout.branch))", target: .localBranch(checkout.branch), worktreePath: worktree.path)
+            }
+            var choice = Choice(title: title(of: checkout), target: checkout.target, worktreePath: nil)
+            if case .diverged(let upstream, let lost) = checkout.kind {
+                choice.reset = ResetOffer(branch: checkout.branch, upstream: upstream, lostCommits: lost, isCurrent: checkout.branch == viewModel.currentBranch)
+            }
+            return choice
         }
         if commit.id != viewModel.headSHA || viewModel.currentBranch != nil {
             choices.append(Choice(title: "Commit \(commit.id.prefix(7)) auschecken (Detached HEAD)", target: .commit(commit.id), worktreePath: nil))
         }
         return choices
+    }
+
+    private func title(of checkout: BranchCheckout) -> String {
+        switch checkout.kind {
+        case .local: "„\(checkout.branch)“ auschecken"
+        case .fastForward(let upstream) where checkout.branch == viewModel.currentBranch: "„\(checkout.branch)“ auf „\(upstream)“ vorspulen"
+        case .fastForward(let upstream): "„\(checkout.branch)“ auschecken und auf „\(upstream)“ vorspulen"
+        case .diverged(let upstream, _) where checkout.branch == viewModel.currentBranch: "„\(checkout.branch)“ auf „\(upstream)“ zurücksetzen …"
+        case .diverged(let upstream, _): "„\(checkout.branch)“ auschecken (weicht von „\(upstream)“ ab) …"
+        case .createTracking(let remote): "„\(remote)/\(checkout.branch)“ als lokalen Branch auschecken"
+        }
     }
 
     /// A double click checks out the branch at the row. A row without a branch does nothing: a detached HEAD should be asked for, not happen by accident.
@@ -72,7 +89,32 @@ final class CheckoutController: NSObject {
     }
 
     private func perform(_ choice: Choice) {
-        perform(choice.target, worktreePath: choice.worktreePath)
+        guard let offer = choice.reset else { return perform(choice.target, worktreePath: choice.worktreePath) }
+        Task { [weak self] in
+            guard let self else { return }
+            switch await askReset(offer) {
+            case .alertFirstButtonReturn: checkout(.reset(branch: offer.branch, to: offer.upstream))
+            case .alertSecondButtonReturn where !offer.isCurrent: checkout(choice.target)
+            default: break
+            }
+        }
+    }
+
+    /// Resetting drops the local commits, so it is asked for with their number; the current branch has nothing else to offer.
+    private func askReset(_ offer: ResetOffer) async -> NSApplication.ModalResponse {
+        let alert = NSAlert()
+        alert.messageText = "„\(offer.branch)“ und „\(offer.upstream)“ sind auseinandergelaufen"
+        let loss = offer.lostCommits == 1 ? "geht ein lokaler Commit verloren; das Reflog behält ihn" : "gehen \(offer.lostCommits) lokale Commits verloren; das Reflog behält sie"
+        alert.informativeText = "„\(offer.branch)“ lässt sich nicht vorspulen. Beim Zurücksetzen auf „\(offer.upstream)“ \(loss) noch eine Weile."
+        alert.addButton(withTitle: "Auf „\(offer.upstream)“ zurücksetzen")
+        if !offer.isCurrent { alert.addButton(withTitle: "Nur auschecken") }
+        alert.addButton(withTitle: "Abbrechen")
+        alert.buttons.first?.hasDestructiveAction = true
+        if ScreenshotHarness.isActive { return ScreenshotHarness.answerReset(alert) }
+        guard let window = window?() else { return .cancel }
+        return await withCheckedContinuation { continuation in
+            alert.beginSheetModal(for: window) { continuation.resume(returning: $0) }
+        }
     }
 
     @objc private func performFromMenu(_ sender: NSMenuItem) {
@@ -80,21 +122,19 @@ final class CheckoutController: NSObject {
         perform(choice)
     }
 
-    func checkout(_ target: CheckoutTarget, carryingChanges: Bool = false) {
+    func checkout(_ target: CheckoutTarget) {
         Task { [weak self] in
             guard let self else { return }
-            switch await viewModel.checkout(target, carryingChanges: carryingChanges) {
+            switch await viewModel.checkout(target) {
             case .done:
                 break
-            case .blockedByLocalChanges(let message):
+            case .changesLeftInStash(let conflict):
                 let alert = NSAlert()
-                alert.messageText = "Lokale Änderungen stehen dem Wechsel im Weg"
-                alert.informativeText = message
-                alert.addButton(withTitle: "Stashen und wechseln")
-                alert.addButton(withTitle: "Abbrechen")
-                present(alert) { [weak self] response in
-                    if response == .alertFirstButtonReturn { self?.checkout(target, carryingChanges: true) }
-                }
+                alert.alertStyle = .warning
+                alert.messageText = "Gewechselt, aber die mitgenommenen Änderungen kollidieren"
+                alert.informativeText = "Die Konflikte stehen im Arbeitsverzeichnis. Die Änderungen bleiben im Stash „\(conflict.stashMessage)“; nach dem Lösen kann er gelöscht werden."
+                if !conflict.conflictedPaths.isEmpty { alert.informativeText += "\n\n" + conflict.conflictedPaths.joined(separator: "\n") }
+                present(alert) { _ in }
             case .failed(let message):
                 let alert = NSAlert()
                 alert.alertStyle = .warning

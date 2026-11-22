@@ -79,8 +79,8 @@ final class GraphViewModel {
 
     enum CheckoutOutcome {
         case done
-        /// Git refused because local changes would be overwritten; carries git's message.
-        case blockedByLocalChanges(String)
+        /// The switch happened, but the carried changes conflict there; they stay in the stash `CarriedChangesConflict` names.
+        case changesLeftInStash(CarriedChangesConflict)
         case failed(String)
     }
 
@@ -99,18 +99,20 @@ final class GraphViewModel {
 
     // MARK: Actions
 
-    func checkout(_ target: CheckoutTarget, carryingChanges: Bool = false) async -> CheckoutOutcome {
+    func checkout(_ target: CheckoutTarget) async -> CheckoutOutcome {
         setStatus("Wechsle …")
         let start = ContinuousClock.now
         do {
-            if carryingChanges { try await repository.checkoutCarryingChanges(target) } else { try await repository.checkout(target) }
+            try await repository.checkout(target)
             await refresh(note: "git switch \(elapsed(since: start))")
             return .done
-        } catch let error as GitError {
-            // A failed attempt may still have moved things, for instance when the carried changes conflict on the target.
+        } catch let conflict as CarriedChangesConflict {
             await refresh(note: nil)
-            let message = error.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            return error.isBlockedByLocalChanges && !carryingChanges ? .blockedByLocalChanges(message) : .failed(message)
+            return .changesLeftInStash(conflict)
+        } catch let error as GitError {
+            // A failed attempt may still have moved things, for instance a fast-forward that switched but could not move the branch.
+            await refresh(note: nil)
+            return .failed(error.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
         } catch {
             return .failed("\(error)")
         }

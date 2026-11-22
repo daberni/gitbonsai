@@ -37,14 +37,6 @@ public struct LogOptions: Sendable, Hashable {
     }
 }
 
-/// What a checkout switches to.
-public enum CheckoutTarget: Sendable, Hashable {
-    case localBranch(String)
-    case remoteBranch(remote: String, branch: String)
-    /// Detached HEAD at a commit.
-    case commit(String)
-}
-
 /// A working tree and the repository it belongs to, which linked worktrees share.
 public struct RepositoryLocation: Sendable, Equatable {
     public let root: String
@@ -85,32 +77,6 @@ public final class Repository: Sendable {
         let lines = String(decoding: data, as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
         guard lines.count >= 2, !lines[0].isEmpty, !lines[1].isEmpty else { return nil }
         return RepositoryLocation(root: String(lines[0]), commonDirectory: String(lines[1]))
-    }
-
-    /// Switches the working tree to `target`. A remote branch gets a local tracking branch of the same name, or reuses the one that exists.
-    public func checkout(_ target: CheckoutTarget) async throws {
-        switch target {
-        case .localBranch(let name):
-            _ = try await runner.runWrite(["switch", name])
-        case .remoteBranch(let remote, let branch):
-            let localExists = (try? await runner.run(["rev-parse", "--verify", "--quiet", "refs/heads/\(branch)"])) != nil
-            _ = try await runner.runWrite(localExists ? ["switch", branch] : ["switch", "-c", branch, "--track", "\(remote)/\(branch)"])
-        case .commit(let sha):
-            _ = try await runner.runWrite(["switch", "--detach", sha])
-        }
-    }
-
-    /// Stashes all local changes including untracked files, switches, and applies them again on the target.
-    /// If the switch itself fails the changes are restored where they were. If applying them conflicts, git keeps the stash and the error is thrown.
-    public func checkoutCarryingChanges(_ target: CheckoutTarget) async throws {
-        _ = try await runner.runWrite(["stash", "push", "--include-untracked", "-m", "GitBonsai: Wechsel"])
-        do {
-            try await checkout(target)
-        } catch {
-            _ = try? await runner.runWrite(["stash", "pop", "--index"])
-            throw error
-        }
-        _ = try await runner.runWrite(["stash", "pop"])
     }
 
     /// Streams commits in the order git emits them (topological by default, children before parents).

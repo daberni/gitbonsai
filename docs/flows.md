@@ -42,10 +42,12 @@ Fehler: Auth-Fehler → Dialog mit stderr und Hinweis Credential-Helper/SSH-Agen
 
 1. ⌘B oder Kontextmenü "Branch hier erstellen" am Commit. Sheet: Name (validiert mit `git check-ref-format --branch <name>`), Start-Ref (vorbelegt HEAD oder Commit), Checkbox "Auschecken", Checkbox "Als Worktree anlegen".
 2. Anlegen: `git branch <name> <start>`; mit Auschecken `git switch -c <name> <start>`; als Worktree siehe Flow 10.
-3. Checkout eines bestehenden Branches: Doppelklick in Sidebar oder ⏎ im Graph → `git switch <name>`; Remote-Branch → `git switch -c <name> --track <remote>/<name>`; Commit → `git switch --detach <sha>` mit Hinweis "Detached HEAD".
+3. Checkout eines bestehenden Branches: Doppelklick in Sidebar oder ⏎ im Graph → `git switch <name>`; Remote-Branch ohne lokalen Branch → `git switch -c <name> --track <remote>/<name>`; Commit → `git switch --detach <sha>` mit Hinweis "Detached HEAD".
+   Remote-Branch, dem ein lokaler Branch folgt (oder gleichnamig): der lokale Branch wird ausgecheckt. Liegt er nur zurück → `git switch <name>`, `git merge --ff-only <remote>/<name>`. Sind beide auseinandergelaufen → Frage mit der Zahl der lokalen Commits, die verloren gingen: "Zurücksetzen" (`git switch -C <name> <remote>/<name>`), "Nur auschecken" oder Abbrechen.
+   Jeder Wechsel nimmt nicht committete Änderungen mit: bei Änderungen `git stash push --include-untracked -m "GitBonsai: Änderungen beim Wechsel zu <ziel>"`, dann der Wechsel, dann `git stash pop --index` (ohne `--index`, wenn git den Index nicht wiederherstellen kann).
 4. UI: HEAD-Label springt, Sidebar markiert, WIP-Zeile wechselt den Elternteil.
 
-Fehler: lokale Änderungen kollidieren → Dialog "Änderungen stashen und wechseln" (`git stash push -u`, `git switch`, `git stash pop`) oder Abbrechen; Name existiert → Inline-Validierung; Branch in anderem Worktree ausgecheckt → kein Dialog, der Tab wechselt direkt in diesen Worktree (ein Branch kann nur einmal ausgecheckt sein, der Wechsel ändert nichts am Repository).
+Fehler: Wechsel scheitert → der Stash wird sofort zurückgespielt, git-Meldung im Dialog; Pop kollidiert auf dem Ziel → Hinweis, dass die Konflikte im Arbeitsverzeichnis stehen und die Änderungen im benannten Stash bleiben; Name existiert → Inline-Validierung; Branch in anderem Worktree ausgecheckt → kein Dialog, der Tab wechselt direkt in diesen Worktree (ein Branch kann nur einmal ausgecheckt sein, der Wechsel ändert nichts am Repository).
 
 ## 5. Merge per Drag-and-drop mit Ghost-Preview (V1)
 
