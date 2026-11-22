@@ -98,7 +98,9 @@ final class GraphRowView: NSView {
         endDimming(context, model)
 
         context.saveGState()
-        context.clip(to: graphRect)
+        // Strands and nodes stop short of the strand bar on the right and of the label column on the left, so a node at the edge never runs across the bar into the commit text.
+        let lanesRect = CGRect(x: graphRect.minX + G.edgeGap, y: 0, width: barX - graphRect.minX - 2 * G.edgeGap, height: height)
+        context.clip(to: lanesRect)
         context.setLineWidth(G.strandWidth)
         context.setLineCap(.round)
         if let previous = model.previous {
@@ -132,7 +134,7 @@ final class GraphRowView: NSView {
             context.setLineDash(phase: 0, lengths: [])
             context.beginPath()
             context.move(to: CGPoint(x: pillsEnd, y: midY))
-            context.addLine(to: CGPoint(x: min(nodeEdge, barX), y: midY))
+            context.addLine(to: CGPoint(x: min(nodeEdge, lanesRect.maxX), y: midY))
             context.strokePath()
         }
     }

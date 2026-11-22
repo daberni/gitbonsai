@@ -549,6 +549,8 @@ enum Theme {
         static let bandInset: CGFloat = 5
         /// Distance of the strand bar from the right edge of the graph column.
         static let barInset: CGFloat = 6
+        /// Strands and nodes end this far before the strand bar and the left edge of the graph column.
+        static let edgeGap = Stroke.hairline
         static let labelColumn: CGFloat = 200
         static let firstLane: CGFloat = 22
         /// The automatic graph width stops growing at this many lanes; wider graphs scroll.
