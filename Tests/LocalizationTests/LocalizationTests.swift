@@ -10,7 +10,7 @@ final class LocalizationTests: XCTestCase {
 
     func testKeysFollowTheScheme() throws {
         let catalog = try Catalog(url: Self.catalogURL)
-        let outside = catalog.entries.keys.filter { !Catalog.isLegacy($0) && !Catalog.followsScheme($0) }.sorted()
+        let outside = catalog.entries.keys.filter { !Catalog.followsScheme($0) }.sorted()
         XCTAssert(outside.isEmpty, "Keys are dotted lowerCamelCase segments starting with one of the areas in AGENTS.md (\(Catalog.areas.sorted().joined(separator: ", "))):\n" + outside.joined(separator: "\n"))
     }
 
@@ -20,7 +20,7 @@ final class LocalizationTests: XCTestCase {
         for (key, entry) in catalog.entries.sorted(by: { $0.key < $1.key }) {
             if entry.isStale { problems.append("stale, no longer in the code: \(key)") }
             guard entry.shouldTranslate else { continue }
-            let english = entry.values(for: "en", requireTranslated: false) ?? (Catalog.isLegacy(key) ? [key] : [])
+            let english = entry.values(for: "en", requireTranslated: false) ?? []
             if english.isEmpty { problems.append("no English: \(key)") }
             for value in english where LiteralScanner.looksGerman(value) && !LiteralScanner.allowed.contains(value) {
                 problems.append("English looks German: \(key) → \(value)")
@@ -55,7 +55,7 @@ final class LocalizationTests: XCTestCase {
         guard !extracted.isEmpty else { throw XCTSkip("No .stringsdata of GitBonsaiApp under .build/out; build the app first.") }
         let catalog = try Catalog(url: Self.catalogURL)
         var problems: [String] = []
-        for (key, values) in extracted.sorted(by: { $0.key < $1.key }) where !Catalog.isLegacy(key) {
+        for (key, values) in extracted.sorted(by: { $0.key < $1.key }) {
             guard let entry = catalog.entries[key], entry.shouldTranslate else { continue }
             let english = entry.sourceValue.map(Catalog.positionless)
             for value in values {
@@ -75,7 +75,7 @@ final class LocalizationTests: XCTestCase {
     /// Texts count as equal only when English and German both match; a different German proves a different meaning.
     func testNoDuplicatedMeaning() throws {
         let catalog = try Catalog(url: Self.catalogURL)
-        let texts = catalog.entries.filter { !Catalog.isLegacy($0.key) && $0.value.shouldTranslate }.compactMapValues(\.fingerprint)
+        let texts = catalog.entries.filter { $0.value.shouldTranslate }.compactMapValues(\.fingerprint)
         let byText = Dictionary(grouping: texts.keys, by: { texts[$0]! })
         var problems: [String] = []
         for keys in byText.values where keys.count > 1 {
@@ -192,9 +192,6 @@ struct Catalog {
         return areas.contains(String(key.prefix { $0 != "." }))
     }
 
-    /// A key from before the semantic scheme, still the English text itself.
-    static func isLegacy(_ key: String) -> Bool { !key.contains(".") || key.contains(" ") || key.contains("\\(") }
-
     /// The first two segments of a key.
     static func screen(_ key: String) -> String { key.split(separator: ".").prefix(2).joined(separator: ".") }
 
@@ -285,8 +282,8 @@ enum LiteralScanner {
         if trimmed.hasPrefix("print(") || trimmed.contains("FileHandle.standardError") || trimmed.hasPrefix("///") { return [] }
         var result: [String] = []
         if line.contains("String(localized: \""), !line.contains("bundle:") { result.append("String(localized:) without bundle: .module") }
-        if let key = key(after: "String(localized: \"", in: line), !Catalog.isLegacy(key), !line.contains("defaultValue:") { result.append("String(localized:) without defaultValue:") }
-        if let key = key(after: "LocalizedStringResource(\"", in: line), !Catalog.isLegacy(key), !line.contains("bundle:") { result.append("LocalizedStringResource without bundle: .module") }
+        if line.contains("String(localized: \""), !line.contains("defaultValue:") { result.append("String(localized:) without defaultValue:") }
+        if line.contains("LocalizedStringResource(\""), !line.contains("bundle:") { result.append("LocalizedStringResource without bundle: .module") }
         if line.contains("String(localized:") && line.contains("RefName.") { result.append("RefName marks inside String(localized:); use RefString") }
         for (literal, prefix) in literals(in: line) {
             if allowed.contains(literal) { continue }
@@ -298,12 +295,6 @@ enum LiteralScanner {
             }
         }
         return result
-    }
-
-    /// The key literal of the first call that starts with `opening`.
-    private static func key(after opening: String, in line: String) -> String? {
-        guard let start = line.range(of: opening)?.upperBound, let end = line[start...].firstIndex(of: "\"") else { return nil }
-        return String(line[start..<end])
     }
 
     /// A capital letter followed by a lowercase letter: a word of copy, not an identifier, key, path or command.

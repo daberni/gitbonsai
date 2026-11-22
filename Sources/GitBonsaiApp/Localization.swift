@@ -33,12 +33,8 @@ extension LocalizedStringResource.BundleDescription {
 }
 
 extension LocalizedStringResource {
-    /// The text in the app's language, with its names still marked.
-    var marked: String {
-        // Resources still keyed by their English text resolve that text against the app's bundle; semantic keys carry `bundle: .module` themselves.
-        guard key.contains("."), !key.contains(" ") else { return String(localized: defaultValue, table: table, bundle: .module, locale: locale) }
-        return String(localized: self)
-    }
+    /// The text in the app's language, with its names still marked. Every resource of the app names `bundle: .module`; with the default `.main` the lookup would find no strings when SwiftPM builds the app.
+    var marked: String { String(localized: self) }
 
     /// The text in the app's language as plain text, names included without pills.
     var text: String { RefString(self).plain }
