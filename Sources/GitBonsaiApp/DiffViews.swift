@@ -170,17 +170,22 @@ final class DiffHunkView: NSView {
         action.controlSize = .small
         action.target = self
         action.action = #selector(run(_:))
-        for view in [label, action] as [NSView] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        addSubview(action)
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: DiffLineView.textX - Theme.Diff.signColumn),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             label.widthAnchor.constraint(lessThanOrEqualToConstant: Theme.Diff.hunkLabelWidth),
-            action.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: Theme.Space.m),
-            action.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+    }
+
+    /// The button keeps to the right edge of what is visible, also while long lines scroll the diff sideways.
+    override func layout() {
+        super.layout()
+        action.sizeToFit()
+        let visible = visibleRect.isEmpty ? bounds : visibleRect
+        action.setFrameOrigin(NSPoint(x: visible.maxX - Theme.Space.m - action.frame.width, y: (bounds.height - action.frame.height) / 2))
     }
 
     required init?(coder: NSCoder) { nil }

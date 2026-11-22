@@ -53,3 +53,41 @@ class ContainerView: NSView {
         current = content
     }
 }
+
+/// Content filling a column, with an optional bar pinned to its bottom edge.
+final class ColumnWithBottomBar: NSView {
+    var showsBar = false { didSet { update() } }
+    private let bar: NSView
+    private var contentToBottom: NSLayoutConstraint!
+    private var contentToBar: NSLayoutConstraint!
+
+    init(content: NSView, bar: NSView) {
+        self.bar = bar
+        super.init(frame: .zero)
+        for view in [content, bar] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        contentToBottom = content.bottomAnchor.constraint(equalTo: bottomAnchor)
+        contentToBar = content.bottomAnchor.constraint(equalTo: bar.topAnchor)
+        NSLayoutConstraint.activate([
+            content.topAnchor.constraint(equalTo: topAnchor),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            bar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            bar.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        // The bar keeps its natural height; the content takes the rest.
+        bar.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        update()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    private func update() {
+        bar.isHidden = !showsBar
+        contentToBottom.isActive = !showsBar
+        contentToBar.isActive = showsBar
+    }
+}

@@ -4,6 +4,14 @@ import GitEngine
 /// One file in one line: status letter, the folder dimmed, the file name, and on the right the line counts.
 /// When space runs out the folder gives way from the front, the file name stays.
 final class FileRowView: NSView {
+    /// What the button a hovered row shows does with the whole file.
+    enum Action {
+        case stage, unstage
+
+        var glyph: Glyph { self == .stage ? .plus : .minus }
+        var toolTip: String { self == .stage ? "Datei stagen" : "Datei unstagen" }
+    }
+
     struct Model {
         let selection: FileSelection
         let letter: String
@@ -11,13 +19,22 @@ final class FileRowView: NSView {
         let stat: DiffStat?
         /// Shown instead of the counts, for instance "untracked".
         let note: String?
+        var action: Action? = nil
     }
 
     private typealias M = Theme.FileList
     let model: Model
     var isSelected = false { didSet { needsDisplay = true } }
     var onClick: (() -> Void)?
+    var onAction: ((Action) -> Void)?
     private var isHovered = false { didSet { needsDisplay = true } }
+    private var isOverAction = false { didSet { needsDisplay = true } }
+
+    /// The action button replaces the counts at the right end while the row is hovered.
+    private var actionRect: CGRect {
+        let size = M.actionButton
+        return CGRect(x: bounds.maxX - Theme.Space.xs / 2 - size, y: bounds.midY - size / 2, width: size, height: size)
+    }
 
     init(model: Model) {
         self.model = model
@@ -34,13 +51,23 @@ final class FileRowView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
     override func mouseEntered(with event: NSEvent) { isHovered = true }
-    override func mouseExited(with event: NSEvent) { isHovered = false }
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        isOverAction = false
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        isOverAction = model.action != nil && actionRect.contains(convert(event.locationInWindow, from: nil))
+    }
+
     override func mouseUp(with event: NSEvent) {
-        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(point) else { return }
+        if let action = model.action, actionRect.contains(point) { onAction?(action) } else { onClick?() }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -53,12 +80,22 @@ final class FileRowView: NSView {
         let letter = NSAttributedString(string: model.letter, attributes: [.font: Theme.monoStrong, .foregroundColor: model.color])
         letter.draw(at: CGPoint(x: inset, y: midY - letter.size().height / 2))
 
-        let trailing = trailingText()
-        let trailingWidth = trailing?.size().width ?? 0
+        let showsAction = isHovered && model.action != nil
+        let trailing = showsAction ? nil : trailingText()
+        var trailingWidth = trailing?.size().width ?? 0
         trailing?.draw(at: CGPoint(x: bounds.maxX - inset - trailingWidth, y: midY - (trailing?.size().height ?? 0) / 2))
+        if showsAction, let action = model.action, let context = NSGraphicsContext.current?.cgContext {
+            let rect = actionRect
+            if isOverAction {
+                Theme.ink.withAlphaComponent(Theme.Wash.pressed).setFill()
+                NSBezierPath(roundedRect: rect, xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm).fill()
+            }
+            action.glyph.draw(in: rect.insetBy(dx: Theme.Space.xs, dy: Theme.Space.xs), color: Theme.ink, context: context)
+            trailingWidth = rect.width
+        }
 
         let pathX = inset + M.letterWidth
-        let available = bounds.maxX - inset - trailingWidth - (trailing == nil ? 0 : M.statGap) - pathX
+        let available = bounds.maxX - inset - trailingWidth - (trailingWidth == 0 ? 0 : M.statGap) - pathX
         guard available > 0 else { return }
         // One string, cut from the front: the folder goes first, the file name last.
         let path = NSMutableAttributedString(string: model.selection.directory, attributes: Self.attributes(Theme.inkMuted))
@@ -101,6 +138,7 @@ final class FileListView: NSStackView {
     }
 
     var onSelect: ((FileSelection) -> Void)?
+    var onAction: ((FileSelection, FileRowView.Action) -> Void)?
     var selected: FileSelection? { didSet { rowViews.forEach { $0.isSelected = $0.model.selection == selected } } }
     private var rowViews: [FileRowView] = []
     private var actions: [() -> Void] = []
@@ -118,7 +156,8 @@ final class FileListView: NSStackView {
         arrangedSubviews.forEach { $0.removeFromSuperview() }
         rowViews = []
         actions = []
-        for section in sections {
+        for (index, section) in sections.enumerated() {
+            if index > 0, let last = arrangedSubviews.last { setCustomSpacing(Theme.FileList.sectionGap, after: last) }
             addFull(header(for: section))
             for model in section.rows.prefix(Theme.Detail.maximumFiles) {
                 let row = FileRowView(model: model)
@@ -127,6 +166,7 @@ final class FileListView: NSStackView {
                     self?.selected = model.selection
                     self?.onSelect?(model.selection)
                 }
+                row.onAction = { [weak self] action in self?.onAction?(model.selection, action) }
                 rowViews.append(row)
                 addFull(row)
             }

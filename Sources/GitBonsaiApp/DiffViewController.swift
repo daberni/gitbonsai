@@ -57,6 +57,8 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.hasHorizontalScroller = true
         scroll.drawsBackground = true
         scroll.backgroundColor = Theme.surface0
+        scroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(scrolled(_:)), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         for subview in [header, scroll] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
@@ -73,17 +75,27 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         ])
     }
 
+    /// Hunk headers place their button by what is visible; a sideways scroll moves it along.
+    @objc private func scrolled(_ notification: Notification) {
+        let visible = table.rows(in: table.visibleRect)
+        for row in visible.location..<(visible.location + visible.length) {
+            table.view(atColumn: 0, row: row, makeIfNecessary: false)?.needsLayout = true
+        }
+    }
+
     // MARK: Loading
 
-    func show(_ selection: FileSelection) {
+    /// Reads the file's diff and only then replaces what is shown, so the previous diff never flashes up. `ready` runs once the new one is in place.
+    func show(_ selection: FileSelection, ready: (() -> Void)? = nil) {
         let isNewFile = selection != self.selection
-        self.selection = selection
         loadTask?.cancel()
         let repository = repository()
         loadTask = Task { [weak self] in
             let diff = try? await repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
             guard let self, !Task.isCancelled else { return }
+            self.selection = selection
             apply(diff, scrollToTop: isNewFile)
+            ready?()
         }
     }
 

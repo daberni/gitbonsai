@@ -22,9 +22,12 @@ final class RepositoryViewController: NSObject {
     let history: HistoryViewController
     let checkoutController: CheckoutController
     let staging: StagingController
+    let commitController: CommitController
     let diff: DiffViewController
     /// The history column shows the graph, or the diff of one file in its place.
     private let historyPane = ContainerView()
+    /// Detail panel, and below it the commit form for the working directory.
+    private var rightColumn: ColumnWithBottomBar!
     private var shownStatus: RepositoryStatus?
     private var shownCommitID: String?
     private let toolbar = RepositoryToolbar()
@@ -39,6 +42,7 @@ final class RepositoryViewController: NSObject {
         history = HistoryViewController(viewModel: viewModel)
         checkoutController = CheckoutController(viewModel: viewModel)
         staging = StagingController(viewModel: viewModel)
+        commitController = CommitController(viewModel: viewModel)
         let model = viewModel
         diff = DiffViewController(staging: staging, repository: { model.repository })
         super.init()
@@ -57,8 +61,10 @@ final class RepositoryViewController: NSObject {
     }
 
     private func showDiff(_ selection: FileSelection) {
-        diff.show(selection)
-        historyPane.show(diff.view)
+        diff.show(selection) { [weak self] in
+            guard let self else { return }
+            historyPane.show(diff.view)
+        }
     }
 
     private func showGraph() {
@@ -95,6 +101,7 @@ final class RepositoryViewController: NSObject {
         detail.showNothing()
         checkoutController.window = { [weak self] in self?.view.window }
         staging.window = { [weak self] in self?.view.window }
+        commitController.window = { [weak self] in self?.view.window }
         staging.onChange = { [weak self] in self?.diff.reload() }
         diff.onClose = { [weak self] in self?.showGraph() }
     }
@@ -112,6 +119,7 @@ final class RepositoryViewController: NSObject {
     /// A new selection in the history starts without a chosen file; a redraw of the same one keeps it.
     private func showDetail(for row: Int?, keepingFile: Bool = false) {
         if !keepingFile { detail.selectedFile = nil }
+        rightColumn.showsBar = row.map { viewModel.kinds[$0] == .wip } ?? false
         guard let row else { detail.showNothing(); return }
         if viewModel.kinds[row] == .wip, let status = viewModel.status {
             shownStatus = status
@@ -133,11 +141,13 @@ final class RepositoryViewController: NSObject {
         split.addArrangedSubview(sidebarScroll)
         split.addArrangedSubview(historyPane)
         historyPane.show(history.view)
-        split.addArrangedSubview(detailScroll)
+        // The commit form sits below the detail panel and only appears for the working directory.
+        rightColumn = ColumnWithBottomBar(content: detailScroll, bar: commitController.form)
+        split.addArrangedSubview(rightColumn)
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 2)
         sidebarScroll.widthAnchor.constraint(equalToConstant: Theme.Window.sidebarWidth).isActive = true
-        detailScroll.widthAnchor.constraint(equalToConstant: Theme.Window.detailWidth).isActive = true
+        rightColumn.widthAnchor.constraint(equalToConstant: Theme.Window.detailWidth).isActive = true
 
         let statusBar = BarView(edge: .top)
         statusLabel.font = Theme.captionDigits
@@ -172,7 +182,8 @@ final class RepositoryViewController: NSObject {
         let clip = scrollView.contentView
         document.translatesAutoresizingMaskIntoConstraints = false
         let collapse = document.heightAnchor.constraint(equalToConstant: 0)
-        collapse.priority = .defaultLow
+        // Weaker than anything around it: it only shrinks the document, never the scroll view.
+        collapse.priority = NSLayoutConstraint.Priority(1)
         NSLayoutConstraint.activate([
             document.topAnchor.constraint(equalTo: clip.topAnchor),
             document.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
@@ -210,6 +221,7 @@ final class RepositoryViewController: NSObject {
         }
         sidebar.reload(from: viewModel)
         history.metadataChanged()
+        commitController.update(status: viewModel.status)
         // The working directory lists follow every change of the status, for instance after staging.
         if let row = history.selectedRow >= 0 ? history.selectedRow : nil, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)
@@ -231,6 +243,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.prepare(history)
             ScreenshotHarness.openDiff(on: self)
             ScreenshotHarness.clickFile(on: self)
+            ScreenshotHarness.fillCommit(on: self)
         }
         onLoaded?()
     }

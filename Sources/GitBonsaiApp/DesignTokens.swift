@@ -220,6 +220,35 @@ enum Theme {
         static let rowRadius = Radius.sm
         /// Space between the path and the line counts.
         static let statGap = Space.s
+        /// Space above every section after the first.
+        static let sectionGap = Space.l
+        /// The stage or unstage button a row shows while hovered.
+        static let actionButton: CGFloat = 20
+    }
+
+    /// The commit form at the bottom of the right column.
+    enum CommitForm {
+        static let padding = Space.m
+        static let spacing = Space.s
+        static let subjectHeight: CGFloat = 30
+        static let bodyHeight: CGFloat = 64
+        /// Text inset inside the fields, and the room the subject keeps free for its counter.
+        static let fieldInset = NSSize(width: Space.s + 2, height: Space.xs + 2)
+        static let counterWidth: CGFloat = 26
+        /// The subject counter turns ochre and then persimmon past these lengths.
+        static let subjectWarning = 50
+        static let subjectLimit = 72
+    }
+
+    /// Hand-drawn controls in the warm palette.
+    enum Control {
+        static let height: CGFloat = 28
+        static let radius = Radius.sm
+        static let padding = Space.m
+        static let focusWidth: CGFloat = 2
+        static let checkbox: CGFloat = 16
+        static let checkboxRadius: CGFloat = 4
+        static let labelGap = Space.s
     }
 
     /// The diff of one file in the history pane.

@@ -160,11 +160,11 @@ final class DetailView: NSView {
         func sections(unstagedStats: [String: DiffStat], stagedStats: [String: DiffStat]) -> [FileListView.Section] {
             let unstagedRows = unstaged.map { entry in
                 entry.isUntracked
-                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked")
-                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil)
+                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", action: .stage)
+                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil, action: .stage)
             }
             let stagedRows = staged.map { entry in
-                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil)
+                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil, action: .unstage)
             }
             var result = [
                 FileListView.Section(title: "Unstaged  \(unstaged.count)", rows: unstagedRows, action: unstaged.isEmpty ? nil : ("Alle stagen", { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
@@ -193,6 +193,12 @@ final class DetailView: NSView {
         list.onSelect = { [weak self] selection in
             self?.selectedFile = selection
             self?.onSelectFile?(selection)
+        }
+        list.onAction = { [weak self] selection, action in
+            switch action {
+            case .stage: self?.onStage?([selection.path])
+            case .unstage: self?.onUnstage?([selection.path])
+            }
         }
         fileList = list
         add(list)

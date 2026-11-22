@@ -116,6 +116,19 @@ enum ScreenshotHarness {
         }
     }
 
+    /// `GITBONSAI_COMMIT_SUBJECT` and `GITBONSAI_COMMIT_BODY` fill the commit form, `GITBONSAI_AMEND=1` ticks amend,
+    /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button.
+    static func fillCommit(on tab: RepositoryViewController) {
+        let form = tab.commitController.form
+        if environment["GITBONSAI_AMEND"] == "1" { form.pressAmend() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            if let subject = environment["GITBONSAI_COMMIT_SUBJECT"] { form.subjectText = subject }
+            if let body = environment["GITBONSAI_COMMIT_BODY"] { form.bodyText = body.replacingOccurrences(of: "\\n", with: "\n") }
+            form.onEdit?()
+            if environment["GITBONSAI_COMMIT_RUN"] == "1" { form.pressCommit() }
+        }
+    }
+
     /// Queues the movement and the release, then delivers the press. Views that follow the mouse in a tracking loop find the queued events there.
     static func drag(in window: NSWindow, from start: CGPoint, to end: CGPoint, steps: Int) {
         for step in 1...max(steps, 1) {
