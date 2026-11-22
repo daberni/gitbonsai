@@ -17,7 +17,8 @@ enum ScreenshotHarness {
     }
 
     static func captureAndQuit(window: NSWindow) {
-        guard let outputPath, let view = window.contentView else { return }
+        // The frame view above the content view also holds the title bar, so the traffic lights are in the picture.
+        guard let outputPath, let view = window.contentView?.superview else { return }
         // Give the last batch of rows and the asynchronously loaded file list time to lay out and draw.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }

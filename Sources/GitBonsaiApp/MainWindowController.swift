@@ -28,6 +28,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private let store: SessionStore
     private let tabBar = TabBarView()
     private let content = TabContentView()
+    private let root = FillView(color: Theme.surface0)
     private var tabs: [Tab] = []
     private var activeIndex = 0
     private var didCapture = false
@@ -42,6 +43,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.titleVisibility = .hidden
         window.backgroundColor = Theme.surface0
         window.tabbingMode = .disallowed
+        // An empty compact toolbar makes the title bar exactly as tall as the tab row, so macOS itself centres the traffic lights on it.
+        window.toolbar = NSToolbar(identifier: "GitBonsaiTitlebar")
+        window.toolbarStyle = .unifiedCompact
+        window.titlebarSeparatorStyle = .none
         window.minSize = NSSize(width: 900, height: 520)
         window.center()
         super.init(window: window)
@@ -53,27 +58,39 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     private func buildContent() {
         guard let window else { return }
-        let root = FillView(color: Theme.surface0)
-        tabBar.translatesAutoresizingMaskIntoConstraints = false
-        content.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(content)
-        root.addSubview(tabBar)
+        content.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            tabBar.topAnchor.constraint(equalTo: root.topAnchor),
-            tabBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            tabBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height),
-            content.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            content.topAnchor.constraint(equalTo: root.topAnchor, constant: TabBarView.height),
             content.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             content.bottomAnchor.constraint(equalTo: root.bottomAnchor),
         ])
         window.contentView = root
+        mountTabBar()
         tabBar.onSelect = { [weak self] index in self?.activate(index) }
         tabBar.onClose = { [weak self] index in self?.close(index) }
         tabBar.onNew = { [weak self] in self?.newTab(nil) }
         tabBar.onMove = { [weak self] from, to in self?.moveTab(from: from, to: to) }
         content.onDropFolders = { [weak self] paths in self?.open(paths: paths, activate: paths.count - 1) }
+    }
+
+    /// macOS decides which parts of the title bar move the window from the views inside the title bar only.
+    /// So the tab row lives there, behind the traffic lights, and tells it that clicks on it are its own; the free space moves the window through the tab row.
+    /// In full screen the title bar slides away, so the row moves into the window content.
+    private func mountTabBar() {
+        guard let window else { return }
+        tabBar.removeFromSuperview()
+        tabBar.translatesAutoresizingMaskIntoConstraints = false
+        let titlebar = window.standardWindowButton(.closeButton)?.superview
+        let host: NSView = window.styleMask.contains(.fullScreen) ? root : titlebar ?? root
+        host.addSubview(tabBar, positioned: .below, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            tabBar.topAnchor.constraint(equalTo: host.topAnchor),
+            tabBar.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            tabBar.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            tabBar.heightAnchor.constraint(equalToConstant: TabBarView.height),
+        ])
     }
 
     // MARK: Opening
@@ -261,30 +278,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     // MARK: Title bar
 
-    /// The tab row is taller than a standard title bar, so the traffic lights are moved down to sit on the tabs' centre line and the tabs start right of them.
-    private func alignTitleBar() {
+    /// The tabs start right of the traffic lights. The buttons are left where macOS puts them; in full screen they are gone.
+    private func placeTabsBesideTrafficLights() {
         guard let window else { return }
-        let isFullScreen = window.styleMask.contains(.fullScreen)
-        var trailingEdge: CGFloat = 0
-        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            guard let button = window.standardWindowButton(kind), let container = button.superview else { continue }
-            if !isFullScreen {
-                let centreFromTop = TabBarView.height / 2 + 1
-                let y = container.isFlipped ? centreFromTop - button.frame.height / 2 : container.bounds.height - centreFromTop - button.frame.height / 2
-                if abs(button.frame.minY - y) > 0.5 { button.setFrameOrigin(NSPoint(x: button.frame.minX, y: y)) }
-            }
-            trailingEdge = max(trailingEdge, container.convert(button.frame, to: nil).maxX)
+        guard !window.styleMask.contains(.fullScreen), let zoom = window.standardWindowButton(.zoomButton), let container = zoom.superview else {
+            tabBar.leadingInset = 12
+            return
         }
-        tabBar.leadingInset = isFullScreen ? 12 : trailingEdge + 14
+        let frame = container.convert(zoom.frame, to: tabBar)
+        tabBar.leadingInset = frame.maxX + 14
     }
 
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
-        alignTitleBar()
+        placeTabsBesideTrafficLights()
     }
 
-    // AppKit puts the buttons back whenever it lays out the title bar, so the position is checked after every event.
-    func windowDidUpdate(_ notification: Notification) { alignTitleBar() }
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        mountTabBar()
+        placeTabsBesideTrafficLights()
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        mountTabBar()
+        placeTabsBesideTrafficLights()
+    }
 
     // MARK: Screenshot harness
 
@@ -309,7 +327,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             }
         }
         didCapture = true
-        alignTitleBar()
         ScreenshotHarness.captureAndQuit(window: window)
     }
 }

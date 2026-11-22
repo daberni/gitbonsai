@@ -9,7 +9,7 @@ final class TabBarView: NSView, NSViewToolTipOwner {
     }
 
     static let height: CGFloat = 38
-    private static let tabTop: CGFloat = 8
+    private static let tabTop: CGFloat = 4
     private static let radius: CGFloat = 10
     private static let textInset: CGFloat = 18
     private static let closeSlot: CGFloat = 28
@@ -18,7 +18,7 @@ final class TabBarView: NSView, NSViewToolTipOwner {
 
     var items: [Item] = [] { didSet { if items != oldValue { needsLayout = true; needsDisplay = true } } }
     var activeIndex = 0 { didSet { needsDisplay = true } }
-    /// Room for the traffic lights; zero in full screen.
+    /// Room for the traffic lights; less in full screen, where they are gone.
     var leadingInset: CGFloat = 84 { didSet { if leadingInset != oldValue { needsLayout = true; needsDisplay = true } } }
     var onSelect: ((Int) -> Void)?
     var onClose: ((Int) -> Void)?
@@ -38,6 +38,10 @@ final class TabBarView: NSView, NSViewToolTipOwner {
 
     override var isFlipped: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+    /// Marks the whole row as a control for the title bar, so macOS does not start a window move under a tab.
+    override var isOpaque: Bool { true }
+    /// Without this the first click into an inactive window only activates it, and a drag from there moves the window instead of the tab.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     func frameOfTab(_ index: Int) -> CGRect? {
         layoutSubtreeIfNeeded()
@@ -65,7 +69,7 @@ final class TabBarView: NSView, NSViewToolTipOwner {
             defer { x += width }
             return CGRect(x: x, y: Self.tabTop, width: width, height: bounds.height - Self.tabTop)
         }
-        plusFrame = CGRect(x: x + 6, y: Self.tabTop + 3, width: 28, height: 24)
+        plusFrame = CGRect(x: x + 6, y: (Self.tabTop + Self.height) / 2 - 12, width: 28, height: 24)
         // AppKit does not retain a tool tip's owner, so the view itself answers for every rectangle.
         removeAllToolTips()
         for frame in tabFrames + [plusFrame] { addToolTip(frame, owner: self, userData: nil) }
