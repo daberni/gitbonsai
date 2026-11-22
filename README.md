@@ -82,7 +82,7 @@ Settings:
 
 Files, diffs and commits:
 
-- `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file's diff (without a source: the file in the selected commit), and `GITBONSAI_HUNK_ACTION=<n>` stages or unstages hunk n.
+- `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file's diff (without a source: the file in the selected commit), and `GITBONSAI_HUNK_ACTION=<n>` stages or unstages hunk n; `GITBONSAI_WINDOW_WIDTH=<points>` resizes the window before the diff opens.
 - `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle in the open diff with a real click and prints the numbers of the top and bottom line.
 - `GITBONSAI_DIFF_NEXT=<n>` clicks the ↓ of the hunk navigation n times and prints the top line after each jump.
 - `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the close button of the open diff with a real click and prints whether the diff is still shown.
@@ -92,3 +92,6 @@ Files, diffs and commits:
 - `GITBONSAI_COMMIT_SUBJECT`, `GITBONSAI_COMMIT_BODY` (with `\n`), `GITBONSAI_AMEND=1` and `GITBONSAI_COMMIT_RUN=1` fill the commit form, tick amend and click the commit button.
 - `GITBONSAI_CLICK_HUNK_DISCARD=<n>` clicks "Hunk verwerfen" of hunk n in the open diff, `GITBONSAI_HOVER_FILE=<n>` moves the mouse onto the n-th file row and `GITBONSAI_CLICK_FILE_DISCARD=<n>` clicks its discard button; the confirmation sheet is answered with `GITBONSAI_DISCARD_ANSWER=confirm|cancel` by a real click, or, without an answer, written to `GITBONSAI_SHEET_SCREENSHOT=<path>`.
 - `GITBONSAI_FILE_MENU=<n>` prints the context menu of the n-th file row (⌥ alternates marked) without opening it on screen, and `GITBONSAI_FILE_MENU_PICK=<title>` chooses an entry; its questions are answered by `GITBONSAI_CONFIRM=1` and rendered by `GITBONSAI_SHEET_SHOT=<png>`.
+- `GITBONSAI_CLICK_COMMIT_COPY=full|short` clicks the copy icon next to the commit SHA with a real click (⌥ held for `short`) and prints what landed on the harness's own pasteboard and the icon's state; the capture shows the checkmark.
+- `GITBONSAI_CLICK_PARENT=<n>` clicks the n-th parent link in the commit header with a real click and prints the selected commit before and after.
+- `GITBONSAI_PRINT_CURSORS=1` prints the cursor that the copy icon, the parent links, the section actions and a file row with its action icon set when the pointer enters them.

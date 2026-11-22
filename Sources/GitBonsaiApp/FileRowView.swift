@@ -75,18 +75,25 @@ final class FileRowView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self))
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
     override func mouseEntered(with event: NSEvent) { isHovered = true }
     override func mouseExited(with event: NSEvent) {
         isHovered = false
         hoveredAction = nil
+        LinkCursor.set(overLink: false)
     }
 
     override func mouseMoved(with event: NSEvent) {
         isHovered = true
         hoveredAction = action(at: convert(event.locationInWindow, from: nil))
+        LinkCursor.set(overLink: hoveredAction != nil)
+    }
+
+    /// The row itself keeps the arrow like any list row; only its bare action icons are link-like.
+    override func cursorUpdate(with event: NSEvent) {
+        LinkCursor.set(overLink: action(at: convert(event.locationInWindow, from: nil)) != nil)
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -259,8 +266,7 @@ final class FileListView: NSStackView {
             title.centerYAnchor.constraint(equalTo: box.centerYAnchor),
         ]
         if let action = section.action {
-            let button = NSButton(title: action.title, target: self, action: #selector(runAction(_:)))
-            button.isBordered = false
+            let button = LinkButton(target: self, action: #selector(runAction(_:)))
             button.attributedTitle = NSAttributedString(string: action.title, attributes: [.font: Theme.caption, .foregroundColor: Theme.moss])
             button.tag = actions.count
             actions.append(action.perform)

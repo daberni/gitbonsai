@@ -196,6 +196,8 @@ enum Theme {
         static let personLineGap: CGFloat = 1
         /// Longest file list shown before it is cut off.
         static let maximumFiles = 200
+        /// How long the copy icon shows its checkmark.
+        static let copiedFeedback: TimeInterval = 1
     }
 
     enum Welcome {

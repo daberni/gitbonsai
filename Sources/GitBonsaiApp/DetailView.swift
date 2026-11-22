@@ -19,7 +19,12 @@ final class DetailView: NSView {
     private let stack = NSStackView()
     private var loadTask: Task<Void, Never>?
     private var parentTargets: [String] = []
-    private var copySHA = ""
+    private var copySHA = (full: "", short: "")
+    /// Reached by the harness for real clicks.
+    private(set) var copyButton: NSButton?
+    private(set) var parentLinks: [NSButton] = []
+    /// Harness runs copy into a pasteboard of their own instead of the user's clipboard.
+    static var pasteboard = NSPasteboard.general
     private var fileList: FileListView?
     private var isShowingWorkingDirectory = false
 
@@ -110,21 +115,23 @@ final class DetailView: NSView {
         meta.orientation = .horizontal
         meta.spacing = Theme.Space.s
         meta.addArrangedSubview(label("Commit", font: Theme.caption, color: Theme.inkMuted))
-        copySHA = commit.id
-        let copy = NSButton(title: commit.shortID + "  ⧉", target: self, action: #selector(copyCommitSHA(_:)))
-        copy.bezelStyle = .inline
-        copy.font = Theme.monoSmall
-        copy.toolTip = "Vollen SHA kopieren: \(commit.id)"
+        copySHA = (full: commit.id, short: commit.shortID)
+        let copy = LinkButton(target: self, action: #selector(copyCommitSHA(_:)))
+        copy.attributedTitle = NSAttributedString(string: commit.shortID, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.ink])
+        copy.imagePosition = .imageTrailing
+        showCopyIcon(on: copy, copied: false)
         meta.addArrangedSubview(copy)
+        copyButton = copy
         parentTargets = commit.parents
+        parentLinks = []
         if !commit.parents.isEmpty { meta.addArrangedSubview(label(commit.parents.count > 1 ? "Parents" : "Parent", font: Theme.caption, color: Theme.inkMuted)) }
         for (index, parent) in commit.parents.enumerated() {
-            let link = NSButton(title: "", target: self, action: #selector(openParent(_:)))
-            link.isBordered = false
+            let link = LinkButton(target: self, action: #selector(openParent(_:)))
             link.tag = index
             link.attributedTitle = NSAttributedString(string: String(parent.prefix(7)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
             link.toolTip = "Zum Parent-Commit im Graph springen"
             meta.addArrangedSubview(link)
+            parentLinks.append(link)
         }
         add(meta, fill: false)
         add(divider())
@@ -134,7 +141,7 @@ final class DetailView: NSView {
         let list = makeFileList()
         loadTask = Task { [weak self] in
             let files = (try? await repository.changedFiles(of: commit)) ?? []
-            guard let self, !Task.isCancelled else { return }
+            guard self != nil, !Task.isCancelled else { return }
             let total = files.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
             let summary = NSMutableAttributedString(string: (files.count == 1 ? "1 Datei" : "\(files.count) Dateien") + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
             summary.append(FileRowView.statText(total))
@@ -243,9 +250,39 @@ final class DetailView: NSView {
         return row
     }
 
+    /// A click copies the full SHA, ⌥-click the short one; the icon turns into a checkmark for a moment as the confirmation.
     @objc private func copyCommitSHA(_ sender: NSButton) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(copySHA, forType: .string)
+        let short = NSApp.currentEvent?.modifierFlags.contains(.option) == true
+        Self.pasteboard.clearContents()
+        Self.pasteboard.setString(short ? copySHA.short : copySHA.full, forType: .string)
+        showCopyIcon(on: sender, copied: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + M.copiedFeedback) { [weak self, weak sender] in
+            guard let self, let sender else { return }
+            showCopyIcon(on: sender, copied: false)
+        }
+    }
+
+    private func showCopyIcon(on button: NSButton, copied: Bool) {
+        button.image = Self.copyIcon(copied: copied)
+        button.toolTip = copied ? "Kopiert" : "Vollen SHA kopieren, mit ⌥ den kurzen: \(copySHA.full)"
+    }
+
+    /// Both states share the box of the copy symbol, so the checkmark does not shift the parents beside it.
+    private static func copyIcon(copied: Bool) -> NSImage? {
+        let configuration = NSImage.SymbolConfiguration(pointSize: Theme.monoSmall.pointSize, weight: .regular).applying(.init(paletteColors: [copied ? Theme.moss : Theme.inkMuted]))
+        guard let copy = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else { return nil }
+        guard copied, let check = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else {
+            copy.accessibilityDescription = "SHA kopieren"
+            return copy
+        }
+        let box = copy.size
+        let icon = NSImage(size: box, flipped: false) { rect in
+            let size = check.size
+            check.draw(in: CGRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height))
+            return true
+        }
+        icon.accessibilityDescription = "Kopiert"
+        return icon
     }
 
     @objc private func openParent(_ sender: NSButton) {

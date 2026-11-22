@@ -5,7 +5,7 @@ import GitEngine
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file of the working directory, or of the selected commit without a source.
-    /// `GITBONSAI_HUNK_ACTION=<n>` then stages or unstages hunk n.
+    /// `GITBONSAI_HUNK_ACTION=<n>` then stages or unstages hunk n; `GITBONSAI_WINDOW_WIDTH=<points>` first resizes the window.
     static func openDiff(on tab: RepositoryViewController) {
         guard let path = environment["GITBONSAI_OPEN_FILE"] else { return }
         let row = tab.history.selectedRow
@@ -17,6 +17,9 @@ extension ScreenshotHarness {
         default:
             guard row >= 0 else { return }
             source = .commit(tab.viewModel.commits[row])
+        }
+        if let width = environment["GITBONSAI_WINDOW_WIDTH"].flatMap(Double.init), let window = tab.view.window {
+            window.setFrame(NSRect(origin: window.frame.origin, size: CGSize(width: width, height: window.frame.height)), display: true)
         }
         tab.openFile(FileSelection(path: path, originalPath: nil, source: source))
         if let hunk = environment["GITBONSAI_HUNK_ACTION"].flatMap(Int.init) {
@@ -78,15 +81,11 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_CLICK_FILE=<n>` clicks the n-th file in the detail panel with real mouse events and reports whether its diff opened.
     static func clickFile(on tab: RepositoryViewController) {
+        driveCommitHeader(on: tab)
         guard let index = environment["GITBONSAI_CLICK_FILE"].flatMap(Int.init) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             guard let window = tab.view.window else { return }
-            var rows: [FileRowView] = []
-            func collect(_ view: NSView) {
-                if let row = view as? FileRowView { rows.append(row) }
-                view.subviews.forEach(collect)
-            }
-            collect(window.contentView!)
+            let rows = views(of: FileRowView.self, in: window)
             guard rows.indices.contains(index) else {
                 FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
                 return
@@ -209,6 +208,85 @@ extension ScreenshotHarness {
                 view.displayIgnoringOpacity(view.bounds, in: context)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
             }
+        }
+    }
+
+    // MARK: Commit header
+
+    /// `GITBONSAI_CLICK_COMMIT_COPY=full|short` clicks the copy icon next to the commit SHA with a real click, ⌥ held for `short`, and prints the pasteboard and the icon afterwards.
+    /// `GITBONSAI_CLICK_PARENT=<n>` clicks parent link n with a real click and prints the selected commit; `GITBONSAI_PRINT_CURSORS=1` prints the cursor each part of the detail panel sets.
+    static func driveCommitHeader(on tab: RepositoryViewController) {
+        let environment = environment
+        let copyMode = environment["GITBONSAI_CLICK_COMMIT_COPY"]
+        let parent = environment["GITBONSAI_CLICK_PARENT"].flatMap(Int.init)
+        guard copyMode != nil || parent != nil || environment["GITBONSAI_PRINT_CURSORS"] == "1" else { return }
+        // Clicks copy into the harness's own pasteboard, so runs leave the user's clipboard alone.
+        DetailView.pasteboard = NSPasteboard(name: NSPasteboard.Name("app.gitbonsai.harness"))
+        DetailView.pasteboard.clearContents()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            guard let window = tab.view.window, let detail = views(of: DetailView.self, in: window).first else { return }
+            if environment["GITBONSAI_PRINT_CURSORS"] == "1" { printCursors(in: detail, window: window) }
+            if let copyMode, let button = detail.copyButton {
+                let flags: NSEvent.ModifierFlags = copyMode == "short" ? .option : []
+                click(in: window, at: button.convert(CGPoint(x: button.bounds.maxX - Theme.Space.s, y: button.bounds.midY), to: nil), flags: flags)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    let copied = DetailView.pasteboard.string(forType: .string) ?? "nothing"
+                    FileHandle.standardError.write(Data("copy (\(copyMode)) put on the pasteboard: \(copied); icon \(button.image?.accessibilityDescription ?? "none"), tooltip \(button.toolTip ?? "none")\n".utf8))
+                }
+            }
+            if let parent {
+                guard detail.parentLinks.indices.contains(parent) else {
+                    FileHandle.standardError.write(Data("only \(detail.parentLinks.count) parent links\n".utf8))
+                    return
+                }
+                let link = detail.parentLinks[parent]
+                let before = selectedCommit(on: tab)
+                click(in: window, at: link.convert(CGPoint(x: link.bounds.midX, y: link.bounds.midY), to: nil))
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    FileHandle.standardError.write(Data("parent link \(parent) (\(link.title)) clicked: selected \(before) -> \(selectedCommit(on: tab))\n".utf8))
+                }
+            }
+        }
+    }
+
+    private static func selectedCommit(on tab: RepositoryViewController) -> String {
+        let row = tab.history.selectedRow
+        guard tab.viewModel.commits.indices.contains(row) else { return "row \(row)" }
+        return tab.viewModel.commits[row].id
+    }
+
+    private static func click(in window: NSWindow, at point: CGPoint, flags: NSEvent.ModifierFlags) {
+        func event(_ type: NSEvent.EventType) -> NSEvent? {
+            NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+        }
+        if let up = event(.leftMouseUp) { NSApp.postEvent(up, atStart: false) }
+        if let down = event(.leftMouseDown) { press(down, in: window) }
+    }
+
+    /// Cursor updates follow the real pointer only, so each probe goes to the view under the point the way tracking would deliver it, starting from the arrow.
+    private static func printCursors(in detail: DetailView, window: NSWindow) {
+        var probes: [(String, NSView, CGPoint)] = []
+        if let copy = detail.copyButton { probes.append(("copy icon", copy, CGPoint(x: copy.bounds.maxX - Theme.Space.s, y: copy.bounds.midY))) }
+        for (index, link) in detail.parentLinks.enumerated() { probes.append(("parent link \(index) \(link.title)", link, CGPoint(x: link.bounds.midX, y: link.bounds.midY))) }
+        for button in views(of: LinkButton.self, in: window) where button.superview?.superview is FileListView {
+            probes.append(("section action \(button.title)", button, CGPoint(x: button.bounds.midX, y: button.bounds.midY)))
+        }
+        if let row = views(of: FileRowView.self, in: window).first {
+            probes.append(("file row \(row.model.selection.path)", row, CGPoint(x: row.bounds.midX, y: row.bounds.midY)))
+            if !row.model.actions.isEmpty {
+                let rect = row.actionRect(0)
+                probes.append(("file row action \(row.model.actions[0])", row, CGPoint(x: rect.midX, y: rect.midY)))
+            }
+        }
+        for (name, view, local) in probes {
+            let point = view.convert(local, to: nil)
+            NSCursor.arrow.set()
+            let hit = window.contentView?.superview?.hitTest(point)
+            if let hit, let update = NSEvent.enterExitEvent(with: .cursorUpdate, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil) {
+                hit.cursorUpdate(with: update)
+            }
+            let cursor = NSCursor.current == NSCursor.pointingHand ? "pointingHand" : NSCursor.current == NSCursor.arrow ? "arrow" : "other"
+            FileHandle.standardError.write(Data("cursor \(name) (hit \(hit.map { "\(type(of: $0))" } ?? "nothing")): \(cursor)\n".utf8))
         }
     }
 
