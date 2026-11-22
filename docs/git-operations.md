@@ -9,14 +9,12 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | Open a folder as repository | `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | Finds the worktree root and the shared `.git` |
-| History | `git log <format> --branches --remotes --tags [HEAD]` plus the stash commits | Streamed; tool refs and other worktrees' HEADs stay out |
-| Commit count | `git rev-list --branches --remotes --tags [HEAD] --count` | |
+| History | `git log <format> --branches --remotes --tags [HEAD]` plus the stash commits | Streamed; tool refs and other worktrees' HEADs stay out. `HEAD` only when `git rev-parse --verify --quiet HEAD` finds it, so a repository without commits loads empty |
 | Refs for labels and sidebar | `git for-each-ref <format>` | |
 | Working directory status | `git status --porcelain=v2 -z --branch --untracked-files=all` | |
 | Worktrees | `git worktree list --porcelain -z` | |
 | Reconcile a tab (it becomes visible, the app becomes active, its files change, after every fetch) | The in-place refresh: working directory status, `git for-each-ref`, the stash list and `git worktree list` side by side; `git log` only when a ref, HEAD or stash points at a commit that is not loaded; when commits left the history, `git rev-list --topo-order --branches --remotes --tags [HEAD]` plus the stash commits for the new order of the rest | Visible tab only, local only, never skipped; triggers that arrive together run once |
 | Watch a tab's files | `git rev-parse --absolute-git-dir`, then FSEvents on the working tree and the common git directory | No git while watching. Objects, lock files, reflogs other than the stash and folders such as `node_modules` and `.build` are ignored; a burst ends after 0.2 s of quiet or 1 s at most; bursts inside the app's own writes are dropped |
-| Faster history on large repositories | `git commit-graph write --reachable` | Write |
 | Clone | `git clone --progress [--recurse-submodules] [--depth 1] [--branch <branch>] -- <url> <folder>` | Progress read from stderr; cancelling stops git and removes the folder; no prompts, so credentials come from the credential helper or the SSH agent |
 | Repositories in the repository folders | none | Found on disk by their `.git` folder or file, without git |
 | Remote for avatars | `git config -z --get-regexp ^remote\..*\.url$` and `git for-each-ref --format=%(HEAD)%00%(upstream:remotename) refs/heads` | Once per tab while avatars are on; the upstream remote of the current branch, else `origin`, else the first one, decides the avatar service |
@@ -32,11 +30,11 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Compare selected commits with gaps | Files of each commit as for one commit, listed one below the other like `git show <commits>` | |
 | Diff of a file in a comparison | `git diff -p --no-color --no-ext-diff -M <base> <target> -- <paths>` | Full file view adds `--unified=<max>` |
 | Diff of unstaged / staged changes | `git diff -p … -- <paths>` / `git diff --cached -p … -- <paths>` | Unstaged: index queue |
-| Diff of an untracked file | `git diff --no-index -p … -- /dev/null <path>` | |
+| Diff of an untracked file | `git diff --no-index -p … -- /dev/null <path>` | Not when `git ls-files --cached -z -- <path>` lists it: a file in the index is no longer untracked |
 | Encoding of a binary diff | `git cat-file -s <rev>:<path>`, then `git cat-file blob <rev>:<path>` up to 16 MB; the index as `:<path>`; working tree and untracked files are read directly | Only for files git shows as binary; a UTF-16 or UTF-32 byte order mark or NUL pattern names the encoding and the `working-tree-encoding` hint |
 | Counts in the file lists | `git diff [--cached] --numstat -M -z` | Without `--cached`: index queue |
-| Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| -M <base> <target> \| --cached] -- <paths>` | `<base> <target>` for a file of a comparison |
-| Restore a file from a commit | `git restore --source=<commit> --worktree -- <path>` | Asks first when local changes would be overwritten |
+| Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| -M <base> <target> \| --cached -M] -- <paths>`; untracked `git difftool --no-prompt --no-index -- /dev/null <path>` | `<base> <target>` for a file of a comparison. Offered once `git config --get diff.tool`, `diff.guitool` or `merge.tool` names a tool |
+| Restore a file from a commit | `git restore --source=<commit> --worktree -- <path>` | `git cat-file -e <commit>:<path>`, else the same for the first parent, picks the source. Asks first when `git status --porcelain=v2 -z --untracked-files=all --ignored=matching -- <path>` shows local changes that would be overwritten |
 | Save a commit as patch | `git format-patch -1 --stdout <commit>` | |
 
 ## Staging and committing
@@ -44,7 +42,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | Stage files | `git add -- <paths>` | |
-| Unstage files | `git restore --staged -- <paths>`; before the first commit `git rm --cached -q -- <paths>` | |
+| Unstage files | `git restore --staged -- <paths>`; before the first commit `git rm --cached -q -- <paths>` | `git rev-parse --verify --quiet HEAD` tells whether there is a commit |
 | Stage / unstage a hunk | `git apply --cached [--reverse] --whitespace=nowarn -` | Patch of the hunk on stdin |
 | Discard a hunk | `git apply --reverse --whitespace=nowarn -` | |
 | Discard file changes | `git restore --worktree -- <paths>` | Asks first. The command bar's "Alle Änderungen verwerfen …" passes every tracked file with unstaged changes; staged changes and untracked files stay |
@@ -59,7 +57,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | Check out a local branch | `git switch <branch>` | |
-| Check out a remote branch without local branch | `git switch -c <branch> --track <remote>/<branch>` | |
+| Check out a remote branch without local branch | `git switch -c <branch> --track <remote>/<branch>` | `git rev-parse --verify --quiet refs/heads/<branch>` decides; an existing local branch is switched to |
 | Check out a remote branch whose local branch is behind | `git switch <branch>`, `git merge --ff-only <remote>/<branch>` | The local branch tracks the remote one; a local branch that only has its name is checked out as it is |
 | Reset a diverged local branch to its remote branch | `git switch -C <branch> <remote>/<branch>` | Asks first, naming the local commits that are lost |
 | Check out a commit | `git switch --detach <commit>` | |
@@ -72,7 +70,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Set / unset upstream | `git branch --set-upstream-to=<upstream> <branch>` / `git branch --unset-upstream <branch>` | |
 | Delete | `git branch -d <branch>`; `-D` after asking | |
 | Delete on the remote | `git push <remote> --delete <branch>` | Asks first |
-| Merge into the current branch | `git merge --no-edit <ref>` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
+| Merge into the current branch | `git merge --no-edit <ref>` | On failure `git rev-parse --verify --quiet MERGE_HEAD` tells a stopped merge; its conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
 | Reset the current branch | `git reset --soft\|--mixed\|--hard <commit>` | |
 
 ## History rewriting
@@ -128,6 +126,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | List remotes | `git remote` | For the Tags list when it opens, and after every refresh while it is closed so that tag pills in the history offer push and remote delete per remote |
+| Time of the last fetch | `git rev-parse --git-common-dir`, then the modification date of its `FETCH_HEAD` | Shown on the Fetch button; a repository never fetched has no date |
 | Fetch all | `git fetch --all --prune` | Every fetch ends with the in-place refresh, so fetched commits enter the history |
 | Automatic fetch | `git fetch --all --prune` | Visible tab only, on activation and periodically (`AutoFetchPolicy`). Reads `git remote` and `git rev-parse --git-path` for an operation in progress first and skips without a remote or during a rebase, merge, cherry-pick or revert |
 | Fetch one remote | `git fetch --prune\|--no-prune <remote>` | |
@@ -135,7 +134,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Upstream and ahead/behind | `git config --get branch.<b>.remote`, `git config --get branch.<b>.merge`, `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | Counts next to Pull and Push |
 | Default pull mode | `git config --type=bool-or-str --get pull.rebase`, `… --get pull.ff` | `pull.rebase` first, then `pull.ff`; without either fast-forward only |
 | Pull, fast-forward only | `git pull --no-rebase --ff-only --autostash` | Every pull runs with `GIT_EDITOR=true` and carries local changes with `--autostash`. When applying them again conflicts, git exits 0 with "…resulted in conflicts", keeps the stash `autostash` and leaves the conflicts in the working tree; a toast with "Konflikte anzeigen" and the status line say so |
-| Pull, merge | `git pull --no-rebase --ff --no-edit --autostash` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
+| Pull, merge | `git pull --no-rebase --ff --no-edit --autostash` | On failure `git rev-parse --verify --quiet MERGE_HEAD` tells a stopped merge; its conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
 | Pull, rebase | `git pull --rebase --autostash` | |
 | Set upstream before a pull | `git branch --set-upstream-to=<remote>/<branch> <b>` | Then pulls with the default mode |
 | Pull a branch from its context menu: where it is checked out | `git worktree list --porcelain`, `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | The checked-out branch takes the normal pull with the default mode |

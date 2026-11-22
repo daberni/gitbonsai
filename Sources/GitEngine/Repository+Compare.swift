@@ -46,16 +46,4 @@ extension Repository {
         if let parent = commit.parents.first { return parent }
         return try await emptyTree()
     }
-
-    /// Files that differ between two revisions, with their line counts.
-    public func changedFiles(from base: String, to target: String) async throws -> [ChangedFile] {
-        async let names = runner.run(["diff", "--name-status", "-M", "-z", base, target])
-        async let stats = runner.run(["diff", "--numstat", "-M", "-z", base, target])
-        let counted = (try? await DiffParser.parseNumstat(stats.stdout)) ?? [:]
-        return Self.parseNameStatus(try await names.stdout).map { file in
-            var file = file
-            file.stat = counted[file.path]
-            return file
-        }
-    }
 }

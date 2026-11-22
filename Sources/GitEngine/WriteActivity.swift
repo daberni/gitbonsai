@@ -37,10 +37,11 @@ public enum WriteActivity {
     }
 }
 
-/// The path with every symlink resolved the way FSEvents reports it, `/private/tmp` for `/tmp` included.
-enum RealPath {
-    static func of(_ path: String) -> String {
-        guard let resolved = realpath(path, nil) else { return (path as NSString).standardizingPath }
+/// The path with every link resolved, as git records it and FSEvents reports it: `/tmp/x` becomes `/private/tmp/x`, which Foundation's `resolvingSymlinksInPath` would turn back.
+/// A path that does not exist is only standardized.
+public enum RealPath {
+    public static func of(_ path: String) -> String {
+        guard let resolved = realpath(path, nil) else { return URL(fileURLWithPath: path).standardizedFileURL.path }
         defer { free(resolved) }
         return String(cString: resolved)
     }

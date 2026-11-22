@@ -121,7 +121,7 @@ public struct RefCatalog: Sendable {
     /// A title match highlights every occurrence; HEAD also matches "head", and every item matches a prefix of its SHA, both without highlight.
     private static func match(_ item: Item, _ text: String) -> Match? {
         guard !text.isEmpty else { return Match(item: item, titleRanges: []) }
-        let ranges = occurrences(of: text, in: item.title)
+        let ranges = item.title.caseInsensitiveOccurrences(of: text)
         if !ranges.isEmpty { return Match(item: item, titleRanges: ranges) }
         if case .head = item.kind, "HEAD".range(of: text, options: .caseInsensitive) != nil { return Match(item: item, titleRanges: []) }
         if looksLikeSHA(text), item.commit.sha.hasPrefix(text.lowercased()) { return Match(item: item, titleRanges: []) }
@@ -129,17 +129,4 @@ public struct RefCatalog: Sendable {
         return nil
     }
 
-    private static func occurrences(of text: String, in string: String) -> [NSRange] {
-        let haystack = string as NSString
-        var result: [NSRange] = []
-        var searchRange = NSRange(location: 0, length: haystack.length)
-        while searchRange.length > 0 {
-            let found = haystack.range(of: text, options: .caseInsensitive, range: searchRange)
-            guard found.location != NSNotFound, found.length > 0 else { break }
-            result.append(found)
-            let next = found.location + found.length
-            searchRange = NSRange(location: next, length: haystack.length - next)
-        }
-        return result
-    }
 }

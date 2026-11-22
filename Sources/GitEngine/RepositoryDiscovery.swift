@@ -39,7 +39,7 @@ public enum RepositoryDiscovery {
     /// Paths come with links resolved, the way git records worktrees, so they compare equal to the paths git reports.
     public static func scan(_ root: String, depth: Int = defaultDepth) -> [DiscoveredRepository] {
         var found: [Found] = []
-        visit(canonical(root), level: 0, depth: depth, into: &found)
+        visit(RealPath.of(root), level: 0, depth: depth, into: &found)
         return assemble(found)
     }
 
@@ -101,12 +101,12 @@ public enum RepositoryDiscovery {
     /// Linked worktrees go under their main repository, which lists every worktree it knows of, also those outside the scanned folder. A linked worktree or submodule whose repository was not found stays on its own.
     private static func assemble(_ found: [Found]) -> [DiscoveredRepository] {
         let mains = found.filter { !$0.isLinked }
-        let mainDirectories = Set(mains.map { canonical($0.gitDirectory) })
+        let mainDirectories = Set(mains.map { RealPath.of($0.gitDirectory) })
         var repositories = mains.map { main in
             DiscoveredRepository(path: main.path, branch: branch(inGitDirectory: main.gitDirectory), worktrees: linkedWorktrees(of: main.gitDirectory))
         }
         for linked in found where linked.isLinked {
-            guard !mainDirectories.contains(canonical(commonDirectory(of: linked.gitDirectory))) else { continue }
+            guard !mainDirectories.contains(RealPath.of(commonDirectory(of: linked.gitDirectory))) else { continue }
             repositories.append(DiscoveredRepository(path: linked.path, branch: branch(inGitDirectory: linked.gitDirectory), isLinked: true))
         }
         return repositories.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
@@ -162,12 +162,5 @@ public enum RepositoryDiscovery {
     private static func resolve(_ path: String, relativeTo base: String) -> String {
         let url = path.hasPrefix("/") ? URL(fileURLWithPath: path) : URL(fileURLWithPath: base).appendingPathComponent(path)
         return url.standardizedFileURL.path
-    }
-
-    /// The path with every link resolved, as git records it: `/tmp/x` becomes `/private/tmp/x`, which Foundation's `resolvingSymlinksInPath` would turn back. A path that does not exist stays as it is.
-    public static func canonical(_ path: String) -> String {
-        guard let resolved = realpath(path, nil) else { return URL(fileURLWithPath: path).standardizedFileURL.path }
-        defer { free(resolved) }
-        return String(cString: resolved)
     }
 }

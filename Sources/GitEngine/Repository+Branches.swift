@@ -59,10 +59,7 @@ extension Repository {
         do {
             _ = try await runner.runWrite(["merge", "--no-edit", ref])
         } catch let error as GitError {
-            guard (try? await runner.run(["rev-parse", "-q", "--verify", "MERGE_HEAD"])) != nil else { throw error }
-            let conflicted = (try? await runner.runRefreshingIndex(["diff", "--name-only", "-z", "--diff-filter=U"]))?.stdoutString.split(separator: "\0").map(String.init) ?? []
-            let lines = conflicted.map { "CONFLICT: Merge conflict in \($0)" } + [error.stderr.trimmingCharacters(in: .whitespacesAndNewlines)]
-            throw GitError(arguments: error.arguments, exitCode: error.exitCode, stderr: lines.filter { !$0.isEmpty }.joined(separator: "\n"))
+            throw await mergeConflictError(from: error) ?? error
         }
     }
 

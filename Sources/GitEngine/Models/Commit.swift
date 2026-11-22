@@ -1,6 +1,6 @@
 import Foundation
 
-/// One commit as read from `git log`. `id` and `parents` are full 40-character SHAs.
+/// One commit as read from `git log`. `id` and `parents` are full SHAs: 40 hex characters, 64 in a SHA-256 repository.
 public struct Commit: Sendable, Hashable, Identifiable {
     public let id: String
     public let parents: [String]

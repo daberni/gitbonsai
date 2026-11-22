@@ -9,8 +9,7 @@ extension Repository {
     }
 
     static func parseStashes(_ data: Data) -> [Stash] {
-        data.split(separator: 0x1E).compactMap { record in
-            let fields = record.split(separator: 0x1F, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
+        FieldRecords.parse(data).compactMap { fields in
             guard fields.count >= 4 else { return nil }
             let selector = fields[0].trimmingCharacters(in: .whitespacesAndNewlines)
             let seconds = TimeInterval(fields[3].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
@@ -79,8 +78,8 @@ extension Repository {
             // `--index` gives up when the staged part no longer applies; the plain pop still brings the changes back, unstaged.
             if index, error.stderr.contains("Conflicts in index") { return try await popBack(stash, index: false) }
             // A conflicting pop names the conflicts on stdout only ("Index was not unstashed." on stderr), so the working tree tells.
-            let unmerged = try? await runner.runRefreshingIndex(["diff", "--name-only", "-z", "--diff-filter=U"])
-            guard error.stoppedOnConflict || !(unmerged?.stdout.isEmpty ?? true) else { throw error }
+            let unmerged = await conflictedPaths()
+            guard error.stoppedOnConflict || !unmerged.isEmpty else { throw error }
             return true
         }
     }

@@ -1,23 +1,15 @@
 import Foundation
 
 public struct LogOptions: Sendable, Hashable {
-    /// Branches, remote branches, tags and this worktree's HEAD, versus only HEAD.
+    /// The history is branches, remote branches, tags and this worktree's HEAD.
     /// Other namespaces stay out: tools keep snapshots and backups under their own refs (`refs/codex/…`), and other worktrees' HEADs are theirs.
-    public var allRefs: Bool = true
-    public var topoOrder: Bool = true
     public var limit: Int? = nil
-    public var skip: Int? = nil
-    public var grep: String? = nil
-    public var author: String? = nil
-    public var paths: [String] = []
     /// Passed through verbatim after the options and before `--`. For `-S`, `-G`, `--since`, revision ranges.
     public var extraArguments: [String] = []
 
     public init() {}
 
     static let historyRefs = ["--branches", "--remotes", "--tags"]
-
-    var arguments: [String] { arguments(includingHead: true) }
 
     /// An unborn HEAD (no commit yet) would make git fail, so it is only named when it exists.
     func arguments(includingHead: Bool) -> [String] {
@@ -30,18 +22,9 @@ public struct LogOptions: Sendable, Hashable {
     }
 
     private func selection(includingHead: Bool) -> [String] {
-        var args: [String] = []
-        if topoOrder { args.append("--topo-order") }
-        if allRefs { args.append(contentsOf: Self.historyRefs + (includingHead ? ["HEAD"] : [])) }
+        var args = ["--topo-order"] + Self.historyRefs + (includingHead ? ["HEAD"] : [])
         if let limit { args.append("-n\(limit)") }
-        if let skip { args.append("--skip=\(skip)") }
-        if let grep { args.append("--grep=\(grep)") }
-        if let author { args.append("--author=\(author)") }
         args.append(contentsOf: extraArguments)
-        if !paths.isEmpty {
-            args.append("--")
-            args.append(contentsOf: paths)
-        }
         return args
     }
 }
@@ -64,7 +47,7 @@ public struct RepositoryLocation: Sendable, Equatable {
     }
 }
 
-/// Facade over one repository (or one worktree of it). All methods map to one git command.
+/// Facade over one repository (or one worktree of it). Every git call and parse of the engine goes through it.
 public final class Repository: Sendable {
     public let path: String
     public let runner: GitRunner
@@ -92,11 +75,12 @@ public final class Repository: Sendable {
     /// A repository without any commits yields an empty stream instead of git's "does not have any commits" error.
     public func log(_ options: LogOptions = LogOptions()) -> AsyncThrowingStream<Commit, Error> {
         let runner = runner
+        let repository = self
         return AsyncThrowingStream { continuation in
             let task = Task {
                 var parser = LogParser()
                 do {
-                    let headExists = await Self.headExists(runner)
+                    let headExists = await repository.revisionExists("HEAD")
                     let chunks = runner.stream(options.arguments(includingHead: headExists))
                     for try await chunk in chunks {
                         for commit in parser.feed(chunk) { continuation.yield(commit) }
@@ -111,10 +95,6 @@ public final class Repository: Sendable {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
-    }
-
-    private static func headExists(_ runner: GitRunner) async -> Bool {
-        (try? await runner.run(["rev-parse", "--verify", "--quiet", "HEAD"])) != nil
     }
 
     public func refs() async throws -> [Ref] {
@@ -134,15 +114,22 @@ public final class Repository: Sendable {
 
     /// Files a commit changed relative to its first parent (a root commit is compared with the empty tree).
     public func changedFiles(of commit: Commit) async throws -> [ChangedFile] {
-        let arguments: [String]
-        if let parent = commit.parents.first {
-            arguments = ["diff", "--name-status", "-M", "-z", parent, commit.id]
-        } else {
-            arguments = ["diff-tree", "-r", "--root", "--no-commit-id", "--name-status", "-M", "-z", commit.id]
+        guard let parent = commit.parents.first else {
+            return try await changedFiles(command: ["diff-tree", "-r", "--root", "--no-commit-id"], revisions: [commit.id])
         }
-        async let names = runner.run(arguments)
-        async let stats = commitStats(of: commit)
-        let counted = (try? await stats) ?? [:]
+        return try await changedFiles(from: parent, to: commit.id)
+    }
+
+    /// Files that differ between two revisions, with their line counts.
+    public func changedFiles(from base: String, to target: String) async throws -> [ChangedFile] {
+        try await changedFiles(command: ["diff"], revisions: [base, target])
+    }
+
+    /// Names from `--name-status` with the line counts of `--numstat`, both from the same diff command; missing counts leave `stat` nil.
+    private func changedFiles(command: [String], revisions: [String]) async throws -> [ChangedFile] {
+        async let names = runner.run(command + ["--name-status", "-M", "-z"] + revisions)
+        async let stats = runner.run(command + ["--numstat", "-M", "-z"] + revisions)
+        let counted = (try? await DiffParser.parseNumstat(stats.stdout)) ?? [:]
         return Self.parseNameStatus(try await names.stdout).map { file in
             var file = file
             file.stat = counted[file.path]
@@ -166,22 +153,11 @@ public final class Repository: Sendable {
         return files
     }
 
-    /// Total number of commits in the history: reachable from branches, remote branches, tags and this worktree's HEAD.
     /// The IDs of the history in the order the history's `git log` lists them, for the stash commits it adds. Cheaper than the log: no message is read.
     public func historyOrder(stashCommits: [String]) async throws -> [String] {
         var options = LogOptions()
         options.extraArguments = stashCommits
-        let result = try await runner.run(options.revListArguments(includingHead: await Self.headExists(runner)))
+        let result = try await runner.run(options.revListArguments(includingHead: await revisionExists("HEAD")))
         return result.stdoutString.split(separator: "\n").map(String.init)
-    }
-
-    public func commitCount() async throws -> Int {
-        let result = try await runner.run(["rev-list"] + LogOptions.historyRefs + (await Self.headExists(runner) ? ["HEAD"] : []) + ["--count"])
-        return Int(result.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-    }
-
-    /// Writes or refreshes the commit-graph file, which speeds up every log walk.
-    public func writeCommitGraph() async throws {
-        _ = try await runner.runWrite(["commit-graph", "write", "--reachable"])
     }
 }

@@ -37,7 +37,7 @@ struct WelcomeList {
         let shownRecents = Array(recentEntries.filter(matches).prefix(recentLimit))
         sections.append(Section(title: String(localized: "Recent", bundle: .module, comment: "Welcome page section of recently opened repositories."), entries: shownRecents, isRecents: true))
         for folder in folders {
-            let root = RepositoryDiscovery.canonical(folder.path)
+            let root = RealPath.of(folder.path)
             var entries: [Entry] = []
             for repository in folder.repositories {
                 let main = Entry(path: repository.path, name: Self.name(repository.path), detail: Self.relative(repository.path, to: root), branch: repository.branch, isOpen: openPaths.contains(repository.path), isWorktree: false)

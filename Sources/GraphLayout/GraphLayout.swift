@@ -59,7 +59,7 @@ public struct GraphRow: Sendable, Hashable, Identifiable {
 ///
 /// Append commits one at a time as they arrive from `git log`; each append returns the finished
 /// row for that commit. The layout keeps only the set of active lanes between rows, so memory
-/// per row is constant and 100k commits lay out in well under a second.
+/// per row is constant; the performance tests hold the budgets for large histories.
 public struct GraphLayout: Sendable {
     public private(set) var rows: [GraphRow] = []
     public private(set) var maxLaneCount: Int = 0

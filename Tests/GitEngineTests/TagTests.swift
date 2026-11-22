@@ -65,7 +65,7 @@ final class TagTests: XCTestCase {
         try fixture.git("tag", "-a", "v1", "-m", "one", commit)
         try fixture.git("remote", "add", "origin", remote.path)
         let repo = fixture.repository
-        let remotes = try await repo.remoteNames()
+        let remotes = try await repo.remotes()
         XCTAssertEqual(remotes, ["origin"])
 
         try await repo.pushTag("v1", to: "origin")

@@ -79,16 +79,6 @@ extension Repository {
         return DiffParser.parseNumstat(result.stdout)
     }
 
-    func commitStats(of commit: Commit) async throws -> [String: DiffStat] {
-        let arguments: [String]
-        if let parent = commit.parents.first {
-            arguments = ["diff", "--numstat", "-M", "-z", parent, commit.id]
-        } else {
-            arguments = ["diff-tree", "-r", "--root", "--no-commit-id", "--numstat", "-M", "-z", commit.id]
-        }
-        return DiffParser.parseNumstat(try await runner.run(arguments).stdout)
-    }
-
     // MARK: Staging
 
     public func stage(_ paths: [String]) async throws {
@@ -99,7 +89,7 @@ extension Repository {
     /// Takes the paths out of the index again; in a repository without commits they become untracked.
     public func unstage(_ paths: [String]) async throws {
         guard !paths.isEmpty else { return }
-        let hasHead = (try? await runner.run(["rev-parse", "--verify", "--quiet", "HEAD"])) != nil
+        let hasHead = await revisionExists("HEAD")
         _ = try await runner.runWrite(hasHead ? ["restore", "--staged", "--"] + paths : ["rm", "--cached", "-q", "--"] + paths)
     }
 

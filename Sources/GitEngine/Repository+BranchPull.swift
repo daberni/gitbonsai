@@ -41,7 +41,7 @@ extension Repository {
         let worktrees = try await worktrees()
         guard let owner = worktrees.first(where: { $0.branch == fullName }) else { return .ref }
         let here = try await Repository.location(containing: path, gitPath: runner.gitPath).root
-        return Self.samePath(owner.path, here) ? .current : .worktree(path: owner.path)
+        return RealPath.of(owner.path) == RealPath.of(here) ? .current : .worktree(path: owner.path)
     }
 
     /// Fast-forwards a local branch that is not checked out in this working tree to its upstream, fetching first.
@@ -103,9 +103,5 @@ extension Repository {
         }
         let count = try await runner.run(["rev-list", "--count", "\(before)..\(after)"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
         return BranchPullResult(place: place, outcome: .fastForwarded(commits: Int(count) ?? 0), commandLine: commandLine)
-    }
-
-    private static func samePath(_ a: String, _ b: String) -> Bool {
-        URL(fileURLWithPath: a).resolvingSymlinksInPath().standardizedFileURL.path == URL(fileURLWithPath: b).resolvingSymlinksInPath().standardizedFileURL.path
     }
 }

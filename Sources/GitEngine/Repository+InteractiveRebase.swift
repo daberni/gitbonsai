@@ -92,11 +92,10 @@ extension Repository {
     }
 
     static func parseRebaseCommits(_ data: Data) -> [RebaseCommit] {
-        String(decoding: data, as: UTF8.self).split(separator: "\u{1e}").compactMap { record in
-            let fields = record.drop { $0.isNewline }.split(separator: "\u{1f}", maxSplits: 3, omittingEmptySubsequences: false)
+        FieldRecords.parse(data, limit: 4).compactMap { fields in
             guard fields.count == 4, !fields[0].isEmpty else { return nil }
             let message = fields[3].trimmingCharacters(in: .whitespacesAndNewlines)
-            return RebaseCommit(id: String(fields[0]), parents: fields[1].split(separator: " ").map(String.init), subject: String(fields[2]), message: message)
+            return RebaseCommit(id: fields[0], parents: fields[1].split(separator: " ").map(String.init), subject: fields[2], message: message)
         }
     }
 
@@ -168,11 +167,11 @@ extension Repository {
     /// Rewrites only HEAD's message and leaves `ORIG_HEAD` and an undo record as a finished rebase does; returns the new HEAD.
     private func amendHeadMessage(_ message: String) async throws -> String {
         let before = try await runner.run(["rev-parse", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
-        let branch = (try? await runner.run(["symbolic-ref", "-q", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let branch = await currentBranchRef()
         _ = try await runner.runWrite(["commit", "--amend", "--only", "--cleanup=whitespace", "-F", "-"], stdin: Data(message.utf8))
         guard let after = await resolveCommit("HEAD") else { throw RebasePlanError.nothingToRebase }
         _ = try await runner.runWrite(["update-ref", "ORIG_HEAD", before])
-        try await rebaseSession().finish(with: RebaseUndo(branch: branch?.isEmpty == false ? branch : nil, before: before, after: after, stacked: []))
+        try await rebaseSession().finish(with: RebaseUndo(branch: branch, before: before, after: after, stacked: []))
         return after
     }
 
@@ -180,10 +179,10 @@ extension Repository {
     public func startInteractiveRebase(_ plan: RebasePlan) async throws -> InteractiveRebaseOutcome {
         if let problem = plan.problem { throw RebasePlanError.invalidPlan(problem) }
         let head = try await runner.run(["rev-parse", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
-        let branch = (try? await runner.run(["symbolic-ref", "-q", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let branch = await currentBranchRef()
         let stacked = plan.updateRefs ? plan.branches.flatMap { sha, refs in refs.map { RebaseUndo.Move(ref: $0, before: sha, after: nil) } }.sorted { $0.ref < $1.ref } : []
         let session = try await rebaseSession()
-        try session.create(for: plan, state: RebaseUndo(branch: branch?.isEmpty == false ? branch : nil, before: head, after: nil, stacked: stacked))
+        try session.create(for: plan, state: RebaseUndo(branch: branch, before: head, after: nil, stacked: stacked))
         let arguments = Self.messageConfig + [
             "rebase", "--interactive", "--no-autosquash", "--empty=drop",
             plan.updateRefs ? "--update-refs" : "--no-update-refs",
@@ -234,8 +233,8 @@ extension Repository {
     /// True while HEAD, its branch and `ORIG_HEAD` are still where the rebase left them and no other operation is in progress.
     public func canUndoRebase(_ undo: RebaseUndo) async -> Bool {
         guard let after = undo.after, await operationInProgress() == nil else { return false }
-        let branch = (try? await runner.run(["symbolic-ref", "-q", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (branch?.isEmpty == false ? branch : nil) == undo.branch else { return false }
+        let branch = await currentBranchRef()
+        guard branch == undo.branch else { return false }
         let head = await resolveCommit("HEAD")
         let original = await resolveCommit("ORIG_HEAD")
         return head == after && original == undo.before

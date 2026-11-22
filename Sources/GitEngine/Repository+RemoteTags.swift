@@ -19,10 +19,9 @@ extension Repository {
         let format = "--format=%(refname:strip=2)%1f%(objectname)%1f%(*objectname)%1e"
         let result = try await runner.run(["for-each-ref", format, "refs/tags"])
         var targets: [String: TagTarget] = [:]
-        for record in result.stdout.split(separator: 0x1E) {
-            let fields = record.split(separator: 0x1F, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
+        for fields in FieldRecords.parse(result.stdout) {
             guard fields.count == 3 else { continue }
-            let name = fields[0].hasPrefix("\n") ? String(fields[0].dropFirst()) : fields[0]
+            let name = fields[0]
             guard !name.isEmpty else { continue }
             targets[name] = TagTarget(objectID: fields[1], commitID: fields[2].isEmpty ? fields[1] : fields[2])
         }

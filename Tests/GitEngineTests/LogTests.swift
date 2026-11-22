@@ -75,8 +75,6 @@ final class LogTests: XCTestCase {
 
         let commits = try await fixture.repository.collectLog()
         XCTAssertEqual(commits.map(\.id), [base])
-        let count = try await fixture.repository.commitCount()
-        XCTAssertEqual(count, 1)
 
         // From inside that worktree its own HEAD belongs to the history.
         let fromWorktree = try await Repository(path: worktree).collectLog()
@@ -92,27 +90,17 @@ final class LogTests: XCTestCase {
         XCTAssertEqual(commits, [])
     }
 
-    func testOptionsLimitAuthorAndPaths() async throws {
+    func testOptionsLimit() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
         try fixture.commit("one", file: "a.txt")
-        let two = try fixture.commit("two", file: "b.txt")
+        try fixture.commit("two", file: "b.txt")
         try fixture.commit("three", file: "a.txt")
-
-        var options = LogOptions()
-        options.paths = ["b.txt"]
-        let byPath = try await fixture.repository.collectLog(options)
-        XCTAssertEqual(byPath.map(\.id), [two])
 
         var limited = LogOptions()
         limited.limit = 2
         let twoNewest = try await fixture.repository.collectLog(limited)
         XCTAssertEqual(twoNewest.map(\.subject), ["three", "two"])
-
-        var grep = LogOptions()
-        grep.grep = "tw"
-        let grepped = try await fixture.repository.collectLog(grep)
-        XCTAssertEqual(grepped.map(\.subject), ["two"])
     }
 
     func testChunkedFeedingProducesIdenticalCommits() throws {

@@ -97,11 +97,11 @@ final class AutoFetchPolicyTests: XCTestCase {
     }
 
     func testNetworkFailuresAreToldApart() {
-        XCTAssert(AutoFetchPolicy.isNetworkFailure(offline))
-        XCTAssert(AutoFetchPolicy.isNetworkFailure("ssh: connect to host example.com port 22: Network is unreachable"))
-        XCTAssert(AutoFetchPolicy.isNetworkFailure("fatal: unable to access 'https://h/': Failed to connect to h port 443 after 3 ms: Couldn't connect to server"))
-        XCTAssert(!AutoFetchPolicy.isNetworkFailure(denied))
-        XCTAssert(!AutoFetchPolicy.isNetworkFailure("fatal: '/tmp/gone.git' does not appear to be a git repository"))
+        XCTAssert(GitFailure.isUnreachable(offline))
+        XCTAssert(GitFailure.isUnreachable("ssh: connect to host example.com port 22: Network is unreachable"))
+        XCTAssert(GitFailure.isUnreachable("fatal: unable to access 'https://h/': Failed to connect to h port 443 after 3 ms: Couldn't connect to server"))
+        XCTAssert(!GitFailure.isUnreachable(denied))
+        XCTAssert(!GitFailure.isUnreachable("fatal: '/tmp/gone.git' does not appear to be a git repository"))
     }
 
     func testUntouchedIntervalGetsTheNewDefault() {

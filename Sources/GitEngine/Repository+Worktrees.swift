@@ -37,6 +37,4 @@ extension Repository {
 extension GitError {
     /// `git worktree remove` refused a worktree with modified or untracked files; `--force` removes it anyway.
     public var isDirtyWorktree: Bool { stderr.contains("contains modified or untracked files") }
-    /// `git branch -d` or `-D` refused a branch that a worktree has checked out.
-    public var isBranchInWorktree: Bool { stderr.contains("used by worktree at") || stderr.contains("checked out at") }
 }

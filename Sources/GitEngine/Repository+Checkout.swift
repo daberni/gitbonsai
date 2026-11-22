@@ -48,8 +48,7 @@ extension Repository {
         do {
             try await popCarriedChanges()
         } catch is GitError {
-            let conflicted = (try? await runner.runRefreshingIndex(["diff", "--name-only", "-z", "--diff-filter=U"]))?.stdoutString.split(separator: "\0").map(String.init) ?? []
-            throw CarriedChangesConflict(stashMessage: stashMessage, conflictedPaths: conflicted)
+            throw CarriedChangesConflict(stashMessage: stashMessage, conflictedPaths: await conflictedPaths())
         }
     }
 
@@ -58,7 +57,7 @@ extension Repository {
         case .localBranch(let name):
             _ = try await runner.runWrite(["switch", name])
         case .remoteBranch(let remote, let branch):
-            let localExists = (try? await runner.run(["rev-parse", "--verify", "--quiet", "refs/heads/\(branch)"])) != nil
+            let localExists = await revisionExists("refs/heads/\(branch)")
             _ = try await runner.runWrite(localExists ? ["switch", branch] : ["switch", "-c", branch, "--track", "\(remote)/\(branch)"])
         case .fastForward(let branch, let upstream):
             _ = try await runner.runWrite(["switch", branch])

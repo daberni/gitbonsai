@@ -99,17 +99,10 @@ public struct AutoFetchPolicy: Sendable {
             return
         }
         failures += 1
-        isOffline = Self.isNetworkFailure(failure)
+        isOffline = GitFailure.isUnreachable(failure)
     }
 
     private var backoffFactor: Double {
         min(pow(2, Double(failures)), Self.maxBackoffFactor)
-    }
-
-    /// Git's messages when the host cannot be reached at all, as opposed to a refused login or a missing repository.
-    public static func isNetworkFailure(_ stderr: String) -> Bool {
-        let markers = ["could not resolve host", "could not resolve hostname", "network is unreachable", "no route to host", "connection timed out", "operation timed out", "connection refused", "failed to connect", "temporary failure in name resolution"]
-        let text = stderr.lowercased()
-        return markers.contains { text.contains($0) }
     }
 }

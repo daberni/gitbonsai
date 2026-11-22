@@ -50,10 +50,11 @@ public enum GitFailure: Sendable, Equatable {
         return markers.contains { line.contains($0) }
     }
 
-    /// curl's and ssh's words for a host that does not answer; a remote path that is not a repository is not among them.
-    private static func isUnreachable(_ line: String) -> Bool {
-        let markers = ["Could not resolve host", "Could not resolve hostname", "Connection refused", "Network is unreachable", "No route to host", "timed out", "Failed to connect to", "Connection reset by peer"]
-        return markers.contains { line.contains($0) }
+    /// curl's, ssh's and the resolver's words for a host that does not answer, as opposed to a refused login or a remote path that is not a repository.
+    public static func isUnreachable(_ text: String) -> Bool {
+        let markers = ["could not resolve host", "temporary failure in name resolution", "connection refused", "network is unreachable", "no route to host", "timed out", "failed to connect", "connection reset by peer"]
+        let lowercased = text.lowercased()
+        return markers.contains { lowercased.contains($0) }
     }
 
     /// Lines as a terminal leaves them: progress overwrites itself with carriage returns, so only the last part of each line stays.

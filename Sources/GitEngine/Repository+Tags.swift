@@ -19,10 +19,8 @@ extension Repository {
     }
 
     static func parseTags(_ data: Data) -> [Tag] {
-        data.split(separator: 0x1E).compactMap { record in
-            var fields = record.split(separator: 0x1F, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
+        FieldRecords.parse(data).compactMap { fields in
             guard fields.count == 6 else { return nil }
-            if fields[0].hasPrefix("\n") { fields[0].removeFirst() }
             let isAnnotated = fields[1] == "tag"
             let commitID = isAnnotated ? fields[3] : fields[2]
             // An annotated tag of a tag peels to the innermost object; anything but a commit has no place in the history.
@@ -43,11 +41,5 @@ extension Repository {
     /// Deletes the tag on the remote only; the local tag stays.
     public func deleteRemoteTag(_ name: String, on remote: String) async throws {
         _ = try await runner.runWrite(["push", remote, "--delete", "refs/tags/\(name)"])
-    }
-
-    /// The names of the configured remotes, in git's order.
-    public func remoteNames() async throws -> [String] {
-        let result = try await runner.run(["remote"])
-        return result.stdoutString.split(separator: "\n").map(String.init)
     }
 }

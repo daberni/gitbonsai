@@ -46,17 +46,7 @@ public struct CommitSearch: Sendable, Equatable {
 
     /// Every non-overlapping occurrence of the query in `string`, for highlighting what matched.
     public func occurrences(in string: String) -> [NSRange] {
-        let haystack = string as NSString
-        var result: [NSRange] = []
-        var searchRange = NSRange(location: 0, length: haystack.length)
-        while searchRange.length > 0 {
-            let found = haystack.range(of: text, options: .caseInsensitive, range: searchRange)
-            guard found.location != NSNotFound, found.length > 0 else { break }
-            result.append(found)
-            let next = found.location + found.length
-            searchRange = NSRange(location: next, length: haystack.length - next)
-        }
-        return result
+        string.caseInsensitiveOccurrences(of: text)
     }
 
     /// The ASCII path compares UTF-8 bytes with folded letters, which is an order of magnitude faster than Foundation's case-insensitive search over 100k commits.
@@ -92,5 +82,22 @@ public struct CommitSearch: Sendable, Equatable {
     @inline(__always)
     private static func fold(_ byte: UInt8) -> UInt8 {
         byte >= 0x41 && byte <= 0x5a ? byte | 0x20 : byte
+    }
+}
+
+extension String {
+    /// Every non-overlapping case-insensitive occurrence of `text`, as ranges for highlighting.
+    func caseInsensitiveOccurrences(of text: String) -> [NSRange] {
+        let haystack = self as NSString
+        var result: [NSRange] = []
+        var searchRange = NSRange(location: 0, length: haystack.length)
+        while searchRange.length > 0 {
+            let found = haystack.range(of: text, options: .caseInsensitive, range: searchRange)
+            guard found.location != NSNotFound, found.length > 0 else { break }
+            result.append(found)
+            let next = found.location + found.length
+            searchRange = NSRange(location: next, length: haystack.length - next)
+        }
+        return result
     }
 }

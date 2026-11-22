@@ -14,7 +14,7 @@ extension Repository {
     public func restoreRevision(for path: String, of commit: Commit) async throws -> String {
         if await exists(path, in: commit.id) { return commit.id }
         guard let parent = commit.parents.first, await exists(path, in: parent) else {
-            throw GitError(arguments: ["restore", "--source=\(commit.id)", "--", path], exitCode: 1, stderr: "„\(path)“ gibt es weder in \(commit.shortID) noch in seinem Parent.")
+            throw GitError(arguments: ["restore", "--source=\(commit.id)", "--", path], exitCode: 1, stderr: "\(path) exists neither in \(commit.shortID) nor in its parent.")
         }
         return parent
     }

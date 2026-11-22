@@ -58,7 +58,7 @@ final class TagsController {
         let repository = viewModel.repository
         Task {
             guard popover.isShown else {
-                remotes = (try? await repository.remoteNames()) ?? remotes
+                remotes = (try? await repository.remotes()) ?? remotes
                 return
             }
             await reload()
@@ -69,7 +69,7 @@ final class TagsController {
     func reload() async {
         let repository = viewModel.repository
         async let loadedTags = try? repository.tags()
-        async let loadedRemotes = try? repository.remoteNames()
+        async let loadedRemotes = try? repository.remotes()
         async let loadedTargets = try? repository.localTagTargets()
         tags = await loadedTags ?? []
         remotes = await loadedRemotes ?? []

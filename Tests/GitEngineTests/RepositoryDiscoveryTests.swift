@@ -101,6 +101,6 @@ final class RepositoryDiscoveryTests: XCTestCase {
     }
 
     private func canonical(_ path: String) -> String {
-        RepositoryDiscovery.canonical(path)
+        RealPath.of(path)
     }
 }

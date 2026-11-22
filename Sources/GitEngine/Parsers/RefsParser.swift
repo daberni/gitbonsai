@@ -2,9 +2,6 @@ import Foundation
 
 /// Parses `git for-each-ref` output in the format produced by `formatArgument`.
 public enum RefsParser {
-    static let fieldSeparator: UInt8 = 0x1F
-    static let recordSeparator: UInt8 = 0x1E
-
     /// `--format=` argument: refname, objecttype, objectname, peeled objectname (`*objectname`), HEAD marker, upstream short name, upstream track (`[ahead 1, behind 2]`).
     public static var formatArgument: String {
         let fields = ["%(refname)", "%(objecttype)", "%(objectname)", "%(*objectname)", "%(HEAD)", "%(upstream:short)", "%(upstream:track)"]
@@ -13,10 +10,8 @@ public enum RefsParser {
 
     public static func parse(_ data: Data) throws -> [Ref] {
         var refs: [Ref] = []
-        for record in data.split(separator: recordSeparator, omittingEmptySubsequences: true) {
-            var fields = record.split(separator: fieldSeparator, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
+        for fields in FieldRecords.parse(data) {
             guard fields.count == 7 else { continue }
-            if fields[0].hasPrefix("\n") { fields[0].removeFirst() }
             let fullName = fields[0]
             guard !fullName.isEmpty else { continue }
             let peeled = fields[3]

@@ -13,9 +13,6 @@ public struct GitError: Error, Sendable, CustomStringConvertible {
     }
 
     public var description: String { "git \(arguments.joined(separator: " ")) failed (\(exitCode)): \(stderr)" }
-
-    /// A checkout that git refused because tracked edits or untracked files in the working tree would be overwritten.
-    public var isBlockedByLocalChanges: Bool { stderr.contains("would be overwritten by checkout") }
 }
 
 public struct GitCommandResult: Sendable {
@@ -235,7 +232,7 @@ actor IndexLockQueue {
     private static let queues = Mutex<[String: IndexLockQueue]>([:])
 
     static func shared(for path: String) -> IndexLockQueue {
-        let key = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        let key = RealPath.of(path)
         return queues.withLock { queues in
             if let queue = queues[key] { return queue }
             let queue = IndexLockQueue()
