@@ -74,27 +74,34 @@ extension RepositoryViewController: CommandProvider {
         let name = (repositoryPath as NSString).lastPathComponent
         let terminal = ExternalApps.terminal()
         let editor = ExternalApps.editor(forRepository: repositoryPath)
-        let editors = ExternalApps.shownEditors()
         return [
             Command(.openTerminal, keywords: [terminal?.app.name].compactMap { $0 }, context: terminal.map { "\(name) · \($0.app.name)" }, disabledReason: terminal == nil ? "Kein Terminal gefunden" : nil) {
                 ExternalApps.openInTerminal(folder)
             },
+            Self.chooseApp(.chooseTerminal, kind: .terminal, folder: folder, context: name, preferred: terminal),
             Command(.openEditor, keywords: [editor?.app.name].compactMap { $0 }, context: editor.map { "\(name) · \($0.app.name)" }, disabledReason: editor == nil ? "Kein Editor gefunden" : nil) {
                 guard let editor else { return }
                 ExternalApps.open(folder, in: editor.app, at: editor.url)
             },
-            Command(.chooseEditor, keywords: editors.map(\.app.name), context: name, disabledReason: editors.isEmpty ? "Kein Editor gefunden" : nil, action: .choose(placeholder: "Editor suchen") {
-                editors.map { choice in
-                    Command(id: choice.app.bundleID, title: choice.app.name, glyph: .app(choice.url), context: choice.app.bundleID == editor?.app.bundleID ? "Standard" : nil) {
-                        ExternalApps.open(folder, in: choice.app, at: choice.url)
-                    }
-                }
-            }),
+            Self.chooseApp(.chooseEditor, kind: .editor, folder: folder, context: name, preferred: editor),
             Command(.revealInFinder, context: name) {
                 if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("Finder", "reveal \(folder.path)") }
                 NSWorkspace.shared.activateFileViewerSelecting([folder])
             },
         ]
+    }
+
+    /// "Im Editor öffnen mit …" and "Im Terminal öffnen mit …": the apps checked in the settings, the default marked.
+    private static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?) -> Command {
+        let shown = ExternalApps.shown(kind)
+        let none = kind == .editor ? "Kein Editor gefunden" : "Kein Terminal gefunden"
+        return Command(spec, keywords: shown.map(\.app.name), context: context, disabledReason: shown.isEmpty ? none : nil, action: .choose(placeholder: kind == .editor ? "Editor suchen" : "Terminal suchen") {
+            shown.map { choice in
+                Command(id: choice.app.bundleID, title: choice.app.name, glyph: .app(choice.url), context: choice.app.bundleID == preferred?.app.bundleID ? "Standard" : nil) {
+                    ExternalApps.open(folder, in: choice.app, at: choice.url)
+                }
+            }
+        })
     }
 
     private func copyCommands(_ state: RepositoryCommandState) -> [Command] {

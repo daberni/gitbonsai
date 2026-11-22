@@ -25,28 +25,31 @@ enum AppSettings {
         ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
     }
 
-    /// Bundle id of the editor "Im Editor öffnen" uses; nil takes the first editor the command bar shows. `ExternalApps.editor(forRepository:)` resolves it.
-    static var defaultEditor: String? {
-        get { defaults.string(forKey: "defaultEditor") }
-        set { store(newValue, forKey: "defaultEditor") }
+    /// Bundle id of the editor or terminal "Im Editor öffnen" and "Im Terminal öffnen" use; nil takes the first shown one. `ExternalApps.preferred(_:)` resolves it.
+    static func defaultApp(_ kind: ExternalApps.Kind) -> String? {
+        defaults.string(forKey: "default\(kind.settingsKey)")
     }
 
-    /// Bundle ids of detected or added editors the command bar leaves out of "Im Editor öffnen …".
-    static var hiddenEditors: [String] {
-        get { defaults.stringArray(forKey: "hiddenEditors") ?? [] }
-        set { store(newValue, forKey: "hiddenEditors") }
+    static func setDefaultApp(_ id: String?, _ kind: ExternalApps.Kind) {
+        store(id, forKey: "default\(kind.settingsKey)")
     }
 
-    /// Editors added in the settings that the app does not detect on its own.
-    static var addedEditors: [URL] {
-        get { (defaults.stringArray(forKey: "addedEditors") ?? []).map { URL(fileURLWithPath: $0) } }
-        set { store(newValue.map(\.path), forKey: "addedEditors") }
+    /// Bundle ids the command bar leaves out of "Im Editor öffnen mit …" and "Im Terminal öffnen mit …".
+    static func hiddenApps(_ kind: ExternalApps.Kind) -> [String] {
+        defaults.stringArray(forKey: "hidden\(kind.settingsKey)s") ?? []
     }
 
-    /// The terminal app for "Open in Terminal"; nil uses Terminal.
-    static var terminalApp: URL? {
-        get { defaults.url(forKey: "terminalApp") }
-        set { store(newValue, forKey: "terminalApp") }
+    static func setHiddenApps(_ ids: [String], _ kind: ExternalApps.Kind) {
+        store(ids, forKey: "hidden\(kind.settingsKey)s")
+    }
+
+    /// Apps added in the settings that the app does not find on its own.
+    static func addedApps(_ kind: ExternalApps.Kind) -> [URL] {
+        (defaults.stringArray(forKey: "added\(kind.settingsKey)s") ?? []).map { URL(fileURLWithPath: $0) }
+    }
+
+    static func setAddedApps(_ urls: [URL], _ kind: ExternalApps.Kind) {
+        store(urls.map(\.path), forKey: "added\(kind.settingsKey)s")
     }
 
     /// A git binary chosen by the user; nil finds one on its own (`GitRunner.defaultGitPath`). Repositories opened afterwards use it.
@@ -103,25 +106,35 @@ enum AppSettings {
 
     /// Hands the stored choices to AppKit and the git engine; called once at launch, before the first window.
     static func apply() {
-        migrateExternalEditor()
+        migrateSingleApps()
         NSApp.appearance = appearance.nsAppearance
         GitRunner.preferredGitPath = gitPath
         ScreenshotHarness.applyAvatarSwitches()
     }
 
-    /// The single `externalEditor` app of earlier versions becomes the default editor, added to the list when the app does not detect it.
-    private static func migrateExternalEditor() {
-        guard let old = defaults.url(forKey: "externalEditor") else { return }
-        defaults.removeObject(forKey: "externalEditor")
-        guard let app = ExternalApps.app(at: old) else { return }
-        if !ExternalApps.editors.contains(where: { $0.bundleID == app.bundleID && $0.url != nil }), !addedEditors.contains(old) {
-            addedEditors.append(old)
+    /// The single `externalEditor` and `terminalApp` of earlier versions become the defaults, added to the list when the app does not find them.
+    private static func migrateSingleApps() {
+        for (key, kind) in [("externalEditor", ExternalApps.Kind.editor), ("terminalApp", .terminal)] {
+            guard let old = defaults.url(forKey: key) else { continue }
+            defaults.removeObject(forKey: key)
+            guard let app = ExternalApps.app(at: old) else { continue }
+            if !ExternalApps.choices(kind).contains(where: { $0.app.bundleID == app.bundleID }) { setAddedApps(addedApps(kind) + [old], kind) }
+            setDefaultApp(app.bundleID, kind)
         }
-        defaultEditor = app.bundleID
     }
 
     private static func store(_ value: Any?, forKey key: String) {
         if let value { defaults.set(value, forKey: key) } else { defaults.removeObject(forKey: key) }
         NotificationCenter.default.post(name: didChange, object: nil)
+    }
+}
+
+extension ExternalApps.Kind {
+    /// The middle of the defaults keys: `defaultEditor`, `hiddenTerminals`, `addedEditors`.
+    var settingsKey: String {
+        switch self {
+        case .editor: "Editor"
+        case .terminal: "Terminal"
+        }
     }
 }

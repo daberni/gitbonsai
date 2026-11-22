@@ -35,12 +35,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc func runMenuCommand(_ sender: NSMenuItem) {
         cachedCommands = nil
+        if sender.representedObject as? String == CommandSpec.closeTab.id, let window = auxiliaryKeyWindow {
+            return window.performClose(sender)
+        }
         windowController?.runMenuCommand(sender)
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard menuItem.action == #selector(runMenuCommand(_:)), let id = menuItem.representedObject as? String else { return true }
+        if id == CommandSpec.closeTab.id, let window = auxiliaryKeyWindow { return window.styleMask.contains(.closable) }
         return currentCommands().first { $0.id == id }?.isEnabled ?? false
+    }
+
+    /// ⌘W closes the tab only in the main window; in the settings or any other window that has the focus it closes that window, as `performClose:` does everywhere on macOS.
+    private var auxiliaryKeyWindow: NSWindow? {
+        guard let key = NSApp.keyWindow, key !== windowController?.window else { return nil }
+        return key
     }
 
     /// A ⌘ key press updates and validates every menu at once; they share one list of commands for a moment, so the tab's state is read once.

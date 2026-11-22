@@ -46,6 +46,7 @@ extension CommandSpec {
 
     static let search = CommandSpec(id: "search", title: "Commits durchsuchen", keywords: ["find", "suchen", "filter"], glyph: .symbol("magnifyingglass"), shortcut: .search)
     static let openTerminal = CommandSpec(id: "open.terminal", title: "Im Terminal öffnen", keywords: ["shell", "console"], glyph: .symbol("apple.terminal"), shortcut: .openTerminal)
+    static let chooseTerminal = CommandSpec(id: "open.terminal.choose", title: "Im Terminal öffnen mit …", keywords: ["shell", "console"], glyph: .symbol("apple.terminal"))
     static let openEditor = CommandSpec(id: "open.editor", title: "Im Editor öffnen", keywords: ["code", "ide"], glyph: .symbol("chevron.left.forwardslash.chevron.right"), shortcut: .openEditor)
     static let chooseEditor = CommandSpec(id: "open.editor.choose", title: "Im Editor öffnen mit …", keywords: ["code", "ide"], glyph: .symbol("chevron.left.forwardslash.chevron.right"))
     static let revealInFinder = CommandSpec(id: "open.finder", title: "Im Finder zeigen", keywords: ["reveal", "ordner"], glyph: .symbol("folder"), shortcut: .revealInFinder)

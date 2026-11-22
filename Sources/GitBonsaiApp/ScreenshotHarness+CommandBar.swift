@@ -6,7 +6,8 @@ import GitEngine
 extension ScreenshotHarness {
     /// `GITBONSAI_COMMAND_BAR=<step>;…` drives the command bar with real key events once the active tab has loaded, half a second per step, then captures the window:
     /// `open` (⇧⌘P through the main menu), `type:<text>`, `key:down|up|return|escape|backspace`, `click:<row>`, `print`, `status`, `wait:<seconds>`, `shot:<png>`,
-    /// `menu` (the menu bar tree), `shortcut:cmd-shift-u` (a key equivalent through the main menu), `pick:<menu>/<item>` (a menu item as a click chooses it).
+    /// `menu` (the menu bar tree), `shortcut:cmd-shift-u` (a key equivalent through the main menu), `pick:<menu>/<item>` (a menu item as a click chooses it),
+    /// `settings` (opens the settings window and makes it key), `windows` (the visible windows, the key window and the tabs).
     /// `GITBONSAI_PRINT_OPENERS=1` first prints how every known terminal and editor would open the tab's folder. Returns false when there is nothing to drive.
     static func driveCommandBar(in window: NSWindow, host: MainWindowController) -> Bool {
         if environment["GITBONSAI_PRINT_OPENERS"] == "1" { printOpeners(for: host.activeRepository?.repositoryPath) }
@@ -89,6 +90,13 @@ extension ScreenshotHarness {
             }
             menu.performActionForItem(at: index)
             report("menu: picked \(argument)")
+        case "settings":
+            SettingsWindowController.shared.show()
+            SettingsWindowController.shared.window?.makeKey()
+            report("settings shown, key window \(NSApp.keyWindow.map { $0 === window ? "main" : $0.title } ?? "none")")
+        case "windows":
+            let open = NSApp.windows.filter(\.isVisible).map { $0 === window ? "main" : $0.title.isEmpty ? "\(type(of: $0))" : $0.title }
+            report("windows: \(open.joined(separator: ", ")); key \(NSApp.keyWindow.map { $0 === window ? "main" : $0.title } ?? "none"); tabs \(host.commandTabs.titles.joined(separator: ", "))")
         case "print":
             report(bar.harnessDescription + "\nfirst responder \(responderName(window.firstResponder))")
         case "status":
@@ -137,14 +145,17 @@ extension ScreenshotHarness {
 
     private static func printOpeners(for path: String?) {
         let folder = URL(fileURLWithPath: path ?? FileManager.default.currentDirectoryPath, isDirectory: true)
-        for (kind, apps) in [("terminal", ExternalApps.terminals), ("editor", ExternalApps.editors)] {
+        for (kind, apps) in [("terminal", ExternalApps.Kind.terminal.catalog), ("editor", ExternalApps.Kind.editor.catalog)] {
             for app in apps {
                 let installed = app.url
                 let location = installed ?? URL(fileURLWithPath: "/Applications/\(app.name).app")
                 report("\(kind) \(app.name) (\(app.bundleID)): \(installed == nil ? "not installed" : "installed") → \(ExternalApps.plan(for: folder, in: app, at: location))")
             }
         }
-        report("default terminal: \(ExternalApps.terminal()?.app.name ?? "none"), default editor: \(ExternalApps.editor(forRepository: path)?.app.name ?? "none")")
+        for kind in ExternalApps.Kind.allCases {
+            let found = ExternalApps.choices(kind).map { "\($0.app.name)\($0.isShown ? "" : " (unchecked)")" }
+            report("\(kind) choices: \(found.joined(separator: ", ")); default \(ExternalApps.preferred(kind)?.app.name ?? "none")")
+        }
     }
 
     private static func keyEvent(_ characters: String, code: UInt16, flags: NSEvent.ModifierFlags, in window: NSWindow) -> NSEvent? {

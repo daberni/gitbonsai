@@ -90,6 +90,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.discardAll),
             .separator,
             .command(.openTerminal),
+            .command(.chooseTerminal),
             .command(.openEditor),
             .command(.chooseEditor),
             .command(.revealInFinder),

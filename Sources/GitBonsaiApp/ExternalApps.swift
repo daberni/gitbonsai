@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 
 /// An editor or terminal the app knows how to open a folder in.
 struct ExternalApp: Equatable {
@@ -59,49 +60,88 @@ enum ExternalApps {
         ExternalApp(name: "Fleet", bundleID: "com.jetbrains.fleet"),
     ]
 
-    // MARK: Editors
+    /// Further terminals and editors that are found by bundle id when installed; they take a folder as a document.
+    static let moreTerminals: [ExternalApp] = [
+        ExternalApp(name: "Warp Preview", bundleID: "dev.warp.Warp-Preview", opening: .urlScheme("warp://action/new_window")),
+        ExternalApp(name: "Hyper", bundleID: "co.zeit.hyper"),
+        ExternalApp(name: "Tabby", bundleID: "org.tabby"),
+        ExternalApp(name: "Rio", bundleID: "com.raphaelamorim.rio"),
+        ExternalApp(name: "Wave", bundleID: "dev.commandline.waveterm"),
+    ]
 
-    /// Detected editors and the ones added in the settings, each with whether the command bar offers it.
-    static func editorChoices() -> [(app: ExternalApp, url: URL, isShown: Bool)] {
-        let hidden = Set(AppSettings.hiddenEditors)
-        let detected = editors.compactMap { app in app.url.map { (app, $0) } }
-        let added = AppSettings.addedEditors.compactMap { url -> (ExternalApp, URL)? in
-            guard let app = app(at: url), !detected.contains(where: { $0.0.bundleID == app.bundleID }) else { return nil }
-            return (app, url)
+    static let moreEditors: [ExternalApp] = [
+        ExternalApp(name: "VSCodium", bundleID: "com.vscodium"),
+        ExternalApp(name: "Code - OSS", bundleID: "com.visualstudio.code.oss"),
+        ExternalApp(name: "Zed Preview", bundleID: "dev.zed.Zed-Preview"),
+        ExternalApp(name: "Sublime Text 3", bundleID: "com.sublimetext.3"),
+        ExternalApp(name: "TextMate", bundleID: "com.macromates.TextMate"),
+        ExternalApp(name: "CotEditor", bundleID: "com.coteditor.CotEditor"),
+        ExternalApp(name: "MacVim", bundleID: "org.vim.MacVim"),
+        ExternalApp(name: "Emacs", bundleID: "org.gnu.Emacs"),
+        ExternalApp(name: "Rider", bundleID: "com.jetbrains.rider"),
+        ExternalApp(name: "CLion", bundleID: "com.jetbrains.CLion"),
+        ExternalApp(name: "PhpStorm", bundleID: "com.jetbrains.PhpStorm"),
+        ExternalApp(name: "RubyMine", bundleID: "com.jetbrains.rubymine"),
+        ExternalApp(name: "RustRover", bundleID: "com.jetbrains.rustrover"),
+    ]
+
+    /// Editors and terminals are chosen the same way: detected apps, apps added in the settings, which of them the command bar offers, and a default.
+    enum Kind: CaseIterable {
+        case editor, terminal
+
+        @MainActor var catalog: [ExternalApp] {
+            switch self {
+            case .editor: ExternalApps.editors + ExternalApps.moreEditors
+            case .terminal: ExternalApps.terminals + ExternalApps.moreTerminals
+            }
         }
-        return (detected + added).map { (app: $0.0, url: $0.1, isShown: !hidden.contains($0.0.bundleID)) }
     }
 
-    /// The editors the command bar lists under "Im Editor öffnen …".
-    static func shownEditors() -> [(app: ExternalApp, url: URL)] {
-        editorChoices().filter(\.isShown).map { ($0.app, $0.url) }
+    struct Choice {
+        let app: ExternalApp
+        let url: URL
+        let isShown: Bool
     }
 
-    /// The editor for a repository: the default from the settings when it is installed, otherwise the first shown one.
-    /// This is the one place to ask; a per-repository choice (`gitbonsai.editor` in git config) would be looked up here first.
-    static func editor(forRepository path: String?) -> (app: ExternalApp, url: URL)? {
-        let choices = editorChoices()
-        if let id = AppSettings.defaultEditor, let chosen = choices.first(where: { $0.app.bundleID == id }) { return (chosen.app, chosen.url) }
-        return choices.first(where: \.isShown).map { ($0.app, $0.url) }
+    /// Installed apps of the catalog, then apps the system lists as able to run a shell script file (terminals only; for editors that list is mostly browsers and office apps), then the ones added in the settings.
+    static func choices(_ kind: Kind) -> [Choice] {
+        let hidden = Set(AppSettings.hiddenApps(kind))
+        var found: [(ExternalApp, URL)] = kind.catalog.compactMap { app in app.url.map { (app, $0) } }
+        func add(_ url: URL) {
+            guard let app = app(at: url), !found.contains(where: { $0.0.bundleID == app.bundleID }) else { return }
+            found.append((app, url))
+        }
+        if kind == .terminal { NSWorkspace.shared.urlsForApplications(toOpen: .unixExecutable).forEach(add) }
+        AppSettings.addedApps(kind).forEach(add)
+        return found.map { Choice(app: $0.0, url: $0.1, isShown: !hidden.contains($0.0.bundleID)) }
     }
 
-    /// The app at `url` as an editor entry, named by its bundle.
+    /// The apps the command bar lists under "Im Editor öffnen mit …" and "Im Terminal öffnen mit …".
+    static func shown(_ kind: Kind) -> [Choice] {
+        choices(kind).filter(\.isShown)
+    }
+
+    /// The default from the settings when it is installed, otherwise the first shown app.
+    static func preferred(_ kind: Kind) -> Choice? {
+        let choices = choices(kind)
+        if let id = AppSettings.defaultApp(kind), let chosen = choices.first(where: { $0.app.bundleID == id }) { return chosen }
+        return choices.first(where: \.isShown)
+    }
+
+    /// The editor for a repository. This is the one place to ask; a per-repository choice (`gitbonsai.editor` in git config) would be looked up here first.
+    static func editor(forRepository path: String?) -> Choice? {
+        preferred(.editor)
+    }
+
+    static func terminal() -> Choice? {
+        preferred(.terminal)
+    }
+
+    /// The app at `url` as an entry, with the catalog's way of opening when it is a known app.
     static func app(at url: URL) -> ExternalApp? {
         guard let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else { return nil }
-        let known = (editors + terminals).first { $0.bundleID == id }
+        let known = Kind.allCases.flatMap(\.catalog).first { $0.bundleID == id }
         return known ?? ExternalApp(name: FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: ""), bundleID: id)
-    }
-
-    // MARK: Terminals
-
-    static func installedTerminals() -> [(app: ExternalApp, url: URL)] {
-        terminals.compactMap { app in app.url.map { (app, $0) } }
-    }
-
-    /// The terminal "Open in Terminal" uses: the chosen one, otherwise Terminal.
-    static func terminal() -> (app: ExternalApp, url: URL)? {
-        if let chosen = AppSettings.terminalApp { return app(at: chosen).map { ($0, chosen) } }
-        return terminals[0].url.map { (terminals[0], $0) }
     }
 
     static func openInTerminal(_ folder: URL) {

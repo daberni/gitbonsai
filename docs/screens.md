@@ -148,7 +148,7 @@ Klonen-Sheet: URL (HTTPS/SSH, Zwischenablage wird vorgeschlagen), Zielordner, ab
 |---|---|
 | General | Beim Start letztes Repo öffnen; Auto-Fetch (aus / 1 / 5 / 15 min); Datumsformat relativ/absolut; Bestätigungen (Discard, Force-Push, Branch löschen) |
 | Git | Pfad zum git-Binary (erkannt: Xcode, Homebrew, eigener Pfad) mit Versionsanzeige und Mindestversion 2.38; Name/E-Mail global; Signing (aus / GPG / SSH, Key-Auswahl); Credential-Helper-Status; `commit-graph` automatisch pflegen |
-| Allgemein: Editoren und Terminal | Erkannte Editoren (VS Code, Insiders, Cursor, Windsurf, Zed, Sublime Text, Nova, BBEdit, Xcode, IntelliJ IDEA und CE, WebStorm, PyCharm, GoLand, Android Studio, Fleet) mit Häkchen, welche die Befehlsleiste anbietet, „Andere App hinzufügen …“ und Standard-Editor; Terminal-App (erkannt: Terminal, iTerm2, Ghostty, Warp, kitty, WezTerm, Alacritty, oder eigene). Diff-Tool und Merge-Tool kommen aus `git config` |
+| Allgemein: Editoren und Terminals | Zwei gleich gebaute Listen: gefundene Editoren (VS Code, Insiders, Cursor, Windsurf, Zed, Sublime Text, Nova, BBEdit, Xcode, JetBrains-IDEs, Android Studio, Fleet und weitere per Bundle-ID) und Terminals (Terminal, iTerm2, Ghostty, Warp, kitty, WezTerm, Alacritty, weitere per Bundle-ID und alles, was das System Shell-Programme öffnen lässt), je mit Häkchen, welche die Befehlsleiste unter „… öffnen mit …“ anbietet, Markierung „Standard“, „Andere App hinzufügen …“ und Standard-Auswahl. Diff-Tool und Merge-Tool kommen aus `git config` |
 | Appearance | Theme System/Hell/Dunkel; Akzentfarbe; Schriftgröße Graph und Diff; Lane-Farbpalette; Avatare an/aus |
 
 Repo-spezifische Werte (Name, E-Mail, Signing) stehen im Repo-Info-Sheet (Titel ▾ › Repository-Einstellungen) und schreiben `git config --local`.
@@ -199,7 +199,7 @@ Quellen: Branch-Labels im Graph, Branch-Einträge der Sidebar, Commit-Zeilen. Zi
 |---|---|
 | ⌘⇧P | Befehlsleiste (Abschnitt 11) |
 | ⌘O / ⌥⌘N | Öffnen / Klonen |
-| ⌘T / ⌘W | Neuer Tab / Tab schließen |
+| ⌘T / ⌘W | Neuer Tab / Tab schließen; in Einstellungen und anderen Fenstern schließt ⌘W das Fenster |
 | ⌘E | Nachricht des ausgewählten Commits im Detailpanel bearbeiten (Sichern ⌘⏎, Abbrechen Esc) |
 | ⌘⇧] / ⌘⇧[ | Nächster / vorheriger Tab |
 | ⌘1 ⌘2 ⌘3 | Detail-Tabs |
@@ -219,6 +219,6 @@ Schwebendes Panel aus Liquid Glass, zentriert unter der Toolbar: Suchfeld, darun
 
 - Tippen filtert unscharf über Titel und Stichwörter; jedes Wort der Eingabe muss passen, Wortanfänge zählen mehr. Zuletzt benutzte Befehle stehen oben.
 - ↑ ↓ wählen, ⏎ führt aus, Esc oder ein Klick daneben schließt.
-- Befehle mit Argument öffnen eine zweite Liste im selben Panel („Branch auschecken …“, „Zu Tab wechseln …“, „Im Editor öffnen mit …“, „Worktree wechseln …“, „Rebase interaktiv …“); ⌫ im leeren Feld geht zurück.
+- Befehle mit Argument öffnen eine zweite Liste im selben Panel („Branch auschecken …“, „Zu Tab wechseln …“, „Im Editor öffnen mit …“, „Im Terminal öffnen mit …“, „Worktree wechseln …“, „Rebase interaktiv …“); ⌫ im leeren Feld geht zurück.
 - Was gerade nicht geht, bleibt grau in der Liste, unter den möglichen Befehlen, mit dem Grund statt des Kontexts („Kein Upstream“, „Nichts vorgemerkt“, „Kein Stash“). So findet man den Befehl und erfährt, warum er nicht läuft, statt ihn zu vermissen. Befehle, deren Gegenstand fehlt, erscheinen gar nicht: „Rebase fortsetzen/abbrechen“ nur während eines Rebase.
 - Ein leerer Tab bietet nur die Befehle des Fensters (Tabs, Öffnen, Klonen, Einstellungen).

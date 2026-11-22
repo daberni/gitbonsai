@@ -1,16 +1,18 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// The editors of Settings → Allgemein: detected and added editors with a checkbox for whether the command bar offers them, "Andere App hinzufügen …" below,
-/// and a pop-up for the default editor that "Im Editor öffnen" and the file menus use.
+/// The editors or terminals of Settings → Allgemein: the apps found on the system and the added ones, each with a checkbox for whether the command bar offers it, "Andere App hinzufügen …" below,
+/// and a pop-up for the default that "Im Editor öffnen" or "Im Terminal öffnen" use.
 @MainActor
-final class EditorListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
+final class AppListControl: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private let table = NSTableView()
     private let addButton = NSButton(title: "Andere App hinzufügen …", target: nil, action: nil)
     let defaultPicker = NSPopUpButton(frame: .zero, pullsDown: false)
-    private var choices: [(app: ExternalApp, url: URL, isShown: Bool)] = []
+    private let kind: ExternalApps.Kind
+    private var choices: [ExternalApps.Choice] = []
 
-    init() {
+    init(kind: ExternalApps.Kind) {
+        self.kind = kind
         super.init(frame: .zero)
         build()
         reload()
@@ -57,14 +59,14 @@ final class EditorListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
     override var firstBaselineOffsetFromTop: CGFloat { Theme.Settings.folderRowHeight * 0.7 }
 
     private func reload() {
-        choices = ExternalApps.editorChoices()
+        choices = ExternalApps.choices(kind)
         table.reloadData()
         rebuildDefaultPicker()
     }
 
     private func rebuildDefaultPicker() {
         defaultPicker.removeAllItems()
-        let first = NSMenuItem(title: "Erster angezeigter Editor", action: nil, keyEquivalent: "")
+        let first = NSMenuItem(title: kind == .editor ? "Erster angehakter Editor" : "Erstes angehaktes Terminal", action: nil, keyEquivalent: "")
         defaultPicker.menu?.addItem(first)
         let shown = choices.filter(\.isShown)
         if !shown.isEmpty { defaultPicker.menu?.addItem(.separator()) }
@@ -74,7 +76,7 @@ final class EditorListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
             item.image = Self.icon(of: choice.url)
             defaultPicker.menu?.addItem(item)
         }
-        let selected = defaultPicker.itemArray.first { ($0.representedObject as? String) == AppSettings.defaultEditor }
+        let selected = defaultPicker.itemArray.first { ($0.representedObject as? String) == AppSettings.defaultApp(kind) }
         defaultPicker.select(selected ?? first)
     }
 
@@ -97,7 +99,14 @@ final class EditorListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
         let icon = NSImageView(image: Self.icon(of: choice.url))
         let name = NSTextField(labelWithString: choice.app.name)
         name.lineBreakMode = .byTruncatingTail
-        let line = NSStackView(views: [box, icon, name])
+        var views: [NSView] = [box, icon, name]
+        if choice.app.bundleID == ExternalApps.preferred(kind)?.app.bundleID {
+            let mark = NSTextField(labelWithString: "Standard")
+            mark.font = Theme.caption
+            mark.textColor = Theme.inkMuted
+            views.append(mark)
+        }
+        let line = NSStackView(views: views)
         line.spacing = Theme.Space.xs
         line.toolTip = choice.url.path
         return line
@@ -106,15 +115,16 @@ final class EditorListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
     @objc private func toggle(_ sender: NSButton) {
         guard choices.indices.contains(sender.tag) else { return }
         let id = choices[sender.tag].app.bundleID
-        var hidden = AppSettings.hiddenEditors.filter { $0 != id }
+        var hidden = AppSettings.hiddenApps(kind).filter { $0 != id }
         if sender.state == .off { hidden.append(id) }
-        AppSettings.hiddenEditors = hidden
-        if sender.state == .off, AppSettings.defaultEditor == id { AppSettings.defaultEditor = nil }
+        AppSettings.setHiddenApps(hidden, kind)
+        if sender.state == .off, AppSettings.defaultApp(kind) == id { AppSettings.setDefaultApp(nil, kind) }
         reload()
     }
 
     @objc private func chooseDefault(_ sender: NSPopUpButton) {
-        AppSettings.defaultEditor = sender.selectedItem?.representedObject as? String
+        AppSettings.setDefaultApp(sender.selectedItem?.representedObject as? String, kind)
+        table.reloadData()
     }
 
     @objc private func addApp(_ sender: Any?) {
@@ -129,11 +139,11 @@ final class EditorListControl: NSView, NSTableViewDataSource, NSTableViewDelegat
         }
     }
 
-    /// Adds an app as editor and shows it again if it was unchecked before.
+    /// Adds an app to the list and shows it again if it was unchecked before.
     func add(_ url: URL) {
         guard let app = ExternalApps.app(at: url) else { return }
-        if !choices.contains(where: { $0.app.bundleID == app.bundleID }) { AppSettings.addedEditors.append(url) }
-        AppSettings.hiddenEditors.removeAll { $0 == app.bundleID }
+        if !choices.contains(where: { $0.app.bundleID == app.bundleID }) { AppSettings.setAddedApps(AppSettings.addedApps(kind) + [url], kind) }
+        AppSettings.setHiddenApps(AppSettings.hiddenApps(kind).filter { $0 != app.bundleID }, kind)
         reload()
     }
 }
