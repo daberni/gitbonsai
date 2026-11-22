@@ -56,11 +56,14 @@ final class RepositoryViewController: NSObject {
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
     private var autoFetch: AutoFetchScheduler?
+    private var reconciler: TabReconciler?
+    private let commonDirectory: String
     private var selectsHeadAfterLoad = false
     let toast = Toast()
 
     init(location: RepositoryLocation) {
         viewModel = GraphViewModel(location: location)
+        commonDirectory = location.commonDirectory
         history = HistoryViewController(viewModel: viewModel)
         checkoutController = CheckoutController(viewModel: viewModel)
         commitActions = CommitActionsController(viewModel: viewModel)
@@ -87,6 +90,9 @@ final class RepositoryViewController: NSObject {
         bind()
         viewModel.load()
         autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak self] in self?.view.window != nil })
+        reconciler = TabReconciler(name: viewModel.repositoryName, refresh: { [weak self] in await self?.viewModel.reconcile() ?? .loading }, isVisible: { [weak self] in self?.view.window != nil })
+        reconciler?.onReconciled = { [weak self] in self?.reconciled() }
+        reconciler?.watch(root: location.root, commonDirectory: location.commonDirectory, gitPath: viewModel.repository.runner.gitPath)
     }
 
     // MARK: Diff
@@ -136,7 +142,21 @@ final class RepositoryViewController: NSObject {
 
     /// The tab became the one its window shows.
     func becameVisible() {
+        reconciler?.request(.visible)
         autoFetch?.becameVisible()
+    }
+
+    /// An open diff stays while its file still has changes there and, for a commit, while the commit is still in the history.
+    private func reconciled() {
+        if let file = detail.selectedFile {
+            if case .commit(let commit) = file.source {
+                if viewModel.rowIndex(of: commit.id) == nil { showGraph() }
+            } else {
+                diff.reload()
+            }
+        }
+        // Editing an already changed file keeps its status line, so the working directory's line counts are read again.
+        refreshWorkingDirectoryCounts()
     }
 
     private func autoFetchSituation() async -> AutoFetchPolicy.Situation {
@@ -146,8 +166,14 @@ final class RepositoryViewController: NSObject {
         return AutoFetchPolicy.Situation(hasRemote: hasRemote, operationInProgress: operation != nil, fetchRunning: viewModel.isFetching)
     }
 
+    /// The tab closed or its window did: file events stop.
+    func closed() {
+        reconciler?.stopWatching()
+    }
+
     func switchWorktree(to path: String) {
         viewModel.switchWorktree(to: path)
+        reconciler?.watch(root: path, commonDirectory: commonDirectory, gitPath: viewModel.repository.runner.gitPath)
     }
 
     // MARK: Wiring
@@ -513,6 +539,8 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.navigate(on: self)
         }
         autoFetch?.loaded()
+        reconciler?.loaded()
+        ScreenshotHarness.runReturnRefreshSteps(on: self)
         onLoaded?()
     }
 }

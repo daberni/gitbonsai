@@ -197,3 +197,88 @@ extension ScreenshotHarness {
         "\(Int(rect.minX)),\(Int(rect.minY)) \(Int(rect.width))x\(Int(rect.height))"
     }
 }
+
+/// Harness switches for bringing a tab up to date when the user comes back to it.
+@MainActor
+extension ScreenshotHarness {
+    /// Every harness run prints each reconciliation on return: the triggers it gathered, its outcome and how long it took.
+    static func traceReturnRefresh(_ name: String, triggers: [String], outcome: String, duration: Duration) {
+        guard isActive else { return }
+        let milliseconds = Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15
+        let since = Int(Date().timeIntervalSince(launch) * 1000)
+        FileHandle.standardError.write(Data("[\(since) ms] return refresh \(name) [\(triggers.joined(separator: ","))]: \(outcome) in \(String(format: "%.1f", milliseconds)) ms\n".utf8))
+    }
+
+    /// Every harness run prints what the file watcher of each tab does: what it watches, each burst it reports and when it stops.
+    static func traceWatcher(_ name: String, _ line: String) {
+        guard isActive else { return }
+        let milliseconds = Int(Date().timeIntervalSince(launch) * 1000)
+        FileHandle.standardError.write(Data("[\(milliseconds) ms] watcher \(name): \(line)\n".utf8))
+    }
+
+    private static var returnTabs: [WeakReturnTab] = []
+    private struct WeakReturnTab { weak var tab: RepositoryViewController? }
+
+    /// `GITBONSAI_RETURN_STEPS=print,outside,tab,activate,…` runs one step every two seconds once the first tab has loaded: `print` prints every tab's history head, refs and counts,
+    /// `outside` runs the script `GITBONSAI_OUTSIDE_SCRIPT` names in the first hidden tab's worktree, `tab` selects the next tab and `activate` posts the app's activation and `fetch` runs the toolbar's Fetch in the visible tab; `activate+tab` runs both in one step.
+    static func runReturnRefreshSteps(on tab: RepositoryViewController) {
+        guard let spec = environment["GITBONSAI_RETURN_STEPS"] else { return }
+        returnTabs.append(WeakReturnTab(tab: tab))
+        guard returnTabs.count == 1 else { return }
+        let steps = spec.split(separator: ",").map(String.init)
+        for (index, step) in steps.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0 * Double(index + 1)) {
+                FileHandle.standardError.write(Data("[\(Int(Date().timeIntervalSince(launch) * 1000)) ms] return step \(step)\n".utf8))
+                let tabs = returnTabs.compactMap(\.tab)
+                for part in step.split(separator: "+") {
+                    switch part {
+                    case "print": tabs.forEach(printReturnState)
+                    case "outside": runOutsideScript(in: tabs.first { $0.view.window == nil })
+                    case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab(nil)
+                    case "activate": NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+                    case "fetch": tabs.first { $0.view.window != nil }?.fetchController.fetch(.allRemotes)
+                    default: break
+                    }
+                }
+            }
+        }
+    }
+
+    private static func printReturnState(of tab: RepositoryViewController) {
+        let model = tab.viewModel
+        let head = model.commits.prefix(4).enumerated().map { index, commit in model.kinds[index] == .wip ? "WIP" : "\(commit.shortID) \(commit.subject)" }
+        let branches = model.refs.filter { $0.kind == .localBranch }.map { ($0.isHead ? "*" : "") + $0.name }
+        let remotes = model.refs.filter { if case .remoteBranch = $0.kind { true } else { false } }.map { "\($0.name) \(model.rowIndex(of: $0.target).map { "row \($0)" } ?? "not in history")" }
+        let tags = model.refs.filter { $0.kind == .tag }.map(\.name)
+        let entries = model.status?.entries ?? []
+        let row = tab.history.selectedRow
+        let selected = model.commits.indices.contains(row) ? (model.kinds[row] == .wip ? "WIP" : model.commits[row].shortID) : "none"
+        let scroll = tab.history.tableView.enclosingScrollView?.contentView.bounds.minY ?? 0
+        let counts = "staged \(entries.filter(\.isStaged).count), unstaged \(entries.filter { $0.worktreeState != .unmodified && !$0.isUntracked }.count), untracked \(entries.filter(\.isUntracked).count), stashes \(model.stashes.count)"
+        let lines = [
+            "tab \(tab.name)\(tab.view.window == nil ? "" : " (visible)"): \(model.commits.count) rows, selected \(selected) at row \(row), scrolled \(Int(scroll))",
+            "  head: \(head.joined(separator: " | "))",
+            "  branches: \(branches.joined(separator: ", ")) · remote: \(remotes.joined(separator: ", ")) · tags: \(tags.joined(separator: ", "))",
+            "  counts: \(counts) · toolbar \(tab.toolbar.upstreamCounts)",
+        ]
+        FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+    }
+
+    private static func runOutsideScript(in tab: RepositoryViewController?) {
+        guard let tab, let script = environment["GITBONSAI_OUTSIDE_SCRIPT"] else {
+            FileHandle.standardError.write(Data("outside: no hidden tab or no GITBONSAI_OUTSIDE_SCRIPT\n".utf8))
+            return
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [script]
+        process.currentDirectoryURL = URL(fileURLWithPath: tab.repositoryPath)
+        do {
+            try process.run()
+            process.waitUntilExit()
+            FileHandle.standardError.write(Data("[\(Int(Date().timeIntervalSince(launch) * 1000)) ms] outside: ran \(script) in \(tab.name), exit \(process.terminationStatus)\n".utf8))
+        } catch {
+            FileHandle.standardError.write(Data("outside: \(error)\n".utf8))
+        }
+    }
+}

@@ -187,6 +187,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     private func close(_ index: Int) {
         guard tabs.indices.contains(index) else { return }
+        tabs[index].repository?.closed()
         guard let next = tabs.remove(at: index) else {
             newTab(nil)
             return
@@ -289,6 +290,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     func windowWillClose(_ notification: Notification) {
         frameKeeper.save()
+        tabs.tabs.forEach { $0.repository?.closed() }
     }
 
     func windowWillEnterFullScreen(_ notification: Notification) {

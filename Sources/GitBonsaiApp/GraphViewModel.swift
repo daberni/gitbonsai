@@ -63,6 +63,9 @@ final class GraphViewModel {
     private var reachableFromHead: Set<String> = []
     private var sidebarChanges = 0
     private var hasSidebarContent = false
+    private var inPlaceRefreshes = 0
+    /// The history starting points the loaded commits were last checked against; nil until a refresh checked them after a load.
+    private var checkedTips: Set<String>?
 
     /// Changes whenever something the sidebar shows changed. Nil until the first load knows the refs, the worktrees and their counters, so the sidebar is built once with all of them.
     var sidebarRevision: Int? { hasSidebarContent ? sidebarChanges : nil }
@@ -138,6 +141,7 @@ final class GraphViewModel {
     }
 
     /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.
+    /// New remote commits only enter the history through the log, so the fetch ends with an in-place refresh, which reads it when a ref points at a commit that is not loaded. A failed fetch may still have moved some refs.
     func fetch(_ variant: FetchVariant) async -> Error? {
         setStatus("\(variant.commandLine) …")
         isFetching = true
@@ -146,11 +150,11 @@ final class GraphViewModel {
         do {
             try await repository.fetch(variant)
             await loadLastFetch()
-            await loadRefs()
-            onMetadataChanged?()
-            setStatus("\(variant.commandLine) · \(elapsed(since: start))")
+            await refresh(note: "\(variant.commandLine) \(elapsed(since: start))")
             return nil
         } catch {
+            await loadLastFetch()
+            await refresh(note: nil)
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
             setStatus("\(variant.commandLine) fehlgeschlagen nach \(elapsed(since: start)): \(message)")
             return error
@@ -163,6 +167,7 @@ final class GraphViewModel {
     func reload(focus: Focus = .keepSelection) {
         loadTask?.cancel()
         history = HistoryRows()
+        checkedTips = nil
         reachableFromHead = []
         maxLaneCount = 1
         onReset?(focus)
@@ -190,6 +195,23 @@ final class GraphViewModel {
         }
     }
 
+    enum Reconciliation {
+        /// The first load or a reload is under way and reads everything anyway.
+        case loading
+        /// Another in-place refresh is under way; it may have read the repository before the change that asked for this one.
+        case refreshing
+        case done
+    }
+
+    /// Brings the tab in line with the repository after changes made outside the app, in a terminal, an editor or another worktree. Local only: it never fetches.
+    /// Everything is read again; only reading the log depends on whether a commit is new.
+    func reconcile() async -> Reconciliation {
+        if isLoading { return .loading }
+        guard inPlaceRefreshes == 0 else { return .refreshing }
+        await refresh(note: nil)
+        return .done
+    }
+
     /// After a checkout, a reset or a worktree switch the commits are mostly the same: HEAD, the working directory and the refs moved.
     /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed.
     /// The history keeps its selection unless `focus` asks for the current row.
@@ -200,6 +222,8 @@ final class GraphViewModel {
             return
         }
         let start = ContinuousClock.now
+        inPlaceRefreshes += 1
+        defer { inPlaceRefreshes -= 1 }
         isRefreshing = true
         async let newStatus = try? repository.status()
         async let stashesTask: Void = loadStashes()
@@ -211,18 +235,23 @@ final class GraphViewModel {
         history.removeWorkingDirectoryRow()
         // A new commit, stash or a worktree HEAD that no branch contains is not loaded and needs the log.
         let tips = HistoryRefresh.tips(refs: refs, head: headSHA, stashCommits: stashesByCommit.keys)
-        let loaded = history.commits
-        let plan = await Task.detached { HistoryRefresh.plan(loaded: loaded, tips: tips) }.value
-        guard case .keep(let dropping) = plan else {
-            noteAfterReload = note ?? noteAfterReload
-            reload(focus: focus)
-            return
+        // With the same starting points and HEAD, the loaded commits, their layout and what HEAD reaches stay as they are; on a large history the walks cost hundreds of milliseconds.
+        let historyMoved = tips != checkedTips || headSHA != layoutHead
+        if historyMoved {
+            let loaded = history.commits
+            let plan = await Task.detached { HistoryRefresh.plan(loaded: loaded, tips: tips) }.value
+            guard case .keep(let dropping) = plan else {
+                noteAfterReload = note ?? noteAfterReload
+                reload(focus: focus)
+                return
+            }
+            if !dropping.isEmpty { history.remove(dropping) }
+            // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
+            if headSHA != layoutHead || !dropping.isEmpty { await relayout() }
+            checkedTips = tips
         }
-        if !dropping.isEmpty { history.remove(dropping) }
-        // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
-        if headSHA != layoutHead || !dropping.isEmpty { await relayout() }
         insertWipRow()
-        computeReachability()
+        if historyMoved { computeReachability() }
         onRowsRebuilt?(focus)
         onMetadataChanged?()
         setStatus(([loadedSummary] + [note].compactMap { $0 } + ["Ansicht \(elapsed(since: start))"]).joined(separator: " · "))

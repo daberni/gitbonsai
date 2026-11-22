@@ -14,6 +14,8 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Refs for labels and sidebar | `git for-each-ref <format>` | |
 | Working directory status | `git status --porcelain=v2 -z --branch --untracked-files=all` | |
 | Worktrees | `git worktree list --porcelain -z` | |
+| Reconcile a tab (it becomes visible, the app becomes active, its files change, after every fetch) | The in-place refresh: working directory status, `git for-each-ref`, the stash list and `git worktree list` side by side; `git log` only when a ref, HEAD or stash points at a commit that is not loaded | Visible tab only, local only, never skipped; triggers that arrive together run once |
+| Watch a tab's files | `git rev-parse --absolute-git-dir`, then FSEvents on the working tree and the common git directory | No git while watching. Objects, lock files, reflogs other than the stash and folders such as `node_modules` and `.build` are ignored; a burst ends after 0.2 s of quiet or 1 s at most; bursts inside the app's own writes are dropped |
 | Faster history on large repositories | `git commit-graph write --reachable` | Write |
 | Clone | `git clone --progress [--recurse-submodules] [--depth 1] [--branch <branch>] -- <url> <folder>` | Progress read from stderr; cancelling stops git and removes the folder; no prompts, so credentials come from the credential helper or the SSH agent |
 | Repositories in the repository folders | none | Found on disk by their `.git` folder or file, without git |
@@ -122,7 +124,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | List remotes | `git remote` | For the Tags list when it opens, and after every refresh while it is closed so that tag pills in the history offer push and remote delete per remote |
-| Fetch all | `git fetch --all --prune` | |
+| Fetch all | `git fetch --all --prune` | Every fetch ends with the in-place refresh, so fetched commits enter the history |
 | Automatic fetch | `git fetch --all --prune` | Visible tab only, on activation and periodically (`AutoFetchPolicy`). Reads `git remote` and `git rev-parse --git-path` for an operation in progress first and skips without a remote or during a rebase, merge, cherry-pick or revert |
 | Fetch one remote | `git fetch --prune\|--no-prune <remote>` | |
 | Fetch tags | `git fetch --all --tags` | |

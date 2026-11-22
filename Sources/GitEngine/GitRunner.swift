@@ -142,7 +142,13 @@ public actor GitRunner {
     public func runRefreshingIndex(_ arguments: [String], accepting exitCodes: Set<Int32> = [0]) async throws -> GitCommandResult {
         let environment = Self.readEnvironment
         let startedAt = Date()
-        let result = try await indexQueue.enqueue { try await self.execute(arguments, environment: environment, stdin: nil) }
+        let path = repositoryPath
+        let result = try await indexQueue.enqueue {
+            // Refreshing stale stat information rewrites the index, which the file watcher must not take for an outside change.
+            WriteActivity.began(path)
+            defer { WriteActivity.ended(path) }
+            return try await self.execute(arguments, environment: environment, stdin: nil)
+        }
         record(result, startedAt: startedAt)
         guard exitCodes.contains(result.exitCode) else {
             throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr)
@@ -154,7 +160,12 @@ public actor GitRunner {
     public func runWrite(_ arguments: [String], environment: [String: String] = [:], stdin: Data? = nil) async throws -> GitCommandResult {
         let mergedEnvironment = Self.writeEnvironment.merging(environment) { $1 }
         let startedAt = Date()
-        let result = try await indexQueue.enqueue { try await self.execute(arguments, environment: mergedEnvironment, stdin: stdin) }
+        let path = repositoryPath
+        let result = try await indexQueue.enqueue {
+            WriteActivity.began(path)
+            defer { WriteActivity.ended(path) }
+            return try await self.execute(arguments, environment: mergedEnvironment, stdin: stdin)
+        }
         record(result, startedAt: startedAt)
         guard result.exitCode == 0 else {
             // Some commands, `git stash pop` with a conflict among them, explain the failure only on stdout.
