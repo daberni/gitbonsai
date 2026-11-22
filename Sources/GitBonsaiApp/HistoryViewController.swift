@@ -8,6 +8,10 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     let tableView = HistoryTableView()
     let columnsController: HistoryColumnsController
     private(set) var selectedRow = -1
+    /// The commit of the selected row. Rows are rebuilt before the table hears of it, so the index alone no longer names the commit then.
+    private var selectedID: String?
+    /// What a reload shows once it finished: the anchor to restore, or nil for the current row.
+    private var focusAfterReload: Anchor?
     let search: HistorySearchController
     private(set) weak var searchField: CommitSearchField?
 
@@ -92,8 +96,15 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         search.commitsAppended()
     }
 
-    func rowsReset() {
+    /// A reload that a later refresh restarted keeps the anchor of the first one, since nothing was selected in between.
+    func rowsReset(focus: GraphViewModel.Focus) {
+        if focus == .current {
+            focusAfterReload = nil
+        } else if let anchor = anchor() {
+            focusAfterReload = anchor
+        }
         selectedRow = -1
+        selectedID = nil
         tableView.reloadData()
         search.historyChanged()
         onSelect?(nil)
@@ -105,20 +116,50 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         search.historyChanged()
     }
 
-    /// Same commits, new HEAD: the selection follows the working tree and the newly checked-out commit is brought into view.
-    func rowsRebuilt() {
+    /// The rows were laid out again after a write. The selected commit stays where it was on screen unless the focus moves to the current row or the commit left the history.
+    func rowsRebuilt(focus: GraphViewModel.Focus) {
+        let kept = focus == .keepSelection ? anchor() : nil
         selectedRow = -1
+        selectedID = nil
         tableView.deselectAll(nil)
         tableView.reloadData()
         columnsController.update(laneCount: viewModel.maxLaneCount)
         search.historyChanged()
-        selectCurrentRow(scrollToHead: true)
+        if !restore(kept) { selectCurrentRow(scrollToHead: true) }
     }
 
     func metadataChanged() {
         search.refsMayHaveChanged()
         reloadVisibleRows()
-        if selectedRow < 0, !viewModel.isLoading { selectCurrentRow(scrollToHead: false) }
+        guard selectedRow < 0, !viewModel.isLoading else { return }
+        let anchor = focusAfterReload
+        focusAfterReload = nil
+        if !restore(anchor) { selectCurrentRow(scrollToHead: anchor != nil) }
+    }
+
+    // MARK: Keeping the selection
+
+    /// The selected commit and how far its row sat below the top of the visible area.
+    private struct Anchor {
+        let id: String
+        let offset: CGFloat
+    }
+
+    private func anchor() -> Anchor? {
+        guard let selectedID, selectedRow >= 0 else { return nil }
+        return Anchor(id: selectedID, offset: tableView.rect(ofRow: selectedRow).minY - tableView.visibleRect.minY)
+    }
+
+    /// Selects the anchored commit again and scrolls so that its row sits where it sat before. False when the commit is no longer in the history.
+    private func restore(_ anchor: Anchor?) -> Bool {
+        guard let anchor, let row = viewModel.rowIndex(of: anchor.id) else { return false }
+        select(row: row, scroll: false)
+        guard let clip = tableView.enclosingScrollView?.contentView else { return true }
+        let maxY = max(tableView.bounds.height - clip.bounds.height, 0)
+        let y = min(max(tableView.rect(ofRow: row).minY - anchor.offset, 0), maxY)
+        clip.scroll(to: NSPoint(x: clip.bounds.minX, y: y))
+        tableView.enclosingScrollView?.reflectScrolledClipView(clip)
+        return true
     }
 
     private func reloadVisibleRows() {
@@ -194,6 +235,9 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     func tableViewSelectionDidChange(_ notification: Notification) {
         let previous = selectedRow
         selectedRow = tableView.selectedRow
+        selectedID = viewModel.commits.indices.contains(selectedRow) ? viewModel.commits[selectedRow].id : nil
+        // A choice made while a reload runs replaces what the reload would have restored.
+        if selectedRow >= 0 { focusAfterReload = nil }
         let changed = IndexSet([previous, selectedRow].filter { $0 >= 0 && $0 < viewModel.rows.count })
         tableView.reloadData(forRowIndexes: changed, columnIndexes: IndexSet(integer: 0))
         updateSearchCounter()

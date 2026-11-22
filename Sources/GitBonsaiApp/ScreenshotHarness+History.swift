@@ -86,14 +86,14 @@ extension ScreenshotHarness {
     // MARK: History contents
 
     /// `GITBONSAI_RUN_GIT=<argument>;<argument>…` runs one git command the way a write action does and then refreshes the history in place, as every write action does.
-    /// `GITBONSAI_PRINT_HISTORY=<seconds>,…` prints the commit count, the selected row, the status line and the first rows after loading and after each delay; a full reload is printed when it happens.
+    /// `GITBONSAI_PRINT_HISTORY=<seconds>,…` prints the commit count, the selected row with its scroll position, the status line and the first rows after loading and after each delay; a full reload is printed when it happens.
     static func driveHistoryContents(on tab: RepositoryViewController) {
         guard let delays = environment["GITBONSAI_PRINT_HISTORY"]?.split(separator: ",").compactMap({ Double($0) }) else { return }
         let viewModel = tab.viewModel
         let onReset = viewModel.onReset
-        viewModel.onReset = {
+        viewModel.onReset = { focus in
             FileHandle.standardError.write(Data("history: full reload\n".utf8))
-            onReset?()
+            onReset?(focus)
         }
         printHistory(of: tab, when: "loaded")
         if let spec = environment["GITBONSAI_RUN_GIT"] {
@@ -112,14 +112,17 @@ extension ScreenshotHarness {
         }
     }
 
-    private static func printHistory(of tab: RepositoryViewController, when: String) {
+    static func printHistory(of tab: RepositoryViewController, when: String) {
         let viewModel = tab.viewModel
         let commits = viewModel.commits.enumerated().filter { viewModel.kinds[$0.offset] != .wip }.map(\.element)
         let row = tab.history.selectedRow
         let selected = viewModel.commits.indices.contains(row) ? String(viewModel.commits[row].id.prefix(7)) : "-"
         let head = viewModel.headSHA.map { String($0.prefix(7)) } ?? "-"
         let rows = commits.prefix(8).map { "\($0.id.prefix(7)) \($0.subject)" }.joined(separator: " | ")
-        FileHandle.standardError.write(Data("history \(when): \(commits.count) commits, HEAD \(head), selected row \(row) (\(selected)), status: \(viewModel.statusText)\n  rows: \(rows)\n".utf8))
+        let table = tab.history.tableView
+        let scrollY = Int(table.visibleRect.minY)
+        let rowOnScreen = row >= 0 ? "\(Int(table.rect(ofRow: row).minY - table.visibleRect.minY))" : "-"
+        FileHandle.standardError.write(Data("history \(when): \(commits.count) commits, HEAD \(head), selected row \(row) (\(selected)), scroll y \(scrollY), selected row \(rowOnScreen) pt below the top, status: \(viewModel.statusText)\n  rows: \(rows)\n".utf8))
     }
 
     // MARK: Commit context menu

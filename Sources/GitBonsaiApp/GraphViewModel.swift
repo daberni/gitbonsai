@@ -9,6 +9,14 @@ import GraphLayout
 final class GraphViewModel {
     enum RowKind { case commit, merge, stash, wip }
 
+    /// Which row the history shows once a refresh rebuilt its rows.
+    enum Focus {
+        /// The selected commit stays selected at the same place on screen, as long as it is still in the history.
+        case keepSelection
+        /// The action moved the working tree on purpose, such as a checkout: the uncommitted changes or HEAD are selected and HEAD is brought into view.
+        case current
+    }
+
     static let wipID = HistoryRows.wipID
 
     private var history = HistoryRows()
@@ -32,12 +40,12 @@ final class GraphViewModel {
     /// Refs, reachability, worktrees or status changed: visible rows and the sidebar need a redraw.
     var onMetadataChanged: (() -> Void)?
     var onStatusChanged: ((String) -> Void)?
-    /// All rows were dropped before a reload; the table has to forget them.
-    var onReset: (() -> Void)?
+    /// All rows were dropped before a reload; the table has to forget them and, once the reload finished, show the focus.
+    var onReset: ((Focus) -> Void)?
     /// The working directory row appeared while commits were still streaming in.
     var onRowsShifted: (() -> Void)?
-    /// HEAD moved: the rows were laid out again around it and the working directory row was put back.
-    var onRowsRebuilt: (() -> Void)?
+    /// A refresh after a write rebuilt the rows in place: commits may have left, HEAD may have moved and the working directory row was put back.
+    var onRowsRebuilt: ((Focus) -> Void)?
 
     /// Rebound when the tab moves to another worktree of the same repository.
     private(set) var repository: Repository
@@ -108,10 +116,10 @@ final class GraphViewModel {
         let start = ContinuousClock.now
         do {
             try await repository.checkout(target)
-            await refresh(note: "git switch \(elapsed(since: start))")
+            await refresh(note: "git switch \(elapsed(since: start))", focus: .current)
             return .done
         } catch let conflict as CarriedChangesConflict {
-            await refresh(note: nil)
+            await refresh(note: nil, focus: .current)
             return .changesLeftInStash(conflict)
         } catch let error as GitError {
             // A failed attempt may still have moved things, for instance a fast-forward that switched but could not move the branch.
@@ -125,7 +133,7 @@ final class GraphViewModel {
     /// Shows another worktree of the same repository in place.
     func switchWorktree(to path: String) {
         repository = Repository(path: path, gitPath: repository.runner.gitPath)
-        Task { await refresh(note: nil) }
+        Task { await refresh(note: nil, focus: .current) }
     }
 
     /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.
@@ -149,12 +157,12 @@ final class GraphViewModel {
     // MARK: Loading
 
     /// Drops everything that was loaded and reads the repository again.
-    func reload() {
+    func reload(focus: Focus = .keepSelection) {
         loadTask?.cancel()
         history = HistoryRows()
         reachableFromHead = []
         maxLaneCount = 1
-        onReset?()
+        onReset?(focus)
         load()
     }
 
@@ -181,10 +189,11 @@ final class GraphViewModel {
 
     /// After a checkout, a reset or a worktree switch the commits are mostly the same: HEAD, the working directory and the refs moved.
     /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed.
-    func refresh(note: String?) async {
+    /// The history keeps its selection unless `focus` asks for the current row.
+    func refresh(note: String?, focus: Focus = .keepSelection) async {
         guard !isLoading else {
             noteAfterReload = note ?? noteAfterReload
-            reload()
+            reload(focus: focus)
             return
         }
         let start = ContinuousClock.now
@@ -203,7 +212,7 @@ final class GraphViewModel {
         let plan = await Task.detached { HistoryRefresh.plan(loaded: loaded, tips: tips) }.value
         guard case .keep(let dropping) = plan else {
             noteAfterReload = note ?? noteAfterReload
-            reload()
+            reload(focus: focus)
             return
         }
         if !dropping.isEmpty { history.remove(dropping) }
@@ -211,7 +220,7 @@ final class GraphViewModel {
         if headSHA != layoutHead || !dropping.isEmpty { await relayout() }
         insertWipRow()
         computeReachability()
-        onRowsRebuilt?()
+        onRowsRebuilt?(focus)
         onMetadataChanged?()
         setStatus(([loadedSummary] + [note].compactMap { $0 } + ["Ansicht \(elapsed(since: start))"]).joined(separator: " · "))
         // The other worktrees' change counters are slow to gather and nothing waits for them.

@@ -43,6 +43,7 @@ extension ScreenshotHarness {
             FileHandle.standardError.write(Data("panel selected \(list.selectedID ?? "nothing"), history at \(historyCommit)\n".utf8))
         }
         if let shot = environment["GITBONSAI_PANEL_SHOT"] { capturePanel(popover, to: shot) }
+        if environment["GITBONSAI_PRINT_HISTORY"] != nil { printHistory(of: tab, when: "before the panel action") }
         if let title = environment["GITBONSAI_PANEL_BUTTON"], let button = list.footerButtons.first(where: { $0.title == title }) {
             FileHandle.standardError.write(Data("panel button \(title) enabled \(button.isEnabled)\n".utf8))
             pressView(in: window, at: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))

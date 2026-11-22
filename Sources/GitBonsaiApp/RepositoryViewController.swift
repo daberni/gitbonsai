@@ -325,9 +325,9 @@ final class RepositoryViewController: NSObject {
 
     private func bind() {
         viewModel.onRowsAppended = { [weak self] range in self?.history.rowsAppended(range) }
-        viewModel.onReset = { [weak self] in self?.history.rowsReset() }
+        viewModel.onReset = { [weak self] focus in self?.history.rowsReset(focus: focus) }
         viewModel.onRowsShifted = { [weak self] in self?.history.rowsShifted() }
-        viewModel.onRowsRebuilt = { [weak self] in self?.history.rowsRebuilt() }
+        viewModel.onRowsRebuilt = { [weak self] focus in self?.history.rowsRebuilt(focus: focus) }
         viewModel.onMetadataChanged = { [weak self] in self?.metadataChanged() }
         viewModel.onStatusChanged = { [weak self] text in self?.statusLabel.stringValue = text }
     }
