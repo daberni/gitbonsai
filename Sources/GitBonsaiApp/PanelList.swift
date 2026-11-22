@@ -7,12 +7,34 @@ struct PanelRow: Equatable {
     let title: String
     /// Drawn after the title in muted ink, for example ◆ for an annotated tag.
     let marker: String?
-    let markerTooltip: String?
+    let tooltip: String?
     let detail: String
-    let date: Date
+    /// Nil for an entry that exists only elsewhere, a tag not fetched yet for instance.
+    let date: Date?
     let sha: String
     /// Extra words the filter matches besides the title.
     let searchText: String
+    /// Small marks before the age, such as where a tag exists.
+    var badges: [PanelBadge] = []
+    /// A row that needs attention gets a clay wash.
+    var isHighlighted = false
+    /// A row that is not here yet draws its title and glyph muted.
+    var isDimmed = false
+}
+
+/// A glyph with an optional caption, drawn on the first line of a row.
+struct PanelBadge: Equatable {
+    enum Tone: Equatable { case muted, faint, alert }
+
+    let glyph: Glyph
+    let label: String?
+    let tone: Tone
+}
+
+/// A choice in the filter's menu that narrows the list to some entries, by their id.
+struct PanelScope {
+    let title: String
+    let includes: (String) -> Bool
 }
 
 /// A button below the list that acts on the selected entry.
@@ -20,12 +42,15 @@ struct PanelAction {
     let title: String
     let isDestructive: Bool
     let isEnabled: (String) -> Bool
+    /// Whether the button is there at all for the selected entry, or with nil for no selection; for actions that only some kinds of entries have.
+    let isShown: (String?) -> Bool
     let perform: (String) -> Void
 
-    init(_ title: String, isDestructive: Bool = false, isEnabled: @escaping (String) -> Bool = { _ in true }, perform: @escaping (String) -> Void) {
+    init(_ title: String, isDestructive: Bool = false, isEnabled: @escaping (String) -> Bool = { _ in true }, isShown: @escaping (String?) -> Bool = { _ in true }, perform: @escaping (String) -> Void) {
         self.title = title
         self.isDestructive = isDestructive
         self.isEnabled = isEnabled
+        self.isShown = isShown
         self.perform = perform
     }
 }
@@ -39,11 +64,28 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     var onActivate: ((String) -> Void)?
     var menuItems: ((String) -> [NSMenuItem])?
     var actions: [PanelAction] = [] { didSet { rebuildFooter() } }
+    /// Offered in the filter's menu; with scopes the filter is always shown.
+    var scopes: [PanelScope] = [] {
+        didSet {
+            if activeScope.map({ !scopes.indices.contains($0) }) ?? false { activeScope = nil }
+            rebuildScopeMenu()
+        }
+    }
+    private(set) var activeScope: Int?
+    /// A quiet line next to the counter, for example why something could not be shown.
+    var note: String? {
+        didSet {
+            noteLabel.stringValue = note ?? ""
+            noteLabel.isHidden = note == nil
+        }
+    }
 
     private(set) var rows: [PanelRow] = []
     private(set) var shownRows: [PanelRow] = []
     private let titleLabel = NSTextField(labelWithString: "")
     private let countLabel = NSTextField(labelWithString: "")
+    private let noteLabel = NSTextField(labelWithString: "")
+    private let filterPlaceholder: String
     let filterField = NSSearchField()
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
@@ -54,12 +96,17 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     private var filterHeight: NSLayoutConstraint!
 
     init(title: String, empty: String, filterPlaceholder: String) {
+        self.filterPlaceholder = filterPlaceholder
         super.init(frame: .zero)
         titleLabel.stringValue = title
         titleLabel.font = Theme.bodyStrong
         titleLabel.textColor = Theme.ink
         countLabel.font = Theme.captionDigits
         countLabel.textColor = Theme.inkMuted
+        noteLabel.font = Theme.caption
+        noteLabel.textColor = Theme.inkFaint
+        noteLabel.lineBreakMode = .byTruncatingTail
+        noteLabel.isHidden = true
         emptyLabel.stringValue = empty
         emptyLabel.font = Theme.body
         emptyLabel.textColor = Theme.inkMuted
@@ -92,8 +139,9 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         footer.orientation = .horizontal
         footer.spacing = Theme.Space.s
 
-        let header = NSStackView(views: [titleLabel, countLabel])
+        let header = NSStackView(views: [titleLabel, countLabel, noteLabel])
         header.spacing = Theme.Space.s
+        noteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for view in [header, filterField, scrollView, emptyLabel, footer] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -104,6 +152,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
             widthAnchor.constraint(equalToConstant: P.width),
             header.topAnchor.constraint(equalTo: topAnchor, constant: P.padding),
             header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: P.padding),
+            header.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -P.padding),
             filterField.topAnchor.constraint(equalTo: header.bottomAnchor, constant: Theme.Space.s),
             filterField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: P.padding),
             filterField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -P.padding),
@@ -136,10 +185,13 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         let selected = selectedID
         rows = newRows
         countLabel.stringValue = "\(rows.count)"
-        let filters = rows.count > P.filterThreshold
+        let filters = rows.count > P.filterThreshold || !scopes.isEmpty
         filterField.isHidden = !filters
         filterHeight.isActive = !filters
-        if !filters { filterField.stringValue = "" }
+        if !filters {
+            filterField.stringValue = ""
+            activeScope = nil
+        }
         applyFilter()
         if let selected, let index = shownRows.firstIndex(where: { $0.id == selected }) {
             tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
@@ -168,7 +220,8 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
 
     private func applyFilter() {
         let query = filterField.stringValue
-        shownRows = rows.filter { Self.matches($0, query: query) }
+        let scope = activeScope.map { scopes[$0] }
+        shownRows = rows.filter { row in Self.matches(row, query: query) && (scope?.includes(row.id) ?? true) }
         tableView.reloadData()
         emptyLabel.isHidden = !shownRows.isEmpty
         let visible = min(max(shownRows.count, 1), P.maxVisibleRows)
@@ -205,7 +258,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         let view = tableView.makeView(withIdentifier: PanelRowView.identifier, owner: nil) as? PanelRowView ?? PanelRowView()
         view.row = shownRows[row]
         view.onPress = { [weak self] clickCount in self?.pressed(row: row, clickCount: clickCount) }
-        view.toolTip = shownRows[row].markerTooltip
+        view.toolTip = shownRows[row].tooltip
         return view
     }
 
@@ -233,6 +286,40 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         items.forEach(menu.addItem)
     }
 
+    // MARK: Scopes
+
+    /// Narrows the list to one scope, or shows everything again with nil.
+    func selectScope(_ index: Int?) {
+        activeScope = index.flatMap { scopes.indices.contains($0) ? $0 : nil }
+        rebuildScopeMenu()
+        applyFilter()
+        if !shownRows.isEmpty, selectedID == nil { tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false) }
+        updateFooter()
+    }
+
+    /// The magnifier's menu: everything, then each scope; the chosen one is checked and named in the placeholder.
+    private func rebuildScopeMenu() {
+        guard !scopes.isEmpty else {
+            filterField.searchMenuTemplate = nil
+            filterField.placeholderString = filterPlaceholder
+            return
+        }
+        let menu = NSMenu()
+        for (index, title) in (["Alle"] + scopes.map(\.title)).enumerated() {
+            let item = NSMenuItem(title: title, action: #selector(scopeChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index - 1
+            item.state = (activeScope ?? -1) == index - 1 ? .on : .off
+            menu.addItem(item)
+        }
+        filterField.searchMenuTemplate = menu
+        filterField.placeholderString = activeScope.map { "\(scopes[$0].title) · \(filterPlaceholder)" } ?? filterPlaceholder
+    }
+
+    @objc private func scopeChosen(_ sender: NSMenuItem) {
+        selectScope(sender.tag >= 0 ? sender.tag : nil)
+    }
+
     // MARK: Footer
 
     private func rebuildFooter() {
@@ -252,6 +339,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     private func updateFooter() {
         let selected = selectedID
         for (button, action) in zip(footerButtons, actions) {
+            button.isHidden = !action.isShown(selected)
             button.isEnabled = selected.map(action.isEnabled) ?? false
         }
     }

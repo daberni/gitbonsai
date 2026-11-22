@@ -16,32 +16,61 @@ extension ScreenshotHarness {
                     FileHandle.standardError.write(Data("panel \(name) did not open\n".utf8))
                     return
                 }
-                let list = popover.list
-                if let filter = environment["GITBONSAI_PANEL_FILTER"] {
-                    list.filterField.stringValue = filter
-                    list.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: list.filterField))
-                }
-                FileHandle.standardError.write(Data("panel \(name): \(list.shownRows.map { "\($0.title) [\($0.detail)] \($0.sha)" }.joined(separator: "; ")); filter shown \(!list.filterField.isHidden)\n".utf8))
-                if let row = environment["GITBONSAI_PANEL_SELECT"].flatMap(Int.init), row < list.tableView.numberOfRows {
-                    let rect = list.tableView.rect(ofRow: row)
-                    pressView(in: window, at: list.tableView.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil))
-                    let selectedRow = tab.history.selectedRow
-                    let historyCommit = selectedRow >= 0 ? String(tab.viewModel.commits[selectedRow].id.prefix(7)) : "none"
-                    FileHandle.standardError.write(Data("panel selected \(list.selectedID ?? "nothing"), history at \(historyCommit)\n".utf8))
-                }
-                if let shot = environment["GITBONSAI_PANEL_SHOT"] { capturePanel(popover, to: shot) }
-                if let title = environment["GITBONSAI_PANEL_BUTTON"], let button = list.footerButtons.first(where: { $0.title == title }) {
-                    FileHandle.standardError.write(Data("panel button \(title) enabled \(button.isEnabled)\n".utf8))
-                    pressView(in: window, at: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
-                }
-                if let title = environment["GITBONSAI_PANEL_MENU"], let id = list.selectedID, let items = list.menuItems?(id) {
-                    let menu = NSMenu()
-                    items.forEach(menu.addItem)
-                    FileHandle.standardError.write(Data("panel menu: \(describe(menu))\n".utf8))
-                    choose(title, in: menu)
-                }
+                whenSettled(tab.tagsController, attempts: 150) { drivePanel(popover, in: window, on: tab, name: name) }
             }
         }
+    }
+
+    private static func drivePanel(_ popover: PanelPopover, in window: NSWindow, on tab: RepositoryViewController, name: String) {
+        let list = popover.list
+        if let scope = environment["GITBONSAI_PANEL_SCOPE"] {
+            list.selectScope(list.scopes.firstIndex { $0.title == scope })
+            FileHandle.standardError.write(Data("panel scope \(scope): \(list.activeScope.map(String.init) ?? "none"), placeholder \(list.filterField.placeholderString ?? "")\n".utf8))
+        }
+        if let filter = environment["GITBONSAI_PANEL_FILTER"] {
+            list.filterField.stringValue = filter
+            list.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: list.filterField))
+        }
+        printRows(of: list, name: name)
+        if let row = environment["GITBONSAI_PANEL_SELECT"].flatMap(Int.init), row < list.tableView.numberOfRows {
+            let rect = list.tableView.rect(ofRow: row)
+            pressView(in: window, at: list.tableView.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil))
+            let selectedRow = tab.history.selectedRow
+            let historyCommit = selectedRow >= 0 ? String(tab.viewModel.commits[selectedRow].id.prefix(7)) : "none"
+            FileHandle.standardError.write(Data("panel selected \(list.selectedID ?? "nothing"), history at \(historyCommit)\n".utf8))
+        }
+        if let shot = environment["GITBONSAI_PANEL_SHOT"] { capturePanel(popover, to: shot) }
+        if let title = environment["GITBONSAI_PANEL_BUTTON"], let button = list.footerButtons.first(where: { $0.title == title }) {
+            FileHandle.standardError.write(Data("panel button \(title) enabled \(button.isEnabled)\n".utf8))
+            pressView(in: window, at: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
+        }
+        if let title = environment["GITBONSAI_PANEL_MENU"], let id = list.selectedID, let items = list.menuItems?(id) {
+            let menu = NSMenu()
+            items.forEach(menu.addItem)
+            FileHandle.standardError.write(Data("panel menu: \(describe(menu))\n".utf8))
+            choose(title, in: menu)
+        }
+        // The action refreshes the tab, and a fetch or push makes the tag list ask the remotes again.
+        if environment["GITBONSAI_PANEL_BUTTON"] != nil || environment["GITBONSAI_PANEL_MENU"] != nil, name == SidebarPanel.tags.rawValue {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                whenSettled(tab.tagsController, attempts: 150) { printRows(of: list, name: "\(name) after the action") }
+            }
+        }
+    }
+
+    private static func printRows(of list: PanelListView, name: String) {
+        FileHandle.standardError.write(Data("panel \(name): \(list.shownRows.map { "\($0.title) [\($0.detail)] \($0.sha)" }.joined(separator: "; ")); filter shown \(!list.filterField.isHidden)\n".utf8))
+        FileHandle.standardError.write(Data("panel note: \(list.note ?? "none")\n".utf8))
+        for row in list.shownRows where !row.badges.isEmpty || row.isHighlighted || row.isDimmed {
+            let badges = row.badges.map { "\($0.glyph)\($0.label.map { " " + $0 } ?? "")/\($0.tone)" }.joined(separator: ",")
+            FileHandle.standardError.write(Data("tag \(row.title): \(badges)\(row.isHighlighted ? " highlighted" : "")\(row.isDimmed ? " dimmed" : "") | \((row.tooltip ?? "").replacingOccurrences(of: "\n", with: " / "))\n".utf8))
+        }
+    }
+
+    /// The tag marks come from the remotes after the list opened; captures wait for their answers.
+    private static func whenSettled(_ tags: TagsController, attempts: Int, _ body: @escaping () -> Void) {
+        if tags.isSettled || attempts == 0 { return body() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { whenSettled(tags, attempts: attempts - 1, body) }
     }
 
     /// The tags are read before the popover opens, so it appears a moment after the click.

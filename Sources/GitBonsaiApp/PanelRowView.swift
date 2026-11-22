@@ -45,18 +45,23 @@ final class PanelRowView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let row, let context = NSGraphicsContext.current?.cgContext else { return }
+        if row.isHighlighted {
+            Theme.clay.withAlphaComponent(Theme.Wash.pressed).setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: P.selectionInset, dy: P.selectionInset), xRadius: Theme.Radius.sm, yRadius: Theme.Radius.sm).fill()
+        }
         let left = P.rowPadding
         let right = bounds.width - P.rowPadding
         let firstLine = bounds.height * P.firstLine
         let secondLine = bounds.height * P.secondLine
-        row.glyph.draw(in: CGRect(x: left, y: firstLine - Theme.Icon.regular / 2, width: Theme.Icon.regular, height: Theme.Icon.regular), color: Theme.inkMuted, context: context)
+        row.glyph.draw(in: CGRect(x: left, y: firstLine - Theme.Icon.regular / 2, width: Theme.Icon.regular, height: Theme.Icon.regular), color: row.isDimmed ? Theme.inkFaint : Theme.inkMuted, context: context)
         let textLeft = left + Theme.Icon.regular + Theme.Space.s
 
-        let age = Self.relativeFormatter.localizedString(for: row.date, relativeTo: Date())
+        let age = row.date.map { Self.relativeFormatter.localizedString(for: $0, relativeTo: Date()) } ?? ""
         let ageWidth = draw(age, font: Theme.captionDigits, color: Theme.inkMuted, rightEdge: right, midY: firstLine)
         let shaWidth = draw(row.sha, font: Theme.monoSmall, color: Theme.inkFaint, rightEdge: right, midY: secondLine)
 
-        var titleRight = right - ageWidth - Theme.Space.s
+        var titleRight = right - ageWidth - (ageWidth > 0 ? Theme.Space.s : 0)
+        titleRight = drawBadges(row.badges, rightEdge: titleRight, midY: firstLine, context: context)
         if let marker = row.marker {
             let markerAttributes: [NSAttributedString.Key: Any] = [.font: Theme.caption, .foregroundColor: Theme.inkMuted]
             let titleWidth = (row.title as NSString).size(withAttributes: [.font: Theme.bodyMedium]).width
@@ -65,8 +70,27 @@ final class PanelRowView: NSView {
             (marker as NSString).draw(at: CGPoint(x: markerX, y: firstLine - Theme.caption.lineHeight / 2), withAttributes: markerAttributes)
             titleRight = markerX - Theme.Space.xs
         }
-        drawTruncated(row.title, font: Theme.bodyMedium, color: Theme.ink, x: textLeft, maxX: titleRight, midY: firstLine)
+        drawTruncated(row.title, font: Theme.bodyMedium, color: row.isDimmed ? Theme.inkMuted : Theme.ink, x: textLeft, maxX: titleRight, midY: firstLine)
         drawTruncated(row.detail, font: Theme.caption, color: Theme.inkMuted, x: textLeft, maxX: right - shaWidth - Theme.Space.s, midY: secondLine)
+    }
+
+    /// Right-aligned in their order, returns where the space left of them ends.
+    private func drawBadges(_ badges: [PanelBadge], rightEdge: CGFloat, midY: CGFloat, context: CGContext) -> CGFloat {
+        var x = rightEdge
+        for badge in badges.reversed() {
+            let color: NSColor = switch badge.tone {
+            case .muted: Theme.inkMuted
+            case .faint: Theme.inkFaint
+            case .alert: Theme.clay
+            }
+            if let label = badge.label {
+                x -= draw(label, font: Theme.caption, color: color, rightEdge: x, midY: midY) + Theme.Space.xs / 2
+            }
+            x -= Theme.Icon.small
+            badge.glyph.draw(in: CGRect(x: x, y: midY - Theme.Icon.small / 2, width: Theme.Icon.small, height: Theme.Icon.small), color: color, context: context)
+            x -= Theme.Space.s
+        }
+        return x
     }
 
     /// Right-aligned, returns its width.

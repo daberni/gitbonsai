@@ -81,6 +81,8 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Create tag | `git tag <name> <commit>`; annotated `git tag -a <name> -F - <commit>` | |
 | Delete tag | `git tag --delete <name>` | |
 | Push / delete tag on a remote | `git push <remote> refs/tags/<name>` / `git push <remote> --delete refs/tags/<name>` | Delete asks first |
+| Tag status per remote | `git ls-remote --tags <remote>` and `git for-each-ref --format=<name, object, peeled object> refs/tags` | Once per remote when the Tags list opens, kept until the next `fetch`, `pull` or `push` through the repository; stopped after 10 s. Tags compare by the object their ref names, so an annotated tag recreated on the same commit differs |
+| Fetch one tag | `git fetch --no-tags <remote> refs/tags/<name>:refs/tags/<name>` | "Holen" for a tag only on the remote; never overwrites a differing local tag |
 | List stashes | `git stash list --format=…` | |
 | Stash | `git stash push [--include-untracked] [-m <message>]` | |
 | Apply / pop / drop | `git stash apply\|pop\|drop <selector>` | Drop asks first |
