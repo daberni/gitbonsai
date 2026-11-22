@@ -6,9 +6,9 @@ import GitEngine
 @MainActor
 final class InteractiveRebaseModel {
     let branch: String
-    /// The commit the steps land on, and how the sheet names it: „main“ or a short SHA.
+    /// The commit the steps land on, and how the sheet names it: main or a short SHA.
     let targetCommit: RebaseCommit
-    let targetName: String
+    let targetName: RefString
     let hasLocalChanges: Bool
     private(set) var range: RebaseRange
     private(set) var baseCommit: RebaseCommit
@@ -20,7 +20,7 @@ final class InteractiveRebaseModel {
     /// The range was replaced: the rows are new.
     var onReload: (() -> Void)?
 
-    init(branch: String, range: RebaseRange, base: RebaseCommit, target: RebaseCommit, targetName: String, branches: [String: [String]], published: Int, hasLocalChanges: Bool) {
+    init(branch: String, range: RebaseRange, base: RebaseCommit, target: RebaseCommit, targetName: RefString, branches: [String: [String]], published: Int, hasLocalChanges: Bool) {
         self.branch = branch
         self.targetCommit = target
         self.targetName = targetName
@@ -160,16 +160,16 @@ final class InteractiveRebaseModel {
     var isUnchanged: Bool { plan.isUnchanged(from: original) }
 
     /// Why the plan cannot start, in the sheet's words.
-    var problemText: String? {
+    var problemText: RefString? {
         switch plan.problem {
-        case let .nothingToFoldInto(commit)?: "\(commit.shortID) kann nicht in den Commit darüber aufgehen: Über ihm bleibt keiner stehen."
-        case let .emptyMessage(commit)?: "Der Commit aus \(commit.shortID) braucht eine Nachricht."
+        case let .nothingToFoldInto(commit)?: "\(commit: commit.id) kann nicht in den Commit darüber aufgehen: Über ihm bleibt keiner stehen."
+        case let .emptyMessage(commit)?: "Der Commit aus \(commit: commit.id) braucht eine Nachricht."
         case nil: nil
         }
     }
 
     /// "3 Commits danach, 1 verworfen"; for an unchanged list onto another commit, how many move there.
-    var summary: String {
+    var summary: RefString {
         if isUnchanged, plan.movesBase { return original.count == 1 ? "1 Commit wandert auf \(targetName)" : "\(original.count) Commits wandern auf \(targetName)" }
         let dropped = plan.steps.filter { $0.action == .drop }.count
         let resulting = plan.result.count
@@ -177,6 +177,6 @@ final class InteractiveRebaseModel {
         if dropped > 0 { parts.append(dropped == 1 ? "1 verworfen" : "\(dropped) verworfen") }
         let folded = plan.steps.filter { $0.action.foldsIntoPrevious }.count
         if folded > 0 { parts.append(folded == 1 ? "1 zusammengeführt" : "\(folded) zusammengeführt") }
-        return parts.joined(separator: ", ")
+        return RefString(parts.joined(separator: ", "))
     }
 }

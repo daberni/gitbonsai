@@ -134,7 +134,7 @@ final class NewBranchViewController: NSViewController {
             return
         }
         if existingBranches.contains(candidate) {
-            show("Es gibt schon einen Branch „\(candidate)“.", in: nameMessage, input: nameInput)
+            show("Es gibt schon einen Branch \(branch: candidate).", in: nameMessage, input: nameInput)
             return
         }
         Task {
@@ -156,8 +156,8 @@ final class NewBranchViewController: NSViewController {
         return isEmptyFolder ? nil : "Dort liegt schon etwas. git legt den Worktree nur in einem neuen oder leeren Ordner an."
     }
 
-    private func show(_ message: String?, in label: NSTextField, input: TextInput?) {
-        label.stringValue = message ?? ""
+    private func show(_ message: RefString?, in label: NSTextField, input: TextInput?) {
+        label.setText(message ?? "")
         let changed = label.isHidden != (message == nil)
         label.isHidden = message == nil
         input?.isInvalid = message != nil

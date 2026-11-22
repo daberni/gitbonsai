@@ -143,9 +143,10 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
 
     func showFailure(_ error: Error) {
         failure.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let summary = NSTextField(wrappingLabelWithString: GitFailureText.summary(of: error))
+        let summary = NSTextField(wrappingLabelWithString: "")
         summary.font = Theme.body
         summary.textColor = Theme.persimmon
+        summary.setText(GitFailureText.summary(of: error))
         summary.preferredMaxLayoutWidth = M.width - 2 * M.padding
         failure.addArrangedSubview(summary)
         if let details = GitFailureText.details(of: error), details != summary.stringValue {

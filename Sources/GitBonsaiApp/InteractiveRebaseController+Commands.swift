@@ -31,7 +31,11 @@ extension InteractiveRebaseController: CommandProvider {
     }
 
     private func openSheet(branch: String, onto commit: Commit, ref: Ref, inPlace: Bool) {
-        let place = "„\(ref.name)“"
+        let place: RefString = switch ref.kind {
+        case .localBranch: "\(branch: ref.name)"
+        case .tag: "\(tag: ref.name)"
+        default: "\(remoteBranch: ref.name)"
+        }
         guard !inPlace else { return openSheet(branch: branch, onto: commit, targetName: place, detection: .plain(moving: 0)) }
         let repository = viewModel.repository
         let targetRef = ref.kind == .tag ? nil : ref.name

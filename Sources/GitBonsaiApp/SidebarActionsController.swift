@@ -47,7 +47,7 @@ final class SidebarActionRunner {
     /// Runs one git write and refreshes the tab, also after a failure: a stopped merge or rebase has changed the repository.
     /// Returns the error so a caller can offer a way out, such as force; `report` false leaves telling the user to that caller.
     @discardableResult
-    func run(failure: String, conflict: String? = nil, note: String, report: Bool = true, _ operation: @Sendable (Repository) async throws -> Void) async -> GitError? {
+    func run(failure: RefString, conflict: RefString? = nil, note: String, report: Bool = true, _ operation: @Sendable (Repository) async throws -> Void) async -> GitError? {
         do {
             try await operation(viewModel.repository)
             await viewModel.refresh(note: note)
@@ -64,11 +64,10 @@ final class SidebarActionRunner {
     }
 
     /// A question with a confirm button and Cancel; `destructive` marks the confirm button red.
-    func confirm(_ title: String, info: String, button: String, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
+    func confirm(_ title: RefString, info: RefString, button: String, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
         let alert = NSAlert()
         alert.alertStyle = style
-        alert.messageText = title
-        alert.informativeText = info
+        alert.setText(title, info: info)
         alert.addButton(withTitle: button)
         alert.addButton(withTitle: "Abbrechen")
         alert.buttons.first?.hasDestructiveAction = destructive
@@ -83,7 +82,7 @@ final class SidebarActionRunner {
             return
         }
         let message = Self.gitMessage(error)
-        guard await confirm("„\(name)“ ist nicht vollständig gemergt", info: message + "\n\nDie Commits, die nur auf diesem Branch liegen, sind danach nur noch über das Reflog erreichbar.", button: "Trotzdem löschen", destructive: true, style: .warning) else { return }
+        guard await confirm("\(branch: name) ist nicht vollständig gemergt", info: "\(message)\n\nDie Commits, die nur auf diesem Branch liegen, sind danach nur noch über das Reflog erreichbar.", button: "Trotzdem löschen", destructive: true, style: .warning) else { return }
         await run(failure: "Branch nicht gelöscht", note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
     }
 
@@ -95,7 +94,7 @@ final class SidebarActionRunner {
             return false
         }
         let name = (path as NSString).lastPathComponent
-        guard await confirm("„\(name)“ hat nicht committete Änderungen", info: Self.gitMessage(error) + "\n\nDie Änderungen und nicht versionierten Dateien in diesem Ordner gehen verloren.", button: "Trotzdem entfernen", destructive: true, style: .warning) else { return false }
+        guard await confirm("\(worktree: name) hat nicht committete Änderungen", info: "\(Self.gitMessage(error))\n\nDie Änderungen und nicht versionierten Dateien in diesem Ordner gehen verloren.", button: "Trotzdem entfernen", destructive: true, style: .warning) else { return false }
         return await run(failure: "Worktree nicht entfernt", note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
     }
 

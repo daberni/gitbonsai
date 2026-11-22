@@ -13,7 +13,7 @@ final class InlineRewordController {
     private(set) var editor: CommitMessageEditor?
     private var commit: Commit?
     private var plan: RebasePlan?
-    private var hint: String?
+    private var hint: RefString?
     /// The commit was rewritten as `new`; the history keeps it selected across the reload that follows.
     var onRewritten: ((_ old: String, _ new: String) -> Void)?
     /// The editor closed, saved or cancelled; after saving the refresh is done and the panel shows whatever is selected now.
@@ -67,20 +67,20 @@ final class InlineRewordController {
         } catch {
             guard editor === self.editor else { return }
             let reason = (error as? RebasePlanError).map(InteractiveRebaseController.describe) ?? "\(error)"
-            editor.showNote(reason)
+            editor.showNote(RefString(reason))
         }
     }
 
     /// "Schreibt 3 Commits neu · 3 schon auf origin/develop", with what happens to uncommitted changes and branches that move along.
-    static func note(_ plan: RebasePlan, published: Int, upstream: String?, hasStaged: Bool) -> String {
+    static func note(_ plan: RebasePlan, published: Int, upstream: String?, hasStaged: Bool) -> RefString {
         let count = plan.steps.count
-        var parts = ["Schreibt \(count == 1 ? "1 Commit" : "\(count) Commits") neu"]
-        if published > 0 { parts.append("\(published) schon auf \(upstream ?? "dem Upstream")") }
+        var parts: [RefString] = ["Schreibt \(count == 1 ? "1 Commit" : "\(count) Commits") neu"]
+        if published > 0 { parts.append("\(published) schon auf \(upstream.map { "\(remoteBranch: $0)" } ?? "dem Upstream")") }
         let moving = plan.branches.values.flatMap { $0 }.map { $0.replacingOccurrences(of: "refs/heads/", with: "") }.sorted()
-        if !moving.isEmpty { parts.append(moving.map { "„\($0)“" }.joined(separator: ", ") + " zieht mit") }
+        if !moving.isEmpty { parts.append("\(RefString.joined(moving.map { "\(branch: $0)" }, separator: ", ")) zieht mit") }
         if plan.rewordsHeadAlone, hasStaged { parts.append("Vorgemerktes bleibt draußen (--only)") }
         if plan.autostash { parts.append("lokale Änderungen werden geparkt (--autostash)") }
-        return parts.joined(separator: " · ")
+        return RefString.joined(parts, separator: " · ")
     }
 
     private func save() {

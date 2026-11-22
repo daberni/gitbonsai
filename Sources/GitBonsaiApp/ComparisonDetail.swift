@@ -70,9 +70,7 @@ final class ComparisonDetail: NSObject {
             baseSwitch.isHidden = base == nil
             note.isHidden = base == nil
             if let base {
-                note.stringValue = sinceMergeBase
-                    ? "Nur was \(newer.shortID) seit der gemeinsamen Basis \(base.prefix(7)) geändert hat."
-                    : "Die Commits liegen auf verschiedenen Branches; der Diff enthält auch, was nur \(older.shortID) hat."
+                note.setText(sinceMergeBase ? "Nur was \(commit: newer.id) seit der gemeinsamen Basis \(commit: base) geändert hat." : "Die Commits liegen auf verschiedenen Branches; der Diff enthält auch, was nur \(commit: older.id) hat.")
             }
         case .run(let run):
             let oldest = run[run.count - 1]

@@ -14,8 +14,8 @@ final class FailureSheet {
     private typealias M = Theme.Failure
 
     let window: SheetWindow
-    let title: String
-    let summary: String
+    let title: RefString
+    let summary: RefString
     let actions: [FailureAction]
     let details: FailureDetailsView?
     /// The buttons in their order on screen: cancel or OK first, the default action last.
@@ -24,14 +24,14 @@ final class FailureSheet {
     private var choices: [ObjectIdentifier: Int?] = [:]
     private var chosen: Int?
 
-    init(title: String, summary: String, details: String?, actions: [FailureAction]) {
+    init(title: RefString, summary: RefString, details: String?, actions: [FailureAction]) {
         self.title = title
         self.summary = summary
         self.actions = actions
         let contentWidth = M.width - 2 * M.padding
         self.details = details.map { FailureDetailsView(details: $0, width: contentWidth) }
         window = SheetWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: M.width, height: M.width)), styleMask: [.titled, .docModalWindow], backing: .buffered, defer: false)
-        window.title = title
+        window.title = title.plain
         window.contentView = layout(contentWidth: contentWidth)
         window.onCancel = { [weak self] in self?.finish(nil) }
         window.onReturn = { [weak self] in self?.finish(self?.actions.isEmpty == false ? 0 : nil) }
@@ -42,17 +42,19 @@ final class FailureSheet {
         let glyph = NSImageView(image: NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Fehler") ?? NSImage())
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: M.glyph, weight: .regular)
         glyph.contentTintColor = Theme.ochre
-        let heading = NSTextField(wrappingLabelWithString: title)
+        let heading = NSTextField(wrappingLabelWithString: "")
         heading.font = Theme.title
         heading.textColor = Theme.ink
+        heading.setText(title)
         heading.preferredMaxLayoutWidth = contentWidth - M.glyph - Theme.Space.s
         let header = NSStackView(views: [glyph, heading])
         header.alignment = .firstBaseline
         header.spacing = Theme.Space.s
 
-        let sentence = NSTextField(wrappingLabelWithString: summary)
+        let sentence = NSTextField(wrappingLabelWithString: "")
         sentence.font = Theme.body
         sentence.textColor = Theme.ink
+        sentence.setText(summary)
         sentence.isSelectable = true
         sentence.preferredMaxLayoutWidth = contentWidth
 

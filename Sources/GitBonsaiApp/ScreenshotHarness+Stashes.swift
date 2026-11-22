@@ -166,9 +166,9 @@ extension ScreenshotHarness {
 
     /// Prints every toast with its action. `GITBONSAI_TOAST_SHOT=<png>` renders the window once the first toast with an action has faded in, and `GITBONSAI_TOAST_CLICK=<action>` then clicks that action with a real click
     /// and prints the status line, the working tree's state and the next toast.
-    static func toastShown(_ toast: ToastView, text: String) {
+    static func toastShown(_ toast: ToastView, text: RefString) {
         let action = toast.action?.title
-        FileHandle.standardError.write(Data("toast: \(text)\(action.map { " [\($0)]" } ?? "")\n".utf8))
+        FileHandle.standardError.write(Data("toast: \(text.plain)\(action.map { " [\($0)]" } ?? "")\n".utf8))
         guard let action, !didHandleToast, let window = toast.window else { return }
         didHandleToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {

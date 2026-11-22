@@ -53,15 +53,15 @@ final class ActionPrompter {
     }
 
     /// Where failures that need no answer go, as a toast with an optional action; without it they get the sheet too.
-    var onToast: ((String, ToastAction?) -> Void)?
+    var onToast: ((RefString, ToastAction?) -> Void)?
     /// Shows the working directory with its conflicts, for the toast of a stash that applied with conflicts.
     var onShowConflicts: (() -> Void)?
 
     /// Says what went wrong. A failure that changed nothing and needs no decision, such as an unreachable server, is a toast whose "Details" opens the sheet;
     /// anything else is a sheet with one sentence, the ways forward as buttons and git's output collapsed below. `summary` replaces the app's sentence for git's message.
-    func report(_ error: Error, title: String, summary: String? = nil, actions: [FailureAction] = []) {
+    func report(_ error: Error, title: RefString, summary: RefString? = nil, actions: [FailureAction] = []) {
         let sentence = summary ?? GitFailureText.summary(of: error)
-        let details = GitFailureText.details(of: error).flatMap { $0 == sentence ? nil : $0 }
+        let details = GitFailureText.details(of: error).flatMap { $0 == sentence.plain ? nil : $0 }
         if actions.isEmpty, GitFailureText.isPassing(error), let onToast {
             let more = details.map { _ in ToastAction(title: "Details") { [weak self] in self?.showSheet(title: title, summary: sentence, details: details, actions: []) } }
             onToast("\(title): \(sentence)", more)
@@ -72,7 +72,7 @@ final class ActionPrompter {
 
     /// A rebase, cherry-pick, revert or merge that stopped on conflicts is a state, not an error: the banner and the conflict list show it, so only other failures are reported.
     /// A stash that applied with conflicts leaves no operation behind; the working directory shows the conflicts, and a toast leads there.
-    func report(_ error: Error, title: String, actions: [FailureAction] = [], unlessStoppedIn repository: Repository) async {
+    func report(_ error: Error, title: RefString, actions: [FailureAction] = [], unlessStoppedIn repository: Repository) async {
         if (error as? GitError)?.stoppedOnConflict == true {
             if await repository.operationInProgress() != nil { return }
             if let onToast {
@@ -89,10 +89,10 @@ final class ActionPrompter {
     }
 
     /// The sheet of a failure, also for a decision that a failure leads to, such as a rejected push. The chosen action runs once the sheet is gone.
-    func showSheet(title: String, summary: String, details: String?, actions: [FailureAction]) {
+    func showSheet(title: RefString, summary: RefString, details: String?, actions: [FailureAction]) {
         let sheet = FailureSheet(title: title, summary: summary, details: details, actions: actions)
         if ScreenshotHarness.isActive {
-            FileHandle.standardError.write(Data("\(title): \(summary)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\(actions.isEmpty ? "" : " {\(actions.map(\.title).joined(separator: " | "))}")\n".utf8))
+            FileHandle.standardError.write(Data("\(title.plain): \(summary.plain)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\(actions.isEmpty ? "" : " {\(actions.map(\.title).joined(separator: " | "))}")\n".utf8))
             guard ScreenshotHarness.clicksReports else { return ScreenshotHarness.renderReport(sheet) }
         }
         guard let window = window?() else { return }
@@ -120,6 +120,7 @@ extension NSAlert {
     func beginSheet(on window: NSWindow) async -> NSApplication.ModalResponse {
         // An alert without buttons gets its "OK" only when it is shown; added here, it takes part in the Esc handling.
         if buttons.isEmpty { addButton(withTitle: "OK") }
+        applyRefText()
         var monitor: Any?
         if let cancel = cancelButton, !buttons.contains(where: { $0.keyEquivalent == Self.escape }) {
             if cancel.keyEquivalent.isEmpty {

@@ -50,7 +50,7 @@ final class StagingController {
         let first = changed.min() ?? hunk.newStart
         let last = changed.max() ?? first
         let range = first == last ? "Zeile \(first)" : "Zeilen \(first)–\(last)"
-        confirm(title: "Hunk verwerfen?", text: "Die Änderungen in \(range) von „\(file.path)“ gehen verloren. Das lässt sich nicht rückgängig machen.") { [weak self] in
+        confirm(title: "Hunk verwerfen?", text: "Die Änderungen in \(range) von \(path: file.path) gehen verloren. Das lässt sich nicht rückgängig machen.") { [weak self] in
             self?.run(failure: Self.discardFailure) { try await $0.discard(hunk, of: file) }
         }
     }
@@ -60,7 +60,7 @@ final class StagingController {
         let path = selection.path
         switch selection.source {
         case .unstaged:
-            confirm(title: "Änderungen an „\(selection.name)“ verwerfen?", text: "Alle nicht gestagten Änderungen an „\(path)“ gehen verloren. Gestagte Änderungen bleiben. Das lässt sich nicht rückgängig machen.") { [weak self] in
+            confirm(title: "Änderungen an \(path: selection.name) verwerfen?", text: "Alle nicht gestagten Änderungen an \(path: path) gehen verloren. Gestagte Änderungen bleiben. Das lässt sich nicht rückgängig machen.") { [weak self] in
                 self?.run(failure: Self.discardFailure) { try await $0.discardUnstagedChanges([path]) }
             }
         case .untracked:
@@ -77,16 +77,15 @@ final class StagingController {
     /// Git has never seen an untracked file, so the sheet says plainly that it is gone for good.
     private func confirmDeletion(of path: String, then perform: @escaping () -> Void) {
         let name = (path as NSString).lastPathComponent
-        confirm(title: "„\(name)“ löschen?", text: "Die ungetrackte Datei „\(path)“ wird gelöscht. Git kennt sie nicht, sie lässt sich nicht wiederherstellen.", then: perform)
+        confirm(title: "\(path: name) löschen?", text: "Die ungetrackte Datei \(path: path) wird gelöscht. Git kennt sie nicht, sie lässt sich nicht wiederherstellen.", then: perform)
     }
 
     /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard, and Esc cancels too.
-    private func confirm(title: String, text: String, then perform: @escaping () -> Void) {
+    private func confirm(title: RefString, text: RefString, then perform: @escaping () -> Void) {
         guard let window = window?() else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = title
-        alert.informativeText = text
+        alert.setText(title, info: text)
         let discard = alert.addButton(withTitle: "Verwerfen")
         discard.hasDestructiveAction = true
         discard.keyEquivalent = ""

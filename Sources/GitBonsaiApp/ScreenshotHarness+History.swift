@@ -252,21 +252,21 @@ extension ScreenshotHarness {
         // Hidden entries are left out, as on screen.
         menu.items.filter { !$0.isHidden }.map { item in
             if item.isSeparatorItem { return "|" }
-            return item.submenu.map { "\(item.title) [\(describe($0))]" } ?? item.title
+            return item.submenu.map { "\(item.plainTitle) [\(describe($0))]" } ?? item.plainTitle
         }.joined(separator: "; ")
     }
 
     static func choose(_ path: String, in menu: NSMenu) {
         var current = menu
         // Titles with branch names contain slashes themselves; a whole path that names an entry is that entry.
-        let titles = menu.items.contains { $0.title.hasPrefix(path) } ? [path] : path.split(separator: "/").map(String.init)
+        let titles = menu.items.contains { $0.plainTitle.hasPrefix(path) } ? [path] : path.split(separator: "/").map(String.init)
         for (depth, title) in titles.enumerated() {
-            guard let index = current.items.firstIndex(where: { $0.title.hasPrefix(title) }) else {
+            guard let index = current.items.firstIndex(where: { $0.plainTitle.hasPrefix(title) }) else {
                 FileHandle.standardError.write(Data("menu has no entry \(title)\n".utf8))
                 return
             }
             if depth == titles.count - 1 {
-                FileHandle.standardError.write(Data("chose \(current.items[index].title)\n".utf8))
+                FileHandle.standardError.write(Data("chose \(current.items[index].plainTitle)\n".utf8))
                 current.performActionForItem(at: index)
             } else if let submenu = current.items[index].submenu {
                 current = submenu
@@ -311,7 +311,7 @@ extension ScreenshotHarness {
     static func answer(_ alert: NSAlert) -> Bool {
         alert.layout()
         render(alert)
-        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.informativeText)\n".utf8))
+        FileHandle.standardError.write(Data("asked \(RefText.plain(alert.messageText)): \(RefText.plain(alert.informativeText))\n".utf8))
         return environment["GITBONSAI_CONFIRM"] == "1"
     }
 
@@ -331,6 +331,7 @@ extension ScreenshotHarness {
     static func render(_ alert: NSAlert) {
         guard let path = environment["GITBONSAI_SHEET_SHOT"], let view = alert.window.contentView?.superview ?? alert.window.contentView else { return }
         alert.window.appearance = NSApp.appearance
+        alert.applyRefText()
         view.layoutSubtreeIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds), let context = NSGraphicsContext(bitmapImageRep: rep) else { return }
         // The sheet's glass and vibrant text blend with what lies behind them; on an empty bitmap dark text vanishes, so a window background goes underneath.

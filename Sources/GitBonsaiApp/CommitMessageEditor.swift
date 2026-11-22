@@ -69,11 +69,11 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
     var isChanged: Bool { message != original.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// What saving rewrites, in one line.
-    func showNote(_ text: String) {
-        note.stringValue = text
+    func showNote(_ text: RefString) {
+        note.setText(text)
     }
 
-    var noteText: String { note.stringValue }
+    var noteText: String { RefText.plain(note.stringValue) }
 
     /// The subject takes the focus with the cursor at its end.
     func focus() {

@@ -12,7 +12,7 @@ final class CommitActionsController {
     }
     private let viewModel: GraphViewModel
     /// Says what a rebase or cherry-pick left out, in a toast.
-    var onToast: ((String) -> Void)?
+    var onToast: ((RefString) -> Void)?
     /// A rebase started here finished without stopping; the tab selects HEAD and leaves any open diff.
     var onRebaseEnded: (() -> Void)? {
         didSet { interactiveRebase.onEnded = onRebaseEnded }
@@ -47,14 +47,15 @@ final class CommitActionsController {
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
         if !inBranch {
-            items.append(ActionMenuItem("Cherry-pick auf „\(branch)“") { [weak self] in self?.cherryPick(commit) })
+            items.append(ActionMenuItem("Cherry-pick auf \(branch: branch)") { [weak self] in self?.cherryPick(commit) })
         }
         items += rebaseOnto.items(branch: branch, commit: commit)
         if !isHead {
-            let reset = NSMenuItem(title: "Reset „\(branch)“ hierher", action: nil, keyEquivalent: "")
+            let reset = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            reset.setTitle("Reset \(branch: branch) hierher")
             let submenu = NSMenu()
             for (mode, title) in [(ResetMode.soft, "Soft – Änderungen bleiben vorgemerkt"), (.mixed, "Mixed – Änderungen bleiben im Arbeitsverzeichnis"), (.hard, "Hard – Änderungen verwerfen …")] {
-                submenu.addItem(ActionMenuItem(title) { [weak self] in self?.reset(branch, to: commit, mode: mode) })
+                submenu.addItem(ActionMenuItem(RefString(title)) { [weak self] in self?.reset(branch, to: commit, mode: mode) })
             }
             reset.submenu = submenu
             items.append(reset)
@@ -84,7 +85,7 @@ final class CommitActionsController {
     // MARK: Actions
 
     private func createWorktree(from commit: Commit) {
-        let form = ActionForm(title: "Worktree aus \(commit.id.prefix(7)) anlegen", info: "Der Worktree bekommt einen eigenen Ordner. Ohne Branch-Namen steht er auf dem Commit (Detached HEAD).", confirm: "Anlegen")
+        let form = ActionForm(title: "Worktree aus \(commit: commit.id) anlegen", info: "Der Worktree bekommt einen eigenen Ordner. Ohne Branch-Namen steht er auf dem Commit (Detached HEAD).", confirm: "Anlegen")
         form.addFolderField(key: "path", label: "Ordner", value: defaultWorktreePath(for: commit))
         form.addField(key: "branch", label: "Neuer Branch (optional)", required: false)
         Task {
@@ -96,7 +97,7 @@ final class CommitActionsController {
     }
 
     private func createBranch(at commit: Commit) {
-        let form = ActionForm(title: "Branch bei \(commit.id.prefix(7)) anlegen", info: commit.subject, confirm: "Anlegen")
+        let form = ActionForm(title: "Branch bei \(commit: commit.id) anlegen", info: RefString(commit.subject), confirm: "Anlegen")
         form.addField(key: "name", label: "Name", placeholder: "feature/…")
         form.addCheckbox("Branch auschecken", checked: true)
         Task {
@@ -120,8 +121,7 @@ final class CommitActionsController {
             // Only a hard reset asks: it throws away uncommitted work. Published commits only get the hint.
             if mode == .hard {
                 let alert = NSAlert()
-                alert.messageText = "„\(branch)“ auf \(commit.id.prefix(7)) zurücksetzen (\(mode.rawValue))?"
-                alert.informativeText = (["Nicht committete Änderungen an versionierten Dateien gehen verloren."] + [hint].compactMap { $0 }).joined(separator: "\n\n")
+                alert.setText("\(branch: branch) auf \(commit: commit.id) zurücksetzen (\(mode.rawValue))?", info: RefString.joined(["Nicht committete Änderungen an versionierten Dateien gehen verloren."] + [hint].compactMap { $0 }, separator: "\n\n"))
                 alert.addButton(withTitle: "Zurücksetzen")
                 alert.addButton(withTitle: "Abbrechen")
                 alert.buttons.first?.hasDestructiveAction = true
@@ -144,8 +144,8 @@ final class CommitActionsController {
     }
 
     private func createTag(at commit: Commit, annotated: Bool) {
-        let title = annotated ? "Annotierten Tag bei \(commit.id.prefix(7)) anlegen" : "Tag bei \(commit.id.prefix(7)) anlegen"
-        let form = ActionForm(title: title, info: commit.subject, confirm: "Anlegen")
+        let title: RefString = annotated ? "Annotierten Tag bei \(commit: commit.id) anlegen" : "Tag bei \(commit: commit.id) anlegen"
+        let form = ActionForm(title: title, info: RefString(commit.subject), confirm: "Anlegen")
         form.addField(key: "name", label: "Name", placeholder: "v1.0")
         if annotated { form.addMessage(label: "Nachricht") }
         Task {
@@ -158,7 +158,7 @@ final class CommitActionsController {
     // MARK: Running
 
     /// Runs one git write and refreshes the tab, also after a failure: a stopped cherry-pick, revert or rebase has changed the repository.
-    private func run(failure: String, conflict: String? = nil, note: String, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    private func run(failure: RefString, conflict: RefString? = nil, note: String, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         runOperation(failure: failure, conflict: conflict, note: note, endsRebase: false) { repository in
             try await operation(repository)
             return nil
@@ -167,7 +167,7 @@ final class CommitActionsController {
 
     /// Runs a rebase, cherry-pick or revert. Commits it left out as already applied show in a toast; a stop on conflicts is left to the banner, other failures are reported.
     /// A rebase that finished at once ends like one finished through the banner.
-    private func runOperation(failure: String, conflict: String?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
+    private func runOperation(failure: RefString, conflict: RefString?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
         let repository = viewModel.repository
         Task {
             do {
@@ -187,7 +187,7 @@ final class CommitActionsController {
     }
 
     /// Runs the operation again with the local changes set aside and brought back afterwards; see `Repository.withLocalChangesStashed`.
-    private func stashAndRetry(failure: String, conflict: String?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
+    private func stashAndRetry(failure: RefString, conflict: RefString?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
         let message = "GitBonsai: vor \(note)"
         let prompter = prompter
         return FailureAction(title: "Änderungen stashen und erneut versuchen") { [weak self] in
@@ -201,19 +201,19 @@ final class CommitActionsController {
     }
 
     /// "3 Commits sind schon auf origin/feature, Push danach nur mit --force-with-lease", or nil when nothing rewritten from `commit` on is published.
-    func publishedHint(rewrittenBy commit: String) async -> String? {
+    func publishedHint(rewrittenBy commit: String) async -> RefString? {
         Self.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: commit), upstream: viewModel.status?.branch.upstream)
     }
 
-    static func publishedHint(_ count: Int, upstream: String?) -> String? {
+    static func publishedHint(_ count: Int, upstream: String?) -> RefString? {
         guard count > 0 else { return nil }
-        let place = upstream ?? "dem Upstream"
-        return (count == 1 ? "1 Commit ist" : "\(count) Commits sind") + " schon auf \(place), Push danach nur mit --force-with-lease"
+        let place: RefString = upstream.map { "\(remoteBranch: $0)" } ?? "dem Upstream"
+        return "\(count == 1 ? "1 Commit ist" : "\(count) Commits sind") schon auf \(place), Push danach nur mit --force-with-lease"
     }
 
     /// The status line's note: the command, and the hint when there is one.
-    static func note(_ command: String, _ hint: String?) -> String {
-        ([command] + [hint].compactMap { $0 }).joined(separator: " · ")
+    static func note(_ command: String, _ hint: RefString?) -> String {
+        ([command] + [hint?.plain].compactMap { $0 }).joined(separator: " · ")
     }
 
     /// Next to the main worktree, named after the repository and the commit.
@@ -237,13 +237,15 @@ final class CommitActionsController {
 }
 
 /// A menu item that runs a closure.
+@MainActor
 final class ActionMenuItem: NSMenuItem {
     private let handler: () -> Void
 
-    init(_ title: String, handler: @escaping () -> Void) {
+    init(_ title: RefString, handler: @escaping () -> Void) {
         self.handler = handler
-        super.init(title: title, action: #selector(fire), keyEquivalent: "")
+        super.init(title: title.plain, action: #selector(fire), keyEquivalent: "")
         target = self
+        setTitle(title)
     }
 
     required init(coder: NSCoder) { fatalError("not used") }

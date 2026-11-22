@@ -16,7 +16,7 @@ final class RebaseBasePicker {
     var changeBase: ((String) async -> String?)?
 
     /// `base` is chosen first; `catalog` lists it with the other candidates under its current section.
-    init(base: RefCatalog.Item, target: String, catalog: RefCatalog, repository: Repository, note: String?) {
+    init(base: RefCatalog.Item, target: RefString, catalog: RefCatalog, repository: Repository, note: String?) {
         current = base.revision
         picker = RefPicker(repository: repository)
         picker.sectionTitles[.current] = "Vorschläge"
@@ -25,11 +25,12 @@ final class RebaseBasePicker {
         picker.button.setAccessibilityLabel("Bisherige Basis")
         let from = Self.caption("von")
         let to = Self.caption("nach")
-        let targetLabel = NSTextField(labelWithString: target)
+        let targetLabel = NSTextField(labelWithString: "")
         targetLabel.font = Theme.bodyMedium
         targetLabel.textColor = Theme.ink
         targetLabel.lineBreakMode = .byTruncatingTail
-        targetLabel.toolTip = target
+        targetLabel.setText(target)
+        targetLabel.toolTip = target.plain
         targetLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         status.font = Theme.caption
         status.lineBreakMode = .byTruncatingTail

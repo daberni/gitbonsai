@@ -298,7 +298,7 @@ final class RepositoryViewController: NSObject {
         switch commitActions.interactiveRebase.rewordAccess(for: commit) {
         case .allowed: return nil
         case let .disabled(reason): return reason
-        case nil: return viewModel.currentBranch.map { "Liegt nicht auf der Linie von „\($0)“" } ?? "Detached HEAD"
+        case nil: return viewModel.currentBranch.map { "Liegt nicht auf der Linie von \($0)" } ?? "Detached HEAD"
         }
     }
 

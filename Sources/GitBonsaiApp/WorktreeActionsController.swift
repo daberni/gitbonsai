@@ -45,7 +45,7 @@ final class WorktreeActionsController {
     }
 
     private func lock(_ path: String) {
-        let form = ActionForm(title: "„\((path as NSString).lastPathComponent)“ sperren", info: "Ein gesperrter Worktree wird nicht aufgeräumt, verschoben oder entfernt, etwa wenn er auf einem Laufwerk liegt, das nicht immer angeschlossen ist.", confirm: "Sperren")
+        let form = ActionForm(title: "\(worktree: (path as NSString).lastPathComponent) sperren", info: "Ein gesperrter Worktree wird nicht aufgeräumt, verschoben oder entfernt, etwa wenn er auf einem Laufwerk liegt, das nicht immer angeschlossen ist.", confirm: "Sperren")
         form.addField(key: "reason", label: "Grund (optional)", required: false)
         Task {
             guard let values = await runner.prompter.ask(form) else { return }
@@ -61,8 +61,8 @@ final class WorktreeActionsController {
     /// Asks first, with the choice to delete the worktree's branch as well; the branch goes only once the worktree is gone.
     private func remove(_ worktree: Worktree) {
         let folder = (worktree.path as NSString).lastPathComponent
-        let form = ActionForm(title: "Worktree „\(folder)“ entfernen?", info: "Der Ordner \((worktree.path as NSString).abbreviatingWithTildeInPath) wird gelöscht. Commits bleiben im Repository.", confirm: "Entfernen")
-        if let branch = worktree.branchName { form.addCheckbox("Branch „\(branch)“ auch löschen", checked: false) }
+        let form = ActionForm(title: "Worktree \(worktree: folder) entfernen?", info: "Der Ordner \(path: (worktree.path as NSString).abbreviatingWithTildeInPath) wird gelöscht. Commits bleiben im Repository.", confirm: "Entfernen")
+        if let branch = worktree.branchName { form.addCheckbox("Branch \(branch: branch) auch löschen", checked: false) }
         form.alert.buttons.first?.hasDestructiveAction = true
         Task {
             guard let values = await runner.prompter.ask(form) else { return }

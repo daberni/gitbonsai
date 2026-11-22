@@ -78,7 +78,7 @@ final class RemoteTagCache {
         }
         guard let (remote, error) = failed.first else { return nil }
         let reason = error?.isTimeout == true ? "antwortet nicht" : "nicht erreichbar"
-        return failed.count == 1 ? "„\(remote)“ \(reason)" : "\(failed.count) Remotes nicht erreichbar"
+        return failed.count == 1 ? "\(remote) \(reason)" : "\(failed.count) Remotes nicht erreichbar"
     }
 
     private func isStale(repository: Repository, remotes: [String]) async -> Bool {

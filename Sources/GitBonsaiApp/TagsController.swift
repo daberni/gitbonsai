@@ -93,8 +93,8 @@ final class TagsController {
 
     func menuItems(for name: String) -> [NSMenuItem] {
         guard let tag = tag(name) else {
-            let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Von „\(remote)“ holen") { [weak self] in self?.fetch(name, from: remote) } }
-            let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Auf „\(remote)“ löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) } }
+            let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Von \(remote: remote) holen") { [weak self] in self?.fetch(name, from: remote) } }
+            let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem("Auf \(remote: remote) löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) } }
             return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem("Name kopieren") { ActionRunner.copy(name) }]
         }
         let jump: [NSMenuItem] = [ActionMenuItem("Zum Commit springen") { [weak self] in self?.jump(to: name) }]
@@ -105,9 +105,9 @@ final class TagsController {
     func localTagGroups(_ name: String, commit: String) -> [[NSMenuItem]] {
         [
             [ActionMenuItem("Auschecken (Detached HEAD)") { [weak self] in self?.checkout(commit: commit) }],
-            remotes.map { remote in ActionMenuItem("Nach „\(remote)“ pushen") { [weak self] in self?.push(name, to: remote) } },
+            remotes.map { remote in ActionMenuItem("Nach \(remote: remote) pushen") { [weak self] in self?.push(name, to: remote) } },
             [ActionMenuItem("Löschen …") { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
-                ActionMenuItem("Auf „\(remote)“ löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) }
+                ActionMenuItem("Auf \(remote: remote) löschen …") { [weak self] in self?.deleteRemotely(name, on: remote) }
             },
             [ActionMenuItem("Name kopieren") { ActionRunner.copy(name) }],
         ]
@@ -131,15 +131,15 @@ final class TagsController {
     }
 
     private func pushFromButton(_ name: String) {
-        chooseRemote(from: "Pushen", among: rows.remotesPreferredForPush(name, all: remotes), title: { "Nach „\($0)“" }) { [weak self] remote in self?.push(name, to: remote) }
+        chooseRemote(from: "Pushen", among: rows.remotesPreferredForPush(name, all: remotes), title: { "Nach \(remote: $0)" }) { [weak self] remote in self?.push(name, to: remote) }
     }
 
     private func fetchFromButton(_ name: String) {
-        chooseRemote(from: "Holen", among: rows.remotesOnlyHaving(name), title: { "Von „\($0)“" }) { [weak self] remote in self?.fetch(name, from: remote) }
+        chooseRemote(from: "Holen", among: rows.remotesOnlyHaving(name), title: { "Von \(remote: $0)" }) { [weak self] remote in self?.fetch(name, from: remote) }
     }
 
     /// With one remote the button acts at once; with several it asks which one in a menu below itself.
-    private func chooseRemote(from buttonTitle: String, among candidates: [String], title: (String) -> String, perform: @escaping (String) -> Void) {
+    private func chooseRemote(from buttonTitle: String, among candidates: [String], title: (String) -> RefString, perform: @escaping (String) -> Void) {
         guard candidates.count > 1, let button = popover.list.footerButtons.first(where: { $0.title == buttonTitle }) else {
             if let remote = candidates.first { perform(remote) }
             return
@@ -159,20 +159,20 @@ final class TagsController {
 
     func deleteLocally(_ name: String) {
         Task {
-            guard await confirm("Tag „\(name)“ löschen?", info: "Der Tag wird in diesem Repository gelöscht. Der Commit und Tags auf Remotes bleiben.", button: "Löschen") else { return }
+            guard await confirm("Tag \(tag: name) löschen?", info: "Der Tag wird in diesem Repository gelöscht. Der Commit und Tags auf Remotes bleiben.", button: "Löschen") else { return }
             runner.run(failure: "Tag nicht gelöscht", note: "git tag --delete \(name)") { try await $0.deleteTag(name) }
         }
     }
 
     func deleteRemotely(_ name: String, on remote: String) {
         Task {
-            guard await confirm("Tag „\(name)“ auf „\(remote)“ löschen?", info: "Der Tag verschwindet für alle, die von „\(remote)“ holen. Der lokale Tag bleibt.", button: "Auf \(remote) löschen") else { return }
-            runner.run(failure: "Tag auf „\(remote)“ nicht gelöscht", note: "git push \(remote) --delete refs/tags/\(name)") { try await $0.deleteRemoteTag(name, on: remote) }
+            guard await confirm("Tag \(tag: name) auf \(remote: remote) löschen?", info: "Der Tag verschwindet für alle, die von \(remote: remote) holen. Der lokale Tag bleibt.", button: "Auf \(remote) löschen") else { return }
+            runner.run(failure: "Tag auf \(remote: remote) nicht gelöscht", note: "git push \(remote) --delete refs/tags/\(name)") { try await $0.deleteRemoteTag(name, on: remote) }
         }
     }
 
     /// The list stays open behind the question and shows the outcome in place.
-    private func confirm(_ title: String, info: String, button: String) async -> Bool {
+    private func confirm(_ title: RefString, info: RefString, button: String) async -> Bool {
         let runner = runner
         return await popover.stayingOpen { await runner.confirm(title, info: info, button: button) }
     }

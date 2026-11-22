@@ -70,7 +70,7 @@ extension ScreenshotHarness {
     private static func runFetchMenu(on tab: RepositoryViewController) {
         let menu = tab.fetchController.menu()
         if environment["GITBONSAI_FETCH_MENU"] == "1" {
-            let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.title) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
+            let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.plainTitle) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
             FileHandle.standardError.write(Data("fetch menu: \(entries.joined(separator: "; "))\n".utf8))
         }
         guard let pick = environment["GITBONSAI_FETCH_PICK"] else { return }
@@ -85,7 +85,7 @@ extension ScreenshotHarness {
             guard let pick = environment["GITBONSAI_\(title.uppercased())"] else { continue }
             FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n".utf8))
             guard let menu = openToolbarMenu(title, on: tab) else { continue }
-            let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.title) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
+            let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.plainTitle) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
             FileHandle.standardError.write(Data("\(title.lowercased()) menu: \(entries.joined(separator: "; "))\n".utf8))
             guard !pick.isEmpty else { continue }
             choose(pick, in: menu)

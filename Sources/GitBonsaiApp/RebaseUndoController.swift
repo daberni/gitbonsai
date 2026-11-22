@@ -41,16 +41,15 @@ final class RebaseUndoController {
     private func show() {
         button.isHidden = undo == nil
         guard let undo else { return }
-        let branch = undo.shortBranch.map { "„\($0)“" } ?? "HEAD"
-        button.toolTip = "Setzt \(branch) auf den Stand vor dem Rebase zurück (ORIG_HEAD \(undo.before.prefix(7)))"
+        button.toolTip = "Setzt \(undo.shortBranch ?? "HEAD") auf den Stand vor dem Rebase zurück (ORIG_HEAD \(undo.before.prefix(RefString.shortSHA)))"
     }
 
     @objc private func pressed() {
         guard let undo else { return }
-        let branch = undo.shortBranch.map { "„\($0)“" } ?? "HEAD"
+        let branch: RefString = undo.shortBranch.map { "\(branch: $0)" } ?? "HEAD"
         let stacked = undo.stacked.compactMap { $0.after == nil ? nil : $0.ref.replacingOccurrences(of: "refs/heads/", with: "") }
-        var info = "\(branch) kommt zurück auf \(undo.before.prefix(7)), den Stand vor dem Rebase (git reset --keep ORIG_HEAD). Lokale Änderungen bleiben."
-        if !stacked.isEmpty { info += "\n\nMitgezogene Branches gehen ebenfalls zurück: " + stacked.joined(separator: ", ") + "." }
+        var info: RefString = "\(branch) kommt zurück auf \(commit: undo.before), den Stand vor dem Rebase (git reset --keep ORIG_HEAD). Lokale Änderungen bleiben."
+        if !stacked.isEmpty { info = info + "\n\nMitgezogene Branches gehen ebenfalls zurück: \(RefString.joined(stacked.map { "\(branch: $0)" }, separator: ", "))." }
         Task {
             let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Rebase rückgängig machen?", info: info, button: "Rückgängig machen")
             guard confirmed else { return }

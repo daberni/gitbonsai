@@ -30,8 +30,8 @@ final class FetchController {
         menu.addItem(item("Alle Remotes fetchen", .allRemotes))
         if !remotes.isEmpty { menu.addItem(.separator()) }
         for remote in remotes {
-            menu.addItem(item("„\(remote)“ fetchen", .remote(remote, prune: false)))
-            menu.addItem(item("„\(remote)“ fetchen und gelöschte Branches entfernen", .remote(remote, prune: true)))
+            menu.addItem(item("\(remote: remote) fetchen", .remote(remote, prune: false)))
+            menu.addItem(item("\(remote: remote) fetchen und gelöschte Branches entfernen", .remote(remote, prune: true)))
         }
         menu.addItem(.separator())
         menu.addItem(item("Tags aller Remotes fetchen", .tags))
@@ -46,7 +46,7 @@ final class FetchController {
         }
     }
 
-    private func item(_ title: String, _ variant: FetchVariant) -> NSMenuItem {
+    private func item(_ title: RefString, _ variant: FetchVariant) -> NSMenuItem {
         let item = ActionMenuItem(title) { [weak self] in self?.fetch(variant) }
         item.toolTip = variant.commandLine
         item.isEnabled = !remotes.isEmpty

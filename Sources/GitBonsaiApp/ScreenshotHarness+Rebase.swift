@@ -4,7 +4,7 @@ import GitEngine
 /// Harness switches for the interactive rebase: the sheet driven by real clicks, drags and keys, the amend at an edit stop and the undo in the status line.
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_REBASE_SCRIPT=<step>;<step>…` drives the sheet once it is open; open it with `GITBONSAI_MENU_RUN=<row>:Rebase „<branch>“ interaktiv`.
+    /// `GITBONSAI_REBASE_SCRIPT=<step>;<step>…` drives the sheet once it is open; open it with `GITBONSAI_MENU_RUN=<row>:Rebase <branch> interaktiv`.
     /// Steps: `drag:<row>><gap>` drags a row by its grip to the gap before row `gap`, `click:<row>`, `key:<key>` (a letter, `opt-up`, `opt-down`, `up`, `down`),
     /// `popup:<row>=<action>` picks from the row's pop-up, `subject:<row>=<text>` and `message:<text>` replace text by typing (`\n` for a new line),
     /// `toggle:update-refs|autostash`, `size:<width>x<height>` (the sheet's content size, kept within its limits), `base:<revision>` (the old base), `resize:<column>><points>` (drags a column edge over the rows), `print`, `shot:<png>`, `start`, `cancel`. Each step is a real event through the sheet's window.
@@ -95,7 +95,7 @@ extension ScreenshotHarness {
         }
         for row in (environment["GITBONSAI_REBASE_MENU"] ?? "").split(separator: ",").compactMap({ Int($0) }) where tab.viewModel.commits.indices.contains(row) {
             let items = tab.commitActions.interactiveRebase.menuItems(for: tab.viewModel.commits[row])
-            log("rebase menu \(row): " + items.map { $0.action == nil ? "\($0.title) (aus: \($0.toolTip ?? ""))" : $0.title }.joined(separator: "; "))
+            log("rebase menu \(row): " + items.map { $0.action == nil ? "\($0.plainTitle) (aus: \($0.toolTip ?? ""))" : $0.plainTitle }.joined(separator: "; "))
         }
         if let subject = environment["GITBONSAI_EDIT_AMEND"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { amendAtEditStop(on: tab, subject: subject) }

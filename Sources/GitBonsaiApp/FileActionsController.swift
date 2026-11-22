@@ -53,8 +53,8 @@ final class FileActionsController {
         guard onDisk else { return items }
         let file = url(of: selection)
         let editor = ExternalApps.editor(forRepository: viewModel.repository.path)
-        let editorTitle = editor.map { "In „\($0.app.name)“ öffnen" } ?? "Im Editor öffnen"
-        items.append(ActionMenuItem(editorTitle) { [weak self] in self?.openInEditor(file) })
+        let editorTitle = editor.map { "In \($0.app.name) öffnen" } ?? "Im Editor öffnen"
+        items.append(ActionMenuItem(RefString(editorTitle)) { [weak self] in self?.openInEditor(file) })
         items.append(ActionMenuItem("Mit Standard-App öffnen") { [weak self] in self?.open(file, with: nil) })
         items.append(ActionMenuItem("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([file]) })
         return items
@@ -78,7 +78,7 @@ final class FileActionsController {
         switch selection.source {
         case .commit(let commit):
             let title = file.state == .deleted ? "Version vor diesem Commit wiederherstellen" : "Aus diesem Commit wiederherstellen"
-            return [ActionMenuItem(title) { [weak self] in self?.restore(selection.path, of: commit) }]
+            return [ActionMenuItem(RefString(title)) { [weak self] in self?.restore(selection.path, of: commit) }]
         case .revisions:
             return []
         case .unstaged, .staged, .untracked:
@@ -138,8 +138,7 @@ final class FileActionsController {
                 if try await repository.hasLocalChanges(at: path) {
                     let alert = NSAlert()
                     alert.alertStyle = .warning
-                    alert.messageText = "„\(name)“ aus \(revision.prefix(7)) wiederherstellen?"
-                    alert.informativeText = "Die lokalen Änderungen an „\(path)“ werden überschrieben. Das lässt sich nicht rückgängig machen. Gestagte Änderungen bleiben im Index."
+                    alert.setText("\(path: name) aus \(commit: revision) wiederherstellen?", info: "Die lokalen Änderungen an \(path: path) werden überschrieben. Das lässt sich nicht rückgängig machen. Gestagte Änderungen bleiben im Index.")
                     Self.addButtons(to: alert, confirm: "Wiederherstellen")
                     guard await prompter.confirm(alert) else { return }
                 }
@@ -158,9 +157,8 @@ final class FileActionsController {
         Task {
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = "„\(selection.name)“ in den Papierkorb legen?"
             let tracked = selection.source == .untracked ? "" : " Git zeigt sie danach als gelöscht."
-            alert.informativeText = "„\(selection.path)“ wird aus dem Arbeitsverzeichnis entfernt und landet im Papierkorb.\(tracked)"
+            alert.setText("\(path: selection.name) in den Papierkorb legen?", info: "\(path: selection.path) wird aus dem Arbeitsverzeichnis entfernt und landet im Papierkorb.\(tracked)")
             Self.addButtons(to: alert, confirm: "In den Papierkorb")
             guard await prompter.confirm(alert) else { return }
             do {

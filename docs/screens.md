@@ -155,7 +155,7 @@ Repo-spezifische Werte (Name, E-Mail, Signing) stehen im Repo-Info-Sheet (Titel 
 
 ## 4. Interaktives Rebase (V1)
 
-Sheet nach „Rebase „<Branch>“ interaktiv auf … …“ im Commit-Kontextmenü (jeder Commit; an Ort und Stelle auf Vorfahren von HEAD, sonst `--onto` ab der erkannten Basis, oben änderbar) oder Drag mit ⌥ (Abschnitt 1.3). Spalten wie in der Historie: Grenzen ziehbar, Breiten gemerkt, seitlich scrollbar. Liste der Commits von alt nach neu, pro Zeile Aktion (pick, reword, squash, fixup, drop) als Popup, Drag zum Umsortieren, Subject editierbar bei reword. Vorschau rechts: resultierender linearer Verlauf als Mini-Graph. Button **Rebase starten** erzeugt die Todo-Liste und ruft `git rebase -i` mit dem Sequence-Editor-Helper. Bei Konflikten wechselt die UI ins Banner (1.5). Stacks: Checkbox "Abhängige Branches mitziehen (`--update-refs`)", vorausgewählt, wenn Branches auf Zwischen-Commits zeigen.
+Sheet nach „Rebase <Branch> interaktiv auf … …“ im Commit-Kontextmenü (jeder Commit; an Ort und Stelle auf Vorfahren von HEAD, sonst `--onto` ab der erkannten Basis, oben änderbar) oder Drag mit ⌥ (Abschnitt 1.3). Spalten wie in der Historie: Grenzen ziehbar, Breiten gemerkt, seitlich scrollbar. Liste der Commits von alt nach neu, pro Zeile Aktion (pick, reword, squash, fixup, drop) als Popup, Drag zum Umsortieren, Subject editierbar bei reword. Vorschau rechts: resultierender linearer Verlauf als Mini-Graph. Button **Rebase starten** erzeugt die Todo-Liste und ruft `git rebase -i` mit dem Sequence-Editor-Helper. Bei Konflikten wechselt die UI ins Banner (1.5). Stacks: Checkbox "Abhängige Branches mitziehen (`--update-refs`)", vorausgewählt, wenn Branches auf Zwischen-Commits zeigen.
 
 ## 5. Konfliktlösung
 

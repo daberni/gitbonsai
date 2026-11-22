@@ -544,6 +544,25 @@ enum Theme {
         static let border: (plain: CGFloat, head: CGFloat) = (0.55, 0.75)
     }
 
+    /// Names inside running text (menus, sheets, banner, toasts): the ref pill in miniature, sized from the surrounding font.
+    enum RefText {
+        /// Longest name before it is cut in the middle, so its prefix (feature/) and its distinguishing end stay readable.
+        static let maxNameWidth: CGFloat = 220
+        /// The pill's text is this much smaller than the text around it.
+        static let shrink: CGFloat = 1
+        /// Added to the pill text's line height.
+        static let extraHeight: CGFloat = 3
+        static let padding: CGFloat = 5
+        static let trailingPadding: CGFloat = 6
+        static let glyphInset: CGFloat = 3
+        static let glyphGap: CGFloat = 3
+        static let commitRing: CGFloat = 1.4
+        /// Share of the glyph box the commit ring leaves free on each side.
+        static let commitInset: CGFloat = 0.22
+        /// Size of the hidden copy of each name that keeps a control's plain text readable.
+        static let hiddenSize: CGFloat = 0.01
+    }
+
     /// A history row's pills expanded over the columns when the label column cuts some of them off.
     @MainActor enum RefOverlay {
         /// Inner margin around the pills, all sides.

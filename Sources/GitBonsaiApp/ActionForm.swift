@@ -25,10 +25,9 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private var choices: [(key: String, popup: NSPopUpButton, values: [String])] = []
     private var messageView: NSTextView?
 
-    init(title: String, info: String, confirm: String) {
+    init(title: RefString, info: RefString, confirm: String) {
         super.init()
-        alert.messageText = title
-        alert.informativeText = info
+        alert.setText(title, info: info)
         alert.addButton(withTitle: confirm)
         alert.addButton(withTitle: "Abbrechen")
         stack.orientation = .vertical
@@ -72,8 +71,9 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
     }
 
-    func addCheckbox(_ title: String, checked: Bool) {
-        let box = NSButton(checkboxWithTitle: title, target: nil, action: nil)
+    func addCheckbox(_ title: RefString, checked: Bool) {
+        let box = NSButton(checkboxWithTitle: title.plain, target: nil, action: nil)
+        if title.containsNames, let font = box.font { box.attributedTitle = RefText.attributed(title, font: font, color: .labelColor) }
         box.state = checked ? .on : .off
         checkbox = box
         stack.addArrangedSubview(box)

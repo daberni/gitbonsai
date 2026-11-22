@@ -114,7 +114,7 @@ final class StashesController {
                 prompter.onToast?("Nichts zu stashen", nil)
                 return
             }
-            prompter.onToast?("Gestasht: \(created.stash.text)", ToastAction(title: "Rückgängig") { [weak self] in self?.undo(created) })
+            prompter.onToast?("Gestasht: \(stash: created.stash.text)", ToastAction(title: "Rückgängig") { [weak self] in self?.undo(created) })
         } catch {
             await viewModel.refresh(note: nil)
             prompter.report(error, title: "Stash nicht angelegt")
@@ -128,9 +128,9 @@ final class StashesController {
             do {
                 try await repository.undoStash(created)
                 await viewModel.refresh(note: "git stash pop --index stash@{0}")
-                prompter.onToast?("Stash zurückgenommen: \(created.stash.text)", nil)
+                prompter.onToast?("Stash zurückgenommen: \(stash: created.stash.text)", nil)
             } catch let error as StashUndoError {
-                prompter.onToast?("Nicht rückgängig gemacht: " + Self.reason(error) + "; der Stash bleibt in der Liste", nil)
+                prompter.onToast?("Nicht rückgängig gemacht: \(Self.reason(error)); der Stash bleibt in der Liste", nil)
             } catch {
                 await viewModel.refresh(note: nil)
                 prompter.report(error, title: "Stash nicht zurückgenommen")
@@ -173,14 +173,14 @@ final class StashesController {
     func drop(_ id: String) {
         guard let stash = stash(id) else { return }
         Task {
-            guard await runner.confirm("\(stash.selector) droppen?", info: "„\(stash.text)“ wird gelöscht. Die Änderungen darin sind danach verloren.", button: "Drop") else { return }
+            guard await runner.confirm("\(stash: stash.selector) droppen?", info: "„\(stash.text)“ wird gelöscht. Die Änderungen darin sind danach verloren.", button: "Drop") else { return }
             runner.run(failure: "Stash nicht gelöscht", note: "git stash drop \(stash.selector)") { try await $0.dropStash(stash) }
         }
     }
 
     func createBranch(_ id: String) {
         guard let stash = stash(id) else { return }
-        let form = ActionForm(title: "Branch aus \(stash.selector) anlegen", info: "Der Branch beginnt beim Commit, auf dem der Stash entstand. Der Stash wird dort angewendet und danach gelöscht.", confirm: "Anlegen")
+        let form = ActionForm(title: "Branch aus \(stash: stash.selector) anlegen", info: "Der Branch beginnt beim Commit, auf dem der Stash entstand. Der Stash wird dort angewendet und danach gelöscht.", confirm: "Anlegen")
         form.addField(key: "name", label: "Name", placeholder: "feature/…")
         Task {
             guard let values = await prompter.ask(form), let name = values.value("name") else { return }

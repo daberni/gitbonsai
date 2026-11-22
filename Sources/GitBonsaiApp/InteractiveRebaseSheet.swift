@@ -26,7 +26,7 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     /// The step whose message the editor shows.
     private var messageIndex: Int?
     /// Says whether the commits above HEAD would be published, for the current old base.
-    var publishedHint: (Int) -> String? = { _ in nil }
+    var publishedHint: (Int) -> RefString? = { _ in nil }
 
     init(model: InteractiveRebaseModel, basePicker: RebaseBasePicker) {
         self.model = model
@@ -60,9 +60,10 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     // MARK: Layout
 
     private func build() {
-        let title = NSTextField(labelWithString: "Rebase „\(model.branch)“ interaktiv")
+        let title = NSTextField(labelWithString: "")
         title.font = Theme.title
         title.textColor = Theme.ink
+        title.setText("Rebase \(branch: model.branch) interaktiv")
         let keys = NSTextField(labelWithString: "Älteste oben · ziehen oder ⌥↑ ⌥↓ verschiebt, p r e s f d wählt die Aktion · Spaltengrenzen lassen sich ziehen")
         keys.font = Theme.caption
         keys.textColor = Theme.inkMuted
@@ -199,8 +200,9 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         list.select(0)
         let merges = model.range.flattenedMerges
         let flattened = merges == 0 ? nil : (merges == 1 ? "1 Merge im Bereich wird flach gemacht" : "\(merges) Merges im Bereich werden flach gemacht") + ", wie git rebase ohne --rebase-merges"
-        hint.stringValue = [publishedHint(model.published), flattened].compactMap { $0 }.joined(separator: " · ")
-        hint.toolTip = hint.stringValue
+        let hintText = RefString.joined([publishedHint(model.published), flattened.map { RefString($0) }].compactMap { $0 }, separator: " · ")
+        hint.setText(hintText)
+        hint.toolTip = hintText.plain
         updateRefsBox?.isEnabled = !model.plan.branches.isEmpty
         updateRefsBox?.state = model.plan.updateRefs ? .on : .off
         modelChanged()
@@ -209,11 +211,11 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     private func modelChanged() {
         list.refresh()
         preview.show(model)
-        summary.stringValue = model.isUnchanged && !model.plan.movesBase ? "Nichts geändert" : model.summary
-        let problemText = model.problemText ?? (model.plan.dropsEverything ? "Alle Commits verworfen: „\(model.branch)“ wird auf \(model.targetCommit.shortID) zurückgesetzt." : nil)
-        problem.stringValue = problemText ?? " "
-        problem.toolTip = problemText
+        summary.setText(model.isUnchanged && !model.plan.movesBase ? "Nichts geändert" : model.summary)
+        let problemText = model.problemText ?? (model.plan.dropsEverything ? "Alle Commits verworfen: \(branch: model.branch) wird auf \(commit: model.targetCommit.id) zurückgesetzt." : nil)
         problem.textColor = model.plan.problem == nil ? Theme.ochre : Theme.persimmon
+        problem.setText(problemText ?? " ")
+        problem.toolTip = problemText?.plain
         startButton.isEnabled = model.canStart
         // The editor keeps what is being typed; a change elsewhere, such as squash on another row, shows the new group message.
         if window.firstResponder !== messageView { showMessage(of: list.selectedIndex) }
@@ -231,13 +233,13 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         let folded = model.plan.groups.first { $0.first?.commit?.id == head?.id }.map { $0.count - 1 } ?? 0
         switch (model.steps[index].action, head) {
         case (.drop, _), (_, nil):
-            messageCaption.stringValue = "\(commit.shortID) wird verworfen"
+            messageCaption.setText("\(commit: commit.id) wird verworfen")
         case let (_, head?) where folded > 0:
-            messageCaption.stringValue = "Nachricht von \(head.shortID) mit \(folded == 1 ? "1 zusammengeführten Commit" : "\(folded) zusammengeführten Commits")\(editable ? "" : " (fixup behält sie)")"
+            messageCaption.setText("Nachricht von \(commit: head.id) mit \(folded == 1 ? "1 zusammengeführten Commit" : "\(folded) zusammengeführten Commits")\(editable ? "" : " (fixup behält sie)")")
         case let (.reword, head?):
-            messageCaption.stringValue = "Neue Nachricht für \(head.shortID)"
+            messageCaption.setText("Neue Nachricht für \(commit: head.id)")
         case let (_, head?):
-            messageCaption.stringValue = "Nachricht von \(head.shortID); zum Ändern reword wählen"
+            messageCaption.setText("Nachricht von \(commit: head.id); zum Ändern reword wählen")
         }
         setMessage(model.message(forGroupOf: index) ?? commit.message, editable: editable)
     }

@@ -15,7 +15,7 @@ extension CheckoutController: CommandProvider {
             switch ref.kind {
             case .localBranch:
                 let worktree = elsewhere[ref.fullName]
-                let context = worktree.map { "in Worktree „\(($0.path as NSString).lastPathComponent)“" }
+                let context = worktree.map { "in Worktree \(($0.path as NSString).lastPathComponent)" }
                 commands.append(Command(id: ref.fullName, title: ref.name, glyph: .glyph(ref.isHead ? .check : .laptop), context: context, disabledReason: ref.isHead ? "Ausgecheckt" : nil) { [weak self] in
                     self?.perform(.localBranch(ref.name), worktreePath: worktree?.path)
                 })

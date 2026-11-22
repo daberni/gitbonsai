@@ -34,11 +34,11 @@ final class BranchActionsController {
         var historyGroup: [NSMenuItem] = []
         if let pull = branchPull.item(for: ref) { checkoutGroup.append(pull) }
         if !ref.isHead {
-            let title = worktreeName.map { "Zu Worktree „\($0)“ wechseln" } ?? "„\(name)“ auschecken"
+            let title: RefString = worktreeName.map { folder -> RefString in "Zu Worktree \(worktree: folder) wechseln" } ?? "\(branch: name) auschecken"
             checkoutGroup.append(ActionMenuItem(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })
             if let current = viewModel.currentBranch {
-                historyGroup.append(ActionMenuItem("„\(name)“ in „\(current)“ mergen") { [weak self] in self?.merge(name, into: current) })
-                historyGroup.append(ActionMenuItem("„\(current)“ auf „\(name)“ rebasen") { [weak self] in self?.rebase(current, onto: name) })
+                historyGroup.append(ActionMenuItem("\(branch: name) in \(branch: current) mergen") { [weak self] in self?.merge(name, into: current) })
+                historyGroup.append(ActionMenuItem("\(branch: current) auf \(branch: name) rebasen") { [weak self] in self?.rebase(current, onto: name) })
             }
         }
         var editGroup: [NSMenuItem] = [
@@ -46,23 +46,23 @@ final class BranchActionsController {
             ActionMenuItem(ref.upstream == nil ? "Upstream setzen …" : "Upstream ändern …") { [weak self] in self?.setUpstream(of: ref) },
         ]
         if !ref.isHead, worktree == nil {
-            editGroup.append(ActionMenuItem("Worktree für „\(name)“ anlegen …") { [weak self] in self?.createWorktree(for: name) })
+            editGroup.append(ActionMenuItem("Worktree für \(branch: name) anlegen …") { [weak self] in self?.createWorktree(for: name) })
         }
         let copyGroup: [NSMenuItem] = [ActionMenuItem("Namen kopieren") { SidebarActionRunner.copy(name) }]
-        let deleteGroup: [NSMenuItem] = ref.isHead ? [] : [ActionMenuItem("„\(name)“ löschen …") { [weak self] in self?.delete(name, worktree: worktree) }]
+        let deleteGroup: [NSMenuItem] = ref.isHead ? [] : [ActionMenuItem("\(branch: name) löschen …") { [weak self] in self?.delete(name, worktree: worktree) }]
         return [checkoutGroup, historyGroup, editGroup, copyGroup, deleteGroup]
     }
 
     /// A local branch that follows this remote branch is offered a pull from it.
     private func remoteGroups(_ ref: Ref, remote: String, branch: String) -> [[NSMenuItem]] {
         let hasLocal = viewModel.refs.contains { $0.kind == .localBranch && $0.name == branch }
-        var checkoutGroup: [NSMenuItem] = hasLocal ? [] : [ActionMenuItem("„\(ref.name)“ als lokalen Branch auschecken") { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
+        var checkoutGroup: [NSMenuItem] = hasLocal ? [] : [ActionMenuItem("\(remoteBranch: ref.name) als lokalen Branch auschecken") { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
         let followers = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }
         checkoutGroup += followers.compactMap(branchPull.item(for:))
         return [
             checkoutGroup,
             [ActionMenuItem("Namen kopieren") { SidebarActionRunner.copy(ref.name) }],
-            [ActionMenuItem("„\(branch)“ auf „\(remote)“ löschen …") { [weak self] in self?.deleteRemote(branch, on: remote) }],
+            [ActionMenuItem("\(remoteBranch: branch) auf \(remote: remote) löschen …") { [weak self] in self?.deleteRemote(branch, on: remote) }],
         ]
     }
 
@@ -78,14 +78,14 @@ final class BranchActionsController {
             if published > 0 {
                 let upstream = viewModel.status?.branch.upstream ?? "dem Upstream"
                 let commits = published == 1 ? "Ein Commit, der dabei neu geschrieben wird, ist" : "\(published) Commits, die dabei neu geschrieben werden, sind"
-                guard await runner.confirm("„\(current)“ auf „\(name)“ rebasen?", info: "\(commits) schon in „\(upstream)“. Danach lässt sich „\(current)“ nur noch mit Force-Push hochladen.", button: "Rebasen") else { return }
+                guard await runner.confirm("\(branch: current) auf \(branch: name) rebasen?", info: "\(commits) schon in \(remoteBranch: upstream). Danach lässt sich \(branch: current) nur noch mit Force-Push hochladen.", button: "Rebasen") else { return }
             }
             await runner.run(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: "git rebase") { try await $0.rebaseCurrentBranch(onto: name) }
         }
     }
 
     private func rename(_ name: String) {
-        let form = ActionForm(title: "„\(name)“ umbenennen", info: "Upstream und Worktree folgen dem neuen Namen. Auf dem Remote bleibt der alte Name.", confirm: "Umbenennen")
+        let form = ActionForm(title: "\(branch: name) umbenennen", info: "Upstream und Worktree folgen dem neuen Namen. Auf dem Remote bleibt der alte Name.", confirm: "Umbenennen")
         form.addField(key: "name", label: "Neuer Name", value: name)
         Task {
             guard let values = await runner.prompter.ask(form), let newName = values.value("name"), newName != name else { return }
@@ -99,8 +99,8 @@ final class BranchActionsController {
             guard case .remoteBranch = candidate.kind, !candidate.name.hasSuffix("/HEAD") else { return nil }
             return candidate.name
         }.sorted()
-        let info = ref.upstream.map { "Zurzeit „\($0)“. Leer lassen entfernt den Upstream." } ?? "Der Remote-Branch, mit dem „\(name)“ verglichen wird und von dem Pull holt."
-        let form = ActionForm(title: "Upstream von „\(name)“", info: info, confirm: "Übernehmen")
+        let info: RefString = ref.upstream.map { upstream -> RefString in "Zurzeit \(remoteBranch: upstream). Leer lassen entfernt den Upstream." } ?? "Der Remote-Branch, mit dem \(branch: name) verglichen wird und von dem Pull holt."
+        let form = ActionForm(title: "Upstream von \(branch: name)", info: info, confirm: "Übernehmen")
         let suggested = ref.upstream ?? remoteBranches.first { $0.hasSuffix("/" + name) } ?? ""
         form.addComboField(key: "upstream", label: "Remote-Branch", value: suggested, suggestions: remoteBranches, required: ref.upstream == nil)
         Task {
@@ -112,7 +112,7 @@ final class BranchActionsController {
     }
 
     private func createWorktree(for name: String) {
-        let form = ActionForm(title: "Worktree für „\(name)“ anlegen", info: "Der Branch wird in einem eigenen Ordner ausgecheckt.", confirm: "Anlegen")
+        let form = ActionForm(title: "Worktree für \(branch: name) anlegen", info: "Der Branch wird in einem eigenen Ordner ausgecheckt.", confirm: "Anlegen")
         form.addFolderField(key: "path", label: "Ordner", value: runner.defaultWorktreePath(suffix: name))
         Task {
             guard let values = await runner.prompter.ask(form), let folder = values.value("path") else { return }
@@ -126,10 +126,10 @@ final class BranchActionsController {
         Task {
             if let worktree {
                 let folder = (worktree.path as NSString).lastPathComponent
-                guard await runner.confirm("„\(name)“ und Worktree „\(folder)“ löschen?", info: "„\(name)“ ist im Worktree „\(folder)“ ausgecheckt und lässt sich nur zusammen mit ihm löschen. Der Ordner \((worktree.path as NSString).abbreviatingWithTildeInPath) wird entfernt.", button: "Worktree und Branch löschen", destructive: true) else { return }
+                guard await runner.confirm("\(branch: name) und Worktree \(worktree: folder) löschen?", info: "\(branch: name) ist im Worktree \(worktree: folder) ausgecheckt und lässt sich nur zusammen mit ihm löschen. Der Ordner \(path: (worktree.path as NSString).abbreviatingWithTildeInPath) wird entfernt.", button: "Worktree und Branch löschen", destructive: true) else { return }
                 guard await runner.removeWorktree(at: worktree.path) else { return }
             } else {
-                guard await runner.confirm("„\(name)“ löschen?", info: "Der lokale Branch wird gelöscht. Ein gleichnamiger Branch auf dem Remote bleibt.", button: "Löschen", destructive: true) else { return }
+                guard await runner.confirm("\(branch: name) löschen?", info: "Der lokale Branch wird gelöscht. Ein gleichnamiger Branch auf dem Remote bleibt.", button: "Löschen", destructive: true) else { return }
             }
             await runner.deleteBranch(name)
         }
@@ -137,7 +137,7 @@ final class BranchActionsController {
 
     private func deleteRemote(_ branch: String, on remote: String) {
         Task {
-            guard await runner.confirm("„\(branch)“ auf „\(remote)“ löschen?", info: "Der Branch wird auf dem Remote gelöscht, für alle, die damit arbeiten. Lokale Branches bleiben.", button: "Auf dem Remote löschen", destructive: true) else { return }
+            guard await runner.confirm("\(remoteBranch: branch) auf \(remote: remote) löschen?", info: "Der Branch wird auf dem Remote gelöscht, für alle, die damit arbeiten. Lokale Branches bleiben.", button: "Auf dem Remote löschen", destructive: true) else { return }
             await runner.run(failure: "Remote-Branch nicht gelöscht", note: "git push --delete") { try await $0.deleteRemoteBranch(branch, on: remote) }
         }
     }

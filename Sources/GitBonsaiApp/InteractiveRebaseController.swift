@@ -31,7 +31,7 @@ final class InteractiveRebaseController {
     func menuItems(for commit: Commit) -> [NSMenuItem] {
         guard let branch = viewModel.currentBranch, viewModel.headSHA != nil else { return [] }
         let line = firstParentLine(to: commit.id)
-        let reason = line == nil ? "Liegt nicht auf der Linie von „\(branch)“" : nil
+        let reason = line == nil ? "Liegt nicht auf der Linie von \(branch)" : nil
         let ownRangeHasMerge = line.map { $0.contains { $0.parents.count > 1 } } ?? false
         let isHead = commit.id == viewModel.headSHA
         let parent = commit.parents.first.flatMap { viewModel.rowIndex(of: $0) }.map { viewModel.commits[$0] }
@@ -60,7 +60,7 @@ final class InteractiveRebaseController {
 
     /// Why an in-place rebase from `commit`, an ancestor of HEAD, is not offered; nil when it is.
     func inPlaceReason(for commit: Commit) -> String? {
-        guard let line = firstParentLine(to: commit.id) else { return "Liegt nicht auf der Linie von „\(viewModel.currentBranch ?? "HEAD")“" }
+        guard let line = firstParentLine(to: commit.id) else { return "Liegt nicht auf der Linie von \(viewModel.currentBranch ?? "HEAD")" }
         if commit.id == viewModel.headSHA { return "Über diesem Commit liegt nichts" }
         return line.dropLast().contains { $0.parents.count > 1 } ? Self.mergeReason : nil
     }
@@ -69,7 +69,7 @@ final class InteractiveRebaseController {
     private static let rootReason = "Der erste Commit des Repositorys hat keinen Vorgänger"
 
     private func item(_ title: String, disabledBecause reason: String?, _ handler: @escaping () -> Void) -> NSMenuItem {
-        guard let reason else { return ActionMenuItem(title, handler: handler) }
+        guard let reason else { return ActionMenuItem(RefString(title), handler: handler) }
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
         item.toolTip = reason
@@ -93,7 +93,7 @@ final class InteractiveRebaseController {
     // MARK: Sheet
 
     /// Opens the sheet for a rebase of `branch` onto `target`: in place on an ancestor of HEAD, otherwise from the detected base, which the sheet can change.
-    func openSheet(branch: String, onto target: Commit, targetName: String, detection: RebaseBaseDetection) {
+    func openSheet(branch: String, onto target: Commit, targetName: RefString, detection: RebaseBaseDetection) {
         let repository = viewModel.repository
         let hasLocalChanges = viewModel.status?.entries.contains { !$0.isUntracked && !$0.isIgnored } ?? false
         let upstream = viewModel.status?.branch.upstream
@@ -106,7 +106,7 @@ final class InteractiveRebaseController {
                 let model = InteractiveRebaseModel(branch: branch, range: range, base: base, target: targetCommit, targetName: targetName, branches: branches, published: published, hasLocalChanges: hasLocalChanges)
                 let suggestions = await Self.suggestions(of: detection, range: range, target: target.id, targetName: targetName, in: repository)
                 let tips = ((try? await repository.refTips()) ?? []).filter { !($0.kind == .localBranch && $0.name == branch) }
-                let picker = RebaseBasePicker(base: suggestions.initial, target: "\(targetName) · \(targetCommit.shortID) „\(targetCommit.subject)“", catalog: RefCatalog(tips: tips, current: suggestions.items), repository: repository, note: Self.note(for: detection, range: range))
+                let picker = RebaseBasePicker(base: suggestions.initial, target: "\(targetName) · \(commit: targetCommit.id) „\(targetCommit.subject)“", catalog: RefCatalog(tips: tips, current: suggestions.items), repository: repository, note: Self.note(for: detection, range: range))
                 // The sheet owns the picker and goes away when it closes, which ends this reference to the controller.
                 picker.changeBase = { [weak model] revision in
                     guard let model else { return nil }
@@ -121,7 +121,7 @@ final class InteractiveRebaseController {
                 self.sheet = nil
                 guard let plan else { return }
                 if plan.dropsEverything {
-                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Alle Commits verwerfen?", info: "„\(branch)“ wird auf \(model.targetCommit.shortID) „\(model.targetCommit.subject)“ zurückgesetzt. Rückgängig über die Statuszeile.", button: "Verwerfen")
+                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Alle Commits verwerfen?", info: "\(branch: branch) wird auf \(commit: model.targetCommit.id) „\(model.targetCommit.subject)“ zurückgesetzt. Rückgängig über die Statuszeile.", button: "Verwerfen")
                     guard confirmed else { return }
                 }
                 let hint = CommitActionsController.publishedHint(model.published, upstream: upstream)
@@ -155,7 +155,7 @@ final class InteractiveRebaseController {
     }
 
     /// The bases the picker suggests: the detected ones described by why they were found, then the merge base; `initial` is the base the range starts from, listed among them.
-    private static func suggestions(of detection: RebaseBaseDetection, range: RebaseRange, target: String, targetName: String, in repository: Repository) async -> (items: [RefCatalog.Item], initial: RefCatalog.Item) {
+    private static func suggestions(of detection: RebaseBaseDetection, range: RebaseRange, target: String, targetName: RefString, in repository: Repository) async -> (items: [RefCatalog.Item], initial: RefCatalog.Item) {
         var items: [RefCatalog.Item] = []
         if !range.isInPlace {
             let bases: [RebaseBase] = switch detection {
@@ -164,7 +164,7 @@ final class InteractiveRebaseController {
             case .plain: []
             }
             for base in bases {
-                if let commit = await repository.commitSummary(base.commit) { items.append(.commit(commit, note: RebaseOntoController.without(base.reason))) }
+                if let commit = await repository.commitSummary(base.commit) { items.append(.commit(commit, note: RebaseOntoController.without(base.reason).plain)) }
             }
             if let mergeBase = await repository.mergeBase(target, "HEAD"), !items.contains(where: { $0.revision == mergeBase }), let commit = await repository.commitSummary(mergeBase) {
                 items.append(.commit(commit, note: "Merge-Base"))
@@ -172,7 +172,7 @@ final class InteractiveRebaseController {
         }
         if let initial = items.first(where: { $0.revision == range.base }) { return (items, initial) }
         let commit = await repository.commitSummary(range.base) ?? CommitSummary(sha: range.base, date: Date(), subject: "")
-        let initial = RefCatalog.Item.commit(commit, note: range.isInPlace ? targetName : nil)
+        let initial = RefCatalog.Item.commit(commit, note: range.isInPlace ? targetName.plain : nil)
         return ([initial] + items, initial)
     }
 
@@ -196,8 +196,7 @@ final class InteractiveRebaseController {
                 // Only dropping asks: it takes the commit's changes out of the branch. Moving is undone from the status line.
                 if step == .drop {
                     let alert = NSAlert()
-                    alert.messageText = "\(commit.shortID) „\(commit.subject)“ verwerfen?"
-                    alert.informativeText = Self.rewriteNote(plan, branch: branch, hint: hint)
+                    alert.setText("\(commit: commit.id) „\(commit.subject)“ verwerfen?", info: Self.rewriteNote(plan, branch: branch, hint: hint))
                     alert.addButton(withTitle: "Verwerfen")
                     alert.addButton(withTitle: "Abbrechen")
                     alert.buttons.first?.hasDestructiveAction = true
@@ -215,13 +214,13 @@ final class InteractiveRebaseController {
         }
     }
 
-    /// "Schreibt 3 Commits von „main“ neu. Rückgängig über die Statuszeile." and the hint about published commits.
-    private static func rewriteNote(_ plan: RebasePlan, branch: String, hint: String?) -> String {
+    /// "Schreibt 3 Commits von main neu. Rückgängig über die Statuszeile." and the hint about published commits.
+    private static func rewriteNote(_ plan: RebasePlan, branch: String, hint: RefString?) -> RefString {
         let count = plan.steps.count
-        return (["Schreibt \(count == 1 ? "1 Commit" : "\(count) Commits") von „\(branch)“ neu. Rückgängig über die Statuszeile."] + [hint].compactMap { $0 }).joined(separator: "\n\n")
+        return RefString.joined(["Schreibt \(count == 1 ? "1 Commit" : "\(count) Commits") von \(branch: branch) neu. Rückgängig über die Statuszeile."] + [hint].compactMap { $0 }, separator: "\n\n")
     }
 
-    private func publishedHint(_ plan: RebasePlan) async -> String? {
+    private func publishedHint(_ plan: RebasePlan) async -> RefString? {
         CommitActionsController.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: plan.base), upstream: viewModel.status?.branch.upstream)
     }
 
@@ -250,7 +249,7 @@ final class InteractiveRebaseController {
         }
     }
 
-    private func report(_ error: Error, title: String) {
+    private func report(_ error: Error, title: RefString) {
         guard let planError = error as? RebasePlanError else { return prompter.report(error, title: title) }
         prompter.report(GitError(arguments: [], exitCode: 0, stderr: Self.describe(planError)), title: title)
     }

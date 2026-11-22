@@ -63,7 +63,7 @@ struct TagRows {
         let having = states.compactMap { entry -> (remote: String, target: TagTarget)? in if case .remoteOnly(let target) = entry.state { (entry.remote, target) } else { nil } }
         let target = having.first?.target
         let isAnnotated = target.map { $0.objectID != $0.commitID } ?? false
-        let detail = "Nur auf " + having.map { "„\($0.remote)“" }.joined(separator: ", ") + ", noch nicht geholt"
+        let detail = "Nur auf " + having.map(\.remote).joined(separator: ", ") + ", noch nicht geholt"
         var row = PanelRow(id: name, glyph: .tag, title: name, marker: isAnnotated ? "◆" : nil, tooltip: states.map { describe($0.state, of: name, on: $0.remote) }.joined(separator: "\n"), detail: detail, date: nil, sha: String((target?.commitID ?? "").prefix(7)), searchText: detail)
         row.badges = states.map { badge(for: $0.state, remote: $0.remote, labelled: labelled) }
         row.isDimmed = true
@@ -82,16 +82,16 @@ struct TagRows {
     private static func describe(_ state: TagSyncState, of name: String, on remote: String) -> String {
         switch state {
         case .same:
-            return "Auf „\(remote)“"
+            return "Auf \(remote)"
         case .localOnly:
-            return "Nur lokal, nicht auf „\(remote)“"
+            return "Nur lokal, nicht auf \(remote)"
         case .remoteOnly(let target):
-            return "Nur auf „\(remote)“ (\(target.commitID.prefix(7))), noch nicht geholt"
+            return "Nur auf \(remote) (\(target.commitID.prefix(7))), noch nicht geholt"
         case .differs(let local, let other):
             if local.commitID == other.commitID {
-                return "Abweichend von „\(remote)“: gleicher Commit \(local.commitID.prefix(7)), aber \(kind(local)) hier und \(kind(other)) dort"
+                return "Abweichend von \(remote): gleicher Commit \(local.commitID.prefix(7)), aber \(kind(local)) hier und \(kind(other)) dort"
             }
-            return "Abweichend von „\(remote)“: hier \(local.commitID.prefix(7)), dort \(other.commitID.prefix(7))"
+            return "Abweichend von \(remote): hier \(local.commitID.prefix(7)), dort \(other.commitID.prefix(7))"
         }
     }
 

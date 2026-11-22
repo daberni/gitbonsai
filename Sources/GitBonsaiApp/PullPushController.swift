@@ -52,16 +52,16 @@ final class PullPushController {
         let menu = NSMenu()
         menu.autoenablesItems = false
         guard let branch, let upstream else {
-            menu.addItem(header("„\(branch ?? "HEAD")“ hat keinen Upstream"))
+            menu.addItem(header(branch.map { name -> RefString in "\(branch: name) hat keinen Upstream" } ?? "HEAD hat keinen Upstream"))
             let set = ActionMenuItem("Upstream setzen und pullen …") { [weak self] in self?.setUpstreamAndPull() }
             set.isEnabled = branch != nil && !remoteBranches().isEmpty
             menu.addItem(set)
             return menu
         }
-        menu.addItem(header("Pull von \(upstream.name) in „\(branch)“"))
+        menu.addItem(header("Pull von \(remoteBranch: upstream.name) in \(branch: branch)"))
         let modes = [defaultMode] + PullMode.allCases.filter { $0 != defaultMode }
         for mode in modes {
-            menu.addItem(pullItem(Self.title(of: mode) + (mode == defaultMode ? " (Standard)" : ""), PullVariant(mode: mode)))
+            menu.addItem(pullItem(RefString(Self.title(of: mode) + (mode == defaultMode ? " (Standard)" : "")), PullVariant(mode: mode)))
         }
         return menu
     }
@@ -72,18 +72,18 @@ final class PullPushController {
         menu.autoenablesItems = false
         if let branch, let upstream {
             let variant = PushVariant.branch(branch, remote: upstream.remote, remoteBranch: upstream.branch, setUpstream: false, forceWithLease: false)
-            let item = ActionMenuItem("„\(branch)“ nach \(upstream.name) pushen") { [weak self] in self?.push(variant, upstream: upstream.name) }
+            let item = ActionMenuItem("\(branch: branch) nach \(remoteBranch: upstream.name) pushen") { [weak self] in self?.push(variant, upstream: upstream.name) }
             item.toolTip = variant.commandLine
             menu.addItem(item)
         } else {
-            let item = ActionMenuItem("„\(branch ?? "HEAD")“ pushen und Upstream setzen …") { [weak self] in self?.firstPush() }
+            let item = ActionMenuItem(branch.map { name -> RefString in "\(branch: name) pushen und Upstream setzen …" } ?? "HEAD pushen und Upstream setzen …") { [weak self] in self?.firstPush() }
             item.isEnabled = branch != nil
             menu.addItem(item)
         }
         menu.addItem(.separator())
         for remote in remotes {
             let variant = PushVariant.tags(remote: remote)
-            let item = ActionMenuItem("Tags nach „\(remote)“ pushen") { [weak self] in self?.pushTags(variant) }
+            let item = ActionMenuItem("Tags nach \(remote: remote) pushen") { [weak self] in self?.pushTags(variant) }
             item.toolTip = variant.commandLine
             menu.addItem(item)
         }
@@ -98,13 +98,14 @@ final class PullPushController {
         }
     }
 
-    private func header(_ title: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    private func header(_ title: RefString) -> NSMenuItem {
+        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        item.setTitle(title)
         item.isEnabled = false
         return item
     }
 
-    private func pullItem(_ title: String, _ variant: PullVariant) -> NSMenuItem {
+    private func pullItem(_ title: RefString, _ variant: PullVariant) -> NSMenuItem {
         let item = ActionMenuItem(title) { [weak self] in self?.pull(variant) }
         item.toolTip = variant.commandLine
         return item
@@ -124,7 +125,7 @@ final class PullPushController {
         do {
             let result = try await repository.pull(variant)
             await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""))
-            if result.localChangesConflicted { prompter.onToast?("Pull fertig, " + Self.conflictedChanges, prompter.onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } }) }
+            if result.localChangesConflicted { prompter.onToast?(RefString("Pull fertig, " + Self.conflictedChanges), prompter.onShowConflicts.map { show in ToastAction(title: "Konflikte anzeigen") { show() } }) }
             return true
         } catch let error as GitError where error.isDivergedPull {
             await viewModel.refresh(note: nil)
@@ -144,8 +145,8 @@ final class PullPushController {
     /// The pull fetched first, so the counts are read again rather than taken from before it.
     private func offerRebase(after error: GitError, upstream: String) async {
         let fresh: Upstream? = if let branch { await viewModel.repository.upstream(of: branch) } else { nil }
-        let counts = fresh.flatMap { up in up.ahead.flatMap { ahead in up.behind.map { "Lokal \(ahead), auf \(upstream) \($0) neue Commits: " } } } ?? ""
-        let summary = counts + "Ein Fast-Forward ist nicht möglich. Rebase setzt die lokalen Commits auf \(upstream), Merge führt beide Seiten mit einem Merge-Commit zusammen."
+        let counts: RefString = fresh.flatMap { up in up.ahead.flatMap { ahead in up.behind.map { behind -> RefString in "Lokal \(ahead), auf \(remoteBranch: upstream) \(behind) neue Commits: " } } } ?? ""
+        let summary: RefString = "\(counts)Ein Fast-Forward ist nicht möglich. Rebase setzt die lokalen Commits auf \(remoteBranch: upstream), Merge führt beide Seiten mit einem Merge-Commit zusammen."
         prompter.showSheet(title: "Branches sind auseinandergelaufen", summary: summary, details: GitFailureText.details(of: error), actions: [
             FailureAction(title: "Mit Rebase pullen") { [weak self] in self?.pull(PullVariant(mode: .rebase)) },
             FailureAction(title: "Mit Merge pullen") { [weak self] in self?.pull(PullVariant(mode: .merge)) },
@@ -157,7 +158,7 @@ final class PullPushController {
         guard let branch else { return }
         let candidates = remoteBranches()
         let preferred = candidates.first { $0 == "origin/\(branch)" } ?? candidates.first { $0.hasSuffix("/\(branch)") } ?? candidates.first ?? ""
-        let form = ActionForm(title: "Upstream für „\(branch)“ setzen", info: "„\(branch)“ hat keinen Upstream. Der gewählte Remote-Branch wird zum Upstream, danach wird von ihm gepullt.", confirm: "Setzen und pullen")
+        let form = ActionForm(title: "Upstream für \(branch: branch) setzen", info: "\(branch: branch) hat keinen Upstream. Der gewählte Remote-Branch wird zum Upstream, danach wird von ihm gepullt.", confirm: "Setzen und pullen")
         form.addComboField(key: "upstream", label: "Upstream", value: preferred, suggestions: candidates)
         Task {
             guard let values = await prompter.ask(form), let upstream = values.value("upstream") else { return }
@@ -194,7 +195,7 @@ final class PullPushController {
                 })
             }
             actions.append(FailureAction(title: "Mit --force-with-lease überschreiben", isDestructive: true) { [weak self] in self?.forcePush(force, upstream: upstream) })
-            prompter.report(error, title: "Push abgelehnt", summary: "\(upstream) enthält Commits, die in „\(branch)“ fehlen. Pullen holt sie zuerst; --force-with-lease überschreibt sie, solange sich \(upstream) seit dem letzten Fetch nicht bewegt hat.", actions: actions)
+            prompter.report(error, title: "Push abgelehnt", summary: "\(remoteBranch: upstream) enthält Commits, die in \(branch: branch) fehlen. Pullen holt sie zuerst; --force-with-lease überschreibt sie, solange sich \(remoteBranch: upstream) seit dem letzten Fetch nicht bewegt hat.", actions: actions)
             return true
         }
     }
@@ -202,7 +203,7 @@ final class PullPushController {
     private func forcePush(_ variant: PushVariant, upstream: String) {
         run(variant, failure: "Force-Push fehlgeschlagen") { [weak self] error in
             guard error.isStaleLease else { return false }
-            self?.prompter.report(error, title: "Force-Push abgelehnt", summary: "\(upstream) hat sich seit dem letzten Fetch bewegt. Erst fetchen und prüfen, was dort neu ist.")
+            self?.prompter.report(error, title: "Force-Push abgelehnt", summary: "\(remoteBranch: upstream) hat sich seit dem letzten Fetch bewegt. Erst fetchen und prüfen, was dort neu ist.")
             return true
         }
     }
@@ -210,7 +211,7 @@ final class PullPushController {
     /// The sheet of the first push: the remote (origin when there is one) and the branch's name there; the push sets the upstream.
     func firstPush() {
         guard let branch, !remotes.isEmpty else { return }
-        let form = ActionForm(title: "„\(branch)“ pushen", info: "Der Branch kommt auf das gewählte Remote und wird dort zum Upstream (git push -u).", confirm: "Pushen")
+        let form = ActionForm(title: "\(branch: branch) pushen", info: "Der Branch kommt auf das gewählte Remote und wird dort zum Upstream (git push -u).", confirm: "Pushen")
         form.addChoice(key: "remote", label: "Remote", options: remotes.map { ($0, $0) }, selected: remotes.contains("origin") ? "origin" : remotes[0])
         form.addField(key: "name", label: "Branch auf dem Remote", value: branch)
         Task {
@@ -224,7 +225,7 @@ final class PullPushController {
     }
 
     /// Runs a push and refreshes the tab. `handle` may take over a failure and returns true when it did; otherwise git's message is shown.
-    private func run(_ variant: PushVariant, failure: String, handle: @escaping (GitError) async -> Bool) {
+    private func run(_ variant: PushVariant, failure: RefString, handle: @escaping (GitError) async -> Bool) {
         let repository = viewModel.repository
         Task {
             do {

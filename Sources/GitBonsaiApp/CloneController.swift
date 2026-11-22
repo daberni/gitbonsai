@@ -136,7 +136,7 @@ final class CloneController {
             ScreenshotHarness.traceClone("cancelled, folder left behind: \(FileManager.default.fileExists(atPath: destination))")
             close()
         case .failure(let error):
-            ScreenshotHarness.traceClone("failed: \(GitFailureText.summary(of: error))")
+            ScreenshotHarness.traceClone("failed: \(GitFailureText.summary(of: error).plain)")
             sheet?.showRunning(false)
             sheet?.showFailure(error)
             update()

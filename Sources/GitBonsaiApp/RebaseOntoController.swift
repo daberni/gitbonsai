@@ -24,7 +24,7 @@ final class RebaseOntoController {
 
     func items(branch: String, commit: Commit) -> [NSMenuItem] {
         let place = placeName(of: commit)
-        let interactiveTitle = "Rebase „\(branch)“ interaktiv auf \(place) …"
+        let interactiveTitle: RefString = "Rebase \(branch: branch) interaktiv auf \(place) …"
         guard !viewModel.isReachableFromHead(commit.id) else {
             if let reason = interactive.inPlaceReason(for: commit) { return [Self.disabled(interactiveTitle, reason)] }
             return [ActionMenuItem(interactiveTitle) { [weak self] in self?.interactive.openSheet(branch: branch, onto: commit, targetName: place, detection: .plain(moving: 0)) }]
@@ -37,7 +37,7 @@ final class RebaseOntoController {
             found.store(result)
             return result
         }
-        let oneClick = ActionMenuItem("Rebase „\(branch)“ auf \(place) (Basis wird gesucht …)") { [weak self] in
+        let oneClick = ActionMenuItem("Rebase \(branch: branch) auf \(place) (Basis wird gesucht …)") { [weak self] in
             Task { await self?.rebase(branch, onto: commit, place: place, detection: detection.value) }
         }
         let sheet = ActionMenuItem(interactiveTitle) { [weak self] in
@@ -54,7 +54,7 @@ final class RebaseOntoController {
             let finished = MainActor.assumeIsolated {
                 guard let entry, Date().timeIntervalSince(started) < Self.searchTimeout else { return true }
                 guard let result = found.value else { return false }
-                entry.title = Self.title(branch: branch, place: place, detection: result)
+                entry.setTitle(Self.title(branch: branch, place: place, detection: result))
                 return true
             }
             if finished { timer.invalidate() }
@@ -66,56 +66,62 @@ final class RebaseOntoController {
     /// After this many seconds an open menu stops waiting for the detected base; choosing the entry still waits for it.
     private static let searchTimeout: TimeInterval = 30
 
-    private static func disabled(_ title: String, _ reason: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    private static func disabled(_ title: RefString, _ reason: String) -> NSMenuItem {
+        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        item.setTitle(title)
         item.isEnabled = false
         item.toolTip = reason
         return item
     }
 
-    /// "Rebase „feature/b“ auf „main“ (3 Commits, ohne „feature/a“)", or with the commit count alone when the merge base is all there is.
-    static func title(branch: String, place: String, detection: RebaseBaseDetection) -> String {
+    /// "Rebase feature/b auf main (3 Commits, ohne feature/a)", or with the commit count alone when the merge base is all there is.
+    static func title(branch: String, place: RefString, detection: RebaseBaseDetection) -> RefString {
         switch detection {
         // Without own commits the rebase only fast-forwards; a count of none would read odd.
-        case .plain(let moving) where moving == 0: return "Rebase „\(branch)“ auf \(place)"
-        case .plain(let moving): return "Rebase „\(branch)“ auf \(place) (\(commits(moving)))"
-        case .tie: return "Rebase „\(branch)“ auf \(place) (Basis mehrdeutig) …"
+        case .plain(let moving) where moving == 0: return "Rebase \(branch: branch) auf \(place)"
+        case .plain(let moving): return "Rebase \(branch: branch) auf \(place) (\(commits(moving)))"
+        case .tie: return "Rebase \(branch: branch) auf \(place) (Basis mehrdeutig) …"
         case .detected(let base):
             // A former tip of the target branch itself means the target was rewritten, like a fork point.
-            let reason = if case .branch(let name) = base.reason, "„\(name)“" == place { without(.forkPoint(name)) } else { without(base.reason) }
-            return "Rebase „\(branch)“ auf \(place) (\(commits(base.moving)), \(reason))"
+            let reason = if case .branch(let name) = base.reason, place.containsNames, name == place.plain { without(.forkPoint(name)) } else { without(base.reason) }
+            return "Rebase \(branch: branch) auf \(place) (\(commits(base.moving)), \(reason))"
         }
     }
 
     private static func commits(_ count: Int) -> String { count == 1 ? "1 Commit" : "\(count) Commits" }
 
-    static func without(_ reason: RebaseBase.Reason) -> String {
+    static func without(_ reason: RebaseBase.Reason) -> RefString {
         switch reason {
-        case .branch(let name): "ohne „\(name)“"
-        case .squashed(let commit): "ohne die in \(commit.prefix(7)) gesquashten"
-        case .forkPoint(let ref): "ohne die alten von „\(ref)“"
+        case .branch(let name): "ohne \(branch: name)"
+        case .squashed(let commit): "ohne die in \(commit: commit) gesquashten"
+        case .forkPoint(let ref): "ohne die alten von \(branch: ref)"
         }
     }
 
-    /// „main“ for a row with a branch or tag, else "diesen Commit". Local branches come first, then remote branches, then tags.
-    func placeName(of commit: Commit) -> String {
+    /// main for a row with a branch or tag, else "diesen Commit". Local branches come first, then remote branches, then tags.
+    func placeName(of commit: Commit) -> RefString {
         let refs = viewModel.refsByCommit[commit.id] ?? []
-        let name = branchRef(at: commit) ?? refs.first { $0.kind == .tag }?.name
-        return name.map { "„\($0)“" } ?? "diesen Commit"
+        if let local = branch(at: commit, local: true) { return "\(branch: local)" }
+        if let remote = branch(at: commit, local: false) { return "\(remoteBranch: remote)" }
+        if let tag = refs.first(where: { $0.kind == .tag })?.name { return "\(tag: tag)" }
+        return "diesen Commit"
     }
 
     /// A branch at the commit, whose reflog can tell an earlier position for `--fork-point`.
     private func branchRef(at commit: Commit) -> String? {
+        branch(at: commit, local: true) ?? branch(at: commit, local: false)
+    }
+
+    private func branch(at commit: Commit, local: Bool) -> String? {
         let refs = viewModel.refsByCommit[commit.id] ?? []
-        let local = refs.first { $0.kind == .localBranch }
-        let remote = refs.first { if case .remoteBranch = $0.kind { !$0.name.hasSuffix("/HEAD") } else { false } }
-        return (local ?? remote)?.name
+        if local { return refs.first { $0.kind == .localBranch }?.name }
+        return refs.first { if case .remoteBranch = $0.kind { !$0.name.hasSuffix("/HEAD") } else { false } }?.name
     }
 
     // MARK: Running
 
     /// The one-click form: every commit of the detected range picked onto the target. A tie opens the sheet to choose; a merge in the range or a fast-forward goes to plain `git rebase`.
-    private func rebase(_ branch: String, onto target: Commit, place: String, detection: RebaseBaseDetection) async {
+    private func rebase(_ branch: String, onto target: Commit, place: RefString, detection: RebaseBaseDetection) async {
         if case .tie = detection { return interactive.openSheet(branch: branch, onto: target, targetName: place, detection: detection) }
         let repository = viewModel.repository
         let upstream = viewModel.status?.branch.upstream

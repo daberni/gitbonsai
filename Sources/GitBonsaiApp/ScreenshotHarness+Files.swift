@@ -316,7 +316,7 @@ extension ScreenshotHarness {
                 FileHandle.standardError.write(Data("file row \(index) has no menu\n".utf8))
                 return
             }
-            let entries = menu.items.map { item in item.isSeparatorItem ? "|" : item.isAlternate ? "⌥ \(item.title)" : item.title }
+            let entries = menu.items.map { item in item.isSeparatorItem ? "|" : item.isAlternate ? "⌥ \(item.plainTitle)" : item.plainTitle }
             FileHandle.standardError.write(Data("file menu \(row.model.selection.path): \(entries.joined(separator: "; "))\n".utf8))
             if let pick = environment["GITBONSAI_FILE_MENU_PICK"] { choose(pick, in: menu) }
         }

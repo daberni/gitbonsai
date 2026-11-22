@@ -17,7 +17,7 @@ final class OperationBannerController {
     /// The banner shows another state; the commit form follows whether git waits at an edit stop.
     var onStateChange: (() -> Void)?
     /// Says what continuing or skipping left out, in a toast.
-    var onToast: ((String) -> Void)?
+    var onToast: ((RefString) -> Void)?
     /// The operation is over, finished or aborted, however it got there; the tab selects HEAD and leaves the conflict state behind.
     var onEnded: (() -> Void)?
 
@@ -67,40 +67,38 @@ final class OperationBannerController {
         if case .edit? = progress?.stop { true } else { false }
     }
 
-    /// "Rebase auf main: Schritt 3 von 7, 2 Konflikte", or at an edit stop "Angehalten zum Bearbeiten von 1a2b3c4 „Subject“ · Schritt 3 von 7 · Rebase von „main“ auf …"
-    static func describe(_ progress: OperationProgress, conflicts: Int, ontoName: String?) -> String {
-        var head: String
-        switch progress.kind {
-        case .rebase:
-            head = "Rebase" + (progress.branch.map { " von „\($0)“" } ?? "") + (ontoName.map { " auf \($0)" } ?? "")
-        case .cherryPick:
-            head = "Cherry-pick" + (progress.commit.map { " von \($0.prefix(7))" } ?? "")
-        case .revert:
-            head = "Revert" + (progress.commit.map { " von \($0.prefix(7))" } ?? "")
-        case .merge:
-            head = "Merge" + (ontoName.map { " von \($0)" } ?? "")
+    /// "Rebase von feature auf main: Schritt 3 von 7, 2 Konflikte", or at an edit stop "Angehalten zum Bearbeiten von 1a2b3c4 „Subject“ · Schritt 3 von 7 · Rebase von feature auf …"
+    static func describe(_ progress: OperationProgress, conflicts: Int, ontoName: RefString?) -> RefString {
+        let from: RefString = progress.branch.map { " von \(branch: $0)" } ?? ""
+        let onto: RefString = ontoName.map { " auf \($0)" } ?? ""
+        let commit: RefString = progress.commit.map { " von \(commit: $0)" } ?? ""
+        let head: RefString = switch progress.kind {
+        case .rebase: "Rebase\(from)\(onto)"
+        case .cherryPick: "Cherry-pick\(commit)"
+        case .revert: "Revert\(commit)"
+        case .merge: "Merge\(ontoName.map { " von \($0)" } ?? "")"
         }
-        let step = progress.step.flatMap { step in progress.total.map { "Schritt \(step) von \($0)" } }
+        let step = progress.step.flatMap { step in progress.total.map { RefString("Schritt \(step) von \($0)") } }
         // A stop that waits for the user leads, so a narrow banner still says why it waits.
         switch (progress.stop, conflicts) {
         case let (.edit(commit, subject)?, 0):
-            return (["Angehalten zum Bearbeiten von \(commit.prefix(7)) „\(subject)“", step].compactMap { $0 } + [head]).joined(separator: " · ")
+            return RefString.joined(["Angehalten zum Bearbeiten von \(commit: commit) „\(subject)“", step].compactMap { $0 } + [head], separator: " · ")
         case let (.exec(command)?, 0):
-            return (["„\(command)“ fehlgeschlagen", step].compactMap { $0 } + [head]).joined(separator: " · ")
+            return RefString.joined(["„\(command)“ fehlgeschlagen", step].compactMap { $0 } + [head], separator: " · ")
         default:
             break
         }
-        var parts = [step].compactMap { $0 }
+        var parts = [step?.plain].compactMap { $0 }
         switch conflicts {
         case 0: parts.append("keine Konflikte offen")
         case 1: parts.append("1 Konflikt")
         default: parts.append("\(conflicts) Konflikte")
         }
-        return head + ": " + parts.joined(separator: ", ")
+        return "\(head): \(parts.joined(separator: ", "))"
     }
 
     /// The branch, remote branch or tag at a commit, or its short SHA.
-    private func name(of sha: String) -> String {
+    private func name(of sha: String) -> RefString {
         // origin/HEAD only repeats the branch it points at.
         let refs = viewModel.refs.filter { $0.target == sha && !$0.name.hasSuffix("/HEAD") }
         let order: (Ref) -> Int = { ref in
@@ -111,7 +109,12 @@ final class OperationBannerController {
             default: 3
             }
         }
-        return refs.filter { order($0) < 3 }.min { order($0) < order($1) }?.name ?? String(sha.prefix(7))
+        guard let ref = refs.filter({ order($0) < 3 }).min(by: { order($0) < order($1) }) else { return "\(commit: sha)" }
+        return switch ref.kind {
+        case .localBranch: "\(branch: ref.name)"
+        case .tag: "\(tag: ref.name)"
+        default: "\(remoteBranch: ref.name)"
+        }
     }
 
     enum Action { case `continue`, skip, abort }
@@ -181,7 +184,7 @@ final class OperationBannerView: NSView {
     private(set) lazy var abortButton = button("Abbrechen", #selector(abortOperation))
     private var hasConflicts = false
 
-    var text: String { label.stringValue }
+    var text: String { RefText.plain(label.stringValue) }
 
     init() {
         super.init(frame: .zero)
@@ -211,9 +214,9 @@ final class OperationBannerView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(text: String, conflicts: Int, canContinue: Bool, canSkip: Bool, canAmend: Bool, isEnabled: Bool) {
-        label.stringValue = text
-        label.toolTip = text
+    func show(text: RefString, conflicts: Int, canContinue: Bool, canSkip: Bool, canAmend: Bool, isEnabled: Bool) {
+        label.setText(text)
+        label.toolTip = text.plain
         hasConflicts = conflicts > 0
         glyph.image = NSImage(systemSymbolName: hasConflicts ? "exclamationmark.triangle.fill" : "arrow.triangle.branch", accessibilityDescription: nil)
         glyph.contentTintColor = hasConflicts ? Theme.persimmon : Theme.clay

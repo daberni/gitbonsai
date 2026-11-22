@@ -30,7 +30,7 @@ final class Toast {
         ])
     }
 
-    func show(_ text: String, action: ToastAction? = nil) {
+    func show(_ text: RefString, action: ToastAction? = nil) {
         generation += 1
         let current = generation
         view.text = text
@@ -84,11 +84,10 @@ final class ToastView: NSView {
         }
     }
 
-    var text: String {
-        get { label.stringValue }
-        set {
-            label.stringValue = newValue
-            setAccessibilityLabel(newValue)
+    var text: RefString = "" {
+        didSet {
+            label.setText(text)
+            setAccessibilityLabel(text.plain)
         }
     }
 
