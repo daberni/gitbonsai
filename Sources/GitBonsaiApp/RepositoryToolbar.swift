@@ -5,13 +5,14 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
     var onFetch: (() -> Void)?
     var onSearch: ((String) -> Void)?
     /// Each action button is enabled once its handler is set.
-    var onPull: (() -> Void)? { didSet { pull.isEnabled = onPull != nil } }
-    var onPush: (() -> Void)? { didSet { push.isEnabled = onPush != nil } }
     var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
     var onStash: (() -> Void)? { didSet { stash.isEnabled = onStash != nil } }
     var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
     /// Choices for the fetch button's menu, for example other fetch variants; nil keeps a plain button.
     var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : "Fetch-Varianten" } }
+    /// The menus of Pull and Push; the buttons are enabled by `showUpstream`.
+    var pullMenu: (() -> NSMenu)?
+    var pushMenu: (() -> NSMenu)?
 
     private lazy var fetchButton = button("Fetch", "arrow.down.to.line", #selector(fetch(_:)))
     private lazy var pull = button("Pull", "arrow.down", #selector(runPull(_:)))
@@ -20,6 +21,9 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
     private lazy var stash = button("Stash", "tray.and.arrow.down", #selector(runStash(_:)))
     private lazy var pop = button("Pop", "tray.and.arrow.up", #selector(runPop(_:)))
 
+    /// Commits to pull and to push, next to their buttons while the branch has an upstream.
+    private let behindLabel = NSTextField(labelWithString: "")
+    private let aheadLabel = NSTextField(labelWithString: "")
     private let fetchLabel = NSTextField(labelWithString: "")
     private let searchField = NSSearchField()
 
@@ -32,13 +36,20 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         let actions = NSStackView(views: [
             fetchButton,
             pull,
+            behindLabel,
             push,
+            aheadLabel,
             branch,
             stash,
             pop,
         ])
         actions.orientation = .horizontal
         actions.spacing = Theme.Space.s
+        for (button, label) in [(pull, behindLabel), (push, aheadLabel)] {
+            label.font = Theme.captionDigits
+            label.isHidden = true
+            actions.setCustomSpacing(Theme.Space.xs, after: button)
+        }
         actions.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.placeholderString = "Commits durchsuchen"
@@ -62,7 +73,7 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
 
     required init?(coder: NSCoder) { nil }
 
-    /// Every button but Fetch starts disabled and comes alive when its handler is set.
+    /// Every button but Fetch starts disabled: Pull and Push come alive through `showUpstream`, the others when their handler is set.
     private func button(_ title: String, _ symbol: String, _ action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
@@ -73,11 +84,28 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
         return button
     }
 
-    @objc private func runPull(_ sender: Any?) { onPull?() }
-    @objc private func runPush(_ sender: Any?) { onPush?() }
+    @objc private func runPull(_ sender: Any?) { popUp(pullMenu?(), below: sender) }
+    @objc private func runPush(_ sender: Any?) { popUp(pushMenu?(), below: sender) }
     @objc private func runBranch(_ sender: Any?) { onBranch?() }
     @objc private func runStash(_ sender: Any?) { onStash?() }
     @objc private func runPop(_ sender: Any?) { onPop?() }
+
+    /// Enables Pull and Push and shows how many commits each would move; nil counts hide them (no upstream, or it was never fetched).
+    func showUpstream(canPull: Bool, canPush: Bool, ahead: Int?, behind: Int?) {
+        pull.isEnabled = canPull
+        push.isEnabled = canPush
+        for (label, count, arrow, verb) in [(behindLabel, behind, "↓", "zu pullen"), (aheadLabel, ahead, "↑", "zu pushen")] {
+            label.isHidden = count == nil
+            label.stringValue = count.map { "\(arrow)\($0)" } ?? ""
+            label.textColor = count == 0 ? Theme.inkMuted : Theme.ink
+            label.toolTip = count.map { "\($0) Commit\($0 == 1 ? "" : "s") \(verb)" }
+        }
+    }
+
+    /// The counts as shown, for harness output: "↓1 ↑2", with "-" for a hidden count.
+    var upstreamCounts: String {
+        [behindLabel, aheadLabel].map { $0.isHidden ? "-" : $0.stringValue }.joined(separator: " ")
+    }
 
     func showFetchState(hasRemote: Bool, lastFetch: Date?) {
         let remote = hasRemote ? "origin" : "kein Remote"
@@ -94,10 +122,15 @@ final class RepositoryToolbar: BarView, NSSearchFieldDelegate {
 
     /// With a fetch menu the button opens it below itself; otherwise it fetches right away.
     @objc private func fetch(_ sender: Any?) {
-        guard let menu = fetchMenu?(), let button = sender as? NSButton else {
+        guard let menu = fetchMenu?() else {
             onFetch?()
             return
         }
+        popUp(menu, below: sender)
+    }
+
+    private func popUp(_ menu: NSMenu?, below sender: Any?) {
+        guard let menu, let button = sender as? NSButton else { return }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + Theme.Space.xs), in: button)
     }
 

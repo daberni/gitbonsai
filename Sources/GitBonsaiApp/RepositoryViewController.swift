@@ -21,6 +21,7 @@ final class RepositoryViewController: NSObject {
     let checkoutController: CheckoutController
     let commitActions: CommitActionsController
     let fetchController: FetchController
+    let pullPush: PullPushController
     let operationBanner: OperationBannerController
     private(set) var sidebarActions: SidebarActionsController!
     let staging: StagingController
@@ -49,6 +50,7 @@ final class RepositoryViewController: NSObject {
         checkoutController = CheckoutController(viewModel: viewModel)
         commitActions = CommitActionsController(viewModel: viewModel)
         fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
+        pullPush = PullPushController(viewModel: viewModel, prompter: commitActions.prompter)
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
         fileActions = FileActionsController(viewModel: viewModel, staging: staging)
@@ -108,6 +110,12 @@ final class RepositoryViewController: NSObject {
     private func wire() {
         toolbar.onFetch = { [weak self] in self?.fetchController.fetch(.allRemotes) }
         toolbar.fetchMenu = { [weak self] in self?.fetchController.menu() ?? NSMenu() }
+        toolbar.pullMenu = { [weak self] in self?.pullPush.pullMenu() ?? NSMenu() }
+        toolbar.pushMenu = { [weak self] in self?.pullPush.pushMenu() ?? NSMenu() }
+        pullPush.onChange = { [weak self] in
+            guard let self else { return }
+            toolbar.showUpstream(canPull: pullPush.canPull, canPush: pullPush.canPush, ahead: pullPush.upstream?.ahead, behind: pullPush.upstream?.behind)
+        }
         toolbar.onSearch = { [weak self] text in self?.history.search(text) }
 
         sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }
@@ -292,6 +300,7 @@ final class RepositoryViewController: NSObject {
         let hasRemote = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
         toolbar.showFetchState(hasRemote: hasRemote, lastFetch: viewModel.lastFetch)
         fetchController.refreshRemotes()
+        pullPush.refresh()
         operationBanner.update()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
         toolbar.onStash = hasChanges ? { [weak self] in self?.stashesController.stashChanges() } : nil

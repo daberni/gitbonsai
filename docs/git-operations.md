@@ -68,8 +68,8 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Rebase the current branch onto a commit | `git rebase <commit>` | Counts published commits with `git merge-base HEAD @{upstream}` and `git rev-list --count` |
 | Rebase with --onto | `git rebase --onto <new base> <old base> <branch>` | |
-| Continue / skip / abort | `git rebase\|cherry-pick\|revert --continue\|--skip\|--abort` | Continue and skip with `GIT_EDITOR=true` |
-| Operation in progress | `git rev-parse --path-format=absolute --git-path rebase-merge …` | Banner above the history |
+| Continue / skip / abort | `git rebase\|cherry-pick\|revert\|merge --continue\|--skip\|--abort` | Continue and skip with `GIT_EDITOR=true`; a merge has no `--skip` |
+| Operation in progress | `git rev-parse --path-format=absolute --git-path rebase-merge …` | Rebase, cherry-pick, revert or merge (`MERGE_HEAD`); banner above the history |
 | Cherry-pick | `git cherry-pick [-m 1] <commit>` | `-m 1` for merges |
 | Revert | `git revert --no-edit [-m 1] <commit>` | |
 
@@ -103,4 +103,14 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Fetch all | `git fetch --all --prune` | |
 | Fetch one remote | `git fetch --prune\|--no-prune <remote>` | |
 | Fetch tags | `git fetch --all --tags` | |
-| Pull, push | | Being built |
+| Upstream and ahead/behind | `git config --get branch.<b>.remote`, `git config --get branch.<b>.merge`, `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | Counts next to Pull and Push |
+| Default pull mode | `git config --type=bool-or-str --get pull.rebase`, `… --get pull.ff` | `pull.rebase` first, then `pull.ff`; without either fast-forward only |
+| Pull, fast-forward only | `git pull --no-rebase --ff-only --no-autostash` | Every pull runs with `GIT_EDITOR=true` |
+| Pull, merge | `git pull --no-rebase --ff --no-edit --no-autostash` | Conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
+| Pull, rebase | `git pull --rebase --no-autostash` | |
+| Pull with autostash | `git pull <default mode flags> --autostash` | |
+| Set upstream before a pull | `git branch --set-upstream-to=<remote>/<branch> <b>` | Then pulls with the default mode |
+| Push to the upstream | `git push <remote> refs/heads/<b>:refs/heads/<upstream branch>` | |
+| First push | `git push -u <remote> refs/heads/<b>:refs/heads/<name>` | Sets the upstream |
+| Push after a non-fast-forward rejection | `git push --force-with-lease <remote> refs/heads/<b>:refs/heads/<upstream branch>` | Only after a confirmation; never `--force` |
+| Push tags | `git push <remote> --tags` | |

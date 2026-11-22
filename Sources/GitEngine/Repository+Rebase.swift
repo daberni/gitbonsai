@@ -1,11 +1,12 @@
 import Foundation
 
-/// A rebase, cherry-pick or revert that git has stopped in the middle of, waiting for the user.
+/// A rebase, cherry-pick, revert or merge that git has stopped in the middle of, waiting for the user.
 public struct OperationProgress: Sendable, Equatable {
     public enum Kind: Sendable, Equatable {
         case rebase
         case cherryPick
         case revert
+        case merge
 
         /// The git subcommand that runs and continues the operation.
         public var command: String {
@@ -13,8 +14,12 @@ public struct OperationProgress: Sendable, Equatable {
             case .rebase: "rebase"
             case .cherryPick: "cherry-pick"
             case .revert: "revert"
+            case .merge: "merge"
             }
         }
+
+        /// A merge has no single commit to leave out, so git offers no `--skip` for it.
+        public var canSkip: Bool { self != .merge }
     }
 
     public let kind: Kind
@@ -25,7 +30,7 @@ public struct OperationProgress: Sendable, Equatable {
     public let branch: String?
     /// The commit a rebase replays onto.
     public let onto: String?
-    /// The commit a cherry-pick or revert stopped at.
+    /// The commit a cherry-pick or revert stopped at, or the commit a merge brings in.
     public let commit: String?
 
     public init(kind: Kind, step: Int?, total: Int?, branch: String?, onto: String?, commit: String?) {
@@ -75,7 +80,7 @@ extension Repository {
 
     /// The operation git is in the middle of in this worktree, or nil. Git keeps that state in the worktree's own git directory, which `--git-path` locates.
     public func operationInProgress() async -> OperationProgress? {
-        let names = ["rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD"]
+        let names = ["rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD", "MERGE_HEAD"]
         guard let result = try? await runner.run(["rev-parse", "--path-format=absolute"] + names.flatMap { ["--git-path", $0] }) else { return nil }
         let paths = result.stdoutString.split(separator: "\n").map(String.init)
         guard paths.count == names.count else { return nil }
@@ -99,8 +104,9 @@ extension Repository {
             let branch = head.flatMap { $0.hasPrefix("refs/heads/") ? String($0.dropFirst("refs/heads/".count)) : nil }
             return OperationProgress(kind: .rebase, step: read(directory, stepFile).flatMap(Int.init), total: read(directory, totalFile).flatMap(Int.init), branch: branch, onto: read(directory, "onto"), commit: nil)
         }
-        for (name, kind) in [("CHERRY_PICK_HEAD", OperationProgress.Kind.cherryPick), ("REVERT_HEAD", .revert)] where exists(name) {
-            let commit = location[name].flatMap { try? String(contentsOfFile: $0, encoding: .utf8) }?.trimmingCharacters(in: .whitespacesAndNewlines)
+        for (name, kind) in [("CHERRY_PICK_HEAD", OperationProgress.Kind.cherryPick), ("REVERT_HEAD", .revert), ("MERGE_HEAD", .merge)] where exists(name) {
+            // MERGE_HEAD lists one commit per line, several for an octopus merge; the first names it.
+            let commit = location[name].flatMap { try? String(contentsOfFile: $0, encoding: .utf8) }?.split(separator: "\n").first.map { $0.trimmingCharacters(in: .whitespaces) }
             return OperationProgress(kind: kind, step: nil, total: nil, branch: nil, onto: nil, commit: commit)
         }
         return nil

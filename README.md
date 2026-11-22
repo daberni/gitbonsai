@@ -48,7 +48,8 @@ Remotes and rebase:
 
 - `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's git command without opening it, and `GITBONSAI_FETCH_PICK=<title>` runs an entry and prints the status line afterwards.
 - `GITBONSAI_MENU_RUN=<row>:<title>` runs an entry of a history row's menu without opening the menu; `GITBONSAI_ONTO=<base>` fills the new base of the "Ab hier auf … verschieben" sheet.
-- `GITBONSAI_BANNER_CLICK=continue|skip|abort` clicks a button of the rebase, cherry-pick or revert banner with a real click and prints the banner before and after.
+- `GITBONSAI_BANNER_CLICK=continue|skip|abort` clicks a button of the rebase, cherry-pick, revert or merge banner with a real click and prints the banner before and after.
+- `GITBONSAI_PULL=<title>` or `GITBONSAI_PUSH=<title>` clicks that toolbar button with a real click, prints its menu (an empty title stops there), chooses the entry and prints the status line, the banner and the ahead/behind counts afterwards; the first-push and upstream sheets take `GITBONSAI_FORM` (remote, name, upstream) and the force-with-lease question `GITBONSAI_CONFIRM=1`.
 
 Sidebar:
 

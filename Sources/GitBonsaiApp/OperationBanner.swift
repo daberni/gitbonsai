@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The banner above the history while git is in the middle of a rebase, cherry-pick or revert, and its three actions.
+/// The banner above the history while git is in the middle of a rebase, cherry-pick, revert or merge, and its actions.
 /// It follows the repository: it appears on every refresh that finds the operation, also right after the app opens, and goes away once git has finished.
 @MainActor
 final class OperationBannerController {
@@ -41,7 +41,9 @@ final class OperationBannerController {
             return
         }
         let conflicts = viewModel.status?.conflicted.count ?? 0
-        view.show(text: Self.describe(progress, conflicts: conflicts, ontoName: progress.onto.map(name(of:))), conflicts: conflicts, canContinue: conflicts == 0 && !isRunning, isEnabled: !isRunning)
+                // A merge names what it brings in, a rebase where it replays onto.
+        let target = progress.kind == .merge ? progress.commit : progress.onto
+        view.show(text: Self.describe(progress, conflicts: conflicts, ontoName: target.map(name(of:))), conflicts: conflicts, canContinue: conflicts == 0 && !isRunning, canSkip: progress.kind.canSkip, isEnabled: !isRunning)
         view.isHidden = false
     }
 
@@ -55,6 +57,8 @@ final class OperationBannerController {
             head = "Cherry-pick" + (progress.commit.map { " von \($0.prefix(7))" } ?? "")
         case .revert:
             head = "Revert" + (progress.commit.map { " von \($0.prefix(7))" } ?? "")
+        case .merge:
+            head = "Merge" + (ontoName.map { " von \($0)" } ?? "")
         }
         var parts: [String] = []
         if let step = progress.step, let total = progress.total { parts.append("Schritt \(step) von \(total)") }
@@ -68,7 +72,8 @@ final class OperationBannerController {
 
     /// The branch, remote branch or tag at a commit, or its short SHA.
     private func name(of sha: String) -> String {
-        let refs = viewModel.refs.filter { $0.target == sha }
+        // origin/HEAD only repeats the branch it points at.
+        let refs = viewModel.refs.filter { $0.target == sha && !$0.name.hasSuffix("/HEAD") }
         let order: (Ref) -> Int = { ref in
             switch ref.kind {
             case .localBranch: 0
@@ -123,6 +128,7 @@ final class OperationBannerController {
         case .rebase: "Rebase"
         case .cherryPick: "Cherry-pick"
         case .revert: "Revert"
+        case .merge: "Merge"
         }
     }
 }
@@ -170,7 +176,7 @@ final class OperationBannerView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(text: String, conflicts: Int, canContinue: Bool, isEnabled: Bool) {
+    func show(text: String, conflicts: Int, canContinue: Bool, canSkip: Bool, isEnabled: Bool) {
         label.stringValue = text
         label.toolTip = text
         hasConflicts = conflicts > 0
@@ -178,6 +184,7 @@ final class OperationBannerView: NSView {
         glyph.contentTintColor = hasConflicts ? Theme.persimmon : Theme.clay
         continueButton.isEnabled = canContinue
         skipButton.isEnabled = isEnabled
+        skipButton.isHidden = !canSkip
         abortButton.isEnabled = isEnabled
         needsDisplay = true
     }
