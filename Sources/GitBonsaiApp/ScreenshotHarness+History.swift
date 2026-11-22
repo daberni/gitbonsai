@@ -151,8 +151,16 @@ extension ScreenshotHarness {
         guard let path = environment["GITBONSAI_SHEET_SHOT"], let view = alert.window.contentView?.superview ?? alert.window.contentView else { return }
         alert.window.appearance = NSApp.appearance
         view.layoutSubtreeIfNeeded()
-        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds), let context = NSGraphicsContext(bitmapImageRep: rep) else { return }
+        // The sheet's glass and vibrant text blend with what lies behind them; on an empty bitmap dark text vanishes, so a window background goes underneath.
+        alert.window.effectiveAppearance.performAsCurrentDrawingAppearance {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = context
+            NSColor.windowBackgroundColor.setFill()
+            view.bounds.fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        view.displayIgnoringOpacity(view.bounds, in: context)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
 }
