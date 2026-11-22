@@ -1,9 +1,28 @@
-import Foundation
+import AppKit
+import GitEngine
 
 /// User preferences shared across the app. The settings window edits them; features read them where they need them.
 /// Screenshot runs use their own defaults domain so they never see or change the user's choices.
 @MainActor
 enum AppSettings {
+    /// Posted after any preference changed, so open windows and timers can follow at once.
+    static let didChange = Notification.Name("AppSettings.didChange")
+
+    enum Appearance: String, CaseIterable {
+        case system, light, dark
+
+        var nsAppearance: NSAppearance? {
+            switch self {
+            case .system: nil
+            case .light: NSAppearance(named: .aqua)
+            case .dark: NSAppearance(named: .darkAqua)
+            }
+        }
+    }
+
+    /// Minutes the automatic fetch can be set to; 0 is off.
+    static let autoFetchChoices = [0, 5, 10, 30]
+
     private static var defaults: UserDefaults {
         ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
     }
@@ -11,24 +30,47 @@ enum AppSettings {
     /// The app that opens files for editing; nil uses the system's default app for the file.
     static var externalEditor: URL? {
         get { defaults.url(forKey: "externalEditor") }
-        set { defaults.set(newValue, forKey: "externalEditor") }
+        set { store(newValue, forKey: "externalEditor") }
     }
 
     /// The terminal app for "Open in Terminal"; nil uses Terminal.
     static var terminalApp: URL? {
         get { defaults.url(forKey: "terminalApp") }
-        set { defaults.set(newValue, forKey: "terminalApp") }
+        set { store(newValue, forKey: "terminalApp") }
     }
 
-    /// A git binary chosen by the user; nil finds one on its own (`GitRunner.defaultGitPath`).
+    /// A git binary chosen by the user; nil finds one on its own (`GitRunner.defaultGitPath`). Repositories opened afterwards use it.
     static var gitPath: String? {
-        get { defaults.string(forKey: "gitPath") }
-        set { defaults.set(newValue, forKey: "gitPath") }
+        get { defaults.string(forKey: "gitPath").flatMap { $0.isEmpty ? nil : $0 } }
+        set {
+            store(newValue?.isEmpty == true ? nil : newValue, forKey: "gitPath")
+            GitRunner.preferredGitPath = gitPath
+        }
     }
 
     /// Minutes between automatic fetches; 0 turns automatic fetching off.
     static var autoFetchMinutes: Int {
         get { defaults.object(forKey: "autoFetchMinutes") as? Int ?? 0 }
-        set { defaults.set(newValue, forKey: "autoFetchMinutes") }
+        set { store(newValue, forKey: "autoFetchMinutes") }
+    }
+
+    /// Light or dark for every window, or whatever the system uses.
+    static var appearance: Appearance {
+        get { defaults.string(forKey: "appearance").flatMap(Appearance.init) ?? .system }
+        set {
+            store(newValue.rawValue, forKey: "appearance")
+            NSApp.appearance = newValue.nsAppearance
+        }
+    }
+
+    /// Hands the stored choices to AppKit and the git engine; called once at launch, before the first window.
+    static func apply() {
+        NSApp.appearance = appearance.nsAppearance
+        GitRunner.preferredGitPath = gitPath
+    }
+
+    private static func store(_ value: Any?, forKey key: String) {
+        if let value { defaults.set(value, forKey: key) } else { defaults.removeObject(forKey: key) }
+        NotificationCenter.default.post(name: didChange, object: nil)
     }
 }

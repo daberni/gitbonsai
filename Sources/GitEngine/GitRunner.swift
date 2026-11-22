@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 public struct GitError: Error, Sendable, CustomStringConvertible {
     public let arguments: [String]
@@ -85,13 +86,42 @@ public actor GitRunner {
         self.gitPath = gitPath
     }
 
-    /// Resolves `git` from `GIT_BONSAI_GIT`, then common Homebrew and Xcode locations.
+    private static let preferredPath = Mutex<String?>(nil)
+
+    /// A git binary chosen by the app's user. Runners created afterwards use it unless `GIT_BONSAI_GIT` names another; nil or empty finds one automatically.
+    public static var preferredGitPath: String? {
+        get { preferredPath.withLock { $0 } }
+        set { preferredPath.withLock { $0 = newValue?.isEmpty == true ? nil : newValue } }
+    }
+
+    /// Resolves `git` from `GIT_BONSAI_GIT`, then `preferredGitPath`, then `automaticGitPath()`.
     public static func defaultGitPath() -> String {
         if let override = ProcessInfo.processInfo.environment["GIT_BONSAI_GIT"], !override.isEmpty {
             return override
         }
+        if let preferred = preferredGitPath {
+            return preferred
+        }
+        return automaticGitPath()
+    }
+
+    /// The first git in the common Homebrew and Xcode locations, which is what an empty preference means.
+    public static func automaticGitPath() -> String {
         let candidates = ["/opt/homebrew/bin/git", "/usr/local/bin/git", "/usr/bin/git"]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) } ?? "/usr/bin/git"
+    }
+
+    /// The version of the git binary at `gitPath`, from `git --version`.
+    public static func version(ofGitAt gitPath: String) async throws -> GitVersion {
+        let arguments = ["--version"]
+        let execution = ProcessExecution(gitPath: gitPath, arguments: arguments, environment: readEnvironment, directory: NSTemporaryDirectory(), stdin: nil)
+        let collector = DataCollector()
+        let outcome = try await execution.run { chunk in collector.append(chunk) }
+        let output = String(decoding: collector.data, as: UTF8.self)
+        guard outcome.exitCode == 0, let version = GitVersion(versionOutput: output) else {
+            throw GitError(arguments: arguments, exitCode: outcome.exitCode, stderr: outcome.stderr.isEmpty ? output : outcome.stderr)
+        }
+        return version
     }
 
     /// Runs a read-only command to completion. Throws `GitError` on an exit code outside `accepting`;

@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if !ScreenshotHarness.runsInBackground { NSApp.activate(ignoringOtherApps: true) }
+        AppSettings.apply()
         ScreenshotHarness.applyAppearance()
         NSApp.mainMenu = makeMenu()
         let controller = MainWindowController(store: SessionStore.standard())
@@ -16,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             controller.window?.ignoresMouseEvents = true
         }
         controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()))
+        ScreenshotHarness.openSettingsIfAsked()
+    }
+
+    @objc func showSettings(_ sender: Any?) {
+        SettingsWindowController.shared.show()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -41,6 +47,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.addItem(submenu("GitBonsai", [
+            item("Einstellungen …", #selector(showSettings(_:)), ","),
+            .separator(),
             item("GitBonsai ausblenden", #selector(NSApplication.hide(_:)), "h"),
             .separator(),
             item("GitBonsai beenden", #selector(NSApplication.terminate(_:)), "q"),

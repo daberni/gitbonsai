@@ -351,6 +351,20 @@ enum Theme {
         static let counterGap: CGFloat = 5
         static let counterSpacing: CGFloat = 14
     }
+
+    enum Settings {
+        /// Every section has this width, so switching sections only changes the window's height.
+        static let width: CGFloat = 560
+        static let inset = Space.xl
+        static let rowSpacing = Space.m
+        static let columnSpacing = Space.s
+        /// Gap between a control and the explanation under it.
+        static let captionGap = Space.xs
+        static let popupWidth: CGFloat = 240
+        static let pathFieldWidth: CGFloat = 260
+        static let captionWidth: CGFloat = 340
+        static let appIcon = Icon.regular
+    }
 }
 
 extension NSColor {

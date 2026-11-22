@@ -47,6 +47,11 @@ Sidebar:
 
 - `GITBONSAI_SIDEBAR_SCROLL=<points>` scrolls the sidebar down and prints the left edge of its scroller next to the right edge of the status slot column; the capture does not draw scrollers, so these numbers show whether one covers the slot.
 
+Settings:
+
+- `GITBONSAI_SETTINGS=general|git|appearance|fetch` opens the settings window on that section and captures it instead of the main window.
+- `GITBONSAI_AUTO_FETCH=<seconds>` lets every repository tab fetch on its own at that interval and prints each run; harness runs otherwise never fetch automatically.
+
 Files, diffs and commits:
 
 - `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file's diff (without a source: the file in the selected commit), and `GITBONSAI_HUNK_ACTION=<n>` stages or unstages hunk n.

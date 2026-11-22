@@ -35,6 +35,7 @@ final class RepositoryViewController: NSObject {
     private let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
+    private var autoFetch: AutoFetchTimer?
 
     init(location: RepositoryLocation) {
         viewModel = GraphViewModel(location: location)
@@ -50,6 +51,7 @@ final class RepositoryViewController: NSObject {
         layout()
         bind()
         viewModel.load()
+        autoFetch = AutoFetchTimer { [weak self] in await self?.viewModel.fetch() }
     }
 
     // MARK: Diff
