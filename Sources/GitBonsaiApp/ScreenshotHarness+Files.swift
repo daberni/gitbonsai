@@ -28,12 +28,36 @@ extension ScreenshotHarness {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { tab.diff.runHunkAction(hunk) }
         }
         driveDiffHeader(on: tab)
+        pickDiffOption(on: tab)
         if environment["GITBONSAI_PRINT_DIFF_HEADER"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { FileHandle.standardError.write(Data("diff header: \(tab.diff.header.summary)\n".utf8)) }
         }
     }
 
     // MARK: Diff mode
+
+    /// `GITBONSAI_DIFF_OPTION=<title>` prints the entries of the diff options menu with their state, chooses one without opening the menu on screen, and prints the entries again.
+    static func pickDiffOption(on tab: RepositoryViewController) {
+        guard let title = environment["GITBONSAI_DIFF_OPTION"] else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            let button = tab.diff.header.optionsButton
+            guard let menu = button.menu, !button.isHidden else {
+                FileHandle.standardError.write(Data("no diff options menu\n".utf8))
+                return
+            }
+            func report(_ step: String) {
+                let entries = menu.items.dropFirst().map { "\($0.state == .on ? "✓" : " ") \($0.title)" }
+                FileHandle.standardError.write(Data("diff options \(step): \(entries.joined(separator: " | "))\n".utf8))
+            }
+            report("before")
+            guard let index = menu.items.firstIndex(where: { $0.title == title }) else {
+                FileHandle.standardError.write(Data("no diff option \(title)\n".utf8))
+                return
+            }
+            menu.performActionForItem(at: index)
+            report("after")
+        }
+    }
 
     /// `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the diff's close button with a real click and prints whether the graph is back.
     static func clickDiffClose(on tab: RepositoryViewController) {

@@ -455,6 +455,15 @@ enum Theme {
         static let badgeHeight: CGFloat = 20
         /// Long hunk sections are cut here so the hunk's button stays in view.
         static let hunkLabelWidth: CGFloat = 480
+        /// The changed part of a changed line, over the line's tint.
+        static let emphasisTint: CGFloat = 0.28
+        /// Capsules naming invisible characters (BOM, NBSP, ZWSP) inside a line.
+        static let invisibleBadgeHeight: CGFloat = 14
+        static let invisibleBadgePadding: CGFloat = 3
+        static let invisibleBadgeGap: CGFloat = 1
+        @MainActor static let invisibleBadgeFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
+        /// A notice above the lines, such as a line ending conversion.
+        static let noticeHeight: CGFloat = 26
     }
 
     /// A pane with nothing to show: a centred message over the bonsai drawing (`icons/empty-state-bonsai.svg`).

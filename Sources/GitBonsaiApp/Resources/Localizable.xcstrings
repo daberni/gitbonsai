@@ -36,6 +36,17 @@
         }
       }
     },
+    "%@ Text" : {
+      "comment" : "Title for a text file in a wide encoding git treats as binary, e.g. UTF-16 LE Text",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@-Text"
+          }
+        }
+      }
+    },
     "%@ and %@ have diverged" : {
       "localizations" : {
         "de" : {
@@ -3316,6 +3327,17 @@
         }
       }
     },
+    "Diff Options" : {
+      "comment" : "Tooltip of the menu with options of how a diff is shown",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diff-Optionen"
+          }
+        }
+      }
+    },
     "Differing" : {
       "comment" : "Tag filter: tags that point elsewhere on a remote.",
       "localizations" : {
@@ -4463,6 +4485,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hell"
+          }
+        }
+      }
+    },
+    "Line endings: %@ → %@" : {
+      "comment" : "Notice above a diff in which every line only changed its line ending, e.g. Line endings: LF → CRLF",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeilenenden: %@ → %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Line endings: %1$@ → %2$@"
           }
         }
       }
@@ -7323,6 +7362,17 @@
         }
       }
     },
+    "Show invisible characters" : {
+      "comment" : "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsichtbare Zeichen zeigen"
+          }
+        }
+      }
+    },
     "Show only the changes or the whole file" : {
       "localizations" : {
         "de" : {
@@ -8442,6 +8492,17 @@
         }
       }
     },
+    "To compare it as text, add this line to .gitattributes:" : {
+      "comment" : "Followed by a .gitattributes line with working-tree-encoding",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um sie als Text zu vergleichen, diese Zeile in .gitattributes ergänzen:"
+          }
+        }
+      }
+    },
     "URL" : {
       "localizations" : {
         "de" : {
@@ -9165,6 +9226,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "git meldet einen Fehler (Exit-Code %lld)."
+          }
+        }
+      }
+    },
+    "git treats this file as binary and shows no text comparison." : {
+      "comment" : "Detail for a UTF-16 text file in the diff",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git behandelt diese Datei als binär und zeigt keinen Textvergleich."
           }
         }
       }

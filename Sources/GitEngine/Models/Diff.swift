@@ -15,19 +15,23 @@ public struct DiffLine: Sendable, Hashable {
     public enum Kind: Sendable, Hashable { case context, added, removed }
 
     public let kind: Kind
+    /// The line without its line ending; a CR before the LF is in `carriageReturn`, since AppKit would lay it out as a second line.
     public let text: String
     /// Line number in the old and the new version; nil on the side the line does not exist.
     public let oldNumber: Int?
     public let newNumber: Int?
     /// Followed by git's "\ No newline at end of file".
     public let missingNewline: Bool
+    /// The line ended with CR LF.
+    public let carriageReturn: Bool
 
-    public init(kind: Kind, text: String, oldNumber: Int?, newNumber: Int?, missingNewline: Bool = false) {
+    public init(kind: Kind, text: String, oldNumber: Int?, newNumber: Int?, missingNewline: Bool = false, carriageReturn: Bool = false) {
         self.kind = kind
         self.text = text
         self.oldNumber = oldNumber
         self.newNumber = newNumber
         self.missingNewline = missingNewline
+        self.carriageReturn = carriageReturn
     }
 }
 

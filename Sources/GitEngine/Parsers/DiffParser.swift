@@ -3,8 +3,8 @@ import Foundation
 /// Parses `git diff -p --no-color` output into files, hunks and numbered lines, with renames, copies, their similarity and mode changes from the extended header.
 enum DiffParser {
     static func parse(_ data: Data) -> [FileDiff] {
-        let text = String(decoding: data, as: UTF8.self)
-        var lines = text.components(separatedBy: "\n")
+        // Split on the newline byte before decoding: a CR stays at the end of its line instead of forming one character with the LF.
+        var lines = data.split(separator: 0x0A, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
         if lines.last == "" { lines.removeLast() }
         var files: [FileDiff] = []
         var index = 0
@@ -94,20 +94,25 @@ enum DiffParser {
         var oldNumber = oldStart
         var newNumber = newStart
         for raw in body.dropFirst() {
-            if raw.hasPrefix("\\") {
-                if let last = lines.popLast() { lines.append(DiffLine(kind: last.kind, text: last.text, oldNumber: last.oldNumber, newNumber: last.newNumber, missingNewline: true)) }
+            // Scalars, not characters: a combining mark right after the sign would merge with it into one character.
+            let scalars = raw.unicodeScalars
+            if scalars.first == "\\" {
+                if let last = lines.popLast() { lines.append(DiffLine(kind: last.kind, text: last.text, oldNumber: last.oldNumber, newNumber: last.newNumber, missingNewline: true, carriageReturn: last.carriageReturn)) }
                 continue
             }
-            let text = String(raw.dropFirst())
-            switch raw.first {
+            var body = scalars.dropFirst()
+            let carriageReturn = body.last == "\r"
+            if carriageReturn { body = body.dropLast() }
+            let text = String(String.UnicodeScalarView(body))
+            switch scalars.first {
             case "+":
-                lines.append(DiffLine(kind: .added, text: text, oldNumber: nil, newNumber: newNumber))
+                lines.append(DiffLine(kind: .added, text: text, oldNumber: nil, newNumber: newNumber, carriageReturn: carriageReturn))
                 newNumber += 1
             case "-":
-                lines.append(DiffLine(kind: .removed, text: text, oldNumber: oldNumber, newNumber: nil))
+                lines.append(DiffLine(kind: .removed, text: text, oldNumber: oldNumber, newNumber: nil, carriageReturn: carriageReturn))
                 oldNumber += 1
             default:
-                lines.append(DiffLine(kind: .context, text: text, oldNumber: oldNumber, newNumber: newNumber))
+                lines.append(DiffLine(kind: .context, text: text, oldNumber: oldNumber, newNumber: newNumber, carriageReturn: carriageReturn))
                 oldNumber += 1
                 newNumber += 1
             }

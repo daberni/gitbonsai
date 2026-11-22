@@ -28,3 +28,25 @@ enum DiffMode: String, CaseIterable {
         ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") : .standard
     }
 }
+
+/// Choices of the diff options menu next to "Diff | Whole File"; like the mode they hold for every file and the next launch.
+struct DiffOptions: Equatable {
+    /// Marks tabs and trailing spaces in changed lines, line ends with CR, a byte order mark, and names characters without a glyph such as NBSP and ZWSP.
+    var showsInvisibles = false
+
+    private static let invisiblesKey = "diffShowsInvisibles"
+
+    /// Harness runs start without invisibles unless `GITBONSAI_DIFF_INVISIBLES` is `1` or `remembered`.
+    @MainActor static var remembered: DiffOptions {
+        get {
+            let harnessValue = ProcessInfo.processInfo.environment["GITBONSAI_DIFF_INVISIBLES"]
+            if ScreenshotHarness.isActive, harnessValue != "remembered" { return DiffOptions(showsInvisibles: harnessValue == "1") }
+            return DiffOptions(showsInvisibles: defaults?.bool(forKey: invisiblesKey) ?? false)
+        }
+        set { defaults?.set(newValue.showsInvisibles, forKey: invisiblesKey) }
+    }
+
+    @MainActor private static var defaults: UserDefaults? {
+        ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") : .standard
+    }
+}

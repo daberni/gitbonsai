@@ -33,6 +33,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Diff of a file in a comparison | `git diff -p --no-color --no-ext-diff -M <base> <target> -- <paths>` | Full file view adds `--unified=<max>` |
 | Diff of unstaged / staged changes | `git diff -p … -- <paths>` / `git diff --cached -p … -- <paths>` | Unstaged: index queue |
 | Diff of an untracked file | `git diff --no-index -p … -- /dev/null <path>` | |
+| Encoding of a binary diff | `git cat-file -s <rev>:<path>`, then `git cat-file blob <rev>:<path>` up to 16 MB; the index as `:<path>`; working tree and untracked files are read directly | Only for files git shows as binary; a UTF-16 or UTF-32 byte order mark or NUL pattern names the encoding and the `working-tree-encoding` hint |
 | Counts in the file lists | `git diff [--cached] --numstat -M -z` | Without `--cached`: index queue |
 | Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| -M <base> <target> \| --cached] -- <paths>` | `<base> <target>` for a file of a comparison |
 | Restore a file from a commit | `git restore --source=<commit> --worktree -- <path>` | Asks first when local changes would be overwritten |

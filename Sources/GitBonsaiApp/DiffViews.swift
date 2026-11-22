@@ -5,6 +5,7 @@ import GitEngine
 final class DiffHeaderView: BarView {
     var onBack: (() -> Void)?
     var onModeChange: ((DiffMode) -> Void)?
+    var onOptionsChange: ((DiffOptions) -> Void)?
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onFileAction: (() -> Void)?
@@ -15,6 +16,10 @@ final class DiffHeaderView: BarView {
     private let badge = BadgeView()
     private let stat = NSTextField(labelWithString: "")
     let modes = NSSegmentedControl(labels: DiffMode.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
+    /// Options of how a diff is shown; word diff and ignoring whitespace are to join "Show invisible characters" here.
+    let optionsButton = NSPopUpButton(frame: .zero, pullsDown: true)
+    private let invisiblesItem = NSMenuItem(title: String(localized: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), action: nil, keyEquivalent: "")
+    private var options = DiffOptions()
     private let previous = NSButton()
     let next = NSButton()
     private let fileAction = NSButton()
@@ -47,6 +52,7 @@ final class DiffHeaderView: BarView {
         modes.target = self
         modes.action = #selector(changeMode(_:))
         modes.toolTip = String(localized: "Show only the changes or the whole file", bundle: .module)
+        configureOptions()
         let closeSymbol = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
         close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "Close", bundle: .module))?.withSymbolConfiguration(closeSymbol)
         close.bezelStyle = .rounded
@@ -60,9 +66,9 @@ final class DiffHeaderView: BarView {
         let leading = NSStackView(views: [back, indicator, title, badge, stat])
         leading.spacing = Theme.Space.m
         leading.setCustomSpacing(Theme.Space.s, after: indicator)
-        let trailing = NSStackView(views: [modes, previous, next, fileAction, close])
+        let trailing = NSStackView(views: [modes, optionsButton, previous, next, fileAction, close])
         trailing.spacing = Theme.Space.s
-        trailing.setCustomSpacing(Theme.Space.m, after: modes)
+        trailing.setCustomSpacing(Theme.Space.m, after: optionsButton)
         trailing.setCustomSpacing(Theme.Space.m, after: fileAction)
         for stack in [leading, trailing] {
             stack.orientation = .horizontal
@@ -80,7 +86,19 @@ final class DiffHeaderView: BarView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(_ selection: FileSelection, diff: FileDiff?, mode: DiffMode) {
+    private func configureOptions() {
+        optionsButton.bezelStyle = .rounded
+        optionsButton.imagePosition = .imageOnly
+        optionsButton.toolTip = String(localized: "Diff Options", bundle: .module, comment: "Tooltip of the menu with options of how a diff is shown")
+        let face = NSMenuItem()
+        face.image = NSImage(systemSymbolName: "slider.horizontal.3", accessibilityDescription: optionsButton.toolTip)
+        optionsButton.menu?.addItem(face)
+        invisiblesItem.target = self
+        invisiblesItem.action = #selector(toggleInvisibles(_:))
+        optionsButton.menu?.addItem(invisiblesItem)
+    }
+
+    func show(_ selection: FileSelection, diff: FileDiff?, mode: DiffMode, options: DiffOptions) {
         let change = DiffChange(selection: selection, diff: diff)
         indicator.stringValue = change.letter
         indicator.textColor = change.color
@@ -106,6 +124,9 @@ final class DiffHeaderView: BarView {
         // Binary files and files without changes have nothing to show in full.
         modes.isHidden = diff.map { $0.isBinary || $0.hunks.isEmpty } ?? true
         modes.selectedSegment = DiffMode.allCases.firstIndex(of: mode) ?? 0
+        optionsButton.isHidden = modes.isHidden
+        self.options = options
+        invisiblesItem.state = options.showsInvisibles ? .on : .off
         let hasHunks = (diff?.hunks.count ?? 0) > 1
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
@@ -123,86 +144,14 @@ final class DiffHeaderView: BarView {
         guard DiffMode.allCases.indices.contains(modes.selectedSegment) else { return }
         onModeChange?(DiffMode.allCases[modes.selectedSegment])
     }
+    @objc private func toggleInvisibles(_ sender: Any?) {
+        options.showsInvisibles.toggle()
+        invisiblesItem.state = options.showsInvisibles ? .on : .off
+        onOptionsChange?(options)
+    }
     @objc private func goPrevious(_ sender: Any?) { onPrevious?() }
     @objc private func goNext(_ sender: Any?) { onNext?() }
     @objc private func runFileAction(_ sender: Any?) { onFileAction?() }
-}
-
-/// What happened to the file shown, with the letter and colour of the file lists, and the sentence its tooltip says.
-struct DiffChange {
-    let letter: String
-    let color: NSColor
-    let word: String
-    /// Set for a rename or copy.
-    let oldPath: String?
-    let description: String
-
-    @MainActor init(selection: FileSelection, diff: FileDiff?) {
-        let state: FileState? = selection.source == .untracked ? nil : diff?.change ?? (selection.originalPath == nil ? nil : .renamed)
-        oldPath = diff?.oldPath ?? selection.originalPath
-        if selection.source == .untracked {
-            letter = "?"
-            color = Theme.inkMuted
-            word = String(localized: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
-        } else if let state {
-            letter = String(state.rawValue)
-            color = state.tint
-            word = Self.word(for: state)
-        } else {
-            letter = ""
-            color = Theme.inkMuted
-            word = ""
-        }
-        var lines: [String] = []
-        if let oldPath {
-            lines.append(Self.move(copied: state == .copied, from: oldPath, to: selection.path, similarity: diff?.similarity))
-        } else {
-            lines.append(selection.path)
-        }
-        if let diff, diff.modeChanged, let oldMode = diff.oldMode, let newMode = diff.newMode { lines.append(String(localized: "File mode \("\(oldMode) → \(newMode)")", bundle: .module, comment: "e.g. File mode 100644 → 100755")) }
-        description = lines.joined(separator: "\n")
-    }
-
-    /// A path with an old path was renamed unless git says it was copied.
-    private static func move(copied: Bool, from oldPath: String, to path: String, similarity: Int?) -> String {
-        switch (copied, similarity) {
-        case (true, let similarity?): String(localized: "copied from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
-        case (true, nil): String(localized: "copied from \(oldPath) to \(path)", bundle: .module)
-        case (false, let similarity?): String(localized: "renamed from \(oldPath) to \(path) (similarity \(similarity) %)", bundle: .module)
-        case (false, nil): String(localized: "renamed from \(oldPath) to \(path)", bundle: .module)
-        }
-    }
-
-    private static func word(for state: FileState) -> String {
-        switch state {
-        case .added: String(localized: "added", bundle: .module, comment: "What happened to a file")
-        case .deleted: String(localized: "deleted", bundle: .module, comment: "What happened to a file")
-        case .renamed: String(localized: "renamed", bundle: .module, comment: "What happened to a file")
-        case .copied: String(localized: "copied", bundle: .module, comment: "What happened to a file")
-        case .typeChanged: String(localized: "type changed", bundle: .module, comment: "What happened to a file")
-        case .unmerged: String(localized: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts")
-        case .modified, .unmodified: String(localized: "modified", bundle: .module, comment: "What happened to a file")
-        }
-    }
-}
-
-/// The old and new path of a rename around the leading and trailing folders they share, as `git diff --stat` writes them, so both fit on one line:
-/// `src/{transactions → ledger}/server/repository.ts`, or `docs/old.md → new.md` when only the name changed.
-enum RenamedPath {
-    static func text(old: String, new: String) -> String {
-        let oldParts = old.split(separator: "/", omittingEmptySubsequences: false)
-        let newParts = new.split(separator: "/", omittingEmptySubsequences: false)
-        // Each side keeps at least one component of its own.
-        let limit = min(oldParts.count, newParts.count) - 1
-        let shared = zip(oldParts, newParts).prefix { $0 == $1 }.count
-        let leading = min(shared, limit)
-        let trailing = min(zip(oldParts.reversed(), newParts.reversed()).prefix { $0 == $1 }.count, limit - leading)
-        let prefix = oldParts.prefix(leading).map { $0 + "/" }.joined()
-        let suffix = oldParts.suffix(trailing).map { "/" + $0 }.joined()
-        let oldMiddle = oldParts[leading..<(oldParts.count - trailing)].joined(separator: "/")
-        let newMiddle = newParts[leading..<(newParts.count - trailing)].joined(separator: "/")
-        return suffix.isEmpty ? "\(prefix)\(oldMiddle) → \(newMiddle)" : "\(prefix){\(oldMiddle) → \(newMiddle)}\(suffix)"
-    }
 }
 
 /// A small capsule with a word in it, for "unstaged" and the like.
@@ -222,58 +171,6 @@ final class BadgeView: NSView {
         path.stroke()
         let size = attributed.size()
         attributed.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
-    }
-}
-
-/// One line of a diff: old and new line number, the sign, the text. Added and removed lines are tinted.
-final class DiffLineView: NSView {
-    var line: DiffLine? { didSet { needsDisplay = true } }
-
-    override var isFlipped: Bool { true }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard let line else { return }
-        typealias D = Theme.Diff
-        let tint: NSColor? = switch line.kind {
-        case .added: Theme.moss
-        case .removed: Theme.persimmon
-        case .context: nil
-        }
-        let numbers = CGRect(x: 0, y: 0, width: 2 * D.numberColumn, height: bounds.height)
-        if let tint {
-            tint.withAlphaComponent(D.lineTint).setFill()
-            bounds.fill()
-            tint.withAlphaComponent(D.numberTint).setFill()
-            numbers.fill()
-        } else {
-            Theme.surface1.setFill()
-            numbers.fill()
-        }
-        let numberAttributes: [NSAttributedString.Key: Any] = [.font: Theme.mono, .foregroundColor: Theme.inkFaint]
-        func number(_ value: Int?, columnEnd: CGFloat) {
-            guard let value else { return }
-            let text = NSAttributedString(string: "\(value)", attributes: numberAttributes)
-            text.draw(at: CGPoint(x: columnEnd - D.textInset - text.size().width, y: bounds.midY - text.size().height / 2))
-        }
-        number(line.oldNumber, columnEnd: D.numberColumn)
-        number(line.newNumber, columnEnd: 2 * D.numberColumn)
-        let sign = switch line.kind {
-        case .added: "+"
-        case .removed: "−"
-        case .context: ""
-        }
-        let signText = NSAttributedString(string: sign, attributes: [.font: Theme.mono, .foregroundColor: tint ?? Theme.inkMuted])
-        signText.draw(at: CGPoint(x: numbers.maxX + D.textInset, y: bounds.midY - signText.size().height / 2))
-        let body = NSMutableAttributedString(string: Self.display(line.text), attributes: [.font: Theme.mono, .foregroundColor: Theme.ink])
-        if line.missingNewline { body.append(NSAttributedString(string: "  " + String(localized: "⏎ missing at end of file", bundle: .module, comment: "Marks a last line without a newline"), attributes: [.font: Theme.caption, .foregroundColor: Theme.inkFaint])) }
-        body.draw(at: CGPoint(x: Self.textX, y: bounds.midY - body.size().height / 2))
-    }
-
-    static var textX: CGFloat { 2 * Theme.Diff.numberColumn + Theme.Diff.textInset + Theme.Diff.signColumn }
-
-    /// Tabs as spaces, so columns line up as in an editor.
-    static func display(_ text: String) -> String {
-        text.replacingOccurrences(of: "\t", with: String(repeating: " ", count: Theme.Diff.tabWidth))
     }
 }
 
