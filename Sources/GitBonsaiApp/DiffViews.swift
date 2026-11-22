@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The bar above a file diff: the way back to the graph, the file, its counts, the choice between diff and whole file, hunk navigation and the file-wide action.
+/// The bar above a file diff: the way back to the graph (also the close button and Esc), the file, its counts, the choice between diff and whole file, hunk navigation and the file-wide action.
 final class DiffHeaderView: BarView {
     var onBack: (() -> Void)?
     var onModeChange: ((DiffMode) -> Void)?
@@ -17,6 +17,7 @@ final class DiffHeaderView: BarView {
     private let previous = NSButton()
     let next = NSButton()
     private let fileAction = NSButton()
+    let close = NSButton()
 
     init() {
         super.init(edge: .bottom)
@@ -39,15 +40,22 @@ final class DiffHeaderView: BarView {
         modes.target = self
         modes.action = #selector(changeMode(_:))
         modes.toolTip = "Nur die Änderungen oder die ganze Datei zeigen"
+        let closeSymbol = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
+        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Schließen")?.withSymbolConfiguration(closeSymbol)
+        close.bezelStyle = .rounded
+        close.toolTip = "Schließen (Esc)"
+        close.target = self
+        close.action = #selector(goBack(_:))
         fileAction.bezelStyle = .rounded
         fileAction.target = self
         fileAction.action = #selector(runFileAction(_:))
 
         let leading = NSStackView(views: [back, title, badge, stat])
         leading.spacing = Theme.Space.m
-        let trailing = NSStackView(views: [modes, previous, next, fileAction])
+        let trailing = NSStackView(views: [modes, previous, next, fileAction, close])
         trailing.spacing = Theme.Space.s
         trailing.setCustomSpacing(Theme.Space.m, after: modes)
+        trailing.setCustomSpacing(Theme.Space.m, after: fileAction)
         for stack in [leading, trailing] {
             stack.orientation = .horizontal
             stack.translatesAutoresizingMaskIntoConstraints = false

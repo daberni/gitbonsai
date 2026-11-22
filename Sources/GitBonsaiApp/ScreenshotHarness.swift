@@ -122,11 +122,26 @@ enum ScreenshotHarness {
 
     // MARK: Diff mode
 
+    /// `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the diff's close button with a real click and prints whether the graph is back.
+    static func clickDiffClose(on tab: RepositoryViewController) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let window = tab.view.window else { return }
+            let close = tab.diff.header.close
+            let before = tab.diff.view.window != nil && !tab.diff.view.isHiddenOrHasHiddenAncestor
+            click(in: window, at: close.convert(CGPoint(x: close.bounds.midX, y: close.bounds.midY), to: nil))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                let after = tab.diff.view.window != nil && !tab.diff.view.isHiddenOrHasHiddenAncestor
+                FileHandle.standardError.write(Data("diff shown before close click: \(before), after: \(after)\n".utf8))
+            }
+        }
+    }
+
     /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top line after each step.
     static func driveDiffHeader(on tab: RepositoryViewController) {
         let environment = environment
         let mode = environment["GITBONSAI_CLICK_DIFF_MODE"].flatMap(DiffMode.init)
         let jumps = environment["GITBONSAI_DIFF_NEXT"].flatMap(Int.init) ?? 0
+        if environment["GITBONSAI_CLICK_DIFF_CLOSE"] == "1" { return clickDiffClose(on: tab) }
         guard mode != nil || jumps > 0 else { return }
         func report(_ step: String) { FileHandle.standardError.write(Data("\(step): top line \(tab.diff.topLineNumbers)\n".utf8)) }
         func jump(_ remaining: Int) {
