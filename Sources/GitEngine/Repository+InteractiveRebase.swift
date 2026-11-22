@@ -24,6 +24,14 @@ public enum InteractiveRebaseOutcome: Sendable, Equatable {
     case stopped(OperationProgress, output: String)
 }
 
+/// Where a reword left the commit, or why it has not finished.
+public enum RewordOutcome: Sendable, Equatable {
+    /// The commit with its new message.
+    case rewritten(String)
+    /// git stopped while replaying the commits above it; `output` is what git said.
+    case stopped(OperationProgress, output: String)
+}
+
 /// The context menu's one-step forms of an interactive rebase.
 public enum RebaseSingleStep: Sendable, Equatable {
     case reword(String)
@@ -32,6 +40,11 @@ public enum RebaseSingleStep: Sendable, Equatable {
     case moveUp
     /// Swaps the commit with the one below it, its parent.
     case moveDown
+}
+
+extension RebasePlan {
+    /// The plan touches HEAD and nothing else: no commit above it and no other branch that would have to move along.
+    public var rewordsHeadAlone: Bool { onto == nil && steps.count == 1 && branches.isEmpty }
 }
 
 extension Repository {
@@ -128,6 +141,39 @@ extension Repository {
             plan.steps.swapAt(0, 1)
         }
         return plan
+    }
+
+    /// Gives the commit a plan of `singleStepPlan(.reword(_:), commit:)` starts with the new `message`.
+    /// HEAD alone is amended with `git commit --amend --only`, which leaves the index out, so staged changes stay staged and outside the commit; it can be undone like a rebase.
+    /// Everything else runs the plan; uncommitted changes are stashed for it and brought back with their staged state when `plan.autostash` is on.
+    public func reword(_ plan: RebasePlan, message: String) async throws -> RewordOutcome {
+        guard let commit = plan.steps.first?.commit else { throw RebasePlanError.nothingToRebase }
+        if plan.rewordsHeadAlone, await operationInProgress() == nil {
+            return .rewritten(try await amendHeadMessage(message))
+        }
+        var plan = plan
+        plan.steps[0].action = .reword
+        plan.messages[commit.id] = message
+        switch try await startInteractiveRebase(plan) {
+        case let .stopped(progress, output):
+            return .stopped(progress, output: output)
+        case .finished:
+            // Nothing above it was dropped, so the commit is as many first parents below HEAD as there are steps above it.
+            let position = plan.steps.count - 1
+            guard let sha = await resolveCommit(position == 0 ? "HEAD" : "HEAD~\(position)") else { throw RebasePlanError.notOnCurrentBranch }
+            return .rewritten(sha)
+        }
+    }
+
+    /// Rewrites only HEAD's message and leaves `ORIG_HEAD` and an undo record as a finished rebase does; returns the new HEAD.
+    private func amendHeadMessage(_ message: String) async throws -> String {
+        let before = try await runner.run(["rev-parse", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let branch = (try? await runner.run(["symbolic-ref", "-q", "HEAD"]))?.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try await runner.runWrite(["commit", "--amend", "--only", "--cleanup=whitespace", "-F", "-"], stdin: Data(message.utf8))
+        guard let after = await resolveCommit("HEAD") else { throw RebasePlanError.nothingToRebase }
+        _ = try await runner.runWrite(["update-ref", "ORIG_HEAD", before])
+        try await rebaseSession().finish(with: RebaseUndo(branch: branch?.isEmpty == false ? branch : nil, before: before, after: after, stacked: []))
+        return after
     }
 
     /// Runs `git rebase --interactive` with the todo list and messages of `plan`. git stopping at an `edit`, a conflict or a failed `exec` is no error: the rebase stays in progress and the banner takes over.

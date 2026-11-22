@@ -89,6 +89,10 @@ extension ScreenshotHarness {
     /// `GITBONSAI_EDIT_AMEND=<subject>` at an edit stop clicks "Commit ändern …" in the banner, types the subject into the commit form, clicks Amend and then Fortsetzen, all with real events.
     /// `GITBONSAI_REBASE_UNDO=1` clicks "Rückgängig" in the status line; the question is answered by `GITBONSAI_CONFIRM=1`.
     static func driveRebase(on tab: RepositoryViewController) {
+        if let script = environment["GITBONSAI_REWORD_SCRIPT"] {
+            let steps = script.split(separator: ";").map(String.init)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { runRewordSteps(steps[...], on: tab) }
+        }
         for row in (environment["GITBONSAI_REBASE_MENU"] ?? "").split(separator: ",").compactMap({ Int($0) }) where tab.viewModel.commits.indices.contains(row) {
             let items = tab.commitActions.interactiveRebase.menuItems(for: tab.viewModel.commits[row])
             log("rebase menu \(row): " + items.map { $0.action == nil ? "\($0.title) (aus: \($0.toolTip ?? ""))" : $0.title }.joined(separator: "; "))
@@ -112,6 +116,121 @@ extension ScreenshotHarness {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { log("status: \(tab.viewModel.statusText); undo \(button.isHidden ? "hidden" : "shown")") }
             }
         }
+    }
+
+    /// `GITBONSAI_REWORD_SCRIPT=<step>;<step>…` edits a commit message in place in the detail panel. Steps: `select:<row>` (selects the history row), `menu` (runs "Nachricht bearbeiten" from the selected row's commit menu),
+    /// `dblclick` (a real double click on the subject), `pencil` (a real click on the pencil), `cmd-e` (⌘E through the main menu: its validation, then its action),
+    /// `subject:<text>` and `body:<text>` (typed, `\n` for a new line), `key:<key>` (`escape`, `cmd-return`, `return`, a letter), `save`, `cancel` (real clicks), `print`, `shot:<png>`, `wait:<seconds>`.
+    private static func runRewordSteps(_ steps: ArraySlice<String>, on tab: RepositoryViewController) {
+        guard let step = steps.first, let window = tab.view.window else { return }
+        log("reword step \(step)")
+        let (name, argument) = split(step, at: ":")
+        let detail = views(of: DetailView.self, in: window).first
+        let editor = detail?.messageEditor
+        var delay = 0.5
+        switch name {
+        case "select":
+            // Row clicks need a key window (see the navigation switches); selecting is not what this script checks.
+            guard let row = Int(argument), row < tab.history.tableView.numberOfRows else { break }
+            tab.history.select(row: row, scroll: true)
+        case "menu":
+            let row = tab.history.tableView.selectedRow
+            guard let items = tab.history.menuItems?(row) else { break }
+            let menu = NSMenu()
+            items.forEach(menu.addItem)
+            if let item = items.first(where: { $0.title.hasPrefix("Nachricht bearbeiten") }), item.action == nil {
+                log("menu entry „\(item.title)“ disabled: \(item.toolTip ?? "")")
+                break
+            }
+            choose("Nachricht bearbeiten", in: menu)
+        case "dblclick":
+            guard let label = detail?.subjectLabel else { log("no subject label"); break }
+            let point = label.convert(NSPoint(x: Theme.Space.s, y: label.bounds.midY), to: nil)
+            for count in 1...2 {
+                for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                    guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1) else { continue }
+                    if type == .leftMouseDown { Self.press(event, in: window) } else { window.sendEvent(event) }
+                }
+            }
+        case "pencil":
+            guard let button = detail?.editMessageButton else { log("no pencil"); break }
+            log("pencil \(button.isEnabled ? "enabled" : "disabled"): \(button.toolTip ?? "")")
+            press(button)
+        case "cmd-e":
+            let shortcut = CommandShortcut.editMessage
+            guard let item = NSApp.mainMenu?.items.compactMap(\.submenu).flatMap(\.items).first(where: { $0.keyEquivalent == shortcut.key && $0.keyEquivalentModifierMask == shortcut.modifiers }), let action = item.action else { log("no ⌘E in the main menu"); break }
+            let enabled = (item.target as? NSMenuItemValidation)?.validateMenuItem(item) ?? true
+            let reason = tab.allCommands().first { $0.id == CommandSpec.editMessage.id }?.disabledReason
+            log("⌘E „\(item.title)“ \(enabled ? "enabled" : "disabled: \(reason ?? "")")")
+            if enabled { NSApp.sendAction(action, to: item.target, from: item) } else { NSSound.beep() }
+        case "subject":
+            guard let editor else { log("no editor"); break }
+            replaceText(in: editor.subject.field, with: argument)
+        case "body":
+            guard let editor else { log("no editor"); break }
+            replaceText(in: editor.body, with: argument)
+        case "key" where argument == "cmd-return":
+            // NSApplication offers key equivalents to the key window before its first responder sees the key; a background window is never key, so the harness offers it the same way.
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36) else { break }
+            traceSaving(on: tab, in: window)
+            log("⌘⏎ taken as key equivalent: \(window.performKeyEquivalent(with: event))")
+            delay = 2
+        case "key":
+            press(key: argument, in: window)
+        case "save":
+            guard let editor else { log("no editor"); break }
+            traceSaving(on: tab, in: window)
+            press(editor.saveButton)
+            delay = 2
+        case "cancel":
+            guard let editor else { log("no editor"); break }
+            press(editor.cancelButton)
+        case "wait":
+            delay = Double(argument) ?? 1
+        case "print":
+            printReword(on: tab, editor: editor, detail: detail)
+        case "shot":
+            renderWindow(window, to: argument)
+        default:
+            log("unknown reword step \(step)")
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { runRewordSteps(steps.dropFirst(), on: tab) }
+    }
+
+    /// For two seconds after saving, prints every state of selection and detail panel that can reach the screen, each time the run loop goes to sleep and only when it changed, to show that nothing else flashes up in between.
+    private static func traceSaving(on tab: RepositoryViewController, in window: NSWindow) {
+        nonisolated(unsafe) var last = ""
+        let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, 0) { _, _ in
+            MainActor.assumeIsolated {
+                let model = tab.viewModel
+                let row = tab.history.tableView.selectedRow
+                let selected = model.commits.indices.contains(row) ? "\(model.commits[row].shortID) \(model.commits[row].subject)" : "row \(row)"
+                let detail = views(of: DetailView.self, in: window).first
+                let panel = detail?.messageEditor != nil ? "editor (saving \(detail?.messageEditor?.isSaving == true))" : "\(detail?.traceState.header ?? "-") \(detail?.subjectLabel?.stringValue ?? "-")"
+                let state = "selected \(selected) · panel \(panel)"
+                guard state != last else { return }
+                last = state
+                log("saving trace: \(state)")
+            }
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, .commonModes) }
+    }
+
+    /// The first rows of the history, the selection, the panel's header and the editor's state.
+    private static func printReword(on tab: RepositoryViewController, editor: CommitMessageEditor?, detail: DetailView?) {
+        let model = tab.viewModel
+        let rows = model.commits.indices.prefix(6).filter { model.kinds[$0] != .wip }.map { "\(model.commits[$0].shortID) \(model.commits[$0].subject)\(model.commits[$0].id == model.headSHA ? " (HEAD)" : "")" }
+        log("log: " + rows.joined(separator: " | "))
+        let row = tab.history.tableView.selectedRow
+        let selected = model.commits.indices.contains(row) ? "\(model.commits[row].shortID) \(model.commits[row].subject)" : "row \(row)"
+        log("selected: \(selected); panel: \(detail?.traceState.header ?? "-") \(detail?.subjectLabel?.stringValue ?? "-"); pencil \(detail?.editMessageButton.map { $0.isHidden ? "hidden" : $0.isEnabled ? "enabled" : "disabled" } ?? "none")")
+        if let editor {
+            log("editor: subject „\(editor.subject.stringValue)“, body „\(editor.body.string.replacingOccurrences(of: "\n", with: "\\n"))“, note „\(editor.noteText)“, Sichern \(editor.saveButton.isEnabled ? "an" : "aus"), focus \(editor.window?.firstResponder.map { "\(type(of: $0))" } ?? "none")")
+        } else {
+            log("editor: closed")
+        }
+        log("status: \(model.statusText); undo \(tab.rebaseUndo.button.isHidden ? "hidden" : "shown")")
     }
 
     private static func amendAtEditStop(on tab: RepositoryViewController, subject: String) {
@@ -210,7 +329,7 @@ extension ScreenshotHarness {
             default: break
             }
         }
-        let named: [String: (Int, UInt16)] = ["up": (NSUpArrowFunctionKey, 126), "down": (NSDownArrowFunctionKey, 125), "return": (13, 36), "delete": (127, 51), "tab": (9, 48)]
+        let named: [String: (Int, UInt16)] = ["up": (NSUpArrowFunctionKey, 126), "down": (NSDownArrowFunctionKey, 125), "return": (13, 36), "delete": (127, 51), "tab": (9, 48), "escape": (27, 53)]
         let characters: String
         let keyCode: UInt16
         if let (scalar, code) = named[key], let unicode = UnicodeScalar(scalar) {

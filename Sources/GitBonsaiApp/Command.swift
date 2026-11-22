@@ -107,6 +107,8 @@ struct CommandShortcut: Equatable {
     static let search = CommandShortcut("f")
     /// The commit form takes ⌘⏎ itself while it shows; elsewhere the menu item brings the form up.
     static let commit = CommandShortcut("\r")
+    /// Edits the selected commit's message in place in the detail panel.
+    static let editMessage = CommandShortcut("e")
     /// ⌃⌘S as in Finder and Mail.
     static let toggleSidebar = CommandShortcut("s", [.command, .control])
     /// ⌥⌘I as the inspector in Finder and Pages; ⌥⌘D belongs to the Dock.

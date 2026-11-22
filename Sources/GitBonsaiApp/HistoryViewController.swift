@@ -182,6 +182,14 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         let offset: CGFloat
     }
 
+    /// Commits a rewrite replaced, by their old ID: the selection follows them to their new rows once the history is read again.
+    private var rewrittenCommits: [String: String] = [:]
+
+    /// Keeps `old` selected as `new` across the next rebuild or reload, for a rewrite that replaced it.
+    func followRewrite(of old: String, to new: String) {
+        rewrittenCommits[old] = new
+    }
+
     private func anchor() -> Anchor? {
         guard let selectedID, selectedRow >= 0 else { return nil }
         let others = selectedRows.filter { $0 != selectedRow && viewModel.commits.indices.contains($0) }.map { viewModel.commits[$0].id }
@@ -190,8 +198,10 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     /// Selects the anchored commits again and scrolls so that the anchor's row sits where it sat before. False when that commit is no longer in the history; others that left stay unselected.
     private func restore(_ anchor: Anchor?) -> Bool {
-        guard let anchor, let row = viewModel.rowIndex(of: anchor.id) else { return false }
-        let others = IndexSet(anchor.others.compactMap { viewModel.rowIndex(of: $0) })
+        let rewritten = rewrittenCommits
+        rewrittenCommits = [:]
+        guard let anchor, let row = viewModel.rowIndex(of: rewritten[anchor.id] ?? anchor.id) else { return false }
+        let others = IndexSet(anchor.others.compactMap { viewModel.rowIndex(of: rewritten[$0] ?? $0) })
         // One change for all rows: a passing selection of fewer rows would count as navigation.
         tableView.selectRowIndexes(others.union(IndexSet(integer: row)), byExtendingSelection: false)
         guard let clip = tableView.enclosingScrollView?.contentView else { return true }

@@ -51,6 +51,7 @@ final class RepositoryViewController: NSObject {
     let toolbar = RepositoryToolbar()
     let sidebar = SidebarView()
     private let detail = DetailView()
+    private(set) var inlineReword: InlineRewordController!
     private let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
@@ -76,6 +77,8 @@ final class RepositoryViewController: NSObject {
         let model = viewModel
         diff = DiffViewController(staging: staging, repository: { model.repository })
         super.init()
+        let rebase = commitActions.interactiveRebase
+        inlineReword = InlineRewordController(viewModel: viewModel, prompter: commitActions.prompter, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutController
         sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
         pillMenu = PillMenuController(viewModel: viewModel, sidebarActions: sidebarActions, tags: tagsController)
@@ -193,6 +196,11 @@ final class RepositoryViewController: NSObject {
         detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
         detail.onDiscard = { [weak self] selection in self?.staging.discard(selection) }
         detail.fileMenuItems = { [weak self] file in self?.fileActions.menuItems(for: file) ?? [] }
+        detail.messageAccess = { [weak self] commit in self?.commitActions.interactiveRebase.rewordAccess(for: commit) }
+        detail.onEditMessage = { [weak self] in self?.editSelectedCommitMessage() }
+        commitActions.interactiveRebase.onReword = { [weak self] commit in self?.editMessage(of: commit) }
+        inlineReword.onRewritten = { [weak self] old, new in self?.history.followRewrite(of: old, to: new) }
+        inlineReword.onClosed = { [weak self] in self?.messageEditingClosed() }
         fileActions.prompter.window = { [weak self] in self?.view.window }
         fileActions.onChange = { [weak self] in
             self?.diff.reload()
@@ -237,6 +245,45 @@ final class RepositoryViewController: NSObject {
         guard selectsHeadAfterLoad, !viewModel.isLoading, let row = viewModel.headSHA.flatMap({ viewModel.rowIndex(of: $0) }) else { return }
         selectsHeadAfterLoad = false
         history.select(row: row, scroll: true)
+    }
+
+    // MARK: Message editing
+
+    /// The one commit selected, when it is a commit and not the working directory or a stash.
+    var selectedCommitForMessage: Commit? {
+        guard let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .commit || viewModel.kinds[row] == .merge else { return nil }
+        return viewModel.commits[row]
+    }
+
+    /// Why ⌘E cannot edit the selected commit's message right now; nil when it can.
+    var editMessageReason: String? {
+        guard let commit = selectedCommitForMessage else { return "Kein Commit ausgewählt" }
+        if inlineReword.isEditing { return "Wird schon bearbeitet" }
+        switch commitActions.interactiveRebase.rewordAccess(for: commit) {
+        case .allowed: return nil
+        case let .disabled(reason): return reason
+        case nil: return viewModel.currentBranch.map { "Liegt nicht auf der Linie von „\($0)“" } ?? "Detached HEAD"
+        }
+    }
+
+    func editSelectedCommitMessage() {
+        guard let commit = selectedCommitForMessage else { return NSSound.beep() }
+        inlineReword.begin(commit)
+    }
+
+    /// From the commit menu the commit may not be the selected one; it is selected first, so the panel shows it.
+    private func editMessage(of commit: Commit) {
+        if selectedCommitForMessage?.id != commit.id { history.navigate(to: commit.id) }
+        inlineReword.begin(commit)
+    }
+
+    /// The focus goes back to the history. After a reword the panel shows the selected commit afresh, so no editor of a commit that is gone stays open.
+    private func messageEditingClosed() {
+        if detail.messageEditor != nil {
+            shownSelection = nil
+            selectionChanged(to: history.selectedRows)
+        }
+        view.window?.makeFirstResponder(history.tableView)
     }
 
     /// At an edit stop the commit form amends the stopped commit: shown under the working directory, or under HEAD while nothing changed.

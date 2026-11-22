@@ -34,7 +34,8 @@ final class TextInput: NSView, NSTextFieldDelegate {
         set { box.isInvalid = newValue }
     }
 
-    init(placeholder: String = "", accessory: NSView? = nil) {
+    /// An accessory such as a counter can ask for its own `accessoryWidth`; icons take the standard square.
+    init(placeholder: String = "", accessory: NSView? = nil, accessoryWidth: CGFloat? = nil) {
         self.accessory = accessory
         super.init(frame: .zero)
         field.placeholderString = placeholder
@@ -59,10 +60,10 @@ final class TextInput: NSView, NSTextFieldDelegate {
             constraints += [
                 accessory.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -T.inset.width + T.accessoryGap),
                 accessory.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-                accessory.widthAnchor.constraint(equalToConstant: T.accessory + T.accessoryGap),
-                accessory.heightAnchor.constraint(equalToConstant: T.accessory + T.accessoryGap),
+                accessory.widthAnchor.constraint(equalToConstant: accessoryWidth ?? T.accessory + T.accessoryGap),
                 field.trailingAnchor.constraint(equalTo: accessory.leadingAnchor, constant: -T.accessoryGap),
             ]
+            if accessoryWidth == nil { constraints.append(accessory.heightAnchor.constraint(equalToConstant: T.accessory + T.accessoryGap)) }
         } else {
             constraints.append(field.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -T.inset.width))
         }

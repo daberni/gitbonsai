@@ -1,16 +1,23 @@
 import AppKit
 import GitEngine
 
-/// The commit menu's interactive rebase: the sheet onto any commit, and its one-step forms (edit message, drop, move up, move down) with their questions.
+/// The commit menu's interactive rebase: the sheet onto any commit, and its one-step forms (edit message, drop, move up, move down) with their questions. Editing the message hands over to the detail panel.
 /// One-step entries are disabled, with the reason as tooltip, where git would have to flatten a merge, where there is no parent to start from, and for commits off the current branch's line.
 @MainActor
 final class InteractiveRebaseController {
+    enum RewordAccess: Equatable {
+        case allowed
+        case disabled(String)
+    }
+
     let viewModel: GraphViewModel
     private let prompter: ActionPrompter
     /// The sheet while it is open, for the harness.
     private(set) var sheet: InteractiveRebaseSheet?
     /// The rebase finished without stopping.
     var onEnded: (() -> Void)?
+    /// "Nachricht bearbeiten" was chosen; the message is edited in place in the detail panel.
+    var onReword: ((Commit) -> Void)?
     /// Beyond this many commits below HEAD the menu does not walk the history and offers nothing.
     private static let maximumDistance = 5000
 
@@ -33,12 +40,22 @@ final class InteractiveRebaseController {
         let up = ownStep ?? (isHead ? "Ist schon der oberste Commit" : nil)
         let down = ownStep ?? (parent == nil ? "Der Commit darunter ist nicht geladen" : parent!.parents.isEmpty ? "Darunter liegt nur der erste Commit des Repositorys" : parent!.parents.count > 1 ? Self.mergeReason : nil)
 
+        let reword = item("Nachricht bearbeiten", disabledBecause: ownStep) { [weak self] in self?.onReword?(commit) }
+        reword.keyEquivalent = CommandShortcut.editMessage.key
+        reword.keyEquivalentModifierMask = CommandShortcut.editMessage.modifiers
         return [
-            item("Nachricht bearbeiten …", disabledBecause: ownStep) { [weak self] in self?.reword(commit, branch: branch) },
+            reword,
             item("Nach oben verschieben", disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
             item("Nach unten verschieben", disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
             item("Commit verwerfen …", disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
         ]
+    }
+
+    /// Whether the message of `commit` can be edited: nil for commits off the current branch's line, where the detail panel offers nothing, otherwise the reason it cannot, or `.allowed`.
+    func rewordAccess(for commit: Commit) -> RewordAccess? {
+        guard viewModel.currentBranch != nil, viewModel.headSHA != nil, let line = firstParentLine(to: commit.id) else { return nil }
+        if commit.parents.isEmpty { return .disabled(Self.rootReason) }
+        return line.contains { $0.parents.count > 1 } ? .disabled(Self.mergeReason) : .allowed
     }
 
     /// Why an in-place rebase from `commit`, an ancestor of HEAD, is not offered; nil when it is.
@@ -169,24 +186,6 @@ final class InteractiveRebaseController {
     }
 
     // MARK: Single steps
-
-    private func reword(_ commit: Commit, branch: String) {
-        let repository = viewModel.repository
-        Task {
-            do {
-                var plan = try await repository.singleStepPlan(.reword(""), commit: commit.id)
-                let original = plan.steps[0].commit?.message ?? commit.subject
-                let hint = await publishedHint(plan)
-                let form = ActionForm(title: "Nachricht von \(commit.shortID) bearbeiten", info: Self.rewriteNote(plan, branch: branch, hint: hint), confirm: "Ändern")
-                form.addMessage(label: "Nachricht", value: original)
-                guard let values = await prompter.ask(form), let message = values.text[ActionForm.messageKey]?.trimmingCharacters(in: .whitespacesAndNewlines), message != original else { return }
-                plan.messages[commit.id] = message
-                start(plan, note: CommitActionsController.note("git rebase -i (reword \(commit.shortID))", hint))
-            } catch {
-                report(error, title: "Nachricht nicht geändert")
-            }
-        }
-    }
 
     private func singleStep(_ step: RebaseSingleStep, _ commit: Commit, branch: String) {
         let repository = viewModel.repository

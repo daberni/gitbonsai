@@ -200,6 +200,7 @@ Quellen: Branch-Labels im Graph, Branch-Einträge der Sidebar, Commit-Zeilen. Zi
 | ⌘⇧P | Befehlsleiste (Abschnitt 11) |
 | ⌘O / ⌥⌘N | Öffnen / Klonen |
 | ⌘T / ⌘W | Neuer Tab / Tab schließen |
+| ⌘E | Nachricht des ausgewählten Commits im Detailpanel bearbeiten (Sichern ⌘⏎, Abbrechen Esc) |
 | ⌘⇧] / ⌘⇧[ | Nächster / vorheriger Tab |
 | ⌘1 ⌘2 ⌘3 | Detail-Tabs |
 | ⌃⌘S / ⌥⌘I | Seitenleiste / Detail-Panel ein- und ausblenden (⌥⌘D gehört dem Dock); ⌘⌥L Kommando-Log |

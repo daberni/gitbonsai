@@ -37,6 +37,7 @@ extension CommandSpec {
     static let pop = CommandSpec(id: "stash.pop", title: "Stash poppen", keywords: ["pop"], glyph: .glyph(.stashBowl), shortcut: .pop)
     static let commit = CommandSpec(id: "commit", title: "Commit …", keywords: ["commit"], glyph: .glyph(.staged), shortcut: .commit)
     static let amend = CommandSpec(id: "commit.amend", title: "Letzten Commit ändern (Amend) …", keywords: ["amend"], glyph: .glyph(.pencil))
+    static let editMessage = CommandSpec(id: "commit.reword", title: "Commit-Nachricht bearbeiten", keywords: ["reword", "message", "nachricht"], glyph: .glyph(.pencil), shortcut: .editMessage)
     static let stageAll = CommandSpec(id: "stage.all", title: "Alles stagen", keywords: ["add", "stage all"], glyph: .glyph(.plus))
     static let unstageAll = CommandSpec(id: "unstage.all", title: "Alles unstagen", keywords: ["restore", "unstage all"], glyph: .glyph(.minus))
     static let discardAll = CommandSpec(id: "discard.all", title: "Alle Änderungen verwerfen …", keywords: ["discard", "restore", "reset"], glyph: .glyph(.trash))

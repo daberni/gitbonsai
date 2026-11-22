@@ -84,6 +84,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .separator,
             .command(.commit),
             .command(.amend),
+            .command(.editMessage),
             .command(.stageAll),
             .command(.unstageAll),
             .command(.discardAll),

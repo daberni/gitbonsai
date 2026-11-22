@@ -13,6 +13,10 @@ final class DetailView: NSView {
     var onDiscard: ((FileSelection) -> Void)?
     /// The entries of a file's context menu.
     var fileMenuItems: ((FileRowView.Model) -> [NSMenuItem])?
+    /// Whether the shown commit's message can be edited; nil offers nothing, for commits off the current branch's line.
+    var messageAccess: ((Commit) -> InteractiveRebaseController.RewordAccess?)?
+    /// The pencil or a double click on the subject asks to edit the shown commit's message.
+    var onEditMessage: (() -> Void)?
     /// Kept across redraws of the same commit or working directory, cleared otherwise.
     var selectedFile: FileSelection? { didSet { fileList?.selected = selectedFile } }
 
@@ -32,6 +36,12 @@ final class DetailView: NSView {
     /// When the shown file list stopped matching the selection; quick stepping through the history does not push the loading note further out.
     private var filesOutdatedSince = ContinuousClock.now
     private var isShowingWorkingDirectory = false
+    /// The shown commit's subject and body labels, which the message editor takes the place of.
+    private var message: (commitID: String, views: [NSView])?
+    private(set) var messageEditor: CommitMessageEditor?
+    /// Reached by the harness for real clicks.
+    private(set) var editMessageButton: NSButton?
+    private(set) var subjectLabel: NSTextField?
 
     override var isFlipped: Bool { true }
 
@@ -58,8 +68,13 @@ final class DetailView: NSView {
         bounds.fill()
     }
 
-    func reset(title: String) {
+    @discardableResult
+    func reset(title: String) -> NSView {
         isShowingWorkingDirectory = false
+        message = nil
+        messageEditor = nil
+        editMessageButton = nil
+        subjectLabel = nil
         loadTask?.cancel()
         loadingNoteTask?.cancel()
         commitFiles = nil
@@ -73,6 +88,7 @@ final class DetailView: NSView {
         header.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([box.heightAnchor.constraint(equalToConstant: M.headerHeight), header.centerYAnchor.constraint(equalTo: box.centerYAnchor), header.leadingAnchor.constraint(equalTo: box.leadingAnchor)])
         stack.addArrangedSubview(box)
+        return box
     }
 
     func label(_ string: String, font: NSFont, color: NSColor, wraps: Bool = false) -> NSTextField {
@@ -105,10 +121,28 @@ final class DetailView: NSView {
     /// The header is known at once and replaces the old one; the file list and its stats line follow together once git has answered.
     func show(commit: Commit, strand: NSColor, repository: Repository) {
         let previous = commitFiles
-        reset(title: "Commit")
-        add(label(commit.subject, font: Theme.title, color: Theme.ink, wraps: true))
+        let header = reset(title: "Commit")
+        let access = messageAccess?(commit)
+        if let access { addEditButton(to: header, access: access) }
+        let subject = SubjectLabel(wrappingLabelWithString: commit.subject)
+        subject.font = Theme.title
+        subject.textColor = Theme.ink
+        subject.isSelectable = false
+        subject.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        if access == .allowed {
+            subject.onDoubleClick = { [weak self] in self?.onEditMessage?() }
+            subject.toolTip = "Doppelklick bearbeitet die Nachricht (\(CommandShortcut.editMessage.display))"
+        }
+        add(subject)
+        subjectLabel = subject
+        var messageViews: [NSView] = [subject]
         let body = commit.body.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !body.isEmpty { add(label(body, font: Theme.body, color: Theme.inkMuted, wraps: true)) }
+        if !body.isEmpty {
+            let bodyLabel = label(body, font: Theme.body, color: Theme.inkMuted, wraps: true)
+            add(bodyLabel)
+            messageViews.append(bodyLabel)
+        }
+        message = (commit.id, messageViews)
 
         // Author and committer appear separately as soon as anything differs; otherwise one line says both.
         let samePerson = commit.authorName == commit.committerName && commit.authorEmail == commit.committerEmail
@@ -187,6 +221,62 @@ final class DetailView: NSView {
             filesHeader.stringValue = "Dateien werden geladen …"
             list.freshness = .loading
         }
+    }
+
+    // MARK: Message editing
+
+    /// The pencil at the right of the panel's title; disabled with the reason as tooltip where the message cannot be edited.
+    private func addEditButton(to header: NSView, access: InteractiveRebaseController.RewordAccess) {
+        let button = LinkButton(target: self, action: #selector(editMessagePressed(_:)))
+        let configuration = NSImage.SymbolConfiguration(pointSize: Theme.MessageEditor.pencilSymbol, weight: .regular)
+        button.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: "Nachricht bearbeiten")?.withSymbolConfiguration(configuration)
+        button.imagePosition = .imageOnly
+        button.contentTintColor = Theme.inkMuted
+        switch access {
+        case .allowed:
+            button.toolTip = "Nachricht bearbeiten (\(CommandShortcut.editMessage.display))"
+        case let .disabled(reason):
+            button.isEnabled = false
+            button.toolTip = "Nachricht bearbeiten nicht möglich: \(reason)"
+        }
+        button.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.trailingAnchor.constraint(equalTo: header.trailingAnchor),
+            button.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            button.widthAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
+            button.heightAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
+        ])
+        header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+        editMessageButton = button
+    }
+
+    @objc private func editMessagePressed(_ sender: NSButton) {
+        onEditMessage?()
+    }
+
+    /// Puts the editor where the subject and body of `commitID` are; false when another commit is shown.
+    func beginEditingMessage(of commitID: String, with editor: CommitMessageEditor) -> Bool {
+        guard messageEditor == nil, let message, message.commitID == commitID, let first = message.views.first, let index = stack.arrangedSubviews.firstIndex(of: first) else { return false }
+        message.views.forEach { $0.removeFromSuperview() }
+        stack.insertArrangedSubview(editor, at: index)
+        editor.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+        messageEditor = editor
+        editMessageButton?.isHidden = true
+        layoutSubtreeIfNeeded()
+        return true
+    }
+
+    /// Puts the subject and body back in place of the editor.
+    func endEditingMessage() {
+        guard let editor = messageEditor, let message, let index = stack.arrangedSubviews.firstIndex(of: editor) else { return }
+        editor.removeFromSuperview()
+        for (offset, view) in message.views.enumerated() {
+            stack.insertArrangedSubview(view, at: index + offset)
+            view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+        }
+        messageEditor = nil
+        editMessageButton?.isHidden = false
     }
 
     // MARK: Working directory
@@ -324,6 +414,16 @@ final class DetailView: NSView {
     @objc private func openParent(_ sender: NSButton) {
         guard sender.tag < parentTargets.count else { return }
         onNavigate?(parentTargets[sender.tag])
+    }
+}
+
+/// The subject of the shown commit; a double click asks to edit the message.
+private final class SubjectLabel: NSTextField {
+    var onDoubleClick: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        guard event.clickCount == 2, let onDoubleClick else { return super.mouseDown(with: event) }
+        onDoubleClick()
     }
 }
 

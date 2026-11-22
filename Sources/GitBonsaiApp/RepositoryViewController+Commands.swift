@@ -37,6 +37,7 @@ extension RepositoryViewController: CommandProvider {
         [
             Command(.commit, context: state.stagedCount > 0 ? "\(state.stagedCount) gestaged" : nil, blocker: CommandRules.commit(state)) { [weak self] in self?.showCommitForm(amend: false) },
             Command(.amend, blocker: CommandRules.amend(state)) { [weak self] in self?.showCommitForm(amend: true) },
+            Command(.editMessage, context: selectedCommitForMessage?.shortID, disabledReason: editMessageReason) { [weak self] in self?.editSelectedCommitMessage() },
         ]
     }
 

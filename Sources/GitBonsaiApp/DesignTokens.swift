@@ -281,6 +281,17 @@ enum Theme {
         static let subjectLimit = 72
     }
 
+    /// A commit's message edited in place in the detail panel, in the commit form's style.
+    enum MessageEditor {
+        static let spacing = Space.s
+        /// The body starts at the commit form's height and grows with its text.
+        static let bodyMinimumHeight = CommitForm.bodyHeight
+        static let counterWidth = CommitForm.counterWidth
+        /// The pencil at the right of the panel's title, and the point size of its symbol.
+        static let pencil = Icon.small
+        static let pencilSymbol: CGFloat = 11
+    }
+
     /// Hand-drawn controls in the warm palette.
     enum Control {
         static let height: CGFloat = 28
