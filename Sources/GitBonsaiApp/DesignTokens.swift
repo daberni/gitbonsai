@@ -198,6 +198,8 @@ enum Theme {
         static let maximumFiles = 200
         /// How long the copy icon shows its checkmark.
         static let copiedFeedback: TimeInterval = 1
+        /// How long a commit's file list may take before the previous one gives way to a loading note.
+        static let loadingDelay: Duration = .milliseconds(150)
     }
 
     enum Welcome {

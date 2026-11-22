@@ -178,7 +178,14 @@ final class FileListView: NSStackView {
     /// The context menu's entries for a row; none leaves the row without a menu.
     var menuItems: ((FileRowView.Model) -> [NSMenuItem])?
     var selected: FileSelection? { didSet { rowViews.forEach { $0.isSelected = $0.model.selection == selected } } }
+    /// While the rows belong to an earlier selection they take no clicks or keys; once loading takes long they are hidden and keep their room.
+    enum Freshness { case current, stale, loading }
+    var freshness = Freshness.current {
+        didSet { arrangedSubviews.forEach { $0.isHidden = freshness == .loading } }
+    }
     private var rowViews: [FileRowView] = []
+    /// The rows shown, in order.
+    var models: [FileRowView.Model] { rowViews.map(\.model) }
     private var actions: [() -> Void] = []
 
     init() {
@@ -186,11 +193,13 @@ final class FileListView: NSStackView {
         orientation = .vertical
         alignment = .leading
         spacing = 0
+        detachesHiddenViews = false
     }
 
     required init?(coder: NSCoder) { nil }
 
     func show(_ sections: [Section]) {
+        freshness = .current
         arrangedSubviews.forEach { $0.removeFromSuperview() }
         rowViews = []
         actions = []
@@ -224,7 +233,11 @@ final class FileListView: NSStackView {
     // MARK: Keyboard
 
     /// ↑ and ↓ walk through the rows of all sections as one list; a click on a row gives the list the focus.
-    override var acceptsFirstResponder: Bool { !rowViews.isEmpty }
+    override var acceptsFirstResponder: Bool { !rowViews.isEmpty && freshness == .current }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        freshness == .current ? super.hitTest(point) : nil
+    }
 
     override func keyDown(with event: NSEvent) {
         switch event.specialKey {
@@ -235,7 +248,7 @@ final class FileListView: NSStackView {
     }
 
     func moveSelection(by offset: Int) {
-        guard !rowViews.isEmpty else { return }
+        guard !rowViews.isEmpty, freshness == .current else { return }
         let current = rowViews.firstIndex { $0.model.selection == selected }
         let target = current.map { min(max($0 + offset, 0), rowViews.count - 1) } ?? (offset > 0 ? 0 : rowViews.count - 1)
         guard target != current else { return }

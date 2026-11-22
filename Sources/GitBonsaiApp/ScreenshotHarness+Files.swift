@@ -316,4 +316,73 @@ extension ScreenshotHarness {
             if let pick = environment["GITBONSAI_FILE_MENU_PICK"] { choose(pick, in: menu) }
         }
     }
+
+    // MARK: Detail trace
+
+    /// `GITBONSAI_DETAIL_TRACE=<n>[:<ms>]` presses ↓ n times in the history with real key events, <ms> apart (default 80), and prints every state the detail panel holds when the run loop goes to sleep, that is every state that can reach the screen.
+    /// Each line is classified against the selected commit; `GITBONSAI_DETAIL_TRACE_SHOTS=<dir>` writes the panel as a PNG for each state. Set `GITBONSAI_CAPTURE_DELAY` long enough to cover the run.
+    static func traceDetail(on tab: RepositoryViewController) {
+        guard let spec = environment["GITBONSAI_DETAIL_TRACE"] else { return }
+        let parts = spec.split(separator: ":")
+        let steps = parts.first.flatMap { Int($0) } ?? 0
+        let interval = (parts.count > 1 ? Double(parts[1]) : nil) ?? 80
+        let shots = environment["GITBONSAI_DETAIL_TRACE_SHOTS"]
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let window = tab.view.window, let detail = views(of: DetailView.self, in: window).first else { return }
+            window.makeFirstResponder(tab.history.tableView)
+            let start = ProcessInfo.processInfo.systemUptime
+            var lastPress = start
+            var last = ""
+            var counts: [String: Int] = [:]
+            var frames: [(name: String, image: NSBitmapImageRep)] = []
+            func milliseconds(since time: TimeInterval) -> Int { Int((ProcessInfo.processInfo.systemUptime - time) * 1000) }
+            func write(_ line: String) { FileHandle.standardError.write(Data((line + "\n").utf8)) }
+            let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, CFIndex.max) { _, _ in
+                MainActor.assumeIsolated {
+                    let selected = shortCommit(on: tab)
+                    let state = detail.traceState
+                    let line = "selected \(selected) | header \(state.header) | files \(state.filesCommit ?? "-") × \(state.rows) \(state.freshness) | \"\(state.files)\" | height \(Int(state.height))"
+                    guard line != last else { return }
+                    last = line
+                    let kind: String
+                    if state.header != selected { kind = "stale-header" }
+                    else if state.freshness == .loading { kind = "loading" }
+                    else if state.filesCommit == selected { kind = "complete" }
+                    else if state.rows == 0 { kind = "empty" }
+                    else { kind = "old-files" }
+                    counts[kind, default: 0] += 1
+                    write(String(format: "trace %5d ms (+%4d since key) %-12@ %@", milliseconds(since: start), milliseconds(since: lastPress), kind, line))
+                    if shots != nil, let scroll = detail.enclosingScrollView, let rep = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds) {
+                        scroll.cacheDisplay(in: scroll.bounds, to: rep)
+                        frames.append((String(format: "%03d-%05dms-%@.png", frames.count, milliseconds(since: start), kind), rep))
+                    }
+                }
+            }
+            CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+            for step in 0..<steps {
+                DispatchQueue.main.asyncAfter(deadline: .now() + interval / 1000 * Double(step)) {
+                    guard let scalar = UnicodeScalar(NSDownArrowFunctionKey) else { return }
+                    let characters = String(Character(scalar))
+                    lastPress = ProcessInfo.processInfo.systemUptime
+                    write(String(format: "trace %5d ms key ↓ %d", milliseconds(since: start), step + 1))
+                    if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: lastPress, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: 125) {
+                        window.sendEvent(event)
+                    }
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + interval / 1000 * Double(steps) + 1.5) {
+                CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, .commonModes)
+                write("trace summary: " + counts.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", "))
+                guard let shots else { return }
+                try? FileManager.default.createDirectory(atPath: shots, withIntermediateDirectories: true)
+                for frame in frames { try? frame.image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: shots).appendingPathComponent(frame.name)) }
+            }
+        }
+    }
+
+    private static func shortCommit(on tab: RepositoryViewController) -> String {
+        let row = tab.history.selectedRow
+        guard tab.viewModel.commits.indices.contains(row) else { return "row \(row)" }
+        return tab.viewModel.commits[row].shortID
+    }
 }

@@ -18,6 +18,7 @@ final class DetailView: NSView {
 
     private let stack = NSStackView()
     private var loadTask: Task<Void, Never>?
+    private var loadingNoteTask: Task<Void, Never>?
     private var parentTargets: [String] = []
     private var copySHA = (full: "", short: "")
     /// Reached by the harness for real clicks.
@@ -26,6 +27,10 @@ final class DetailView: NSView {
     /// Harness runs copy into a pasteboard of their own instead of the user's clipboard.
     static var pasteboard = NSPasteboard.general
     private var fileList: FileListView?
+    /// The file section of the commit shown last. The next commit keeps it on screen until its own files and stats are known and replace both at once.
+    private var commitFiles: (commitID: String, header: NSTextField, list: FileListView)?
+    /// When the shown file list stopped matching the selection; quick stepping through the history does not push the loading note further out.
+    private var filesOutdatedSince = ContinuousClock.now
     private var isShowingWorkingDirectory = false
 
     override var isFlipped: Bool { true }
@@ -56,6 +61,9 @@ final class DetailView: NSView {
     private func reset(title: String) {
         isShowingWorkingDirectory = false
         loadTask?.cancel()
+        loadingNoteTask?.cancel()
+        commitFiles = nil
+        fileList = nil
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let header = label(title.uppercased(), font: Theme.label, color: Theme.inkMuted)
         header.attributedStringValue = NSAttributedString(string: title.uppercased(), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
@@ -94,7 +102,9 @@ final class DetailView: NSView {
 
     // MARK: Commit
 
+    /// The header is known at once and replaces the old one; the file list and its stats line follow together once git has answered.
     func show(commit: Commit, strand: NSColor, repository: Repository) {
+        let previous = commitFiles
         reset(title: "Commit")
         add(label(commit.subject, font: Theme.title, color: Theme.ink, wraps: true))
         let body = commit.body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -136,20 +146,46 @@ final class DetailView: NSView {
         add(meta, fill: false)
         add(divider())
 
-        let filesHeader = label("Dateien werden geladen …", font: Theme.caption, color: Theme.inkMuted)
-        add(filesHeader)
-        let list = makeFileList()
+        let filesHeader: NSTextField
+        let list: FileListView
+        if let previous {
+            filesHeader = previous.header
+            list = previous.list
+            if list.freshness == .current {
+                list.freshness = .stale
+                filesOutdatedSince = .now
+            }
+            add(filesHeader)
+            add(list)
+            fileList = list
+        } else {
+            filesHeader = label("", font: Theme.caption, color: Theme.inkMuted)
+            add(filesHeader)
+            list = makeFileList()
+            filesOutdatedSince = .now
+        }
+        commitFiles = (commit.id, filesHeader, list)
+        if previous?.commitID != commit.id { scroll(.zero) }
         loadTask = Task { [weak self] in
             let files = (try? await repository.changedFiles(of: commit)) ?? []
-            guard self != nil, !Task.isCancelled else { return }
+            guard let self, !Task.isCancelled else { return }
+            loadingNoteTask?.cancel()
             let total = files.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
             let summary = NSMutableAttributedString(string: (files.count == 1 ? "1 Datei" : "\(files.count) Dateien") + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
             summary.append(FileRowView.statText(total))
-            filesHeader.attributedStringValue = summary
             let rows = files.map { file in
                 FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: Self.color(for: file.state), stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil, state: file.state)
             }
+            filesHeader.attributedStringValue = summary
             list.show([FileListView.Section(title: "Dateien", rows: rows, action: nil)])
+        }
+        // A quick answer swaps the lists without anything in between; a slow one gets a note in place, at the old height.
+        let deadline = filesOutdatedSince + M.loadingDelay
+        loadingNoteTask = Task {
+            try? await Task.sleep(until: deadline, clock: .continuous)
+            guard !Task.isCancelled else { return }
+            filesHeader.stringValue = "Dateien werden geladen …"
+            list.freshness = .loading
         }
     }
 
@@ -216,6 +252,15 @@ final class DetailView: NSView {
         fileList = list
         add(list)
         return list
+    }
+
+    /// What the panel shows right now, for the harness trace.
+    var traceState: (header: String, files: String, filesCommit: String?, rows: Int, freshness: FileListView.Freshness, height: CGFloat) {
+        let commits = Set((fileList?.models ?? []).compactMap { model -> String? in
+            if case .commit(let commit) = model.selection.source { return commit.shortID }
+            return nil
+        })
+        return (copySHA.short, commitFiles?.header.stringValue ?? "", commits.count == 1 ? commits.first : nil, fileList?.models.count ?? 0, fileList?.freshness ?? .current, frame.height)
     }
 
     func showNothing() {
