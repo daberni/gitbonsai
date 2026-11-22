@@ -1,6 +1,6 @@
 import AppKit
 
-/// Monochrome glyphs: SF Symbols for the generic ones, hand-drawn paths on a 24 pt grid for the bonsai family.
+/// Monochrome glyphs: SF Symbols for the generic ones, hand-drawn paths on a 24 pt grid for the bonsai family and the laptop, whose SF Symbol has a filled screen.
 enum Glyph: Hashable {
     case check, laptop, cloud, tag, chevronRight, chevronDown, plus, minus, pencil, staged, branch, xmark, trash
     case bonsaiMain, bonsaiLinked, bonsaiLocked, bonsaiDetached, bonsaiPrunable, stashBowl
@@ -14,7 +14,6 @@ enum Glyph: Hashable {
     private var symbolName: String? {
         switch self {
         case .check: "checkmark"
-        case .laptop: "laptopcomputer"
         case .cloud: "cloud"
         case .tag: "tag"
         case .chevronRight: "chevron.right"
@@ -60,7 +59,14 @@ enum Glyph: Hashable {
         func ellipse(_ cx: CGFloat, _ cy: CGFloat, _ rx: CGFloat, _ ry: CGFloat) {
             context.strokeEllipse(in: CGRect(x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2))
         }
+        func roundedRect(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat, radius: CGFloat) {
+            context.addPath(CGPath(roundedRect: CGRect(x: x, y: y, width: width, height: height), cornerWidth: radius, cornerHeight: radius, transform: nil))
+            context.strokePath()
+        }
         switch self {
+        case .laptop:
+            roundedRect(4.5, 5.5, 15, 10, radius: 1.5)
+            line([(2.5, 18.5), (21.5, 18.5)])
         case .bonsaiMain:
             line([(5, 17), (19, 17), (17.6, 21), (6.4, 21)], close: true)
             line([(12, 17), (12, 13), (9.2, 10)])
