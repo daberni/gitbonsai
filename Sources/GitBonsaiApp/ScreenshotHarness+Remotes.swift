@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// Harness switches for the fetch, pull and push menus, running a commit menu entry without showing the menu, the onto sheet and the operation banner.
+/// Harness switches for the toolbar's badges, the fetch, pull and push menus, running a commit menu entry without showing the menu, the onto sheet and the operation banner.
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_ONTO=<base>` fills the new base of the onto sheet.
@@ -11,11 +11,18 @@ extension ScreenshotHarness {
         // The remotes and the banner are read asynchronously after the load; both are there a moment later.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             if environment["GITBONSAI_BANNER_CLICK"] != nil { printBanner(of: tab, when: "loaded") }
+            printToolbarLayout(of: tab)
             runFetchMenu(on: tab)
             runPullOrPush(on: tab)
             runMenuEntry(on: tab)
             clickBanner(on: tab)
         }
+    }
+
+    /// `GITBONSAI_TOOLBAR_LAYOUT=1` prints the Pull and Push badges, each action button's frame and the Pull and Push tooltips.
+    private static func printToolbarLayout(of tab: RepositoryViewController) {
+        guard environment["GITBONSAI_TOOLBAR_LAYOUT"] == "1" else { return }
+        FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n\(tab.toolbar.actionLayout)\n".utf8))
     }
 
     /// `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's command, without opening it; `GITBONSAI_FETCH_PICK=<title>` chooses an entry and prints the status line once the fetch has finished.

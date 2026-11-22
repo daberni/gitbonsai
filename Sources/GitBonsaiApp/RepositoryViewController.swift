@@ -118,7 +118,7 @@ final class RepositoryViewController: NSObject {
         toolbar.pushMenu = { [weak self] in self?.pullPush.pushMenu() ?? NSMenu() }
         pullPush.onChange = { [weak self] in
             guard let self else { return }
-            toolbar.showUpstream(canPull: pullPush.canPull, canPush: pullPush.canPush, ahead: pullPush.upstream?.ahead, behind: pullPush.upstream?.behind)
+            toolbar.showUpstream(canPull: pullPush.canPull, canPush: pullPush.canPush, upstream: pullPush.upstream, lacksUpstream: pullPush.lacksUpstream)
         }
         history.connect(searchField: toolbar.searchField)
 

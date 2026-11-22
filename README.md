@@ -57,6 +57,7 @@ History:
 
 Remotes and rebase:
 
+- `GITBONSAI_TOOLBAR_LAYOUT=1` prints the Pull and Push badges (`↓n ↑n`, `-` hidden, `!` no upstream), the frame of every toolbar action button and the Pull and Push tooltips, to check that badges never move a button.
 - `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's git command without opening it, and `GITBONSAI_FETCH_PICK=<title>` runs an entry and prints the status line afterwards.
 - `GITBONSAI_MENU_RUN=<row>:<title>` runs an entry of a history row's menu without opening the menu; `GITBONSAI_ONTO=<base>` types the old base into the interactive rebase sheet when it opens.
 - `GITBONSAI_BANNER_CLICK=continue|skip|abort` clicks a button of the rebase, cherry-pick, revert or merge banner with a real click and prints the banner before and after.

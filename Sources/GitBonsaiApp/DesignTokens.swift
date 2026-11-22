@@ -352,6 +352,19 @@ enum Theme {
         static let hunkLabelWidth: CGFloat = 480
     }
 
+    /// Capsules on a control's corner, such as the commit counts on Pull and Push: opaque `sky` informs, `persimmon` warns of danger.
+    @MainActor enum Badge {
+        static let height: CGFloat = 16
+        static let padding = Space.xs
+        static let font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .semibold)
+        static let symbolSize: CGFloat = 8
+        /// Larger counts read "99+".
+        static let maximumCount = 99
+        /// How far the badge reaches past the top and trailing edge of its control.
+        static let overhang: CGFloat = 6
+        static let onAccent = dynamic(0xffffff, 0x1e1a17)
+    }
+
     /// The commit search: the ground behind matched text and the counter inside the search field.
     @MainActor enum Search {
         /// search-highlight: stronger than ochre-soft so it still reads on a selected row.

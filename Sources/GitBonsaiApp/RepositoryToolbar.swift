@@ -1,4 +1,5 @@
 import AppKit
+import GitEngine
 
 /// The toolbar of a repository tab in three parts: fetch status on the left, the actions centred in the window, search on the right.
 final class RepositoryToolbar: BarView {
@@ -20,9 +21,9 @@ final class RepositoryToolbar: BarView {
     private lazy var stash = button("Stash", "tray.and.arrow.down", #selector(runStash(_:)))
     private lazy var pop = button("Pop", "tray.and.arrow.up", #selector(runPop(_:)))
 
-    /// Commits to pull and to push, next to their buttons while the branch has an upstream.
-    private let behindLabel = NSTextField(labelWithString: "")
-    private let aheadLabel = NSTextField(labelWithString: "")
+    /// Commits to pull and to push as badges on their buttons; the push badge also warns of a missing upstream.
+    private let behindBadge = CornerBadge()
+    private let aheadBadge = CornerBadge()
     private let fetchLabel = NSTextField(labelWithString: "")
     let searchField = CommitSearchField()
 
@@ -35,25 +36,24 @@ final class RepositoryToolbar: BarView {
         let actions = NSStackView(views: [
             fetchButton,
             pull,
-            behindLabel,
             push,
-            aheadLabel,
             branch,
             stash,
             pop,
         ])
         actions.orientation = .horizontal
         actions.spacing = Theme.Space.s
-        for (button, label) in [(pull, behindLabel), (push, aheadLabel)] {
-            label.font = Theme.captionDigits
-            label.isHidden = true
-            actions.setCustomSpacing(Theme.Space.xs, after: button)
-        }
         actions.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
 
-        for view in [fetchLabel, actions, searchField] { addSubview(view) }
+        for view in [fetchLabel, actions, searchField, behindBadge, aheadBadge] { addSubview(view) }
+        for (badge, button) in [(behindBadge, pull), (aheadBadge, push)] {
+            NSLayoutConstraint.activate([
+                badge.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: Theme.Badge.overhang),
+                badge.topAnchor.constraint(equalTo: button.topAnchor, constant: -Theme.Badge.overhang),
+            ])
+        }
         NSLayoutConstraint.activate([
             fetchLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Window.toolbarInset),
             fetchLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -84,21 +84,38 @@ final class RepositoryToolbar: BarView {
     @objc private func runStash(_ sender: Any?) { onStash?() }
     @objc private func runPop(_ sender: Any?) { onPop?() }
 
-    /// Enables Pull and Push and shows how many commits each would move; nil counts hide them (no upstream, or it was never fetched).
-    func showUpstream(canPull: Bool, canPush: Bool, ahead: Int?, behind: Int?) {
+    /// Enables Pull and Push and badges them with the commits each would move; without counts (no upstream, or never fetched) the badges stay hidden.
+    /// `lacksUpstream` marks a branch that could be pushed but has no upstream yet.
+    func showUpstream(canPull: Bool, canPush: Bool, upstream: Upstream?, lacksUpstream: Bool) {
         pull.isEnabled = canPull
         push.isEnabled = canPush
-        for (label, count, arrow, verb) in [(behindLabel, behind, "↓", "zu pullen"), (aheadLabel, ahead, "↑", "zu pushen")] {
-            label.isHidden = count == nil
-            label.stringValue = count.map { "\(arrow)\($0)" } ?? ""
-            label.textColor = count == 0 ? Theme.inkMuted : Theme.ink
-            label.toolTip = count.map { "\($0) Commit\($0 == 1 ? "" : "s") \(verb)" }
+        behindBadge.show(upstream?.behind.map(CornerBadge.Content.count))
+        pull.toolTip = upstream.flatMap { up in up.behind.map { Self.commits($0, "hinter", up.name) } }
+        if lacksUpstream {
+            aheadBadge.show(.symbol("exclamationmark"), tone: .danger)
+            push.toolTip = "Kein Upstream: Der erste Push legt den Branch auf dem Remote an und setzt ihn als Upstream."
+        } else {
+            aheadBadge.show(upstream?.ahead.map(CornerBadge.Content.count))
+            push.toolTip = upstream.flatMap { up in up.ahead.map { Self.commits($0, "vor", up.name) } }
         }
     }
 
-    /// The counts as shown, for harness output: "↓1 ↑2", with "-" for a hidden count.
+    private static func commits(_ count: Int, _ relation: String, _ upstream: String) -> String {
+        count == 0 ? "Auf dem Stand von \(upstream)" : "\(count) Commit\(count == 1 ? "" : "s") \(relation) \(upstream)"
+    }
+
+    /// The badges as shown, for harness output: "↓1 ↑2", with "-" for a hidden badge and "!" for the missing upstream.
     var upstreamCounts: String {
-        [behindLabel, aheadLabel].map { $0.isHidden ? "-" : $0.stringValue }.joined(separator: " ")
+        let behind = behindBadge.isHidden ? "-" : "↓" + behindBadge.text
+        let ahead = aheadBadge.isHidden ? "-" : aheadBadge.text.isEmpty ? "!" : "↑" + aheadBadge.text
+        return "\(behind) \(ahead)"
+    }
+
+    /// Frames of the action buttons in the toolbar and the badges' tooltips, for harness output that checks badges never move a button.
+    var actionLayout: String {
+        let buttons = [fetchButton, pull, push, branch, stash, pop].map { "\($0.title) \(NSStringFromRect(convert($0.bounds, from: $0)))" }
+        let tips = [pull, push].map { "\($0.title): \($0.toolTip ?? "-")" }
+        return (buttons + tips).joined(separator: "\n")
     }
 
     func showFetchState(hasRemote: Bool, lastFetch: Date?) {

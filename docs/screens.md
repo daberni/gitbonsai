@@ -58,9 +58,9 @@ Ein Fenster mit einem Tab pro Repository (MVP; Tabs sind essenziell, weil der Al
 |---|---|---|---|
 | Zurück/Vor | Navigationshistorie der Auswahl | ⌘[ ⌘] | deaktiviert ohne Historie |
 | Tab-Leiste | Ein Tab pro Repository; ⌘T öffnet ein Repository (zuletzt verwendete zuerst), ⌘W schließt den Tab, ⌘⇧[ ⌘⇧] wechselt | ⌘T ⌘W | Titel ist nur der Repository-Name |
-| Fetch | `git fetch --prune --progress` | ⌘⇧F | Spinner während des Laufs; Badge mit Behind-Zahl |
-| Pull | Dropdown: ff-only (Standard), rebase, merge | ⌘⇧L | deaktiviert ohne Upstream |
-| Push | Push aktueller Branch; Dropdown: Force-with-lease, Tags pushen | ⌘⇧P | Badge mit Ahead-Zahl; rot, wenn Upstream fehlt |
+| Fetch | `git fetch --prune --progress` | ⌘⇧F | Spinner während des Laufs |
+| Pull | Dropdown: ff-only (Standard), rebase, merge | ⌘⇧L | Badge mit Behind-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „3 Commits hinter origin/main“ |
+| Push | Push aktueller Branch; Dropdown: Force-with-lease, Tags pushen | ⌘⇧P | Badge mit Ahead-Zahl (`sky`, ab 100 „99+“), ausgeblendet bei 0; Tooltip „2 Commits vor origin/main“. Ohne Upstream ein `persimmon`-Badge mit Ausrufezeichen, der Tooltip erklärt den ersten Push. Badges sitzen oben rechts auf dem Button und verschieben ihn nie |
 | Branch | Neuer Branch am HEAD | ⌘B | – |
 | Stash / Pop | `git stash push -u`, `git stash pop` | ⌘⇧S / ⌘⇧⌥S | Pop deaktiviert ohne Stash |
 | Suche | Fokus auf Filterleiste | ⌘F | – |

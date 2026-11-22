@@ -23,6 +23,8 @@ final class PullPushController {
 
     var canPull: Bool { branch != nil && !remotes.isEmpty }
     var canPush: Bool { branch != nil && !remotes.isEmpty }
+    /// A branch that could be pushed but has no upstream yet; the Push button marks it.
+    var lacksUpstream: Bool { canPush && upstream == nil }
 
     func refresh() {
         generation += 1
