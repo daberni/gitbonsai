@@ -201,9 +201,12 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         staging.discard(diff.hunks[index], of: diff, untracked: selection.source == .untracked)
     }
 
+    /// Near the end of the file several hunks can share one scroll position; a jump goes to the next hunk that actually moves the view, and beeps when none does.
     private func jumpToHunk(forward: Bool) {
         let top = topRow
-        let target = forward ? hunkStarts.first { $0 > top } : hunkStarts.last { $0 < top }
+        let current = clipView?.bounds.minY ?? 0
+        let candidates = forward ? hunkStarts.filter { $0 > top } : hunkStarts.filter { $0 < top }.reversed()
+        let target = candidates.first { forward ? offset(ofRow: $0) > current : offset(ofRow: $0) < current }
         guard let target else { NSSound.beep(); return }
         scrollToTop(row: target)
     }
@@ -211,17 +214,37 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     /// The first row in view; harness checks read it after a jump.
     var topRow: Int { table.rows(in: table.visibleRect).location }
 
-    /// Where a hunk starts goes to the top of the view.
+    private var clipView: NSClipView? { table.enclosingScrollView?.contentView }
+
+    /// Where a hunk starts goes to the top of the view, unless that would show empty space below the last line: then the last line sits at the bottom.
     private func scrollToTop(row: Int) {
         guard let scroll = table.enclosingScrollView else { return }
-        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: table.rect(ofRow: row).minY))
+        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: offset(ofRow: row)))
         scroll.reflectScrolledClipView(scroll.contentView)
     }
 
+    /// The vertical scroll offset that brings a row to the top, clamped to the document. `NSClipView.scroll(to:)` takes any point as given.
+    private func offset(ofRow row: Int) -> CGFloat {
+        guard let clipView, rows.indices.contains(row) else { return 0 }
+        let lastOffset = max(0, table.frame.height - clipView.bounds.height)
+        return min(max(0, table.rect(ofRow: row).minY), lastOffset)
+    }
+
     /// The old and new number of the first row in view, as the gutter shows them.
-    var topLineNumbers: String {
-        guard rows.indices.contains(topRow) else { return "none" }
-        let line: DiffLine? = switch rows[topRow] {
+    var topLineNumbers: String { lineNumbers(ofRow: topRow) }
+
+    /// The numbers of the last row in view, and whether it is the last row and ends at the bottom of the view; harness checks read them.
+    var bottomLineNumbers: String {
+        guard let clipView else { return "none" }
+        let visible = clipView.bounds
+        let bottom = table.row(at: NSPoint(x: visible.minX, y: visible.maxY - 1))
+        let isLast = bottom == rows.count - 1 && abs(table.rect(ofRow: bottom).maxY - visible.maxY) < 1
+        return "\(lineNumbers(ofRow: bottom))\(isLast ? " (last line at bottom)" : "")"
+    }
+
+    private func lineNumbers(ofRow row: Int) -> String {
+        guard rows.indices.contains(row) else { return "none" }
+        let line: DiffLine? = switch rows[row] {
         case .line(let hunk, let line): diff?.hunks[hunk].lines[line]
         case .fileLine(let index): fileLines[index]
         case .hunk(let index): diff?.hunks[index].lines.first

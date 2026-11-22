@@ -41,14 +41,14 @@ extension ScreenshotHarness {
         }
     }
 
-    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top line after each step.
+    /// `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | Datei" toggle, then `GITBONSAI_DIFF_NEXT=<n>` clicks ↓ n times; both with real mouse events, printing the numbers of the top and bottom line after each step.
     static func driveDiffHeader(on tab: RepositoryViewController) {
         let environment = environment
         let mode = environment["GITBONSAI_CLICK_DIFF_MODE"].flatMap(DiffMode.init)
         let jumps = environment["GITBONSAI_DIFF_NEXT"].flatMap(Int.init) ?? 0
         if environment["GITBONSAI_CLICK_DIFF_CLOSE"] == "1" { return clickDiffClose(on: tab) }
         guard mode != nil || jumps > 0 else { return }
-        func report(_ step: String) { FileHandle.standardError.write(Data("\(step): top line \(tab.diff.topLineNumbers)\n".utf8)) }
+        func report(_ step: String) { FileHandle.standardError.write(Data("\(step): top line \(tab.diff.topLineNumbers), bottom line \(tab.diff.bottomLineNumbers)\n".utf8)) }
         func jump(_ remaining: Int) {
             guard remaining > 0, let window = tab.view.window else { return }
             let next = tab.diff.header.next
