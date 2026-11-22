@@ -164,6 +164,11 @@ final class HistoryTableView: NSTableView {
         super.keyDown(with: event)
     }
 
+    /// NSTableView takes a click in a window that could become key but is not as activation only. A background harness run never has a key window, so while the harness delivers a press the table claims not to need one and the click selects as in a key window.
+    override var needsPanelToBecomeKey: Bool {
+        !ScreenshotHarness.isPressingWithoutKeyWindow && super.needsPanelToBecomeKey
+    }
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard let divider = ColumnDividers.hit(point.x, in: dividers) else {

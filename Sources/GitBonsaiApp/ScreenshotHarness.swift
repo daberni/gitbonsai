@@ -12,6 +12,8 @@ enum ScreenshotHarness {
     static var environment: [String: String] { ProcessInfo.processInfo.environment }
     static var didRunOneTimeAction = false
     static var didDragTab = false
+    /// True while `press` delivers a harness press into a window that is not key.
+    static var isPressingWithoutKeyWindow = false
 
     /// Background runs never show a window: every window of the app, sheets and alerts included, stays fully transparent and lets real clicks through.
     /// Captures render the views themselves and the harness sends its events straight to the window, so both keep working.
@@ -83,13 +85,22 @@ enum ScreenshotHarness {
     }
 
     /// Delivers a press the way a key window would. A background run never has a key window, and AppKit takes a press on a control that refuses first mouse, such as a sheet's buttons, as a click that only activates the window.
-    /// Such a press goes to the view under the point instead; its tracking loop then finds the queued release like it does in a key window.
+    /// Such a press goes to the view under the point instead; its tracking loop then finds the queued release like it does in a key window. A table under the point becomes first responder first, as a key window's click would make it.
     static func press(_ event: NSEvent, in window: NSWindow) {
-        if !window.isKeyWindow, let view = window.contentView?.superview?.hitTest(event.locationInWindow), !view.acceptsFirstMouse(for: event) {
-            view.mouseDown(with: event)
-        } else {
+        guard !window.isKeyWindow, let view = window.contentView?.superview?.hitTest(event.locationInWindow) else {
             window.sendEvent(event)
+            return
         }
+        if let table = enclosingTable(of: view), table.acceptsFirstResponder { window.makeFirstResponder(table) }
+        isPressingWithoutKeyWindow = true
+        defer { isPressingWithoutKeyWindow = false }
+        if view.acceptsFirstMouse(for: event) { window.sendEvent(event) } else { view.mouseDown(with: event) }
+    }
+
+    private static func enclosingTable(of view: NSView) -> NSTableView? {
+        var current: NSView? = view
+        while let candidate = current, !(candidate is NSTableView) { current = candidate.superview }
+        return current as? NSTableView
     }
 
     static func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in window: NSWindow) -> NSEvent? {

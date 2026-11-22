@@ -38,13 +38,7 @@ extension ScreenshotHarness {
             let rect = table.rect(ofRow: row)
             let columns = tab.history.columnsController.columns.layout(in: table.bounds.width)
             let point = table.convert(NSPoint(x: columns.commit.lowerBound + Theme.Space.xl, y: rect.midY), to: nil)
-            // A table in a window that is not key takes a plain click as activation only, so row clicks need `GITBONSAI_FOREGROUND=1`; they go through the application's queue like real ones.
-            // Another app, such as a parallel harness run, may have taken the activation since the last step.
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
-            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                if let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { NSApp.postEvent(event, atStart: false) }
-            }
+            send(click: point, flags: flags, count: 1, in: window)
         }
         switch parts[0] {
         case "file":
