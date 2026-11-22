@@ -35,6 +35,7 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 - Performance budgets are tests (`swift test --filter Performance`): first 300 commits laid out in < 100 ms; 100k commits laid out in < 2 s on Apple Silicon.
 - Comments explain intent or constraints, never mechanics. Prefer complete statements over line-length wrapping.
 - Commit messages: imperative subject, body only when needed.
+- [docs/git-operations.md](docs/git-operations.md) lists the git command behind every operation. A change that adds or changes a git call updates its rows there in the same commit.
 
 ## Code and architecture conventions
 
