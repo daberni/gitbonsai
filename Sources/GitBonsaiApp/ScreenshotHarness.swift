@@ -7,6 +7,8 @@ import GitEngine
 enum ScreenshotHarness {
     static var outputPath: String? { environment["GITBONSAI_SCREENSHOT"] }
     static var isActive: Bool { outputPath != nil }
+    /// Harness runs stay in the background unless `GITBONSAI_FOREGROUND=1` asks for a normal app with Dock icon, activation and its window in front, for checks that need it.
+    static var runsInBackground: Bool { isActive && environment["GITBONSAI_FOREGROUND"] != "1" }
     private static var environment: [String: String] { ProcessInfo.processInfo.environment }
     private static var didRunOneTimeAction = false
     private static var didDragTab = false

@@ -41,7 +41,7 @@ GitBonsai is a native macOS Git client (SwiftUI + AppKit) with a graph-centric U
 - Develop against the current state. Internal APIs, view types and module structure change together; update every caller in the same change instead of keeping old signatures, aliases or fallback paths for earlier versions.
 - Keep types focused on one reason to change. A view draws or lays out one coherent part; a controller owns one interaction or use case; `GitEngine` owns every git call and parse. Split by responsibility instead of growing single files.
 - Add behavior tests against real repositories for consequential logic: parsing, staging and patch building, history and layout rules, anything that rewrites refs or the index. Show the failure on the original defect when adding a regression test. Do not test drawing, trivial delegation or logging.
-- Verify UI changes in the running app through `ScreenshotHarness`, in light and dark. Interactions are checked with real mouse events through the window (see the click and drag switches in the README), not by calling the handler directly.
+- Verify UI changes in the running app through `ScreenshotHarness`, in light and dark. Interactions are checked with real mouse events through the window (see the click and drag switches in the README), not by calling the handler directly. Harness runs stay in the background; `GITBONSAI_FOREGROUND=1` is for a single check that cannot work otherwise, never for loops or batches, and only after telling the coordinator why.
 
 ## Task intake and backlog
 
