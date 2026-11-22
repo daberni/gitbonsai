@@ -1,28 +1,62 @@
 import Foundation
 import GitEngine
 
-/// The state the interactive rebase sheet edits: the plan, the commits as they were, and what each row shows.
+/// The state the interactive rebase sheet edits: the plan from the old base onto the target, the commits as they were, and what each row shows.
+/// The old base can change while the sheet is open; the list then starts over with the new range.
 @MainActor
 final class InteractiveRebaseModel {
     let branch: String
-    let baseCommit: RebaseCommit
-    let original: [RebaseCommit]
-    /// Commits of the range that are already in the upstream.
-    let published: Int
+    /// The commit the steps land on, and how the sheet names it: „main“ or a short SHA.
+    let targetCommit: RebaseCommit
+    let targetName: String
     let hasLocalChanges: Bool
+    private(set) var range: RebaseRange
+    private(set) var baseCommit: RebaseCommit
+    private(set) var original: [RebaseCommit]
+    /// Commits of the range that are already in the upstream.
+    private(set) var published: Int
     private(set) var plan: RebasePlan
     var onChange: (() -> Void)?
+    /// The range was replaced: the rows are new.
+    var onReload: (() -> Void)?
 
-    init(branch: String, base: RebaseCommit, commits: [RebaseCommit], branches: [String: [String]], published: Int, hasLocalChanges: Bool) {
+    init(branch: String, range: RebaseRange, base: RebaseCommit, target: RebaseCommit, targetName: String, branches: [String: [String]], published: Int, hasLocalChanges: Bool) {
         self.branch = branch
-        self.baseCommit = base
-        self.original = commits
-        self.published = published
+        self.targetCommit = target
+        self.targetName = targetName
         self.hasLocalChanges = hasLocalChanges
-        var plan = RebasePlan(base: base.id, commits: commits, branches: branches)
+        self.range = range
+        self.baseCommit = base
+        self.original = range.commits
+        self.published = published
+        var plan = RebasePlan(range: range, branches: branches)
         plan.autostash = hasLocalChanges
         self.plan = plan
     }
+
+    /// Starts over from another old base; the options stay as chosen.
+    func replace(range: RebaseRange, base: RebaseCommit, branches: [String: [String]], published: Int) {
+        var plan = RebasePlan(range: range, branches: branches)
+        plan.autostash = self.plan.autostash
+        if !branches.isEmpty, !self.plan.branches.isEmpty { plan.updateRefs = self.plan.updateRefs }
+        self.range = range
+        self.baseCommit = base
+        self.original = range.commits
+        self.published = published
+        self.plan = plan
+        onReload?()
+        changed()
+    }
+
+    /// The steps stay on their base and only the list is edited, as `git rebase -i <base>` does.
+    var isInPlace: Bool { range.isInPlace }
+
+    func isAlreadyOnTarget(_ index: Int) -> Bool {
+        plan.steps[index].commit.map { range.alreadyOnTarget.contains($0.id) } ?? false
+    }
+
+    /// A rebase onto another commit rewrites the branch even with an unchanged list.
+    var canStart: Bool { plan.problem == nil && (plan.movesBase || !isUnchanged) }
 
     var steps: [RebaseStep] { plan.steps }
     var hasStackedBranches: Bool { !plan.branches.isEmpty }
@@ -134,8 +168,9 @@ final class InteractiveRebaseModel {
         }
     }
 
-    /// "3 Commits werden neu geschrieben, 1 verworfen"
+    /// "3 Commits danach, 1 verworfen"; for an unchanged list onto another commit, how many move there.
     var summary: String {
+        if isUnchanged, plan.movesBase { return original.count == 1 ? "1 Commit wandert auf \(targetName)" : "\(original.count) Commits wandern auf \(targetName)" }
         let dropped = plan.steps.filter { $0.action == .drop }.count
         let resulting = plan.result.count
         var parts = [resulting == 1 ? "1 Commit danach" : "\(resulting) Commits danach"]

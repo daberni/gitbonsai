@@ -1,8 +1,8 @@
 import AppKit
 import GitEngine
 
-/// The commit menu's interactive rebase: the sheet from a base commit, and its one-step forms (edit message, drop, move up, move down) with their questions.
-/// Entries are disabled, with the reason as tooltip, where git would have to flatten a merge, where there is no parent to start from, and for commits off the current branch's line.
+/// The commit menu's interactive rebase: the sheet onto any commit, and its one-step forms (edit message, drop, move up, move down) with their questions.
+/// One-step entries are disabled, with the reason as tooltip, where git would have to flatten a merge, where there is no parent to start from, and for commits off the current branch's line.
 @MainActor
 final class InteractiveRebaseController {
     private let viewModel: GraphViewModel
@@ -25,23 +25,27 @@ final class InteractiveRebaseController {
         guard let branch = viewModel.currentBranch, viewModel.headSHA != nil else { return [] }
         let line = firstParentLine(to: commit.id)
         let reason = line == nil ? "Liegt nicht auf der Linie von „\(branch)“" : nil
-        let rangeHasMerge = line.map { $0.dropLast().contains { $0.parents.count > 1 } } ?? false
         let ownRangeHasMerge = line.map { $0.contains { $0.parents.count > 1 } } ?? false
         let isHead = commit.id == viewModel.headSHA
         let parent = commit.parents.first.flatMap { viewModel.rowIndex(of: $0) }.map { viewModel.commits[$0] }
 
-        let fromHere = reason ?? (isHead ? "Über diesem Commit liegt nichts" : rangeHasMerge ? Self.mergeReason : nil)
         let ownStep = reason ?? (commit.parents.isEmpty ? Self.rootReason : ownRangeHasMerge ? Self.mergeReason : nil)
         let up = ownStep ?? (isHead ? "Ist schon der oberste Commit" : nil)
         let down = ownStep ?? (parent == nil ? "Der Commit darunter ist nicht geladen" : parent!.parents.isEmpty ? "Darunter liegt nur der erste Commit des Repositorys" : parent!.parents.count > 1 ? Self.mergeReason : nil)
 
         return [
-            item("Rebase interaktiv ab hier …", disabledBecause: fromHere) { [weak self] in self?.openSheet(base: commit, branch: branch) },
             item("Nachricht bearbeiten …", disabledBecause: ownStep) { [weak self] in self?.reword(commit, branch: branch) },
             item("Nach oben verschieben", disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
             item("Nach unten verschieben", disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
             item("Commit verwerfen …", disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
         ]
+    }
+
+    /// Why an in-place rebase from `commit`, an ancestor of HEAD, is not offered; nil when it is.
+    func inPlaceReason(for commit: Commit) -> String? {
+        guard let line = firstParentLine(to: commit.id) else { return "Liegt nicht auf der Linie von „\(viewModel.currentBranch ?? "HEAD")“" }
+        if commit.id == viewModel.headSHA { return "Über diesem Commit liegt nichts" }
+        return line.dropLast().contains { $0.parents.count > 1 } ? Self.mergeReason : nil
     }
 
     private static let mergeReason = "Dazwischen liegt ein Merge"
@@ -71,19 +75,31 @@ final class InteractiveRebaseController {
 
     // MARK: Sheet
 
-    private func openSheet(base: Commit, branch: String) {
+    /// Opens the sheet for a rebase of `branch` onto `target`: in place on an ancestor of HEAD, otherwise from the detected base, which the sheet can change.
+    func openSheet(branch: String, onto target: Commit, targetName: String, detection: RebaseBaseDetection) {
         let repository = viewModel.repository
         let hasLocalChanges = viewModel.status?.entries.contains { !$0.isUntracked && !$0.isIgnored } ?? false
         let upstream = viewModel.status?.branch.upstream
+        let refs = viewModel.refs.filter { $0.kind == .localBranch && $0.name != branch || $0.kind == .tag }.map { RebaseBasePicker.Candidate(title: $0.name, revision: $0.name) }
         Task {
             do {
-                let commits = try await repository.rebaseCommits(after: base.id)
-                let branches = await repository.stackedBranches(in: commits)
-                let published = await repository.publishedCommitCount(rewrittenBy: base.id)
-                let hint = CommitActionsController.publishedHint(published, upstream: upstream)
-                let baseCommit = RebaseCommit(id: base.id, parents: base.parents, subject: base.subject, message: base.subject)
-                let model = InteractiveRebaseModel(branch: branch, base: baseCommit, commits: commits, branches: branches, published: published, hasLocalChanges: hasLocalChanges)
-                let sheet = InteractiveRebaseSheet(model: model, publishedHint: hint)
+                let range = try await repository.rebaseRange(onto: target.id, detection: detection)
+                guard let base = await repository.rebaseCommit(range.base), let targetCommit = await repository.rebaseCommit(target.id) else { throw RebasePlanError.baseNotInHistory }
+                let branches = await repository.stackedBranches(in: range.commits)
+                let published = await repository.publishedCommitCount(rewrittenBy: range.base)
+                let model = InteractiveRebaseModel(branch: branch, range: range, base: base, target: targetCommit, targetName: targetName, branches: branches, published: published, hasLocalChanges: hasLocalChanges)
+                let found = Self.candidates(of: detection, inPlace: range.isInPlace)
+                let mergeBase = range.isInPlace ? nil : await repository.mergeBase(target.id, "HEAD")
+                let mergeBaseCandidate = mergeBase.map { [RebaseBasePicker.Candidate(title: "\($0.prefix(7)) – Merge-Base", revision: $0)] } ?? []
+                let initial = found.first { $0.revision == range.base } ?? mergeBaseCandidate.first { $0.revision == range.base } ?? RebaseBasePicker.Candidate(title: range.isInPlace ? targetName : String(range.base.prefix(7)), revision: range.base)
+                let picker = RebaseBasePicker(base: initial, target: "\(targetName) · \(targetCommit.shortID) „\(targetCommit.subject)“", candidates: found + mergeBaseCandidate.filter { $0.revision != found.first?.revision } + refs, note: Self.note(for: detection, range: range))
+                // The sheet owns the picker and goes away when it closes, which ends this reference to the controller.
+                picker.changeBase = { [weak model] revision in
+                    guard let model else { return nil }
+                    return await self.changeBase(of: model, to: revision, onto: target.id)
+                }
+                let sheet = InteractiveRebaseSheet(model: model, basePicker: picker)
+                sheet.publishedHint = { CommitActionsController.publishedHint($0, upstream: upstream) }
                 guard let window = prompter.window?() else { return }
                 self.sheet = sheet
                 ScreenshotHarness.driveRebaseSheet(sheet)
@@ -91,13 +107,56 @@ final class InteractiveRebaseController {
                 self.sheet = nil
                 guard let plan else { return }
                 if plan.dropsEverything {
-                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Alle Commits verwerfen?", info: "„\(branch)“ wird auf die Basis \(base.shortID) „\(base.subject)“ zurückgesetzt. Rückgängig über die Statuszeile.", button: "Verwerfen")
+                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm("Alle Commits verwerfen?", info: "„\(branch)“ wird auf \(model.targetCommit.shortID) „\(model.targetCommit.subject)“ zurückgesetzt. Rückgängig über die Statuszeile.", button: "Verwerfen")
                     guard confirmed else { return }
                 }
-                start(plan, note: CommitActionsController.note("git rebase -i \(base.shortID)", hint))
+                let hint = CommitActionsController.publishedHint(model.published, upstream: upstream)
+                start(plan, note: CommitActionsController.note(Self.command(plan), hint))
             } catch {
                 report(error, title: "Interaktives Rebase nicht möglich")
             }
+        }
+    }
+
+    /// "git rebase -i 1a2b3c4" in place, "git rebase -i --onto 4d5e6f7 1a2b3c4" otherwise.
+    static func command(_ plan: RebasePlan) -> String {
+        plan.onto.map { "git rebase -i --onto \($0.prefix(7)) \(plan.base.prefix(7))" } ?? "git rebase -i \(plan.base.prefix(7))"
+    }
+
+    /// Loads the range from another old base into the open sheet; returns why it cannot.
+    private func changeBase(of model: InteractiveRebaseModel, to revision: String, onto target: String) async -> String? {
+        let repository = viewModel.repository
+        guard let base = await repository.rebaseCommit(revision) else { return "„\(revision)“ ist kein Commit" }
+        do {
+            let range = try await repository.rebaseRange(from: base.id, onto: target)
+            let branches = await repository.stackedBranches(in: range.commits)
+            let published = await repository.publishedCommitCount(rewrittenBy: range.base)
+            model.replace(range: range, base: base, branches: branches, published: published)
+            return range.isInPlace ? "an Ort und Stelle" : nil
+        } catch let error as RebasePlanError {
+            return Self.describe(error)
+        } catch {
+            return "\(error)"
+        }
+    }
+
+    /// The detected candidates for the base field, described by why they were found.
+    private static func candidates(of detection: RebaseBaseDetection, inPlace: Bool) -> [RebaseBasePicker.Candidate] {
+        guard !inPlace else { return [] }
+        let bases: [RebaseBase] = switch detection {
+        case .detected(let base): [base]
+        case .tie(let bases): bases
+        case .plain: []
+        }
+        return bases.map { RebaseBasePicker.Candidate(title: "\($0.commit.prefix(7)) – \(RebaseOntoController.without($0.reason))", revision: $0.commit) }
+    }
+
+    private static func note(for detection: RebaseBaseDetection, range: RebaseRange) -> String {
+        if range.isInPlace { return "an Ort und Stelle" }
+        return switch detection {
+        case .detected: "erkannt"
+        case .tie: "mehrdeutig: bitte die Basis prüfen"
+        case .plain: "Merge-Base, nichts Besseres erkannt"
         }
     }
 

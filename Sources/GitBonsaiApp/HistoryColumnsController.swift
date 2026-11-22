@@ -26,6 +26,7 @@ final class HistoryColumnsController: NSObject {
         table.onDrag = { [weak self] column, x in self?.resize(column, to: x) }
         table.onResetGraph = { [weak self] in self?.resetGraphWidth() }
         table.onGraphScroll = { [weak self] deltaX, point in self?.scrollGraph(by: deltaX, at: point) ?? false }
+        guide.positions = { [weak self] width in self?.columns.layout(in: width).dividers.map(\.1) ?? [] }
         push(columns)
     }
 
@@ -82,7 +83,7 @@ final class HistoryColumnsController: NSObject {
     private func push(_ columns: HistoryColumns) {
         header.columns = columns
         table.columns = columns
-        guide.columns = columns
+        guide.refresh()
     }
 
     private func save() {

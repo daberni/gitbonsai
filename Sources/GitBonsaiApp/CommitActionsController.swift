@@ -7,7 +7,7 @@ import GitEngine
 final class CommitActionsController {
     let prompter = ActionPrompter()
     let interactiveRebase: InteractiveRebaseController
-    private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, prompter: prompter) { [weak self] note, operation in
+    private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
         self?.runOperation(failure: "Rebase fehlgeschlagen", conflict: "Rebase mit Konflikten angehalten", note: note, endsRebase: true, operation)
     }
     private let viewModel: GraphViewModel
@@ -48,8 +48,8 @@ final class CommitActionsController {
         let inBranch = viewModel.isReachableFromHead(commit.id)
         if !inBranch {
             items.append(ActionMenuItem("Cherry-pick auf „\(branch)“") { [weak self] in self?.cherryPick(commit) })
-            items += rebaseOnto.targetItems(branch: branch, target: commit)
         }
+        items += rebaseOnto.items(branch: branch, commit: commit)
         if !isHead {
             let reset = NSMenuItem(title: "Reset „\(branch)“ hierher", action: nil, keyEquivalent: "")
             let submenu = NSMenu()
@@ -58,9 +58,6 @@ final class CommitActionsController {
             }
             reset.submenu = submenu
             items.append(reset)
-        }
-        if inBranch && !isHead {
-            items.append(rebaseOnto.fromHereItem(branch: branch, oldBase: commit))
         }
         if inBranch {
             items.append(ActionMenuItem("Revert-Commit anlegen") { [weak self] in self?.revert(commit) })

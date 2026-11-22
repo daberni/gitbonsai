@@ -269,11 +269,6 @@ enum Theme {
         static let visibleSuggestions = 12
     }
 
-    /// The sheet that picks the new base of a rebase with `--onto`.
-    enum RebaseSheet {
-        static let visibleChoices = 12
-    }
-
     /// The note at the bottom of the history pane that fades out by itself.
     enum Toast {
         static let height: CGFloat = 34
@@ -291,20 +286,37 @@ enum Theme {
         static let height: CGFloat = 140
     }
 
-    /// The interactive rebase sheet: the steps on the left with the message of the selected one below them, the resulting history on the right.
+    /// The interactive rebase sheet: the steps on the left and the resulting history on the right on one baseline grid, the message of the selected step below both.
     enum InteractiveRebase {
-        static let size = NSSize(width: 920, height: 600)
-        static let minimumSize = NSSize(width: 760, height: 480)
+        static let size = NSSize(width: 1040, height: 700)
+        static let minimumSize = NSSize(width: 800, height: 660)
+        static let maximumSize = NSSize(width: 1800, height: 1300)
         static let inset = Space.xl
         static let spacing = Space.m
         static let previewWidth: CGFloat = 300
-        static let rowHeight: CGFloat = 32
-        static let actionWidth: CGFloat = 100
-        static let shaWidth: CGFloat = 64
-        /// Squash and fixup rows step in under the commit they melt into.
+        static let minimumPreviewWidth: CGFloat = 240
+        /// The list keeps at least this width before the preview gives way.
+        static let minimumListWidth: CGFloat = 420
+        static let headerHeight = Window.columnHeader
+        /// Rows the list shows at least, which sets the sheet's minimum height.
+        static let minimumVisibleRows: CGFloat = 4
+        /// One row of the list and of the preview: two lines of the preview fit.
+        static let rowHeight: CGFloat = 38
+        /// The fixed first column: grip and, for squash and fixup, the fold mark.
+        static let handleWidth = Space.s + Icon.regular + Space.xs + foldIndent
+        static let actionColumn: CGFloat = 108
+        static let minimumActionColumn: CGFloat = 92
+        static let shaColumn: CGFloat = 76
+        static let minimumShaColumn: CGFloat = 60
+        static let subjectColumn: CGFloat = 320
+        static let minimumSubjectColumn: CGFloat = 160
+        static let branchesColumn: CGFloat = 140
+        static let minimumBranchesColumn: CGFloat = 60
+        /// Squash and fixup rows show a mark in the handle column for the commit they melt into.
         static let foldIndent = Space.l
-        static let messageHeight: CGFloat = 96
-        static let previewRowHeight: CGFloat = 34
+        static let messageHeight: CGFloat = 132
+        static let baseFieldWidth: CGFloat = 300
+        static let visibleBaseChoices = 12
         static let previewNode: CGFloat = 6
         static let previewStrandX: CGFloat = 18
         static let previewTextX: CGFloat = 36

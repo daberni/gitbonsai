@@ -2,24 +2,29 @@ import AppKit
 import GitEngine
 
 /// The steps of the interactive rebase sheet, oldest first: drag a row or press ⌥↑/⌥↓ to move it, choose its action in the pop-up or with p, r, e, s, f, d.
+/// Its columns work like the history's: boundaries drag over the header or the rows with a guide line, widths are remembered, and wider columns scroll sideways.
 @MainActor
 final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     let table = RebaseStepTable()
     let scrollView = NSScrollView()
+    let header = RebaseColumnHeaderView()
+    private let guide = ColumnGuideView()
+    private(set) var columns = RebaseColumns.load()
     private let model: InteractiveRebaseModel
+    private let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("step"))
     var onSelect: ((Int?) -> Void)?
 
     init(model: InteractiveRebaseModel) {
         self.model = model
         super.init()
-        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("step"))
         table.addTableColumn(column)
-        table.headerView = nil
+        header.frame.size.height = Theme.InteractiveRebase.headerHeight
+        table.headerView = header
         table.rowHeight = Theme.InteractiveRebase.rowHeight
         table.style = .plain
         table.intercellSpacing = .zero
         table.backgroundColor = Theme.surface2
-        table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        table.columnAutoresizingStyle = .noColumnAutoresizing
         table.dataSource = self
         table.delegate = self
         table.setAccessibilityLabel("Commits des Rebase, älteste zuerst")
@@ -29,12 +34,38 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
             guard let self, table.selectedRow >= 0 else { return }
             model.setAction(action, at: table.selectedRow)
         }
+        table.dividers = { [weak self] in self.map { $0.columns.dividers(in: $0.visibleWidth) } ?? [] }
+        table.onDrag = { [weak self] column, x in self?.resize(column, to: x) }
+        header.onDrag = { [weak self] column, x in self?.resize(column, to: x) }
         scrollView.documentView = table
         scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = true
         scrollView.backgroundColor = Theme.surface2
+        // The guide lies over the visible rows and does not scroll; its boundaries are shifted by the sideways scroll.
+        guide.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(guide)
+        NSLayoutConstraint.activate([
+            guide.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            guide.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            guide.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            guide.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+        ])
+        guide.positions = { [weak self] _ in
+            guard let self else { return [] }
+            let offset = scrollView.contentView.bounds.minX
+            return columns.dividers(in: visibleWidth).map { $0.1 - offset }
+        }
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        scrollView.contentView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(clipChanged), name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+        NotificationCenter.default.addObserver(self, selector: #selector(clipChanged), name: NSView.frameDidChangeNotification, object: scrollView.contentView)
     }
+
+    /// The width the rows fill when the columns need no more.
+    private var visibleWidth: CGFloat { scrollView.contentView.bounds.width }
 
     var selectedIndex: Int? { table.selectedRow >= 0 ? table.selectedRow : nil }
 
@@ -49,6 +80,34 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         for index in model.steps.indices {
             (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? RebaseStepRowView)?.configure(with: model, at: index)
         }
+    }
+
+    private func resize(_ column: RebaseColumns.Column, to x: CGFloat) {
+        var updated = columns
+        updated.drag(column, to: x, in: visibleWidth)
+        guard updated != columns else { return }
+        columns = updated
+        applyColumns()
+        columns.save()
+    }
+
+    @objc private func clipChanged() {
+        applyColumns()
+        guide.refresh()
+    }
+
+    /// Fits the one table column to the rows' width and moves every visible row's cells onto the columns.
+    func applyColumns() {
+        let width = columns.totalWidth(in: visibleWidth)
+        if column.width != width { column.width = width }
+        header.columns = columns
+        header.visibleWidth = visibleWidth
+        let layout = columns.layout(in: visibleWidth)
+        for index in 0..<table.numberOfRows {
+            (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? RebaseStepRowView)?.apply(layout)
+        }
+        guide.refresh()
+        table.window?.invalidateCursorRects(for: table)
     }
 
     private func move(from: Int, to: Int) {
@@ -78,6 +137,7 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
             let index = table.row(for: view)
             if index >= 0 { model.setSubject(subject, at: index) }
         }
+        view.apply(columns.layout(in: visibleWidth))
         view.configure(with: model, at: row)
         return view
     }
@@ -90,6 +150,8 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
 /// The table of the step list. A press on a row that is not on one of its controls selects it, and dragging from there moves it; the row lands where the line shows.
 /// The drag follows the mouse in a tracking loop, so it works for queued events too, the way the harness sends them.
 final class RebaseStepTable: NSTableView {
+    var dividers: () -> [(RebaseColumns.Column, CGFloat)] = { [] }
+    var onDrag: ((RebaseColumns.Column, CGFloat) -> Void)?
     var onMove: ((Int, Int) -> Void)?
     var onShift: ((Int) -> Void)?
     var onAction: ((RebaseAction) -> Void)?
@@ -97,8 +159,16 @@ final class RebaseStepTable: NSTableView {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    override func resetCursorRects() {
+        ColumnDividers.addCursorRects(to: self, at: dividers().map(\.1))
+    }
+
     override func mouseDown(with event: NSEvent) {
         let start = convert(event.locationInWindow, from: nil)
+        if let divider = ColumnDividers.hit(start.x, in: dividers()) {
+            ColumnDividers.followDrag(in: self) { onDrag?(divider, $0) }
+            return
+        }
         let row = row(at: start)
         guard row >= 0, let window else { return super.mouseDown(with: event) }
         window.makeFirstResponder(self)
@@ -125,7 +195,7 @@ final class RebaseStepTable: NSTableView {
     private func showInsertionLine(at index: Int) {
         let height = rowHeight + intercellSpacing.height
         let thickness = Theme.Stroke.strand
-        insertionLine.frame = NSRect(x: Theme.Space.s, y: CGFloat(index) * height - thickness / 2, width: bounds.width - 2 * Theme.Space.s, height: thickness)
+        insertionLine.frame = NSRect(x: visibleRect.minX + Theme.Space.s, y: CGFloat(index) * height - thickness / 2, width: visibleRect.width - 2 * Theme.Space.s, height: thickness)
         if insertionLine.superview == nil { addSubview(insertionLine) }
     }
 
@@ -142,149 +212,4 @@ final class RebaseStepTable: NSTableView {
         }
         super.keyDown(with: event)
     }
-}
-
-/// One step: a grip, the action pop-up, the short SHA, the subject (editable for a reword) and the branches at the commit.
-final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
-    private typealias M = Theme.InteractiveRebase
-
-    var onAction: ((RebaseAction) -> Void)?
-    var onSubject: ((String) -> Void)?
-
-    private let grip = PassThroughImageView()
-    private let fold = PassThroughImageView()
-    private(set) var actionPopup = NSPopUpButton()
-    private let sha = PassThroughLabel()
-    private(set) var subject = SubjectField()
-    private let branches = PassThroughLabel()
-    private var foldWidth: NSLayoutConstraint!
-
-    init(identifier: NSUserInterfaceItemIdentifier) {
-        super.init(frame: .zero)
-        self.identifier = identifier
-        grip.image = NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: "Ziehen zum Verschieben")
-        grip.contentTintColor = Theme.inkFaint
-        grip.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .regular)
-        fold.image = NSImage(systemSymbolName: "arrow.turn.left.up", accessibilityDescription: "geht im Commit darüber auf")
-        fold.contentTintColor = Theme.moss
-        fold.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
-        for action in RebaseAction.commitActions {
-            actionPopup.addItem(withTitle: action.rawValue)
-            actionPopup.lastItem?.toolTip = Self.explanation(action)
-            actionPopup.lastItem?.representedObject = action.rawValue
-        }
-        actionPopup.controlSize = .small
-        actionPopup.font = Theme.monoSmall
-        actionPopup.target = self
-        actionPopup.action = #selector(actionChosen(_:))
-        sha.font = Theme.mono
-        sha.textColor = Theme.inkMuted
-        subject.font = Theme.body
-        subject.lineBreakMode = .byTruncatingTail
-        subject.delegate = self
-        subject.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        subject.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        branches.font = Theme.pill
-        branches.textColor = Theme.moss
-        branches.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
-        for view in [grip, fold, actionPopup, sha, subject, branches] as [NSView] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        foldWidth = fold.widthAnchor.constraint(equalToConstant: 0)
-        NSLayoutConstraint.activate([
-            grip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Space.s),
-            grip.centerYAnchor.constraint(equalTo: centerYAnchor),
-            grip.widthAnchor.constraint(equalToConstant: Theme.Icon.regular),
-            fold.leadingAnchor.constraint(equalTo: grip.trailingAnchor, constant: Theme.Space.xs),
-            fold.centerYAnchor.constraint(equalTo: centerYAnchor),
-            foldWidth,
-            actionPopup.leadingAnchor.constraint(equalTo: fold.trailingAnchor, constant: Theme.Space.xs),
-            actionPopup.centerYAnchor.constraint(equalTo: centerYAnchor),
-            actionPopup.widthAnchor.constraint(equalToConstant: M.actionWidth),
-            sha.leadingAnchor.constraint(equalTo: actionPopup.trailingAnchor, constant: Theme.Space.s),
-            sha.centerYAnchor.constraint(equalTo: centerYAnchor),
-            sha.widthAnchor.constraint(equalToConstant: M.shaWidth),
-            subject.leadingAnchor.constraint(equalTo: sha.trailingAnchor, constant: Theme.Space.xs),
-            subject.centerYAnchor.constraint(equalTo: centerYAnchor),
-            branches.leadingAnchor.constraint(equalTo: subject.trailingAnchor, constant: Theme.Space.s),
-            branches.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Space.s),
-            branches.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    func configure(with model: InteractiveRebaseModel, at index: Int) {
-        let step = model.steps[index]
-        let folded = model.isFolded(index)
-        foldWidth.constant = folded ? M.foldIndent : 0
-        fold.isHidden = !folded
-        actionPopup.selectItem(at: RebaseAction.commitActions.firstIndex(of: step.action) ?? 0)
-        actionPopup.toolTip = Self.explanation(step.action)
-        sha.stringValue = step.commit?.shortID ?? ""
-        let rewording = step.action == .reword
-        subject.isEditable = rewording
-        subject.isSelectable = rewording
-        subject.isBordered = rewording
-        subject.isBezeled = rewording
-        subject.bezelStyle = .roundedBezel
-        subject.drawsBackground = rewording
-        subject.focusRingType = rewording ? .default : .none
-        subject.toolTip = rewording ? "Neue Nachricht; die ganze Nachricht steht unten" : step.commit?.message
-        // A subject being typed keeps its text and cursor.
-        if subject.currentEditor() == nil {
-            let text = model.subject(at: index)
-            let dropped = step.action == .drop
-            subject.attributedStringValue = NSAttributedString(string: text, attributes: [
-                .font: Theme.body,
-                .foregroundColor: dropped || folded && step.action == .fixup ? Theme.inkFaint : Theme.ink,
-                .strikethroughStyle: dropped ? NSUnderlineStyle.single.rawValue : 0,
-            ])
-        }
-        let names = model.branches(at: index)
-        branches.stringValue = names.joined(separator: ", ")
-        branches.isHidden = names.isEmpty
-        setAccessibilityLabel("\(step.action.rawValue) \(step.commit?.shortID ?? "") \(model.subject(at: index))")
-    }
-
-    static func explanation(_ action: RebaseAction) -> String {
-        switch action {
-        case .pick: "Commit übernehmen"
-        case .reword: "Commit übernehmen, Nachricht ändern"
-        case .edit: "Commit übernehmen und anhalten, um ihn zu ändern"
-        case .squash: "Mit dem Commit darüber zusammenführen, Nachrichten zusammenfassen"
-        case .fixup: "Im Commit darüber aufgehen, seine Nachricht verwerfen"
-        case .drop: "Commit verwerfen"
-        case .exec: "Befehl ausführen"
-        }
-    }
-
-    @objc private func actionChosen(_ sender: NSPopUpButton) {
-        guard let raw = sender.selectedItem?.representedObject as? String, let action = RebaseAction(rawValue: raw) else { return }
-        onAction?(action)
-    }
-
-    func controlTextDidChange(_ notification: Notification) {
-        onSubject?(subject.stringValue)
-    }
-}
-
-/// Labels and glyphs inside a row leave presses to the table, which selects and drags the row.
-final class PassThroughLabel: NSTextField {
-    convenience init() {
-        self.init(labelWithString: "")
-        lineBreakMode = .byTruncatingTail
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-/// Editable only for a reword; otherwise presses go to the table like those on a label.
-final class SubjectField: NSTextField {
-    override func hitTest(_ point: NSPoint) -> NSView? { isEditable ? super.hitTest(point) : nil }
-}
-
-final class PassThroughImageView: NSImageView {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

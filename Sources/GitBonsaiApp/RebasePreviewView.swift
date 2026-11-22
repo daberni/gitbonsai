@@ -1,8 +1,8 @@
 import AppKit
 import GitEngine
 
-/// The history after the rebase as a small graph, newest on top like the history: one node per resulting commit, its subject and what happened to it, the base at the bottom.
-/// Dropped commits are listed below the base.
+/// The history after the rebase as a small graph, newest on top like the history: one node per resulting commit, its subject and what happened to it, the commit it lands on at the bottom.
+/// Dropped commits are listed below. Rows share the list's height, so both sides keep one grid.
 final class RebasePreviewView: NSView {
     private typealias M = Theme.InteractiveRebase
 
@@ -47,7 +47,7 @@ final class RebasePreviewView: NSView {
             rows.append(Row(subject: commit.subject, sha: commit.head.shortID, marks: marks, branches: branches, isBase: false))
         }
         let baseBranches = result.isEmpty ? [model.branch] : []
-        rows.append(Row(subject: model.baseCommit.subject, sha: model.baseCommit.shortID, marks: [], branches: baseBranches, isBase: true))
+        rows.append(Row(subject: model.targetCommit.subject, sha: model.targetCommit.shortID, marks: [], branches: baseBranches, isBase: true))
         self.rows = rows
         dropped = plan.steps.filter { $0.action == .drop }.compactMap { $0.commit?.shortID }
         invalidateIntrinsicContentSize()
@@ -55,13 +55,13 @@ final class RebasePreviewView: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: CGFloat(rows.count + (dropped.isEmpty ? 0 : 1)) * M.previewRowHeight + Theme.Space.s)
+        NSSize(width: NSView.noIntrinsicMetric, height: CGFloat(rows.count + (dropped.isEmpty ? 0 : 1)) * M.rowHeight)
     }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext, !rows.isEmpty else { return }
-        let height = M.previewRowHeight
-        let centers = rows.indices.map { CGFloat($0) * height + height / 2 + Theme.Space.xs }
+        let height = M.rowHeight
+        let centers = rows.indices.map { CGFloat($0) * height + height / 2 }
         if let first = centers.first, let last = centers.last, rows.count > 1 {
             context.setStrokeColor(Theme.moss.cgColor)
             context.setLineWidth(Theme.Stroke.strand)
@@ -82,7 +82,8 @@ final class RebasePreviewView: NSView {
         }
         if !dropped.isEmpty, let last = centers.last {
             let text = NSAttributedString(string: "Verworfen: " + dropped.joined(separator: ", "), attributes: [.font: Theme.caption, .foregroundColor: Theme.persimmon])
-            text.draw(with: NSRect(x: M.previewTextX, y: last + height / 2 + Theme.Space.xs, width: bounds.width - M.previewTextX - Theme.Space.s, height: height), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            let lineHeight = ceil(text.size().height)
+            text.draw(with: NSRect(x: M.previewTextX, y: last + height - lineHeight / 2, width: bounds.width - M.previewTextX - Theme.Space.s, height: lineHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
     }
 
@@ -90,8 +91,8 @@ final class RebasePreviewView: NSView {
     private func drawText(of row: Row, centeredAt center: CGFloat) {
         let width = bounds.width - M.previewTextX - Theme.Space.s
         let subject = NSAttributedString(string: row.subject, attributes: [.font: row.isBase ? Theme.caption : Theme.bodyMedium, .foregroundColor: row.isBase ? Theme.inkMuted : Theme.ink])
-        let lineHeight = M.previewRowHeight / 2
-        subject.draw(with: NSRect(x: M.previewTextX, y: center - lineHeight, width: width, height: lineHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+        let lineHeight = M.rowHeight / 2
+        subject.draw(with: NSRect(x: M.previewTextX, y: center - lineHeight + Theme.Stroke.hairline, width: width, height: lineHeight), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         let detail = NSMutableAttributedString(string: row.isBase ? "Basis \(row.sha)" : row.sha, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.inkFaint])
         for (text, color) in row.marks {
             detail.append(NSAttributedString(string: "  " + text, attributes: [.font: Theme.caption, .foregroundColor: color]))

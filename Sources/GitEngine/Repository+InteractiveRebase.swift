@@ -45,6 +45,39 @@ extension Repository {
         return commits
     }
 
+    /// The commits an interactive rebase of the current branch onto `target` replays, from `base` on. With `base == target` it is the in-place rebase of `rebaseCommits(after:)`;
+    /// otherwise `base` need not be an ancestor of HEAD (a branch whose commits stay behind, say), merges are flattened, and commits whose changes the target already has are marked by `git cherry`.
+    public func rebaseRange(from base: String, onto target: String) async throws -> RebaseRange {
+        guard base != target else { return RebaseRange(base: base, target: target, commits: try await rebaseCommits(after: base), alreadyOnTarget: []) }
+        // Like a plain `git rebase` without --rebase-merges, merges in the range are flattened: only their commits are replayed, in topological order.
+        let result = try await runner.run(["log", "--reverse", "--topo-order", "--no-merges", "--format=%H%x1f%P%x1f%s%x1f%B%x1e", "\(base)..HEAD"])
+        let commits = Self.parseRebaseCommits(result.stdout)
+        if commits.isEmpty { throw RebasePlanError.nothingToRebase }
+        let merges = try await runner.run(["rev-list", "--count", "--merges", "\(base)..HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        // `git cherry <upstream> <head> <limit>` marks with "-" each commit of limit..head whose patch-id the upstream has.
+        let cherry = (try? await runner.run(["cherry", target, "HEAD", base]))?.stdoutString ?? ""
+        let applied = Set(cherry.split(separator: "\n").filter { $0.hasPrefix("- ") }.map { String($0.dropFirst(2)) })
+        return RebaseRange(base: base, target: target, commits: commits, alreadyOnTarget: applied, flattenedMerges: Int(merges) ?? 0)
+    }
+
+    /// One commit with its message, as the rebase sheet shows its base and target; nil when `revision` names none.
+    public func rebaseCommit(_ revision: String) async -> RebaseCommit? {
+        guard let sha = await resolveCommit(revision), let result = try? await runner.run(["log", "-1", "--format=%H%x1f%P%x1f%s%x1f%B%x1e", sha]) else { return nil }
+        return Self.parseRebaseCommits(result.stdout).first
+    }
+
+    /// The best common ancestor of two commits, or nil when they share none.
+    public func mergeBase(_ first: String, _ second: String) async -> String? {
+        guard let result = try? await runner.run(["merge-base", first, second]) else { return nil }
+        let sha = result.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        return sha.isEmpty ? nil : sha
+    }
+
+    /// Whether `commit` is HEAD or one of its ancestors, which makes a rebase onto it an in-place rebase.
+    public func isAncestorOfHead(_ commit: String) async -> Bool {
+        (try? await runner.run(["merge-base", "--is-ancestor", commit, "HEAD"])) != nil
+    }
+
     static func parseRebaseCommits(_ data: Data) -> [RebaseCommit] {
         String(decoding: data, as: UTF8.self).split(separator: "\u{1e}").compactMap { record in
             let fields = record.drop { $0.isNewline }.split(separator: "\u{1f}", maxSplits: 3, omittingEmptySubsequences: false)
@@ -109,6 +142,7 @@ extension Repository {
             "rebase", "--interactive", "--no-autosquash", "--empty=drop",
             plan.updateRefs ? "--update-refs" : "--no-update-refs",
             plan.autostash ? "--autostash" : "--no-autostash",
+        ] + (plan.onto.map { ["--onto", $0] } ?? []) + [
             "--end-of-options", plan.base,
         ]
         do {

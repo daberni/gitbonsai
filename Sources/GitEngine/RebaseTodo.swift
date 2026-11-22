@@ -81,6 +81,27 @@ public enum RebaseTodoLine: Sendable, Equatable {
     }
 }
 
+/// What an interactive rebase of the current branch replays: the commits after `base`, oldest first, onto `target`.
+public struct RebaseRange: Sendable, Equatable {
+    public let base: String
+    public let target: String
+    public let commits: [RebaseCommit]
+    /// Commits whose changes the target already has, by patch-id.
+    public let alreadyOnTarget: Set<String>
+    /// Merges between base and HEAD that the rebase leaves out, replaying only their commits.
+    public let flattenedMerges: Int
+
+    public init(base: String, target: String, commits: [RebaseCommit], alreadyOnTarget: Set<String>, flattenedMerges: Int = 0) {
+        self.base = base
+        self.target = target
+        self.commits = commits
+        self.alreadyOnTarget = alreadyOnTarget
+        self.flattenedMerges = flattenedMerges
+    }
+
+    public var isInPlace: Bool { base == target }
+}
+
 /// A commit between the base and HEAD that an interactive rebase replays.
 public struct RebaseCommit: Sendable, Equatable, Identifiable {
     public let id: String
@@ -143,9 +164,11 @@ public enum RebasePlanProblem: Sendable, Equatable {
     case emptyMessage(RebaseCommit)
 }
 
-/// The todo list the app writes for `git rebase --interactive <base>`, oldest commit first, with the messages it supplies.
+/// The todo list the app writes for `git rebase --interactive [--onto <onto>] <base>`, oldest commit first, with the messages it supplies.
 public struct RebasePlan: Sendable, Equatable {
     public var base: String
+    /// The commit the steps are replayed onto; nil replays them onto `base` itself, in place.
+    public var onto: String?
     public var steps: [RebaseStep]
     /// Messages chosen for the resulting commits, keyed by the SHA of the commit that keeps its place. Without an entry a reword keeps the original message and a squash joins the messages.
     public var messages: [String: String]
@@ -155,8 +178,9 @@ public struct RebasePlan: Sendable, Equatable {
     /// Stashes uncommitted changes before the rebase and brings them back afterwards (`--autostash`).
     public var autostash: Bool
 
-    public init(base: String, steps: [RebaseStep], messages: [String: String] = [:], branches: [String: [String]] = [:], updateRefs: Bool = false, autostash: Bool = false) {
+    public init(base: String, onto: String? = nil, steps: [RebaseStep], messages: [String: String] = [:], branches: [String: [String]] = [:], updateRefs: Bool = false, autostash: Bool = false) {
         self.base = base
+        self.onto = onto
         self.steps = steps
         self.messages = messages
         self.branches = branches
@@ -168,6 +192,15 @@ public struct RebasePlan: Sendable, Equatable {
     public init(base: String, commits: [RebaseCommit], branches: [String: [String]] = [:]) {
         self.init(base: base, steps: commits.map { RebaseStep(.pick, $0) }, branches: branches, updateRefs: !branches.isEmpty)
     }
+
+    /// Picks every commit of the range; commits whose changes are already on the target start as drops.
+    public init(range: RebaseRange, branches: [String: [String]] = [:]) {
+        let steps = range.commits.map { RebaseStep(range.alreadyOnTarget.contains($0.id) ? .drop : .pick, $0) }
+        self.init(base: range.base, onto: range.isInPlace ? nil : range.target, steps: steps, branches: branches, updateRefs: !branches.isEmpty)
+    }
+
+    /// Whether the steps land somewhere other than their base, so that even an unchanged list rewrites the branch.
+    public var movesBase: Bool { onto != nil }
 
     // MARK: Groups
 

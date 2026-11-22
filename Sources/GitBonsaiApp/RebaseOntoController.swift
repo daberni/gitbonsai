@@ -2,72 +2,83 @@ import AppKit
 import GitEngine
 import Synchronization
 
-/// The rebase entries of the commit menu: a plain rebase onto the row, one with a detected old base, and `--onto` with a base chosen in a sheet.
-/// Rewriting published commits only gets the hint in the status line, as everywhere else; the rebase's undo covers mistakes.
+/// The rebase group of the commit menu. On a commit outside the current branch: a one-click rebase from the detected base, and the interactive sheet onto the commit.
+/// On a commit of the branch: the interactive sheet in place. Both forms share one detection and run through the interactive rebase engine, so the status line can undo them.
+/// Rewriting published commits only gets the hint in the status line, as everywhere else.
 @MainActor
 final class RebaseOntoController {
-    /// Runs a rebase with the status line's note, refreshing the tab and ending like a rebase finished through the banner.
+    /// Runs a rebase git cannot take as a todo list (a merge in the range, a fast-forward), with the status line's note.
     typealias Runner = (_ note: String, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> Void
 
     private let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
-    private let runRebase: Runner
+    private let interactive: InteractiveRebaseController
+    private let runPlainRebase: Runner
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter, runRebase: @escaping Runner) {
+    init(viewModel: GraphViewModel, interactive: InteractiveRebaseController, runPlainRebase: @escaping Runner) {
         self.viewModel = viewModel
-        self.prompter = prompter
-        self.runRebase = runRebase
+        self.interactive = interactive
+        self.runPlainRebase = runPlainRebase
     }
 
     // MARK: Menu
 
-    /// Entries on a row outside the current branch. The detected base is searched while the menu is open; its entry names what moves once known and disappears when a plain rebase is all there is.
-    func targetItems(branch: String, target: Commit) -> [NSMenuItem] {
-        let place = placeName(of: target)
+    func items(branch: String, commit: Commit) -> [NSMenuItem] {
+        let place = placeName(of: commit)
+        let interactiveTitle = "Rebase „\(branch)“ interaktiv auf \(place) …"
+        guard !viewModel.isReachableFromHead(commit.id) else {
+            if let reason = interactive.inPlaceReason(for: commit) { return [Self.disabled(interactiveTitle, reason)] }
+            return [ActionMenuItem(interactiveTitle) { [weak self] in self?.interactive.openSheet(branch: branch, onto: commit, targetName: place, detection: .plain(moving: 0)) }]
+        }
         let repository = viewModel.repository
-        let targetRef = branchRef(at: target)
+        let targetRef = branchRef(at: commit)
         let found = DetectionResult()
         let detection = Task.detached {
-            let result = await repository.detectRebaseBase(of: branch, onto: target.id, targetRef: targetRef)
+            let result = await repository.detectRebaseBase(of: branch, onto: commit.id, targetRef: targetRef)
             found.store(result)
             return result
         }
-        let plain = ActionMenuItem("Rebase „\(branch)“ auf \(place)") { [weak self] in self?.rebase(onto: target) }
-        let detected = ActionMenuItem("Rebase „\(branch)“ auf \(place) (Basis wird gesucht …)") { [weak self] in
-            Task { await self?.rebase(branch, onto: target, detected: detection.value) }
+        let oneClick = ActionMenuItem("Rebase „\(branch)“ auf \(place) (Basis wird gesucht …)") { [weak self] in
+            Task { await self?.rebase(branch, onto: commit, place: place, detection: detection.value) }
         }
-        let choose = ActionMenuItem("Basis selbst wählen …") { [weak self] in
-            Task { await self?.chooseBase(of: branch, onto: target, detection: detection.value) }
+        let sheet = ActionMenuItem(interactiveTitle) { [weak self] in
+            Task {
+                let result = await detection.value
+                self?.interactive.openSheet(branch: branch, onto: commit, targetName: place, detection: result)
+            }
         }
         // An open menu runs its own tracking loop, which serves no main-actor tasks; a timer in the common modes still fires and updates the entry in place.
         let started = Date()
         // The timer fires on the main run loop; the entry only crosses into its closure.
-        nonisolated(unsafe) weak var entry = detected
+        nonisolated(unsafe) weak let entry = oneClick
         let poll = Timer(timeInterval: 0.05, repeats: true) { timer in
             let finished = MainActor.assumeIsolated {
                 guard let entry, Date().timeIntervalSince(started) < Self.searchTimeout else { return true }
                 guard let result = found.value else { return false }
-                if let title = Self.title(branch: branch, place: place, detection: result) { entry.title = title } else { entry.isHidden = true }
+                entry.title = Self.title(branch: branch, place: place, detection: result)
                 return true
             }
             if finished { timer.invalidate() }
         }
         RunLoop.main.add(poll, forMode: .common)
-        return [plain, detected, choose]
+        return [oneClick, sheet]
     }
 
     /// After this many seconds an open menu stops waiting for the detected base; choosing the entry still waits for it.
     private static let searchTimeout: TimeInterval = 30
 
-    /// The entry on a commit of the current branch: its later commits go onto a base the sheet asks for.
-    func fromHereItem(branch: String, oldBase: Commit) -> NSMenuItem {
-        ActionMenuItem("Rebase ab hier auf …") { [weak self] in self?.chooseNewBase(of: branch, from: oldBase) }
+    private static func disabled(_ title: String, _ reason: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        item.toolTip = reason
+        return item
     }
 
-    /// "Rebase „feature/b“ auf „main“ (3 Commits, ohne „feature/a“)", or nil when the detection found nothing better than a plain rebase.
-    static func title(branch: String, place: String, detection: RebaseBaseDetection) -> String? {
+    /// "Rebase „feature/b“ auf „main“ (3 Commits, ohne „feature/a“)", or with the commit count alone when the merge base is all there is.
+    static func title(branch: String, place: String, detection: RebaseBaseDetection) -> String {
         switch detection {
-        case .plain: return nil
+        // Without own commits the rebase only fast-forwards; a count of none would read odd.
+        case .plain(let moving) where moving == 0: return "Rebase „\(branch)“ auf \(place)"
+        case .plain(let moving): return "Rebase „\(branch)“ auf \(place) (\(commits(moving)))"
         case .tie: return "Rebase „\(branch)“ auf \(place) (Basis mehrdeutig) …"
         case .detected(let base):
             // A former tip of the target branch itself means the target was rewritten, like a fork point.
@@ -78,7 +89,7 @@ final class RebaseOntoController {
 
     private static func commits(_ count: Int) -> String { count == 1 ? "1 Commit" : "\(count) Commits" }
 
-    private static func without(_ reason: RebaseBase.Reason) -> String {
+    static func without(_ reason: RebaseBase.Reason) -> String {
         switch reason {
         case .branch(let name): "ohne „\(name)“"
         case .squashed(let commit): "ohne die in \(commit.prefix(7)) gesquashten"
@@ -101,65 +112,27 @@ final class RebaseOntoController {
         return (local ?? remote)?.name
     }
 
-    // MARK: Actions
+    // MARK: Running
 
-    private func rebase(onto target: Commit) {
-        Task {
-            let hint = await publishedHint(rewrittenBy: target.id)
-            runRebase(CommitActionsController.note("git rebase", hint)) { try await $0.rebaseCurrentBranch(onto: target.id) }
-        }
-    }
-
-    private func rebase(_ branch: String, onto target: Commit, detected detection: RebaseBaseDetection) async {
-        switch detection {
-        case .plain: rebase(onto: target)
-        case .tie: await chooseBase(of: branch, onto: target, detection: detection)
-        case .detected(let base): await rebase(branch, onto: target.id, from: base.commit)
-        }
-    }
-
-    private func rebase(_ branch: String, onto newBase: String, from oldBase: String) async {
-        let hint = await publishedHint(rewrittenBy: oldBase)
-        runRebase(CommitActionsController.note("git rebase --onto \(newBase.prefix(7)) \(oldBase.prefix(7))", hint)) { try await $0.rebase(onto: newBase, from: oldBase, branch: branch) }
-    }
-
-    /// The sheet for the old base, offering the detected candidates first and preselecting the detected base.
-    private func chooseBase(of branch: String, onto target: Commit, detection: RebaseBaseDetection) async {
-        let found: [RebaseBase] = switch detection {
-        case .detected(let base): [base]
-        case .tie(let bases): bases
-        case .plain: []
-        }
-        let detected = found.map { RebaseOntoSheet.Candidate(title: "\($0.commit.prefix(7)) – \(Self.without($0.reason)), \(Self.commits($0.moving))", revision: $0.commit) }
-        let refs = viewModel.refs.filter { $0.kind == .localBranch && $0.name != branch || $0.kind == .tag }.map { RebaseOntoSheet.Candidate(title: $0.name, revision: $0.name) }
-        let suggestion = found.count == 1 ? detected.first?.title : nil
-        let sheet = RebaseOntoSheet(branch: branch, choice: .oldBase(newBase: target, place: placeName(of: target)), candidates: detected + refs, suggestion: suggestion, hint: nil, repository: viewModel.repository)
-        guard let answer = await sheet.ask(using: prompter) else { return }
-        await rebase(branch, onto: answer.newBase, from: answer.oldBase)
-    }
-
-    private func chooseNewBase(of branch: String, from oldBase: Commit) {
+    /// The one-click form: every commit of the detected range picked onto the target. A tie opens the sheet to choose; a merge in the range or a fast-forward goes to plain `git rebase`.
+    private func rebase(_ branch: String, onto target: Commit, place: String, detection: RebaseBaseDetection) async {
+        if case .tie = detection { return interactive.openSheet(branch: branch, onto: target, targetName: place, detection: detection) }
         let repository = viewModel.repository
-        let candidates = viewModel.refs.filter { ref in
-            switch ref.kind {
-            case .localBranch: ref.name != branch
-            case .remoteBranch: !ref.name.hasSuffix("/HEAD")
-            case .tag: true
-            default: false
+        let upstream = viewModel.status?.branch.upstream
+        do {
+            let range = try await repository.rebaseRange(onto: target.id, detection: detection)
+            let plan = RebasePlan(range: range, branches: await repository.stackedBranches(in: range.commits))
+            let hint = CommitActionsController.publishedHint(await repository.publishedCommitCount(rewrittenBy: range.base), upstream: upstream)
+            interactive.start(plan, note: CommitActionsController.note(InteractiveRebaseController.command(plan), hint))
+        } catch {
+            let base: String? = if case .detected(let found) = detection { found.commit } else { nil }
+            let hint = CommitActionsController.publishedHint(await repository.publishedCommitCount(rewrittenBy: base ?? target.id), upstream: upstream)
+            if let base {
+                runPlainRebase(CommitActionsController.note("git rebase --onto \(target.id.prefix(7)) \(base.prefix(7))", hint)) { try await $0.rebase(onto: target.id, from: base, branch: branch) }
+            } else {
+                runPlainRebase(CommitActionsController.note("git rebase", hint)) { try await $0.rebaseCurrentBranch(onto: target.id) }
             }
-        }.map { RebaseOntoSheet.Candidate(title: $0.name, revision: $0.name) }
-        let suggestion = ["main", "master", "origin/main", "origin/master"].first { name in candidates.contains { $0.title == name } }
-        Task {
-            let moving = (try? await repository.commitCount(from: oldBase.id, to: branch)) ?? 0
-            let hint = await publishedHint(rewrittenBy: oldBase.id)
-            let sheet = RebaseOntoSheet(branch: branch, choice: .newBase(oldBase: oldBase, moving: moving), candidates: candidates, suggestion: suggestion, hint: hint, repository: repository)
-            guard let answer = await sheet.ask(using: prompter) else { return }
-            runRebase(CommitActionsController.note("git rebase --onto \(answer.newBase.prefix(7))", hint)) { try await $0.rebase(onto: answer.newBase, from: answer.oldBase, branch: branch) }
         }
-    }
-
-    private func publishedHint(rewrittenBy commit: String) async -> String? {
-        CommitActionsController.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: commit), upstream: viewModel.status?.branch.upstream)
     }
 }
 

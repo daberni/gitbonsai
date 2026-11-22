@@ -50,6 +50,20 @@ extension Repository {
         return plain
     }
 
+    /// What a rebase of the current branch onto `target` replays. A target in HEAD's history is the in-place rebase from there; otherwise the range starts at the detected base,
+    /// the first of tied candidates, or the merge base when nothing better was found.
+    public func rebaseRange(onto target: String, detection: RebaseBaseDetection) async throws -> RebaseRange {
+        if await isAncestorOfHead(target) { return try await rebaseRange(from: target, onto: target) }
+        let detected: String? = switch detection {
+        case .detected(let base): base.commit
+        case .tie(let bases): bases.first?.commit
+        case .plain: nil
+        }
+        let mergeBase = await mergeBase(target, "HEAD")
+        guard let base = detected ?? mergeBase else { throw RebasePlanError.baseNotInHistory }
+        return try await rebaseRange(from: base, onto: target)
+    }
+
     /// Rule 1. Candidates are own commits below the tip that some other local branch points at or pointed at; the one leaving the fewest commits to move wins.
     private func stackedBases(of branch: String, ownCommits: Set<String>) async -> RebaseBaseDetection? {
         guard let tip = await resolveCommit(branch) else { return nil }

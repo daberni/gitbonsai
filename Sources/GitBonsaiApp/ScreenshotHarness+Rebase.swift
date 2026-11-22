@@ -4,10 +4,10 @@ import GitEngine
 /// Harness switches for the interactive rebase: the sheet driven by real clicks, drags and keys, the amend at an edit stop and the undo in the status line.
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_REBASE_SCRIPT=<step>;<step>…` drives the sheet once it is open; open it with `GITBONSAI_COMMIT_MENU=<row>` and `GITBONSAI_MENU_PICK=Rebase interaktiv`.
+    /// `GITBONSAI_REBASE_SCRIPT=<step>;<step>…` drives the sheet once it is open; open it with `GITBONSAI_MENU_RUN=<row>:Rebase „<branch>“ interaktiv`.
     /// Steps: `drag:<row>><gap>` drags a row by its grip to the gap before row `gap`, `click:<row>`, `key:<key>` (a letter, `opt-up`, `opt-down`, `up`, `down`),
     /// `popup:<row>=<action>` picks from the row's pop-up, `subject:<row>=<text>` and `message:<text>` replace text by typing (`\n` for a new line),
-    /// `toggle:update-refs|autostash`, `print`, `shot:<png>`, `start`, `cancel`. Each step is a real event through the sheet's window.
+    /// `toggle:update-refs|autostash`, `size:<width>x<height>` (the sheet's content size, kept within its limits), `base:<revision>` (the old base), `resize:<column>><points>` (drags a column edge over the rows), `print`, `shot:<png>`, `start`, `cancel`. Each step is a real event through the sheet's window.
     static func driveRebaseSheet(_ sheet: InteractiveRebaseSheet) {
         guard isActive, let script = environment["GITBONSAI_REBASE_SCRIPT"] else { return }
         let steps = script.split(separator: ";").map(String.init)
@@ -44,6 +44,18 @@ extension ScreenshotHarness {
             replaceText(in: view.subject, with: text)
         case "message":
             replaceText(in: sheet.messageView, with: argument)
+        case "resize":
+            // `resize:<column>><points>` drags that column's right edge sideways over the rows with real events.
+            let (name, delta) = split(argument, at: ">")
+            guard let column = RebaseColumns.Column(rawValue: name), let delta = Double(delta), let edge = sheet.list.columns.dividers(in: sheet.list.scrollView.contentView.bounds.width).first(where: { $0.0 == column })?.1, table.numberOfRows > 0 else { break }
+            let y = table.rect(ofRow: 0).midY
+            // The edge has to be in view to be grabbed, as for a user who scrolls to it first.
+            table.scrollToVisible(NSRect(x: edge - Theme.Space.xl, y: y, width: 2 * Theme.Space.xl, height: 1))
+            drag(in: window, from: table.convert(NSPoint(x: edge, y: y), to: nil), to: table.convert(NSPoint(x: edge + delta, y: y), to: nil), steps: 6)
+            let widths = RebaseColumns.Column.allCases.map { "\($0.rawValue) \(Int(sheet.list.columns.width(of: $0)))" }.joined(separator: ", ")
+            log("rebase columns: \(widths), rows \(Int(table.bounds.width)) wide in \(Int(sheet.list.scrollView.contentView.bounds.width))")
+        case "base":
+            Task { await sheet.basePicker.type(argument) }
         case "toggle":
             guard let box = argument == "update-refs" ? sheet.updateRefsBox : sheet.autostashBox else { break }
             press(box)
@@ -53,6 +65,15 @@ extension ScreenshotHarness {
             log("rebase message: \(sheet.messageView.string.replacingOccurrences(of: "\n", with: "\\n")), start \(sheet.startButton.isEnabled ? "an" : "aus"), selected \(sheet.list.selectedIndex.map(String.init) ?? "-")")
         case "shot":
             renderWindow(window, to: argument)
+        case "size":
+            let (width, height) = split(argument, at: "x")
+            guard let width = Double(width), let height = Double(height) else { break }
+            // A user's resize stops at the sheet's limits; setting the size directly does not, so it is clamped here.
+            let minimum = window.contentMinSize
+            let maximum = window.contentMaxSize
+            window.setContentSize(NSSize(width: min(max(width, minimum.width), maximum.width), height: min(max(height, minimum.height), maximum.height)))
+            window.layoutIfNeeded()
+            log("rebase sheet size \(window.frame.size)")
         case "start":
             press(sheet.startButton)
         case "cancel":

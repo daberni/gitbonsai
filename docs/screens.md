@@ -155,7 +155,7 @@ Repo-spezifische Werte (Name, E-Mail, Signing) stehen im Repo-Info-Sheet (Titel 
 
 ## 4. Interaktives Rebase (V1)
 
-Sheet nach "Rebase interaktiv ab hier…" im Commit-Kontextmenü oder Drag mit ⌥ (Abschnitt 1.3). Liste der Commits von alt nach neu, pro Zeile Aktion (pick, reword, squash, fixup, drop) als Popup, Drag zum Umsortieren, Subject editierbar bei reword. Vorschau rechts: resultierender linearer Verlauf als Mini-Graph. Button **Rebase starten** erzeugt die Todo-Liste und ruft `git rebase -i` mit dem Sequence-Editor-Helper. Bei Konflikten wechselt die UI ins Banner (1.5). Stacks: Checkbox "Abhängige Branches mitziehen (`--update-refs`)", vorausgewählt, wenn Branches auf Zwischen-Commits zeigen.
+Sheet nach „Rebase „<Branch>“ interaktiv auf … …“ im Commit-Kontextmenü (jeder Commit; an Ort und Stelle auf Vorfahren von HEAD, sonst `--onto` ab der erkannten Basis, oben änderbar) oder Drag mit ⌥ (Abschnitt 1.3). Spalten wie in der Historie: Grenzen ziehbar, Breiten gemerkt, seitlich scrollbar. Liste der Commits von alt nach neu, pro Zeile Aktion (pick, reword, squash, fixup, drop) als Popup, Drag zum Umsortieren, Subject editierbar bei reword. Vorschau rechts: resultierender linearer Verlauf als Mini-Graph. Button **Rebase starten** erzeugt die Todo-Liste und ruft `git rebase -i` mit dem Sequence-Editor-Helper. Bei Konflikten wechselt die UI ins Banner (1.5). Stacks: Checkbox "Abhängige Branches mitziehen (`--update-refs`)", vorausgewählt, wenn Branches auf Zwischen-Commits zeigen.
 
 ## 5. Konfliktlösung
 
@@ -183,7 +183,7 @@ Quellen: Branch-Labels im Graph, Branch-Einträge der Sidebar, Commit-Zeilen. Zi
 
 | Element | Einträge |
 |---|---|
-| Commit | Checkout (detached), Branch hier erstellen, Tag hier erstellen, Cherry-pick auf aktuellen Branch, Revert, Reset aktuellen Branch hierher (soft/mixed/hard), Rebase interaktiv ab hier (V1), Diff zu Auswahl (V1), SHA kopieren, Subject kopieren, Auf GitHub öffnen (V2) |
+| Commit | Checkout (detached), Branch hier erstellen, Tag hier erstellen, Cherry-pick auf aktuellen Branch, Revert, Reset aktuellen Branch hierher (soft/mixed/hard), Rebase auf diesen Commit (erkannte Basis), Rebase interaktiv auf diesen Commit (V1), Diff zu Auswahl (V1), SHA kopieren, Subject kopieren, Auf GitHub öffnen (V2) |
 | Lokaler Branch | Checkout, In aktuellen Branch mergen, Aktuellen Branch hierauf rebasen, Umbenennen, Upstream setzen, Push, Pull, Worktree anlegen, Löschen, Löschen inkl. Remote |
 | Remote-Branch | Checkout als lokalen Branch, In aktuellen Branch mergen, Rebase hierauf, Pull-Request öffnen (V2), Remote-Branch löschen |
 | Tag | Checkout, Pushen, Löschen, Löschen inkl. Remote, Nachricht anzeigen |

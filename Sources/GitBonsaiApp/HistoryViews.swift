@@ -15,7 +15,7 @@ final class HistoryHeaderView: NSView {
     private var dividers: [(HistoryColumns.Column, CGFloat)] { columns.layout(in: bounds.width).dividers }
 
     override func resetCursorRects() {
-        for (_, x) in dividers { addCursorRect(NSRect(x: x - Theme.dragThreshold, y: 0, width: 2 * Theme.dragThreshold, height: bounds.height), cursor: .resizeLeftRight) }
+        ColumnDividers.addCursorRects(to: self, at: dividers.map(\.1))
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -26,15 +26,12 @@ final class HistoryHeaderView: NSView {
     override func menu(for event: NSEvent) -> NSMenu? { makeMenu?() }
 
     override func mouseDown(with event: NSEvent) {
-        let x = convert(event.locationInWindow, from: nil).x
-        guard let divider = dividers.first(where: { abs($0.1 - x) <= Theme.dragThreshold })?.0 else { return }
+        guard let divider = ColumnDividers.hit(convert(event.locationInWindow, from: nil).x, in: dividers) else { return }
         if event.clickCount == 2, divider == .graph {
             onResetGraph?()
             return
         }
-        while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]), next.type == .leftMouseDragged {
-            onDrag?(divider, convert(next.locationInWindow, from: nil).x)
-        }
+        ColumnDividers.followDrag(in: self) { onDrag?(divider, $0) }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -89,7 +86,7 @@ final class HistoryTableView: NSTableView {
     }
 
     override func resetCursorRects() {
-        for (_, x) in dividers { addCursorRect(NSRect(x: x - Theme.dragThreshold, y: 0, width: 2 * Theme.dragThreshold, height: bounds.height), cursor: .resizeLeftRight) }
+        ColumnDividers.addCursorRects(to: self, at: dividers.map(\.1))
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -98,8 +95,7 @@ final class HistoryTableView: NSTableView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        let x = convert(event.locationInWindow, from: nil).x
-        guard let divider = dividers.first(where: { abs($0.1 - x) <= Theme.dragThreshold })?.0 else {
+        guard let divider = ColumnDividers.hit(convert(event.locationInWindow, from: nil).x, in: dividers) else {
             super.mouseDown(with: event)
             return
         }
@@ -107,40 +103,6 @@ final class HistoryTableView: NSTableView {
             onResetGraph?()
             return
         }
-        // The table would otherwise start its own row tracking, so the drag is followed here until the button comes up.
-        while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]), next.type == .leftMouseDragged {
-            onDrag?(divider, convert(next.locationInWindow, from: nil).x)
-        }
-    }
-}
-
-/// A faint line over the whole height of the history at the column boundary under the mouse. It never takes clicks.
-final class ColumnGuideView: NSView {
-    var columns = HistoryColumns() { didSet { if columns != oldValue { needsDisplay = true } } }
-    private var hovered: HistoryColumns.Column? { didSet { if hovered != oldValue { needsDisplay = true } } }
-
-    override var isFlipped: Bool { true }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect, .enabledDuringMouseDrag], owner: self))
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        let x = convert(event.locationInWindow, from: nil).x
-        hovered = columns.layout(in: bounds.width).dividers.first { abs($0.1 - x) <= Theme.dragThreshold }?.0
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        hovered = nil
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard let hovered, let x = columns.layout(in: bounds.width).dividers.first(where: { $0.0 == hovered })?.1 else { return }
-        Theme.ink.withAlphaComponent(Theme.Wash.guide).setFill()
-        NSRect(x: x.rounded() - Theme.Stroke.strand / 2, y: 0, width: Theme.Stroke.strand, height: bounds.height).fill()
+        ColumnDividers.followDrag(in: self) { onDrag?(divider, $0) }
     }
 }
