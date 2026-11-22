@@ -45,6 +45,24 @@ public enum CheckoutTarget: Sendable, Hashable {
     case commit(String)
 }
 
+/// A working tree and the repository it belongs to, which linked worktrees share.
+public struct RepositoryLocation: Sendable, Equatable {
+    public let root: String
+    /// The directory git keeps the repository in, shared by all its worktrees.
+    public let commonDirectory: String
+
+    public init(root: String, commonDirectory: String) {
+        self.root = root
+        self.commonDirectory = commonDirectory
+    }
+
+    /// The folder of the main worktree, whichever worktree `root` is. A submodule keeps its repository under the superproject's `.git/modules` and is named by that directory.
+    public var name: String {
+        let common = URL(fileURLWithPath: commonDirectory)
+        return common.lastPathComponent == ".git" ? common.deletingLastPathComponent().lastPathComponent : common.lastPathComponent
+    }
+}
+
 /// Facade over one repository (or one worktree of it). All methods map to one git command.
 public final class Repository: Sendable {
     public let path: String
@@ -55,10 +73,18 @@ public final class Repository: Sendable {
         self.runner = GitRunner(repositoryPath: path, gitPath: gitPath)
     }
 
-    /// Root of the working tree that contains `path`, which may be any folder inside it. Throws `GitError` when the folder is not inside a repository.
-    public static func root(containing path: String, gitPath: String = GitRunner.defaultGitPath()) async throws -> String {
-        let result = try await GitRunner(repositoryPath: path, gitPath: gitPath).run(["rev-parse", "--show-toplevel"])
-        return String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .newlines)
+    /// The working tree that contains `path`, which may be any folder inside it, and the repository it belongs to. Throws `GitError` when the folder is not inside a repository.
+    public static func location(containing path: String, gitPath: String = GitRunner.defaultGitPath()) async throws -> RepositoryLocation {
+        let arguments = ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"]
+        let result = try await GitRunner(repositoryPath: path, gitPath: gitPath).run(arguments)
+        guard let location = parseLocation(result.stdout) else { throw GitError(arguments: arguments, exitCode: 0, stderr: "unexpected output: \(result.stdoutString)") }
+        return location
+    }
+
+    static func parseLocation(_ data: Data) -> RepositoryLocation? {
+        let lines = String(decoding: data, as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count >= 2, !lines[0].isEmpty, !lines[1].isEmpty else { return nil }
+        return RepositoryLocation(root: String(lines[0]), commonDirectory: String(lines[1]))
     }
 
     /// Switches the working tree to `target`. A remote branch gets a local tracking branch of the same name, or reuses the one that exists.

@@ -15,9 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             controller.window?.alphaValue = 0
             controller.window?.ignoresMouseEvents = true
         }
-        controller.showWindow(nil)
-        // The capture renders the views itself, so the window can stay behind everything else.
-        if ScreenshotHarness.runsInBackground { controller.window?.orderBack(nil) }
         controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()))
     }
 

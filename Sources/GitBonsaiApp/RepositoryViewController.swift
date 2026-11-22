@@ -13,8 +13,6 @@ final class RepositoryViewController: NSObject {
     var onSwitchWorktree: ((String) -> Void)? {
         didSet { checkoutController.onSwitchWorktree = onSwitchWorktree }
     }
-    /// The repository name became known or changed.
-    var onNameChanged: (() -> Void)?
     var name: String { viewModel.repositoryName }
     var preferredFirstResponder: NSView { history.tableView }
 
@@ -36,10 +34,10 @@ final class RepositoryViewController: NSObject {
     private let detail = DetailView()
     private let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
-    private var lastReportedName = ""
+    private var shownSidebarRevision: Int?
 
-    init(repositoryPath: String) {
-        viewModel = GraphViewModel(repositoryPath: repositoryPath)
+    init(location: RepositoryLocation) {
+        viewModel = GraphViewModel(location: location)
         history = HistoryViewController(viewModel: viewModel)
         checkoutController = CheckoutController(viewModel: viewModel)
         commitActions = CommitActionsController(viewModel: viewModel)
@@ -225,11 +223,10 @@ final class RepositoryViewController: NSObject {
     }
 
     private func metadataChanged() {
-        if name != lastReportedName {
-            lastReportedName = name
-            onNameChanged?()
+        if let revision = viewModel.sidebarRevision, revision != shownSidebarRevision {
+            shownSidebarRevision = revision
+            sidebar.reload(from: viewModel)
         }
-        sidebar.reload(from: viewModel)
         history.metadataChanged()
         commitController.update(status: viewModel.status)
         // The working directory lists follow every change of the status, for instance after staging.

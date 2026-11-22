@@ -301,6 +301,25 @@ enum ScreenshotHarness {
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
 
+    // MARK: Startup trace
+
+    /// The start of the process, so the first line already shows how long the app took to get there.
+    private static let launch: Date = {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        guard sysctl(&name, 4, &info, &size, nil, 0) == 0 else { return Date() }
+        let start = info.kp_proc.p_un.__p_starttime
+        return Date(timeIntervalSince1970: Double(start.tv_sec) + Double(start.tv_usec) / 1_000_000)
+    }()
+
+    /// `GITBONSAI_TRACE_STARTUP=1` prints every state of the tab row and every rebuild of a sidebar, with the time since launch, to count redraws while the app opens.
+    static func traceStartup(_ line: @autoclosure () -> String) {
+        guard environment["GITBONSAI_TRACE_STARTUP"] == "1" else { return }
+        let milliseconds = Int(Date().timeIntervalSince(launch) * 1000)
+        FileHandle.standardError.write(Data("[\(milliseconds) ms] \(line())\n".utf8))
+    }
+
     /// `GITBONSAI_NEW_TAB=1` opens the empty tab after the launch arguments or the saved session.
     static var wantsNewTab: Bool { environment["GITBONSAI_NEW_TAB"] != nil }
 

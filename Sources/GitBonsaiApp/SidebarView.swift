@@ -53,6 +53,7 @@ final class SidebarView: NSView {
         self.model = model
         items = outline.items(from: model)
         layoutItems()
+        ScreenshotHarness.traceStartup("sidebar of \((model.repository.path as NSString).lastPathComponent): \(items.count) lines, \(model.worktrees.count) worktrees, \(model.worktrees.filter { $0.status != nil }.count) with counters")
     }
 
     private func layoutItems() {

@@ -26,6 +26,7 @@ Run:
 - `GITBONSAI_FOREGROUND=1` runs as a normal app with Dock icon and its window in front, for checks that need it; otherwise harness runs stay in the background and never take focus.
 - Harness runs keep their session in their own defaults domain (`app.gitbonsai.harness`).
 - `GITBONSAI_CAPTURE_DELAY=<seconds>` waits longer before the capture.
+- `GITBONSAI_TRACE_STARTUP=1` prints each state of the tab row (with whether the window is visible) and each sidebar rebuild with the time since launch, to count redraws while the app opens.
 
 Window and tabs:
 

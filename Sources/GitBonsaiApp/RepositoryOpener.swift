@@ -4,13 +4,15 @@ import GitEngine
 /// Turns chosen or dropped folders into repository roots: a folder inside a repository stands for that repository.
 @MainActor
 struct RepositoryOpener {
-    /// The root of the repository that contains `path`, or nil. With `reportErrors` a folder outside any repository is reported on the window.
-    func root(containing path: String, reportErrorsOn window: NSWindow?) async -> String? {
-        do {
-            return try await Repository.root(containing: path)
-        } catch {
-            if let window { reportNotARepository(path, on: window) }
-            return nil
+    /// Resolves all folders at once and returns their locations in the order of `paths`, with nil for a folder outside any repository.
+    func locations(containing paths: [String]) async -> [RepositoryLocation?] {
+        await withTaskGroup(of: (Int, RepositoryLocation?).self) { group in
+            for (index, path) in paths.enumerated() {
+                group.addTask { (index, try? await Repository.location(containing: path)) }
+            }
+            var locations = [RepositoryLocation?](repeating: nil, count: paths.count)
+            for await (index, location) in group { locations[index] = location }
+            return locations
         }
     }
 
@@ -28,7 +30,7 @@ struct RepositoryOpener {
         }
     }
 
-    private func reportNotARepository(_ path: String, on window: NSWindow) {
+    func reportNotARepository(_ path: String, on window: NSWindow) {
         guard ScreenshotHarness.outputPath == nil else { return }
         let alert = NSAlert()
         alert.messageText = "Kein Git-Repository"

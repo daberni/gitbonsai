@@ -1,4 +1,5 @@
 import AppKit
+import GitEngine
 
 /// The one app window: the tab row in the title bar, and below it the content of the active tab.
 /// It coordinates the tab list, the repository opener and the title bar row, and answers the window's menu actions.
@@ -64,43 +65,50 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         let paths = arguments.isEmpty ? store.openTabs : arguments
         let active = arguments.isEmpty ? store.activeTab : 0
         Task {
-            await open(paths, activate: active, reportErrors: !arguments.isEmpty)
+            let failed = await open(paths, activate: active)
             if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab(nil) }
+            // The window appears once, with all tabs, their final names and the saved tab active.
+            showWindow(nil)
+            // The capture renders the views itself, so the window can stay behind everything else.
+            if ScreenshotHarness.runsInBackground { window?.orderBack(nil) }
+            if !arguments.isEmpty { reportNotARepository(failed) }
             didFinishInitialOpen = true
             captureIfRequested()
         }
     }
 
     func open(paths: [String], activate index: Int) {
-        Task { await open(paths, activate: index, reportErrors: true) }
+        Task { reportNotARepository(await open(paths, activate: index)) }
     }
 
-    /// Opens each folder as a tab, in order. A folder inside a repository opens that repository; one that is already open is not opened twice.
-    private func open(_ paths: [String], activate index: Int, reportErrors: Bool) async {
-        var opened: [Int] = []
-        for path in paths {
-            guard let root = await opener.root(containing: path, reportErrorsOn: reportErrors ? window : nil) else { continue }
-            opened.append(showRepository(at: root))
-        }
-        guard !opened.isEmpty else { return }
-        activate(opened[min(max(index, 0), opened.count - 1)])
+    /// Opens each folder as a tab, in order, and returns the folders that lie in no repository. A folder inside a repository opens that repository; one that is already open is not opened twice.
+    /// All folders are resolved before the first tab is added, so the tab row changes once.
+    private func open(_ paths: [String], activate index: Int) async -> [String] {
+        let locations = await opener.locations(containing: paths)
+        let opened = locations.compactMap { $0 }.map(showRepository(at:))
+        if !opened.isEmpty { activate(opened[min(max(index, 0), opened.count - 1)]) }
+        return zip(paths, locations).filter { $0.1 == nil }.map(\.0)
+    }
+
+    private func reportNotARepository(_ paths: [String]) {
+        guard let window else { return }
+        for path in paths { opener.reportNotARepository(path, on: window) }
     }
 
     /// Returns the index of the tab that shows the repository.
-    private func showRepository(at root: String) -> Int {
-        store.noteOpened(root)
-        if let existing = tabs.index(showing: root) { return existing }
-        return tabs.add(makeTab(for: root))
+    private func showRepository(at location: RepositoryLocation) -> Int {
+        store.noteOpened(location.root)
+        if let existing = tabs.index(showing: location.root) { return existing }
+        return tabs.add(makeTab(for: location))
     }
 
-    private func makeTab(for root: String) -> WindowTab {
-        let controller = RepositoryViewController(repositoryPath: root)
+    private func makeTab(for location: RepositoryLocation) -> WindowTab {
+        let controller = RepositoryViewController(location: location)
         let tab = WindowTab(repository: controller)
         controller.onLoaded = { [weak self, weak tab] in
             tab?.isLoaded = true
             self?.captureIfRequested()
         }
-        controller.onNameChanged = { [weak self] in self?.refreshTabBar() }
         controller.onSwitchWorktree = { [weak self, weak tab] path in
             guard let self, let tab, let index = tabs.index(of: tab) else { return }
             showWorktree(at: path, inTab: index)
@@ -151,6 +159,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private func refreshTabBar() {
         tabBar.items = tabs.barItems
         tabBar.activeIndex = tabs.activeIndex
+        traceTabRow()
         if let active = tabs.active { window?.title = active.title }
         let session = tabs.session
         store.saveTabs(session.paths, active: session.active)
@@ -209,6 +218,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
         titlebar.placeBesideTrafficLights()
+        traceTabRow()
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
@@ -220,6 +230,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     // MARK: Screenshot harness
+
+    private var tracedTabRow = ""
+
+    private func traceTabRow() {
+        let titles = tabs.barItems.enumerated().map { $0.offset == tabs.activeIndex ? "[\($0.element.title)]" : $0.element.title }
+        let state = "tab row (window \(window?.isVisible == true ? "visible" : "hidden")): " + titles.joined(separator: " | ")
+        guard state != tracedTabRow else { return }
+        tracedTabRow = state
+        ScreenshotHarness.traceStartup(state)
+    }
 
     private func captureIfRequested() {
         guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true else { return }

@@ -15,12 +15,14 @@ final class GraphViewModel {
     var commits: [Commit] { history.commits }
     var rows: [GraphRow] { history.rows }
     var kinds: [RowKind] { history.kinds }
-    private(set) var refs: [Ref] = []
+    private(set) var refs: [Ref] = [] { didSet { sidebarChanges += 1 } }
     private(set) var refsByCommit: [String: [Ref]] = [:]
-    private(set) var stashes: [Stash] = []
+    private(set) var stashes: [Stash] = [] { didSet { sidebarChanges += 1 } }
     private(set) var stashesByCommit: [String: Stash] = [:]
-    private(set) var worktrees: [WorktreeInfo] = []
-    private(set) var status: RepositoryStatus?
+    private(set) var worktrees: [WorktreeInfo] = [] { didSet { sidebarChanges += 1 } }
+    private(set) var status: RepositoryStatus? { didSet { sidebarChanges += 1 } }
+    /// The folder of the repository's main worktree, whichever worktree the tab shows.
+    let repositoryName: String
     private(set) var lastFetch: Date?
     private(set) var statusText = "Loading…"
     private(set) var isLoading = false
@@ -46,14 +48,20 @@ final class GraphViewModel {
     private var isRefreshing = false
     private var loadedSummary = ""
     private var reachableFromHead: Set<String> = []
+    private var sidebarChanges = 0
+    private var hasSidebarContent = false
+
+    /// Changes whenever something the sidebar shows changed. Nil until the first load knows the refs, the worktrees and their counters, so the sidebar is built once with all of them.
+    var sidebarRevision: Int? { hasSidebarContent ? sidebarChanges : nil }
 
     /// The lane of the strand between the working directory row and HEAD, and HEAD's row.
     var wipStrand: (lane: Lane, headRow: Int)? { history.workingDirectory.map { ($0.lane, $0.headRow) } }
     /// The row that stands for where the working tree is: its uncommitted changes if there are any, otherwise HEAD.
     var currentRow: Int? { history.wipRow ?? headSHA.flatMap { rowIndex(of: $0) } }
 
-    init(repositoryPath: String) {
-        repository = Repository(path: repositoryPath)
+    init(location: RepositoryLocation) {
+        repository = Repository(path: location.root)
+        repositoryName = location.name
     }
 
     var headSHA: String? { status?.branch.headSHA }
@@ -79,12 +87,6 @@ final class GraphViewModel {
     /// The working tree this tab shows, as opposed to the repository's other worktrees.
     func isCurrent(_ worktree: Worktree) -> Bool {
         URL(fileURLWithPath: worktree.path).resolvingSymlinksInPath().path == URL(fileURLWithPath: repository.path).resolvingSymlinksInPath().path
-    }
-
-    /// The repository's name is the folder of its main worktree, whichever worktree the tab shows.
-    var repositoryName: String {
-        let main = worktrees.first { $0.worktree.isMain }?.worktree.path ?? repository.path
-        return URL(fileURLWithPath: main).lastPathComponent
     }
 
     func rowIndex(of commitID: String) -> Int? {
@@ -153,11 +155,10 @@ final class GraphViewModel {
             status = try? await repository.status()
             layoutHead = headSHA
             await loadStashes()
-            async let refsTask: Void = loadRefs()
-            async let worktreesTask: Void = loadWorktrees()
+            async let sidebarTask: Void = loadSidebarContent()
             async let fetchTask: Void = loadLastFetch()
             await streamLog()
-            _ = await (refsTask, worktreesTask, fetchTask)
+            _ = await (sidebarTask, fetchTask)
             // A reload that started meanwhile owns the state now.
             if Task.isCancelled { return }
             computeReachability()
@@ -261,6 +262,16 @@ final class GraphViewModel {
 
     private func loadLastFetch() async {
         do { lastFetch = try await RefLoader.lastFetch(of: repository) } catch {}
+    }
+
+    /// Refs, the worktree list and the worktrees' counters side by side, without waiting for the log.
+    private func loadSidebarContent() async {
+        async let refsTask: Void = loadRefs()
+        async let worktreesTask: Void = loadWorktrees()
+        _ = await (refsTask, worktreesTask)
+        if Task.isCancelled { return }
+        hasSidebarContent = true
+        onMetadataChanged?()
     }
 
     private func loadWorktrees() async {
