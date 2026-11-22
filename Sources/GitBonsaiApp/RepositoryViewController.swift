@@ -480,9 +480,9 @@ final class RepositoryViewController: NSObject {
             self?.history.rowsReset(focus: focus)
         }
         viewModel.onRowsShifted = { [weak self] in self?.history.rowsShifted() }
-        viewModel.onRowsRebuilt = { [weak self] focus in
+        viewModel.onRowsRebuilt = { [weak self] diff, focus in
             if focus == .current { self?.shownSelection = nil }
-            self?.history.rowsRebuilt(focus: focus)
+            self?.history.rowsRebuilt(diff, focus: focus)
         }
         viewModel.onMetadataChanged = { [weak self] in self?.metadataChanged() }
         viewModel.onStatusChanged = { [weak self] text in self?.statusLabel.stringValue = text }

@@ -95,8 +95,12 @@ public struct GraphLayout: Sendable {
         rowIndexByCommitID[commitID].map { rows[$0] }
     }
 
+    /// The color of side strands, outside the numbering of branch strands.
+    public static let sideStrandColor = -1
+
+    /// `isSideStrand` marks a commit such as a stash whose own strand takes `sideStrandColor` instead of the next color, so that adding or dropping it leaves every other strand's color as it was.
     @discardableResult
-    public mutating func append(_ commit: Commit) -> GraphRow {
+    public mutating func append(_ commit: Commit, isSideStrand: Bool = false) -> GraphRow {
         if let existing = rowIndexByCommitID[commit.id] {
             return rows[existing]
         }
@@ -119,8 +123,12 @@ public struct GraphLayout: Sendable {
             }
         } else {
             lane = allocateLane(after: -1)
-            color = nextColor
-            nextColor += 1
+            if isSideStrand {
+                color = Self.sideStrandColor
+            } else {
+                color = nextColor
+                nextColor += 1
+            }
             lanes[lane] = ActiveLane(expected: commit.id, color: color)
         }
 

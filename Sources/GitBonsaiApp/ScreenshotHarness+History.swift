@@ -173,6 +173,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_RUN_GIT=<argument>;<argument>…` runs one git command the way a write action does and then refreshes the history in place, as every write action does.
     /// `GITBONSAI_PRINT_HISTORY=<seconds>,…` prints the commit count, the selected row with its scroll position, the status line and the first rows after loading and after each delay; a full reload is printed when it happens.
     static func driveHistoryContents(on tab: RepositoryViewController) {
+        traceHistoryFrames(on: tab)
         guard let delays = environment["GITBONSAI_PRINT_HISTORY"]?.split(separator: ",").compactMap({ Double($0) }) else { return }
         let viewModel = tab.viewModel
         let onReset = viewModel.onReset

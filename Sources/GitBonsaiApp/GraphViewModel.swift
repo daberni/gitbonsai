@@ -15,6 +15,8 @@ final class GraphViewModel {
         case keepSelection
         /// The action moved the working tree on purpose, such as a checkout: the uncommitted changes or HEAD are selected and HEAD is brought into view.
         case current
+        /// The action brought changes back onto HEAD, such as a pop: HEAD is selected and brought into view, even with uncommitted changes on top.
+        case head
     }
 
     static let wipID = HistoryRows.wipID
@@ -46,8 +48,8 @@ final class GraphViewModel {
     var onReset: ((Focus) -> Void)?
     /// The working directory row appeared while commits were still streaming in.
     var onRowsShifted: (() -> Void)?
-    /// A refresh after a write rebuilt the rows in place: commits may have left, HEAD may have moved and the working directory row was put back.
-    var onRowsRebuilt: ((Focus) -> Void)?
+    /// A refresh swapped in new rows at once: the difference to the rows shown before, nil when rows that stayed changed their order.
+    var onRowsRebuilt: ((HistoryRowDiff?, Focus) -> Void)?
 
     /// Rebound when the tab moves to another worktree of the same repository.
     private(set) var repository: Repository
@@ -63,6 +65,11 @@ final class GraphViewModel {
     private var sidebarChanges = 0
     private var hasSidebarContent = false
     private var inPlaceRefreshes = 0
+    /// Counts the in-place refreshes started and the newest one applied, so that one which read the repository earlier never replaces the rows of a later one.
+    private var startedRefreshes = 0
+    private var appliedRefresh = 0
+    /// Counts full reloads; a refresh that began before one drops its rows.
+    private var loadGeneration = 0
     /// The history starting points the loaded commits were last checked against; nil until a refresh checked them after a load.
     private var checkedTips: Set<String>?
 
@@ -165,6 +172,7 @@ final class GraphViewModel {
     /// Drops everything that was loaded and reads the repository again.
     func reload(focus: Focus = .keepSelection) {
         loadTask?.cancel()
+        loadGeneration += 1
         history = HistoryRows()
         checkedTips = nil
         reachableFromHead = []
@@ -218,8 +226,9 @@ final class GraphViewModel {
     }
 
     /// After a checkout, a reset or a worktree switch the commits are mostly the same: HEAD, the working directory and the refs moved.
-    /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed.
-    /// The history keeps its selection unless `focus` asks for the current row. The status line's note stays as it is.
+    /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed. A new tip, such as a new commit or stash, reads the whole log into rows of their own.
+    /// The new rows replace the shown ones in one step at the end, and the table hears only the difference, so it never shows an empty or half-built history.
+    /// The history keeps its selection unless `focus` asks for another row. The status line's note stays as it is.
     private func update(focus: Focus = .keepSelection) async {
         guard !isLoading else {
             reload(focus: focus)
@@ -228,6 +237,9 @@ final class GraphViewModel {
         let start = ContinuousClock.now
         inPlaceRefreshes += 1
         defer { inPlaceRefreshes -= 1 }
+        startedRefreshes += 1
+        let ticket = startedRefreshes
+        let generation = loadGeneration
         isRefreshing = true
         async let newStatus = try? repository.status()
         async let stashesTask: Void = loadStashes()
@@ -236,30 +248,80 @@ final class GraphViewModel {
         status = await newStatus
         _ = await (stashesTask, refsTask, worktreesTask)
         isRefreshing = false
-        history.removeWorkingDirectoryRow()
+        var next = history
+        next.removeWorkingDirectoryRow()
+        var laneCount = maxLaneCount
+        let head = headSHA
         // A new commit, stash or a worktree HEAD that no branch contains is not loaded and needs the log.
-        let tips = HistoryRefresh.tips(refs: refs, head: headSHA, stashCommits: stashesByCommit.keys)
+        let tips = HistoryRefresh.tips(refs: refs, head: head, stashCommits: stashesByCommit.keys)
         // With the same starting points and HEAD, the loaded commits, their layout and what HEAD reaches stay as they are; on a large history the walks cost hundreds of milliseconds.
-        let historyMoved = tips != checkedTips || headSHA != layoutHead
+        let historyMoved = tips != checkedTips || head != layoutHead
         if historyMoved {
-            let loaded = history.commits
-            let plan = await Task.detached { HistoryRefresh.plan(loaded: loaded, tips: tips) }.value
-            guard case .keep(let dropping) = plan else {
-                reload(focus: focus)
-                return
+            let loaded = next.commits
+            switch await Task.detached(operation: { HistoryRefresh.plan(loaded: loaded, tips: tips) }).value {
+            case .reload:
+                guard let streamed = await readHistory(head: head) else { return }
+                (next, laneCount) = streamed
+            case .keep(let dropping):
+                if !dropping.isEmpty { next.remove(dropping) }
+                // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
+                if head != layoutHead || !dropping.isEmpty {
+                    let result = await LogLoader.relayout(next.commits, head: head, stashesByCommit: stashesByCommit)
+                    next.replaceRows(result.rows)
+                    laneCount = result.maxLaneCount
+                }
             }
-            if !dropping.isEmpty { history.remove(dropping) }
-            // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
-            if headSHA != layoutHead || !dropping.isEmpty { await relayout() }
-            checkedTips = tips
         }
-        insertWipRow()
+        // A reload, or a refresh that started later and finished first, owns the history now.
+        guard generation == loadGeneration, ticket > appliedRefresh else { return }
+        appliedRefresh = ticket
+        if historyMoved {
+            checkedTips = tips
+            layoutHead = head
+        }
+        insertWipRow(into: &next)
+        let shown = history
+        history = next
+        maxLaneCount = laneCount
         if historyMoved { computeReachability() }
-        onRowsRebuilt?(focus)
+        onRowsRebuilt?(rowDiff(from: shown, to: next), focus)
         onMetadataChanged?()
         setSummary(loadedSummary + " · " + String(localized: "view \(elapsed(since: start))", bundle: .module, comment: "Status line: how long updating the history view took, e.g. view 3 ms"))
         // The other worktrees' change counters are slow to gather and nothing waits for them.
         Task { await loadWorktreeStatuses() }
+    }
+
+    /// Reads the whole log into rows of their own while the table keeps showing the current ones. Nil when the log could not be read to its end.
+    private func readHistory(head: String?) async -> (HistoryRows, Int)? {
+        let start = ContinuousClock.now
+        let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: head)
+        var read = HistoryRows()
+        var laneCount = 1
+        let outcome = await loader.stream(onBatch: { batch in
+            _ = read.append(batch.commits, rows: batch.rows, kinds: batch.kinds)
+            laneCount = batch.maxLaneCount
+        }, onProgress: {})
+        switch outcome {
+        case .finished:
+            loadDuration = elapsed(since: start)
+            return (read, laneCount)
+        case .cancelled:
+            return nil
+        case .failed(let error):
+            setSummary(String(localized: "git log failed: \(String(describing: error))", bundle: .module))
+            return nil
+        }
+    }
+
+    /// Besides the rows the layout changed, the working directory row shows the new status and stash rows their new position in the stash list.
+    private func rowDiff(from shown: HistoryRows, to next: HistoryRows) -> HistoryRowDiff? {
+        guard var diff = HistoryRowDiff.between(shown.rows, next.rows) else { return nil }
+        let redrawn = (shown.wipRow == nil ? [] : [Self.wipID]) + stashesByCommit.keys
+        for id in redrawn {
+            guard let row = next.rowIndex(of: id), !diff.inserted.contains(row) else { continue }
+            diff.changed.insert(row)
+        }
+        return diff
     }
 
     private func streamLog() async {
@@ -270,7 +332,7 @@ final class GraphViewModel {
             maxLaneCount = batch.maxLaneCount
             onRowsAppended?(range)
             if history.wipRow == nil {
-                insertWipRow()
+                insertWipRow(into: &history)
                 // HEAD arrived in this batch: the new first row shifts every row that is already on screen.
                 if history.wipRow != nil { onRowsShifted?() }
             }
@@ -288,19 +350,10 @@ final class GraphViewModel {
         }
     }
 
-    /// Lays the loaded commits out again around a new HEAD. Nothing is read from git.
-    private func relayout() async {
-        let head = headSHA
-        let result = await LogLoader.relayout(commits, head: head, stashesByCommit: stashesByCommit)
-        history.replaceRows(result.rows)
-        layoutHead = head
-        maxLaneCount = result.maxLaneCount
-    }
-
     /// Uncommitted changes always show as the first row.
-    private func insertWipRow() {
+    private func insertWipRow(into rows: inout HistoryRows) {
         guard !(status?.entries.isEmpty ?? true), let head = headSHA else { return }
-        history.insertWorkingDirectoryRow(head: head)
+        rows.insertWorkingDirectoryRow(head: head)
     }
 
     private func computeReachability() {

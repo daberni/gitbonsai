@@ -1,5 +1,6 @@
 import AppKit
 import GitEngine
+import GraphLayout
 
 /// The history column of a repository tab: the column header, the virtualised table of rows, selection and navigation.
 @MainActor
@@ -13,11 +14,17 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     private(set) var selectedRows = IndexSet()
     /// The commit of the selected row. Rows are rebuilt before the table hears of it, so the index alone no longer names the commit then.
     private(set) var selectedID: String?
+    /// The commits of the other selected rows, kept by ID for the same reason.
+    private var otherSelectedIDs: [String] = []
+    /// While the table takes in new rows, its passing selections are no choice of the user's.
+    private var isApplyingRows = false
     private var multiSelection = HistoryMultiSelection()
     let toolTips = HistoryRowToolTips()
     private var isExtendingRange = false
     /// What a reload shows once it finished: the anchor to restore, or nil for the current row.
     private var focusAfterReload: Anchor?
+    /// A reload asked to select HEAD once it finished.
+    private var headAfterReload = false
     let search: HistorySearchController
     private(set) weak var searchField: CommitSearchField?
 
@@ -124,6 +131,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     // MARK: Changes from the view model
 
     func rowsAppended(_ range: Range<Int>) {
+        ScreenshotHarness.traceHistory("insert rows \(range.lowerBound)..<\(range.upperBound)")
         tableView.insertRows(at: IndexSet(integersIn: range), withAnimation: [])
         if range.lowerBound > 0 { tableView.reloadData(forRowIndexes: IndexSet(integer: range.lowerBound - 1), columnIndexes: IndexSet(integer: 0)) }
         columnsController.update(laneCount: viewModel.maxLaneCount)
@@ -132,7 +140,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     /// A reload that a later refresh restarted keeps the anchor of the first one, since nothing was selected in between.
     func rowsReset(focus: GraphViewModel.Focus) {
-        if focus == .current {
+        headAfterReload = focus == .head
+        if focus != .keepSelection {
             focusAfterReload = nil
         } else if let anchor = anchor() {
             focusAfterReload = anchor
@@ -140,28 +149,50 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         selectedRow = -1
         selectedRows = []
         selectedID = nil
+        otherSelectedIDs = []
+        ScreenshotHarness.traceHistory("reload all rows (reset, \(viewModel.rows.count) rows)")
         tableView.reloadData()
         search.historyChanged()
         onSelect?([])
     }
 
     func rowsShifted() {
+        ScreenshotHarness.traceHistory("reload all rows (shifted, \(viewModel.rows.count) rows)")
         tableView.reloadData()
         columnsController.update(laneCount: viewModel.maxLaneCount)
         search.historyChanged()
     }
 
-    /// The rows were laid out again after a write. The selected commit stays where it was on screen unless the focus moves to the current row or the commit left the history.
-    func rowsRebuilt(focus: GraphViewModel.Focus) {
+    /// A refresh swapped in new rows. The table takes in only the difference without animation, so unchanged rows stay as they are on screen; a reorder reloads every row once.
+    /// The selected commit stays where it was on screen unless the focus moves elsewhere or the commit left the history.
+    func rowsRebuilt(_ diff: HistoryRowDiff?, focus: GraphViewModel.Focus) {
         let kept = focus == .keepSelection ? anchor() : nil
         selectedRow = -1
         selectedRows = []
         selectedID = nil
-        tableView.deselectAll(nil)
-        tableView.reloadData()
+        otherSelectedIDs = []
+        isApplyingRows = true
+        if let diff {
+            ScreenshotHarness.traceHistory("apply diff: remove \(diff.removed.count), insert \(diff.inserted.count), reload \(diff.changed.count) of \(viewModel.rows.count) rows")
+            tableView.beginUpdates()
+            tableView.removeRows(at: diff.removed, withAnimation: [])
+            tableView.insertRows(at: diff.inserted, withAnimation: [])
+            tableView.endUpdates()
+            tableView.reloadData(forRowIndexes: diff.changed, columnIndexes: IndexSet(integer: 0))
+        } else {
+            ScreenshotHarness.traceHistory("reload all rows (reordered, \(viewModel.rows.count) rows)")
+            tableView.reloadData()
+        }
+        isApplyingRows = false
         columnsController.update(laneCount: viewModel.maxLaneCount)
         search.historyChanged()
-        if !restore(kept) { selectCurrentRow(scrollToHead: true) }
+        switch focus {
+        case .keepSelection where restore(kept): break
+        case .head where selectHead(): break
+        default: selectCurrentRow(scrollToHead: true)
+        }
+        // Selecting the rows the table already moved the selection to sends no notification.
+        if tableView.selectedRowIndexes != selectedRows { adoptTableSelection() }
     }
 
     func metadataChanged() {
@@ -170,6 +201,10 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         guard selectedRow < 0, !viewModel.isLoading else { return }
         let anchor = focusAfterReload
         focusAfterReload = nil
+        if headAfterReload {
+            headAfterReload = false
+            if selectHead() { return }
+        }
         if !restore(anchor) { selectCurrentRow(scrollToHead: anchor != nil) }
     }
 
@@ -192,8 +227,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     private func anchor() -> Anchor? {
         guard let selectedID, selectedRow >= 0 else { return nil }
-        let others = selectedRows.filter { $0 != selectedRow && viewModel.commits.indices.contains($0) }.map { viewModel.commits[$0].id }
-        return Anchor(id: selectedID, others: others, offset: tableView.rect(ofRow: selectedRow).minY - tableView.visibleRect.minY)
+        return Anchor(id: selectedID, others: otherSelectedIDs, offset: tableView.rect(ofRow: selectedRow).minY - tableView.visibleRect.minY)
     }
 
     /// Selects the anchored commits again and scrolls so that the anchor's row sits where it sat before. False when that commit is no longer in the history; others that left stay unselected.
@@ -232,6 +266,14 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         select(row: row, scroll: false)
         guard scrollToHead, let head = viewModel.headSHA, let headRow = viewModel.rowIndex(of: head) else { return }
         scrollWithContext(to: headRow)
+    }
+
+    /// False while HEAD is not loaded.
+    @discardableResult
+    func selectHead() -> Bool {
+        guard let head = viewModel.headSHA, let row = viewModel.rowIndex(of: head) else { return false }
+        select(row: row, scroll: true)
+        return true
     }
 
     func select(row: Int, scroll: Bool) {
@@ -305,10 +347,16 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
+        guard !isApplyingRows else { return }
+        adoptTableSelection()
+    }
+
+    private func adoptTableSelection() {
         let previous = selectedRows
         selectedRow = tableView.selectedRow
         selectedRows = tableView.selectedRowIndexes
         selectedID = viewModel.commits.indices.contains(selectedRow) ? viewModel.commits[selectedRow].id : nil
+        otherSelectedIDs = selectedRows.filter { $0 != selectedRow && viewModel.commits.indices.contains($0) }.map { viewModel.commits[$0].id }
         // A choice made while a reload runs replaces what the reload would have restored.
         if selectedRow >= 0 { focusAfterReload = nil }
         if !isExtendingRange { multiSelection.anchor = selectedRow >= 0 ? selectedRow : nil }

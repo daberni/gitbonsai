@@ -9,14 +9,15 @@ struct ActionRunner {
 
     /// The tab is refreshed after a failure too: a conflicting apply or pop has changed the working tree.
     /// When local changes stopped the command before it changed anything, the failure offers to stash them, run it again and bring them back.
-    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    /// `focus` is the history's selection after a successful run.
+    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         let repository = viewModel.repository
         let viewModel = viewModel
         let prompter = prompter
         Task {
             do {
                 try await operation(repository)
-                await viewModel.refresh(note: note)
+                await viewModel.refresh(note: note, focus: focus)
             } catch {
                 await viewModel.refresh(note: nil)
                 let stopped = (error as? GitError)?.stoppedOnConflict == true

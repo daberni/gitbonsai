@@ -174,7 +174,7 @@ final class StashesController {
 
     func pop(_ id: String) {
         guard let stash = stash(id) else { return }
-        runner.run(failure: "Stash not applied", conflict: "Stash applied with conflicts; it stays", note: "git stash pop \(stash.selector)") { try await $0.popStash(stash) }
+        runner.run(failure: "Stash not applied", conflict: "Stash applied with conflicts; it stays", note: "git stash pop \(stash.selector)", focus: .head) { try await $0.popStash(stash) }
     }
 
     func drop(_ id: String) {

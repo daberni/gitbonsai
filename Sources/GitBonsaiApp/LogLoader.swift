@@ -51,7 +51,7 @@ struct LogLoader {
                 if hiddenCommitIDs.contains(commit.id) { continue }
                 let isStash = stashesByCommit[commit.id] != nil
                 if isStash { hiddenCommitIDs.formUnion(commit.parents.dropFirst()) }
-                pendingRows.append(layout.append(Self.layoutCommit(for: commit, stashesByCommit: stashesByCommit)))
+                pendingRows.append(layout.append(Self.layoutCommit(for: commit, stashesByCommit: stashesByCommit), isSideStrand: isStash))
                 pending.append(commit)
                 pendingKinds.append(isStash ? .stash : commit.isMerge ? .merge : .commit)
                 if !flushedFirst || pending.count >= 500 || lastFlush.duration(to: .now) > .milliseconds(100) {
@@ -74,10 +74,10 @@ struct LogLoader {
 
     /// Lays loaded commits out again around a new HEAD, off the main thread. Nothing is read from git.
     static func relayout(_ commits: [Commit], head: String?, stashesByCommit: [String: Stash]) async -> (rows: [GraphRow], maxLaneCount: Int) {
-        let input = commits.map { layoutCommit(for: $0, stashesByCommit: stashesByCommit) }
+        let input = commits.map { (commit: layoutCommit(for: $0, stashesByCommit: stashesByCommit), isStash: stashesByCommit[$0.id] != nil) }
         return await Task.detached {
             var layout = GraphLayout(pinned: head)
-            let rows = input.map { layout.append($0) }
+            let rows = input.map { layout.append($0.commit, isSideStrand: $0.isStash) }
             return (rows, max(layout.maxLaneCount, 1))
         }.value
     }
