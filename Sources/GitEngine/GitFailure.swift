@@ -14,6 +14,8 @@ public enum GitFailure: Sendable, Equatable {
     case uncommittedChanges
     /// The step became empty, so there is nothing to commit.
     case emptyStep
+    /// The remote wanted credentials that neither a credential helper nor the SSH agent supplied; git may not ask for them.
+    case authenticationFailed
     /// Anything else: git's first `fatal:` or `error:` line, or its first line.
     case message(String)
 
@@ -27,6 +29,8 @@ public enum GitFailure: Sendable, Equatable {
             self = .uncommittedChanges
         } else if lines.contains(where: { $0.contains("is now empty") || $0.hasPrefix("nothing to commit") || $0.hasPrefix("No changes - did you forget") }) {
             self = .emptyStep
+        } else if lines.contains(where: Self.isAuthenticationFailure) {
+            self = .authenticationFailed
         } else if case let conflicted = lines.compactMap(Self.conflictPath), !conflicted.isEmpty {
             self = .conflicts(conflicted)
         } else if let line = lines.first(where: { $0.hasPrefix("fatal: ") || $0.hasPrefix("error: ") }) {
@@ -34,6 +38,12 @@ public enum GitFailure: Sendable, Equatable {
         } else {
             self = .message(lines.first { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ?? "")
         }
+    }
+
+    /// HTTPS without stored credentials ends in "terminal prompts disabled" or "Authentication failed"; SSH without a usable key in "Permission denied (publickey)".
+    private static func isAuthenticationFailure(_ line: String) -> Bool {
+        let markers = ["terminal prompts disabled", "Authentication failed for", "could not read Username", "could not read Password", "Permission denied (publickey", "Host key verification failed"]
+        return markers.contains { line.contains($0) }
     }
 
     /// Lines as a terminal leaves them: progress overwrites itself with carriage returns, so only the last part of each line stays.

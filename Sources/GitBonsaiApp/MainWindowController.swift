@@ -6,6 +6,7 @@ import GitEngine
 final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     private let store: SessionStore
     private let opener = RepositoryOpener()
+    private let cloner = CloneController()
     private let content = TabContentView()
     private let root: FillView
     private let titlebar: TitlebarTabRow
@@ -56,6 +57,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         tabBar.onNew = { [weak self] in self?.newTab(nil) }
         tabBar.onMove = { [weak self] from, to in self?.moveTab(from: from, to: to) }
         content.onDropFolders = { [weak self] paths in self?.open(paths: paths, activate: paths.count - 1) }
+        // A clone below a repository folder belongs in the suggestions at once, not only after the next scan.
+        cloner.onCloned = { [weak self] path in
+            self?.open(paths: [path], activate: 0)
+            RepositoryDiscoveryStore.shared.refresh()
+        }
+        cloner.onClose = { [weak self] in self?.captureIfRequested() }
     }
 
     // MARK: Opening
@@ -67,6 +74,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         Task {
             let failed = await open(paths, activate: active)
             if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab(nil) }
+            if ScreenshotHarness.wantsClone { cloneRepository(nil) }
+            if let welcome = tabs.active?.welcome { ScreenshotHarness.clickCloneIfAsked(on: welcome) }
             // The window appears once, with all tabs, their final names and the saved tab active.
             showWindow(nil)
             // The capture renders the views itself, so the window can stay behind everything else.
@@ -193,6 +202,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
             if background { self?.openInBackground(path) } else { self?.open(paths: [path], activate: 0) }
         }
         welcome.onChooseFolder = { [weak self] in self?.chooseFolder() }
+        welcome.onClone = { [weak self] in self?.cloneRepository(nil) }
         welcome.onOpenSettings = { SettingsWindowController.shared.show(.general) }
         let tab = WindowTab(welcome: welcome)
         ScreenshotHarness.waitForDiscovery(tab) { [weak self] in self?.captureIfRequested() }
@@ -201,6 +211,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     @objc func openRepository(_ sender: Any?) {
         chooseFolder()
+    }
+
+    @objc func cloneRepository(_ sender: Any?) {
+        guard let window else { return }
+        cloner.show(on: window)
+        ScreenshotHarness.driveClone(cloner)
     }
 
     @objc func openRecent(_ sender: NSMenuItem) {
@@ -263,7 +279,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     }
 
     private func captureIfRequested() {
-        guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true else { return }
+        guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true, !ScreenshotHarness.holdsCapture(for: cloner) else { return }
         guard ScreenshotHarness.driveTabRow(tabBar, in: window, tabs: { [unowned self] in tabs }) else { return }
         didCapture = true
         if let welcome = tabs.active?.welcome { ScreenshotHarness.driveWelcome(welcome, in: window) }

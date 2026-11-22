@@ -20,6 +20,11 @@ final class FixtureRepo {
         try git("config", "commit.gpgsign", "false")
     }
 
+    /// A repository that already exists, such as a clone, to run git in.
+    init(existing url: URL) {
+        self.url = url
+    }
+
     func remove() {
         try? FileManager.default.removeItem(at: url)
     }

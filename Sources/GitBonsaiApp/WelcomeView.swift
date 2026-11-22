@@ -7,12 +7,14 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     var openPaths: Set<String> = [] { didSet { if openPaths != oldValue { rebuild() } } }
     var onOpenPath: ((_ path: String, _ background: Bool) -> Void)?
     var onChooseFolder: (() -> Void)?
+    var onClone: (() -> Void)?
     var onOpenSettings: (() -> Void)?
 
     let searchField = NSSearchField()
     let listView = WelcomeListView()
     private typealias M = Theme.Welcome
     private let openButton = NSButton(title: "Ordner öffnen …", target: nil, action: nil)
+    let cloneButton = NSButton(title: "Klonen …", target: nil, action: nil)
     private let scrollView = NSScrollView()
     private let discovery = RepositoryDiscoveryStore.shared
 
@@ -26,13 +28,17 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
         openButton.bezelColor = Theme.moss
         openButton.target = self
         openButton.action = #selector(chooseFolder(_:))
+        cloneButton.bezelStyle = .rounded
+        cloneButton.controlSize = .large
+        cloneButton.target = self
+        cloneButton.action = #selector(clone(_:))
         scrollView.documentView = listView
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = true
         listView.onOpen = { [weak self] path, background in self?.onOpenPath?(path, background) }
         listView.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
-        for view in [searchField, openButton, scrollView] as [NSView] { addSubview(view) }
+        for view in [searchField, cloneButton, openButton, scrollView] as [NSView] { addSubview(view) }
         NotificationCenter.default.addObserver(forName: RepositoryDiscoveryStore.didChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.rebuild() }
         }
@@ -69,9 +75,12 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     override func layout() {
         super.layout()
         openButton.sizeToFit()
-        let buttonWidth = openButton.frame.width
-        openButton.frame = CGRect(x: columnX + columnWidth - buttonWidth, y: searchTop, width: buttonWidth, height: M.searchHeight)
-        searchField.frame = CGRect(x: columnX, y: searchTop, width: columnWidth - buttonWidth - Theme.Space.s, height: M.searchHeight)
+        cloneButton.sizeToFit()
+        let openWidth = openButton.frame.width
+        let cloneWidth = cloneButton.frame.width
+        openButton.frame = CGRect(x: columnX + columnWidth - openWidth, y: searchTop, width: openWidth, height: M.searchHeight)
+        cloneButton.frame = CGRect(x: openButton.frame.minX - Theme.Space.s - cloneWidth, y: searchTop, width: cloneWidth, height: M.searchHeight)
+        searchField.frame = CGRect(x: columnX, y: searchTop, width: cloneButton.frame.minX - Theme.Space.s - columnX, height: M.searchHeight)
         let listTop = searchTop + M.searchHeight + M.searchGap
         scrollView.frame = CGRect(x: columnX, y: listTop, width: columnWidth, height: max(bounds.height - listTop - Theme.Space.xl, 0))
         listView.frame = CGRect(x: 0, y: 0, width: scrollView.contentSize.width, height: listView.frame.height)
@@ -121,6 +130,10 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
 
     @objc private func chooseFolder(_ sender: Any?) {
         onChooseFolder?()
+    }
+
+    @objc private func clone(_ sender: Any?) {
+        onClone?()
     }
 }
 

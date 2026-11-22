@@ -14,6 +14,7 @@ enum GitFailureText {
         case let .localChangesInTheWay(paths): return "Lokale Änderungen würden überschrieben: \(list(paths))."
         case .uncommittedChanges: return "Nicht committete Änderungen stehen im Weg; erst committen oder stashen."
         case .emptyStep: return "Der Schritt ist leer, es gibt nichts zu committen."
+        case .authenticationFailed: return "Anmeldung beim Server fehlgeschlagen. GitBonsai fragt nicht nach Passwörtern: Zugangsdaten im Credential-Helper speichern oder den SSH-Schlüssel im SSH-Agent laden."
         case let .message(text) where text.isEmpty: return "git meldet einen Fehler (Exit-Code \(gitError.exitCode))."
         case let .message(text): return text.prefix(1).uppercased() + text.dropFirst()
         }

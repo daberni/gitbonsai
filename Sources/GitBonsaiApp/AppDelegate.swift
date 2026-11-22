@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(submenu("Ablage", [
             item("Neuer Tab", #selector(MainWindowController.newTab(_:)), "t"),
             item("Repository öffnen …", #selector(MainWindowController.openRepository(_:)), "o"),
+            item("Repository klonen …", #selector(MainWindowController.cloneRepository(_:)), "n", [.command, .option]),
             recent,
             .separator(),
             item("Tab schließen", #selector(MainWindowController.closeTab(_:)), "w"),

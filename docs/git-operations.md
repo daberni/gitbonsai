@@ -15,6 +15,8 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Working directory status | `git status --porcelain=v2 -z --branch --untracked-files=all` | |
 | Worktrees | `git worktree list --porcelain -z` | |
 | Faster history on large repositories | `git commit-graph write --reachable` | Write |
+| Clone | `git clone --progress [--recurse-submodules] [--depth 1] [--branch <branch>] -- <url> <folder>` | Progress read from stderr; cancelling stops git and removes the folder; no prompts, so credentials come from the credential helper or the SSH agent |
+| Repositories in the repository folders | none | Found on disk by their `.git` folder or file, without git |
 
 ## Commits and files
 

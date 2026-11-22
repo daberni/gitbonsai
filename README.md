@@ -42,6 +42,7 @@ Window and tabs:
 - `GITBONSAI_APPEARANCE=light|dark` forces the appearance, `GITBONSAI_SELECT_ROW=n` selects a history row first.
 - `GITBONSAI_NEW_TAB=1` shows the empty tab with the recently used repositories, `GITBONSAI_CLICK_TAB=n` switches tabs with a real click first.
 - `GITBONSAI_REPOSITORY_FOLDERS=<folder>:<folder>` stores the repository folders in the harness defaults (empty for none); the empty tab is captured once their first scan finished, and each scan prints its duration and counts.
+- `GITBONSAI_CLONE=1` opens the clone sheet, or `GITBONSAI_CLONE_CLICK=1` with a real click on the empty tab's "Klonen …"; `GITBONSAI_CLONE_PASTE=<text>` fills the harness's own pasteboard first. `GITBONSAI_CLONE_FORM=url=…;path=…;branch=…;submodules=1;shallow=1` fills the sheet, `GITBONSAI_CLONE_SHOT=<png>` renders it (after a failure with the details open), `GITBONSAI_CLONE_RUN=1` clicks "Klonen", `GITBONSAI_CLONE_SHOT_DURING=<png>` renders it once receiving passes a third and `GITBONSAI_CLONE_CANCEL_AT=<fraction>` clicks "Abbrechen" past that fraction. A slow clone comes from `GIT_BONSAI_GIT=<script>` that runs `git -c remote.origin.uploadpack=<throttling upload-pack> "$@"`.
 - `GITBONSAI_WELCOME_SEARCH=<text>` types into the empty tab's search and `GITBONSAI_WELCOME_KEYS=down,up,return,cmd-return` presses those keys there with real key events; the list is printed after each, and `GITBONSAI_PRINT_WELCOME=1` prints it alone.
 - `GITBONSAI_DRAG_TAB=from:to` drags a tab onto another tab's place with real mouse events and prints the resulting order.
 

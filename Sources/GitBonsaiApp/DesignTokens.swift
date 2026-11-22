@@ -336,6 +336,15 @@ enum Theme {
     }
 
     /// The "Details" disclosure under a failed git command, with git's own output.
+    /// The "Repository klonen" sheet.
+    enum Clone {
+        static let width: CGFloat = 460
+        static let minimumHeight: CGFloat = 200
+        static let padding = Space.xl
+        static let sectionGap = Space.m
+        static let barHeight: CGFloat = 6
+    }
+
     enum FailureDetails {
         static let height: CGFloat = 140
     }

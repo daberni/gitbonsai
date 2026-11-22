@@ -295,7 +295,8 @@ final class ProcessExecution: @unchecked Sendable {
         if running { process.terminate() }
     }
 
-    func run(onStdout: @escaping @Sendable (Data) -> Void) async throws -> ProcessOutcome {
+    /// `onStderr` sees stderr as it arrives, for progress; stderr is collected for the outcome either way.
+    func run(onStdout: @escaping @Sendable (Data) -> Void, onStderr: (@Sendable (Data) -> Void)? = nil) async throws -> ProcessOutcome {
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
@@ -320,7 +321,10 @@ final class ProcessExecution: @unchecked Sendable {
         }
         group.enter()
         DispatchQueue.global(qos: .userInitiated).async {
-            Self.drain(stderrPipe.fileHandleForReading) { stderrCollector.append($0) }
+            Self.drain(stderrPipe.fileHandleForReading) { chunk in
+                stderrCollector.append(chunk)
+                onStderr?(chunk)
+            }
             group.leave()
         }
         if let stdin, let stdinPipe {
