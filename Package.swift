@@ -14,7 +14,7 @@ let package = Package(
         .target(name: "GitEngine"),
         .target(name: "GraphLayout", dependencies: ["GitEngine"]),
         .executableTarget(name: "GitBonsaiApp", dependencies: ["GitEngine", "GraphLayout"]),
-        .testTarget(name: "GitEngineTests", dependencies: ["GitEngine"]),
+        .testTarget(name: "GitEngineTests", dependencies: ["GitEngine", "GraphLayout"]),
         .testTarget(name: "GraphLayoutTests", dependencies: ["GraphLayout", "GitEngine"]),
     ],
     swiftLanguageModes: [.v6]

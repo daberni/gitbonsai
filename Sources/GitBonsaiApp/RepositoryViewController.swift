@@ -375,6 +375,7 @@ final class RepositoryViewController: NSObject {
                 return
             }
             ScreenshotHarness.prepare(history)
+            ScreenshotHarness.driveHistoryContents(on: self)
             ScreenshotHarness.openDiff(on: self)
             ScreenshotHarness.clickFile(on: self)
             ScreenshotHarness.pressFileKeys(on: self)

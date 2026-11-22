@@ -40,6 +40,7 @@ History:
 - `GITBONSAI_RESET_ANSWER=reset|checkout|cancel` answers the question when checking out a branch that diverged from its remote branch.
 - `GITBONSAI_GRAPH_WIDTH=<points>` sets the width of the graph column and `GITBONSAI_GRAPH_SCROLL=<points>` scrolls the graph sideways.
 - `GITBONSAI_DRAG_GRAPH_TO=<points>` drags the boundary between graph and commit over the rows with real mouse events and prints the resulting width.
+- `GITBONSAI_PRINT_HISTORY=<seconds>,…` prints the commit count, HEAD, the selected row, the status line and the first rows after loading and after each delay, and every full reload; `GITBONSAI_RUN_GIT=<argument>;…` runs that git command first and refreshes the history in place the way write actions do.
 - `GITBONSAI_HIDDEN_COLUMNS=label,sha` hides columns (label, graph, author, sha, date).
 - `GITBONSAI_SEARCH=<text>` types into the commit search with real key events and `GITBONSAI_SEARCH_KEYS=return,shift-return,escape` presses those keys in the field; the counter, the selected row and the dimmed visible rows are printed after each.
 - `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event and prints the menu (AppKit shows it on screen above other apps for a moment), `GITBONSAI_MENU_SHOT=<png>` renders it, and `GITBONSAI_MENU_PICK=<title>` or `<title>/<title>` chooses an entry; `GITBONSAI_MENU_LIST=<row>` only prints the entries without opening the menu.

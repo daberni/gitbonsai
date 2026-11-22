@@ -83,6 +83,45 @@ extension ScreenshotHarness {
     }
 
 
+    // MARK: History contents
+
+    /// `GITBONSAI_RUN_GIT=<argument>;<argument>…` runs one git command the way a write action does and then refreshes the history in place, as every write action does.
+    /// `GITBONSAI_PRINT_HISTORY=<seconds>,…` prints the commit count, the selected row, the status line and the first rows after loading and after each delay; a full reload is printed when it happens.
+    static func driveHistoryContents(on tab: RepositoryViewController) {
+        guard let delays = environment["GITBONSAI_PRINT_HISTORY"]?.split(separator: ",").compactMap({ Double($0) }) else { return }
+        let viewModel = tab.viewModel
+        let onReset = viewModel.onReset
+        viewModel.onReset = {
+            FileHandle.standardError.write(Data("history: full reload\n".utf8))
+            onReset?()
+        }
+        printHistory(of: tab, when: "loaded")
+        if let spec = environment["GITBONSAI_RUN_GIT"] {
+            let arguments = spec.split(separator: ";").map(String.init)
+            Task {
+                do {
+                    _ = try await viewModel.repository.runner.runWrite(arguments)
+                } catch {
+                    FileHandle.standardError.write(Data("git \(arguments.joined(separator: " ")) failed: \(error)\n".utf8))
+                }
+                await viewModel.refresh(note: "git \(arguments.joined(separator: " "))")
+            }
+        }
+        for delay in delays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { printHistory(of: tab, when: "after \(delay) s") }
+        }
+    }
+
+    private static func printHistory(of tab: RepositoryViewController, when: String) {
+        let viewModel = tab.viewModel
+        let commits = viewModel.commits.enumerated().filter { viewModel.kinds[$0.offset] != .wip }.map(\.element)
+        let row = tab.history.selectedRow
+        let selected = viewModel.commits.indices.contains(row) ? String(viewModel.commits[row].id.prefix(7)) : "-"
+        let head = viewModel.headSHA.map { String($0.prefix(7)) } ?? "-"
+        let rows = commits.prefix(8).map { "\($0.id.prefix(7)) \($0.subject)" }.joined(separator: " | ")
+        FileHandle.standardError.write(Data("history \(when): \(commits.count) commits, HEAD \(head), selected row \(row) (\(selected)), status: \(viewModel.statusText)\n  rows: \(rows)\n".utf8))
+    }
+
     // MARK: Commit context menu
 
     /// `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event through the window. AppKit shows that menu on screen above other apps for a moment. While the menu is open its entries go to stderr

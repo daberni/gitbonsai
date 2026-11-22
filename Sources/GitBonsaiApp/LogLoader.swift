@@ -8,7 +8,7 @@ import GraphLayout
 @MainActor
 struct LogLoader {
     enum Outcome {
-        case finished(laneCount: Int)
+        case finished
         case cancelled
         case failed(Error)
     }
@@ -63,7 +63,7 @@ struct LogLoader {
             }
             if Task.isCancelled { return .cancelled }
             flush()
-            return .finished(laneCount: layout.maxLaneCount)
+            return .finished
         } catch is CancellationError {
             return .cancelled
         } catch {

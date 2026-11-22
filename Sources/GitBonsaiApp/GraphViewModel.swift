@@ -46,7 +46,9 @@ final class GraphViewModel {
     private var loadTask: Task<Void, Never>?
     /// While a refresh gathers its parts, the single redraw at its end replaces the per-part ones.
     private var isRefreshing = false
-    private var loadedSummary = ""
+    private var loadDuration = ""
+    /// Counted live, because a refresh can drop commits and lay them out again.
+    private var loadedSummary: String { "\(history.commitCount) Commits · \(maxLaneCount) Lanes · \(stashes.count) Stashes · geladen in \(loadDuration)" }
     /// The note of a refresh that had to read the log again, such as after a rebase; the reload shows it once it has finished.
     private var noteAfterReload: String?
     private var reachableFromHead: Set<String> = []
@@ -177,8 +179,8 @@ final class GraphViewModel {
         }
     }
 
-    /// After a checkout or a worktree switch the commits are still the same: only HEAD, the working directory and the refs moved.
-    /// So nothing is read from the log; the loaded commits are laid out again when HEAD sits on another commit.
+    /// After a checkout, a reset or a worktree switch the commits are mostly the same: HEAD, the working directory and the refs moved.
+    /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed.
     func refresh(note: String?) async {
         guard !isLoading else {
             noteAfterReload = note ?? noteAfterReload
@@ -187,7 +189,6 @@ final class GraphViewModel {
         }
         let start = ContinuousClock.now
         isRefreshing = true
-        let knownStashes = Set(stashesByCommit.keys)
         async let newStatus = try? repository.status()
         async let stashesTask: Void = loadStashes()
         async let refsTask: Void = loadRefs()
@@ -195,16 +196,19 @@ final class GraphViewModel {
         status = await newStatus
         _ = await (stashesTask, refsTask, worktreesTask)
         isRefreshing = false
-        // A new or dropped stash changes the set of commits, and so does a worktree whose HEAD no branch contains; both need the log.
-        let headIsLoaded = headSHA.map { history.contains($0) } ?? true
-        guard Set(stashesByCommit.keys) == knownStashes, headIsLoaded else {
+        history.removeWorkingDirectoryRow()
+        // A new commit, stash or a worktree HEAD that no branch contains is not loaded and needs the log.
+        let tips = HistoryRefresh.tips(refs: refs, head: headSHA, stashCommits: stashesByCommit.keys)
+        let loaded = history.commits
+        let plan = await Task.detached { HistoryRefresh.plan(loaded: loaded, tips: tips) }.value
+        guard case .keep(let dropping) = plan else {
             noteAfterReload = note ?? noteAfterReload
             reload()
             return
         }
-        history.removeWorkingDirectoryRow()
+        if !dropping.isEmpty { history.remove(dropping) }
         // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
-        if headSHA != layoutHead { await relayout() }
+        if headSHA != layoutHead || !dropping.isEmpty { await relayout() }
         insertWipRow()
         computeReachability()
         onRowsRebuilt?()
@@ -230,8 +234,8 @@ final class GraphViewModel {
             setStatus("\(commits.count) Commits · \(elapsed(since: start))")
         })
         switch outcome {
-        case .finished(let laneCount):
-            loadedSummary = "\(commits.count) Commits · \(laneCount) Lanes · \(stashes.count) Stashes · geladen in \(elapsed(since: start))"
+        case .finished:
+            loadDuration = elapsed(since: start)
             setStatus(([loadedSummary] + [noteAfterReload].compactMap { $0 }).joined(separator: " · "))
             noteAfterReload = nil
         case .cancelled:

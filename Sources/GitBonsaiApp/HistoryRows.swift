@@ -16,9 +16,8 @@ struct HistoryRows {
     /// Where the working directory row sits in the row arrays.
     var wipRow: Int? { workingDirectory == nil ? nil : 0 }
 
-    func contains(_ commitID: String) -> Bool {
-        commitIndexByID[commitID] != nil
-    }
+    /// The real commits, without the working directory row.
+    var commitCount: Int { commits.count - (wipRow == nil ? 0 : 1) }
 
     func rowIndex(of commitID: String) -> Int? {
         if commitID == Self.wipID { return wipRow }
@@ -36,6 +35,15 @@ struct HistoryRows {
         rows.append(contentsOf: newRows)
         kinds.append(contentsOf: newKinds)
         return range
+    }
+
+    /// Drops commits that left the history; their rows have to be laid out again afterwards. Only valid without the working directory row.
+    mutating func remove(_ commitIDs: Set<String>) {
+        let kept = commits.indices.filter { !commitIDs.contains(commits[$0].id) }
+        commits = kept.map { commits[$0] }
+        rows = kept.map { rows[$0] }
+        kinds = kept.map { kinds[$0] }
+        commitIndexByID = Dictionary(uniqueKeysWithValues: commits.enumerated().map { ($1.id, $0) })
     }
 
     /// Replaces the graph rows with another layout of the same commits. Only valid without the working directory row.
