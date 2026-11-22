@@ -203,14 +203,18 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             tableView.reloadData()
             detail.showNothing()
         }
+        viewModel.onRowsShifted = { [weak self] in
+            self?.tableView.reloadData()
+            self?.updateGraphWidth()
+        }
         viewModel.onRowsRebuilt = { [weak self] in
             guard let self else { return }
-            // Same commits, new HEAD: the newly checked-out commit becomes the selection and is brought into view.
+            // Same commits, new HEAD: the selection follows the working tree and the newly checked-out commit is brought into view.
             selectedRow = -1
             tableView.deselectAll(nil)
             tableView.reloadData()
             updateGraphWidth()
-            if let head = viewModel.headSHA, let index = viewModel.rowIndex(of: head) { select(row: index, scroll: true) }
+            selectCurrentRow(scrollToHead: true)
         }
         viewModel.onMetadataChanged = { [weak self] in
             guard let self else { return }
@@ -221,7 +225,7 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             sidebar.reload(from: viewModel)
             reloadVisibleRows()
             updateFetchLabel()
-            if selectedRow < 0, !viewModel.isLoading, let head = viewModel.headSHA, let index = viewModel.rowIndex(of: head) { select(row: index, scroll: false) }
+            if selectedRow < 0, !viewModel.isLoading { selectCurrentRow(scrollToHead: false) }
             reportLoadedOnce()
         }
         viewModel.onStatusChanged = { [weak self] text in self?.statusLabel.stringValue = text }
@@ -373,6 +377,15 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
         select(row: index, scroll: true)
     }
 
+    /// Selects the uncommitted changes when there are any, otherwise HEAD. The changes sit in the first row, so HEAD is scrolled to separately.
+    private func selectCurrentRow(scrollToHead: Bool) {
+        guard let row = viewModel.currentRow else { return }
+        select(row: row, scroll: false)
+        guard scrollToHead, let head = viewModel.headSHA, let headRow = viewModel.rowIndex(of: head) else { return }
+        tableView.scrollRowToVisible(min(headRow + 6, viewModel.rows.count - 1))
+        tableView.scrollRowToVisible(max(headRow - 3, 0))
+    }
+
     private func select(row: Int, scroll: Bool) {
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         if scroll {
@@ -420,6 +433,9 @@ final class RepositoryViewController: NSObject, NSTableViewDataSource, NSTableVi
             next: index + 1 < viewModel.rows.count ? viewModel.rows[index + 1] : nil,
             kind: kind,
             previousKind: index > 0 ? viewModel.kinds[index - 1] : nil,
+            wipLaneAbove: viewModel.wipStrand.flatMap { index >= 1 && index <= $0.headRow ? $0.lane : nil },
+            wipLaneBelow: viewModel.wipStrand.flatMap { index < $0.headRow ? $0.lane : nil },
+            laneOffset: viewModel.laneOffset,
             pills: pills(for: refs),
             isHead: refs.contains(where: \.isHead),
             dimmed: kind != .stash && !viewModel.isReachableFromHead(commit.id),

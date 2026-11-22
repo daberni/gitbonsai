@@ -19,6 +19,10 @@ final class GraphRowView: NSView {
         var next: GraphRow?
         var kind: GraphViewModel.RowKind
         var previousKind: GraphViewModel.RowKind?
+        /// Lane of the strand between the working directory row and HEAD where it enters and where it leaves this row.
+        var wipLaneAbove: Lane?
+        var wipLaneBelow: Lane?
+        var laneOffset = 0
         var pills: [PillModel]
         var isHead: Bool
         var dimmed: Bool
@@ -48,7 +52,7 @@ final class GraphRowView: NSView {
     private typealias G = Theme.Graph
 
     private func laneX(_ lane: Int) -> CGFloat {
-        G.labelColumn + G.firstLane + CGFloat(lane) * G.lane
+        G.labelColumn + G.firstLane + CGFloat(lane + (model?.laneOffset ?? 0)) * G.lane
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -81,14 +85,16 @@ final class GraphRowView: NSView {
         if let previous = model.previous {
             for edge in previous.edges where edge.kind != .fromChild {
                 let target = Self.targetLane(of: edge, nextRow: model.row)
-                let dashed = Self.isParked(model.previousKind) && edge.fromLane == previous.lane
-                stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY - height, color: Self.color(of: edge, kind: model.previousKind, row: previous), dashed: dashed)
+                let isWipStrand = edge.fromLane == model.wipLaneAbove
+                let dashed = isWipStrand || (Self.isParked(model.previousKind) && edge.fromLane == previous.lane)
+                stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY - height, color: isWipStrand ? Theme.inkMuted : Self.color(of: edge, kind: model.previousKind, row: previous), dashed: dashed)
             }
         }
         for edge in model.row.edges where edge.kind != .fromChild {
             let target = Self.targetLane(of: edge, nextRow: model.next)
-            let dashed = Self.isParked(model.kind) && edge.fromLane == model.row.lane
-            stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY, color: Self.color(of: edge, kind: model.kind, row: model.row), dashed: dashed)
+            let isWipStrand = edge.fromLane == model.wipLaneBelow
+            let dashed = isWipStrand || (Self.isParked(model.kind) && edge.fromLane == model.row.lane)
+            stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY, color: isWipStrand ? Theme.inkMuted : Self.color(of: edge, kind: model.kind, row: model.row), dashed: dashed)
         }
         drawNode(context, at: CGPoint(x: nodeX, y: midY), strand: strand, model: model)
         context.restoreGState()
