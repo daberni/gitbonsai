@@ -22,6 +22,7 @@ final class RepositoryViewController: NSObject {
     let commitActions: CommitActionsController
     let fetchController: FetchController
     let pullPush: PullPushController
+    let branchPull: BranchPullController
     let operationBanner: OperationBannerController
     let rebaseUndo: RebaseUndoController
     private(set) var sidebarActions: SidebarActionsController!
@@ -63,6 +64,7 @@ final class RepositoryViewController: NSObject {
         commitActions = CommitActionsController(viewModel: viewModel)
         fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
         pullPush = PullPushController(viewModel: viewModel, prompter: commitActions.prompter)
+        branchPull = BranchPullController(viewModel: viewModel, pullPush: pullPush)
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
         rebaseUndo = RebaseUndoController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
@@ -74,7 +76,7 @@ final class RepositoryViewController: NSObject {
         diff = DiffViewController(staging: staging, repository: { model.repository })
         super.init()
         let checkout = checkoutController
-        sidebarActions = SidebarActionsController(viewModel: viewModel, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
+        sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
         wire()
         layout()
         bind()
@@ -179,7 +181,7 @@ final class RepositoryViewController: NSObject {
         history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
         history.menuItems = { [weak self] row in
             guard let self else { return [] }
-            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row))
+            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row) + branchPull.items(forRow: row))
         }
 
         detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
@@ -209,6 +211,8 @@ final class RepositoryViewController: NSObject {
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
         commitActions.onToast = { [weak self] text in self?.toast.show(text) }
+        branchPull.onToast = { [weak self] text in self?.toast.show(text) }
+        branchPull.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
         operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
         operationBanner.onStateChange = { [weak self] in
             guard let self else { return }
@@ -454,6 +458,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.runRemotesAndRebase(on: self)
             ScreenshotHarness.driveStashesAndTags(on: self)
             ScreenshotHarness.openSidebarMenu(on: self)
+            ScreenshotHarness.printStatusLine(of: self)
             ScreenshotHarness.driveRebase(on: self)
             ScreenshotHarness.navigate(on: self)
         }

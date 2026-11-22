@@ -132,6 +132,11 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Pull, rebase | `git pull --rebase --no-autostash` | |
 | Pull with autostash | `git pull <default mode flags> --autostash` | |
 | Set upstream before a pull | `git branch --set-upstream-to=<remote>/<branch> <b>` | Then pulls with the default mode |
+| Pull a branch from its context menu: where it is checked out | `git worktree list --porcelain`, `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | The checked-out branch takes the normal pull with the default mode |
+| Pull a branch that is checked out nowhere | `git fetch --no-write-fetch-head <remote> refs/heads/<upstream>:refs/heads/<b>` | One command fetches and moves the ref; git refuses anything but a fast-forward (`[rejected] … (non-fast-forward)`) and also updates `<remote>/<upstream>`. Position before and after with `git rev-parse --verify refs/heads/<b>^{commit}`, commits taken with `git rev-list --count <old>..<new>` |
+| Pull a branch checked out in another worktree | `git -C <worktree> pull --no-rebase --ff-only --no-autostash` | Through that worktree's own index queue, with `GIT_EDITOR=true` |
+| Diverged branch: counts | `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | After the refused attempt, which already fetched. Behind 0 is reported as up to date |
+| Diverged branch: reset to the upstream | `git rev-parse --verify <b>@{upstream}^{commit}`, `git update-ref -m "reset: moving to <b>@{upstream}" refs/heads/<b> <upstream sha> <old sha>` | Only for a branch checked out nowhere, after a confirmation with the number of lost commits; the old value guards against a branch that moved meanwhile |
 | Push to the upstream | `git push <remote> refs/heads/<b>:refs/heads/<upstream branch>` | |
 | First push | `git push -u <remote> refs/heads/<b>:refs/heads/<name>` | Sets the upstream |
 | Push after a non-fast-forward rejection | `git push --force-with-lease <remote> refs/heads/<b>:refs/heads/<upstream branch>` | Only after a confirmation; never `--force` |

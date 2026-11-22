@@ -6,10 +6,12 @@ import GitEngine
 final class BranchActionsController {
     private let runner: SidebarActionRunner
     private let checkout: (CheckoutTarget, _ worktreePath: String?) -> Void
+    private let branchPull: BranchPullController
     private var viewModel: GraphViewModel { runner.viewModel }
 
-    init(runner: SidebarActionRunner, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void) {
+    init(runner: SidebarActionRunner, branchPull: BranchPullController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void) {
         self.runner = runner
+        self.branchPull = branchPull
         self.checkout = checkout
     }
 
@@ -30,6 +32,7 @@ final class BranchActionsController {
         let worktreeName = worktree.map { ($0.path as NSString).lastPathComponent }
         var checkoutGroup: [NSMenuItem] = []
         var historyGroup: [NSMenuItem] = []
+        if let pull = branchPull.item(for: ref) { checkoutGroup.append(pull) }
         if !ref.isHead {
             let title = worktreeName.map { "Zu Worktree „\($0)“ wechseln" } ?? "„\(name)“ auschecken"
             checkoutGroup.append(ActionMenuItem(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })

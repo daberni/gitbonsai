@@ -55,7 +55,7 @@ extension ScreenshotHarness {
                 return
             }
             FileHandle.standardError.write(Data("sidebar menu \(name): \(describe(menu))\n".utf8))
-            if let pick = environment["GITBONSAI_SIDEBAR_MENU_PICK"] { choose(pick, in: menu) }
+            if environment["GITBONSAI_SIDEBAR_MENU"] == nil, let pick = environment["GITBONSAI_SIDEBAR_MENU_PICK"] { choose(pick, in: menu) }
         }
         if let name = environment["GITBONSAI_SIDEBAR_MENU"], let index = sidebar.itemIndex(named: name), let window = sidebar.window {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -68,6 +68,13 @@ extension ScreenshotHarness {
                         if let shot = environment["GITBONSAI_MENU_SHOT"] { captureMenuWindow(to: shot) }
                         // Escape closes the menu that the right click opened.
                         if let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53) { NSApp.postEvent(escape, atStart: true) }
+                    }
+                }
+                // The entry runs from the menu that the right-clicked row builds, once the one on screen has closed.
+                if let pick = environment["GITBONSAI_SIDEBAR_MENU_PICK"] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        guard let menu = sidebar.menu(forItemAt: index) else { return }
+                        choose(pick, in: menu)
                     }
                 }
                 RunLoop.current.add(inspect, forMode: .eventTracking)
@@ -213,5 +220,31 @@ extension ScreenshotHarness {
 
     private static func newBranchLog(_ line: String) {
         FileHandle.standardError.write(Data("\(line)\n".utf8))
+    }
+}
+
+/// Harness switches for pulling a branch from its context menu.
+@MainActor
+extension ScreenshotHarness {
+    /// `GITBONSAI_CHOICE=<button title prefix>` answers a question with several ways forward, such as a diverged branch's; without it the harness cancels.
+    static func answerChoice(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        alert.layout()
+        render(alert)
+        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.informativeText) [\(alert.buttons.map(\.title).joined(separator: " | "))]\n".utf8))
+        guard let wanted = environment["GITBONSAI_CHOICE"], let index = alert.buttons.firstIndex(where: { $0.title.hasPrefix(wanted) }) else { return .cancel }
+        FileHandle.standardError.write(Data("chose \(alert.buttons[index].title)\n".utf8))
+        return NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertFirstButtonReturn.rawValue + index)
+    }
+
+    /// `GITBONSAI_PRINT_STATUS=<seconds>,…` prints the status line and the toolbar's ahead/behind counts after each delay.
+    static func printStatusLine(of tab: RepositoryViewController) {
+        for delay in (environment["GITBONSAI_PRINT_STATUS"] ?? "").split(separator: ",").compactMap({ Double($0) }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                let row = tab.history.selectedRow
+                let selected = tab.viewModel.commits.indices.contains(row) ? "\(row) „\(tab.viewModel.commits[row].subject)“" : "\(row)"
+                let marks = tab.viewModel.refs.filter { $0.kind == .localBranch }.map { "\($0.name) ↑\($0.ahead.map(String.init) ?? "-") ↓\($0.behind.map(String.init) ?? "-")" }.joined(separator: ", ")
+                FileHandle.standardError.write(Data("status after \(delay) s: \(tab.viewModel.statusText) · toolbar \(tab.toolbar.upstreamCounts) · selected row \(selected) · branches \(marks)\n".utf8))
+            }
+        }
     }
 }

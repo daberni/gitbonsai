@@ -26,12 +26,14 @@ final class PullPushController {
     /// A branch that could be pushed but has no upstream yet; the Push button marks it.
     var lacksUpstream: Bool { canPush && upstream == nil }
 
-    func refresh() {
+    /// The returned task ends once the state is read, for a caller that pulls right after a checkout.
+    @discardableResult
+    func refresh() -> Task<Void, Never> {
         generation += 1
         let current = generation
         let repository = viewModel.repository
         let branch = viewModel.currentBranch
-        Task {
+        return Task {
             async let upstream: Upstream? = if let branch { await repository.upstream(of: branch) } else { nil }
             async let mode = repository.defaultPullMode()
             async let remotes = (try? repository.remotes()) ?? []

@@ -27,6 +27,18 @@ final class ActionPrompter {
         return await present(alert) == .alertFirstButtonReturn
     }
 
+    /// The button chosen in an alert with more than one way forward.
+    func choose(_ alert: NSAlert) async -> NSApplication.ModalResponse {
+        if ScreenshotHarness.keysSheets {
+            ScreenshotHarness.pressKey(on: alert)
+        } else if ScreenshotHarness.clicksSheets {
+            ScreenshotHarness.clickSheet(alert)
+        } else if ScreenshotHarness.isActive {
+            return ScreenshotHarness.answerChoice(alert)
+        }
+        return await present(alert)
+    }
+
     func saveLocation(title: String, suggestedName: String) async -> URL? {
         if ScreenshotHarness.isActive { return ScreenshotHarness.saveLocation }
         guard let window = window?() else { return nil }
