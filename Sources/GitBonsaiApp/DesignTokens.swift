@@ -131,8 +131,10 @@ enum Theme {
         static let toolbar: CGFloat = 52
         static let statusBar: CGFloat = 28
         static let columnHeader: CGFloat = 30
-        static let sidebarWidth: CGFloat = 264
-        static let detailWidth: CGFloat = 360
+        /// The history between the two panels never gets narrower; below it the panels give way.
+        static let historyMinimum: CGFloat = 380
+        /// How long a moved or resized window waits before its frame is saved.
+        static let frameSaveDelay: Duration = .milliseconds(500)
         static let searchWidth: CGFloat = 260
         /// Leading inset of the fetch status in the toolbar.
         static let toolbarInset: CGFloat = 14
@@ -161,6 +163,9 @@ enum Theme {
     }
 
     enum Sidebar {
+        /// Width of a new window's sidebar, and what a double click on its divider goes back to.
+        static let defaultWidth: CGFloat = 264
+        static let widths: ClosedRange<CGFloat> = 200...480
         static let rowHeight: CGFloat = 26
         static let headerHeight: CGFloat = 30
         static let worktreeHeight: CGFloat = 44
@@ -188,6 +193,9 @@ enum Theme {
     }
 
     enum Detail {
+        /// Width of a new window's detail panel, and what a double click on its divider goes back to.
+        static let defaultWidth: CGFloat = 360
+        static let widths: ClosedRange<CGFloat> = 280...640
         static let padding = Space.l
         static let spacing: CGFloat = 10
         static let headerHeight: CGFloat = 34

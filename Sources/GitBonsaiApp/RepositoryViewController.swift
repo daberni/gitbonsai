@@ -35,6 +35,12 @@ final class RepositoryViewController: NSObject {
     private let historyPane = ContainerView()
     /// Detail panel, and below it the commit form for the working directory.
     private var rightColumn: ColumnWithBottomBar!
+    private(set) var split: PanelSplitView!
+    /// The panel widths of the window, shared with its other tabs.
+    var panelWidths: PanelWidths {
+        get { split.widths }
+        set { split.widths = newValue }
+    }
     private var shownStatus: RepositoryStatus?
     private var shownCommitID: String?
     let toolbar = RepositoryToolbar()
@@ -247,13 +253,9 @@ final class RepositoryViewController: NSObject {
     // MARK: Layout
 
     private func layout() {
-        let split = NSSplitView()
-        split.isVertical = true
-        split.dividerStyle = .thin
         let sidebarScroll = Self.scroll(sidebar, background: Theme.surface1)
         let detailScroll = Self.scroll(detail, background: Theme.surface1)
         Self.fitToContent(detail, in: detailScroll)
-        split.addArrangedSubview(sidebarScroll)
         // The banner of a rebase, cherry-pick or revert in progress sits above the history and takes no room while hidden.
         let historyColumn = NSStackView(views: [operationBanner.view, historyPane])
         historyColumn.orientation = .vertical
@@ -263,15 +265,10 @@ final class RepositoryViewController: NSObject {
             part.trailingAnchor.constraint(equalTo: historyColumn.trailingAnchor).isActive = true
         }
         historyPane.setContentHuggingPriority(.defaultLow, for: .vertical)
-        split.addArrangedSubview(historyColumn)
         historyPane.show(history.view)
         // The commit form sits below the detail panel and only appears for the working directory.
         rightColumn = ColumnWithBottomBar(content: detailScroll, bar: commitController.form)
-        split.addArrangedSubview(rightColumn)
-        split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
-        split.setHoldingPriority(.defaultHigh, forSubviewAt: 2)
-        sidebarScroll.widthAnchor.constraint(equalToConstant: Theme.Window.sidebarWidth).isActive = true
-        rightColumn.widthAnchor.constraint(equalToConstant: Theme.Window.detailWidth).isActive = true
+        split = PanelSplitView(sidebar: sidebarScroll, history: historyColumn, detail: rightColumn)
 
         let statusBar = BarView(edge: .top)
         statusLabel.font = Theme.captionDigits

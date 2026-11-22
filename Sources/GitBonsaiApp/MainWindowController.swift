@@ -11,6 +11,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
     private let root: FillView
     private let titlebar: TitlebarTabRow
     private var tabs = TabList()
+    private var frameKeeper: WindowFrameKeeper!
+    /// One set of panel widths for all tabs of the window.
+    private let panelWidths: PanelWidths
     private var didCapture = false
     /// True once the launch arguments or the saved session have been opened; the harness waits for it.
     private var didFinishInitialOpen = false
@@ -19,6 +22,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     init(store: SessionStore) {
         self.store = store
+        ScreenshotHarness.prepareLayout(store)
+        let saved = store.panelWidths
+        panelWidths = saved.map { PanelWidths(sidebar: $0.sidebar, detail: $0.detail) } ?? PanelWidths()
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: Theme.Window.defaultSize), styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
@@ -29,12 +35,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         window.toolbarStyle = .unifiedCompact
         window.titlebarSeparatorStyle = .none
         window.minSize = Theme.Window.minimumSize
-        window.center()
         let root = FillView(color: Theme.surface0)
         self.root = root
         titlebar = TitlebarTabRow(window: window, root: root)
         super.init(window: window)
         window.delegate = self
+        frameKeeper = WindowFrameKeeper(window: window, store: store)
+        frameKeeper.restore()
+        panelWidths.onChange = { [weak self] in
+            guard let self else { return }
+            store.savePanelWidths(sidebar: panelWidths.sidebar, detail: panelWidths.detail)
+        }
         buildContent()
     }
 
@@ -125,6 +136,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
 
     private func makeTab(for location: RepositoryLocation) -> WindowTab {
         let controller = RepositoryViewController(location: location)
+        controller.panelWidths = panelWidths
         let tab = WindowTab(repository: controller)
         controller.onLoaded = { [weak self, weak tab] in
             tab?.isLoaded = true
@@ -257,14 +269,45 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         super.showWindow(sender)
         titlebar.placeBesideTrafficLights()
         traceTabRow()
+        frameKeeper.windowShown()
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        frameKeeper.frameChanged()
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        frameKeeper.frameChanged()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        frameKeeper.save()
+    }
+
+    func windowWillEnterFullScreen(_ notification: Notification) {
+        frameKeeper.fullScreenTransitionBegan()
+    }
+
+    func windowWillExitFullScreen(_ notification: Notification) {
+        frameKeeper.fullScreenTransitionBegan()
+    }
+
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) {
+        frameKeeper.fullScreenTransitionEnded()
+    }
+
+    func windowDidFailToExitFullScreen(_ window: NSWindow) {
+        frameKeeper.fullScreenTransitionEnded()
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) {
         titlebar.followFullScreen()
+        frameKeeper.fullScreenTransitionEnded()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         titlebar.followFullScreen()
+        frameKeeper.fullScreenTransitionEnded()
     }
 
     // MARK: Screenshot harness
@@ -284,6 +327,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate, NSMenuIt
         guard ScreenshotHarness.driveTabRow(tabBar, in: window, tabs: { [unowned self] in tabs }) else { return }
         didCapture = true
         if let welcome = tabs.active?.welcome { ScreenshotHarness.driveWelcome(welcome, in: window) }
+        if let repository = tabs.active?.repository { ScreenshotHarness.driveLayout(repository.split, in: window) }
         ScreenshotHarness.captureAndQuit(window: window)
     }
 }

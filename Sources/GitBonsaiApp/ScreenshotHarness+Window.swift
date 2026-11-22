@@ -114,3 +114,86 @@ extension ScreenshotHarness {
         }
     }
 }
+
+/// Harness switches for the window frame and the panel dividers. Harness runs keep both in their own defaults, so they never move the user's window or change their panels.
+@MainActor
+extension ScreenshotHarness {
+    /// Harness runs start from the default frame and panel widths, so captures do not depend on earlier runs; `GITBONSAI_KEEP_LAYOUT=1` restores what the previous harness run saved instead.
+    /// `GITBONSAI_WINDOW_FRAME=x,y,w,h[,zoomed][,fullscreen][,screen=<id>]` stores that placement as if an earlier launch had left it.
+    static func prepareLayout(_ store: SessionStore) {
+        guard isActive else { return }
+        if environment["GITBONSAI_KEEP_LAYOUT"] != "1" { store.forgetLayout() }
+        guard let spec = environment["GITBONSAI_WINDOW_FRAME"] else { return }
+        let parts = spec.split(separator: ",").map(String.init)
+        let numbers = parts.prefix(4).compactMap(Double.init)
+        guard numbers.count == 4 else { return }
+        let screen = parts.first { $0.hasPrefix("screen=") }.flatMap { UInt32($0.dropFirst("screen=".count)) }
+        store.windowPlacement = WindowPlacement(frame: CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3]), screen: screen, isZoomed: parts.contains("zoomed"), isFullScreen: parts.contains("fullscreen"))
+    }
+
+    /// With a repository tab active, in this order: `GITBONSAI_PRINT_LAYOUT=1` prints the window's frame, screen, zoom and full screen and the panel widths;
+    /// `GITBONSAI_RESIZE_WINDOW=<width>` makes the window that wide; `GITBONSAI_DRAG_DIVIDERS=<sidebar>,<detail>` drags the two dividers that many points to the right with real mouse events;
+    /// `GITBONSAI_DIVIDER_SWEEP=<sidebar>,<detail>` moves them in 60 steps that are each laid out and drawn and prints the time a step takes; `GITBONSAI_DOUBLE_CLICK_DIVIDER=0|1` double-clicks a divider. The layout is printed after each step.
+    static func driveLayout(_ split: PanelSplitView, in window: NSWindow) {
+        let prints = environment["GITBONSAI_PRINT_LAYOUT"] == "1"
+        func report(_ step: String) {
+            let frame = window.frame
+            let screens = NSScreen.screens.map { "\($0.displayID.map(String.init) ?? "?") \(describe($0.visibleFrame))" }.joined(separator: "; ")
+            FileHandle.standardError.write(Data("layout \(step): window \(describe(frame)) screen \(window.screen?.displayID.map(String.init) ?? "none") zoomed \(window.isZoomed) fullscreen \(window.styleMask.contains(.fullScreen)) | sidebar \(split.sidebarWidth) history \(split.historyWidth) detail \(split.detailWidth) | wished \(split.widths.sidebar) \(split.widths.detail) | screens \(screens)\n".utf8))
+        }
+        if prints { report("restored") }
+        if let width = environment["GITBONSAI_RESIZE_WINDOW"].flatMap(Double.init) {
+            var frame = window.frame
+            frame.size.width = width
+            window.setFrame(frame, display: true)
+            window.layoutIfNeeded()
+            report("window \(Int(width)) wide")
+        }
+        if let spec = environment["GITBONSAI_DRAG_DIVIDERS"] {
+            let deltas = spec.split(separator: ",").compactMap { Double($0) }
+            for (index, delta) in deltas.prefix(2).enumerated() where delta != 0 {
+                let divider = split.dividerFrame(at: index)
+                let start = split.convert(CGPoint(x: divider.midX, y: divider.midY), to: nil)
+                let steps = 30
+                let began = Date()
+                drag(in: window, from: start, to: CGPoint(x: start.x + delta, y: start.y), steps: steps)
+                let milliseconds = Date().timeIntervalSince(began) * 1000
+                report("dragged divider \(index) by \(Int(delta)) in \(steps) steps, \(String(format: "%.1f", milliseconds / Double(steps))) ms a step")
+            }
+        }
+        // A queued drag runs inside the divider's tracking loop without drawing in between, so the sweep times layout and drawing of every step itself.
+        if let spec = environment["GITBONSAI_DIVIDER_SWEEP"] {
+            let deltas = spec.split(separator: ",").compactMap { Double($0) }
+            for (index, delta) in deltas.prefix(2).enumerated() where delta != 0 {
+                let start = split.dividerFrame(at: index).minX
+                var times: [Double] = []
+                for step in 1...60 {
+                    let began = Date()
+                    split.setPosition(start + delta * CGFloat(step) / 60, ofDividerAt: index)
+                    window.contentView?.layoutSubtreeIfNeeded()
+                    window.contentView?.superview?.displayIfNeeded()
+                    times.append(Date().timeIntervalSince(began) * 1000)
+                }
+                let average = times.reduce(0, +) / Double(times.count)
+                report("swept divider \(index) by \(Int(delta)) in 60 drawn steps, \(String(format: "%.1f", average)) ms average, \(String(format: "%.1f", times.max() ?? 0)) ms slowest")
+            }
+        }
+        if let index = environment["GITBONSAI_DOUBLE_CLICK_DIVIDER"].flatMap(Int.init) {
+            let divider = split.dividerFrame(at: index)
+            let point = split.convert(CGPoint(x: divider.midX, y: divider.midY), to: nil)
+            // Each release is queued before its press, so the divider's tracking loop finds it.
+            for clickCount in 1...2 {
+                func event(_ type: NSEvent.EventType) -> NSEvent? {
+                    NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clickCount, pressure: 1)
+                }
+                if let up = event(.leftMouseUp) { NSApp.postEvent(up, atStart: false) }
+                if let down = event(.leftMouseDown) { press(down, in: window) }
+            }
+            report("double-clicked divider \(index)")
+        }
+    }
+
+    private static func describe(_ rect: CGRect) -> String {
+        "\(Int(rect.minX)),\(Int(rect.minY)) \(Int(rect.width))x\(Int(rect.height))"
+    }
+}

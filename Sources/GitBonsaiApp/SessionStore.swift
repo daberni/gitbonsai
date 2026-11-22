@@ -34,4 +34,25 @@ final class SessionStore {
         defaults.set(paths, forKey: "openTabs")
         defaults.set(active, forKey: "activeTab")
     }
+
+    var windowPlacement: WindowPlacement? {
+        get { defaults.data(forKey: "windowPlacement").flatMap { try? JSONDecoder().decode(WindowPlacement.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "windowPlacement") }
+    }
+
+    /// Widths of the sidebar and the detail panel; nil until the user dragged a divider.
+    var panelWidths: (sidebar: CGFloat, detail: CGFloat)? {
+        guard let sidebar = defaults.object(forKey: "sidebarWidth") as? Double, let detail = defaults.object(forKey: "detailWidth") as? Double else { return nil }
+        return (sidebar, detail)
+    }
+
+    func savePanelWidths(sidebar: CGFloat, detail: CGFloat) {
+        defaults.set(Double(sidebar), forKey: "sidebarWidth")
+        defaults.set(Double(detail), forKey: "detailWidth")
+    }
+
+    /// Forgets the window's frame and panel widths, so the next window opens with the defaults.
+    func forgetLayout() {
+        for key in ["windowPlacement", "sidebarWidth", "detailWidth"] { defaults.removeObject(forKey: key) }
+    }
 }
