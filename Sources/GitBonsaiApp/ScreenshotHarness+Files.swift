@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// Harness switches for diffs, the file lists, the commit form and discarding.
+/// Harness switches for diffs, the file lists, the file context menu, the commit form and discarding.
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file of the working directory, or of the selected commit without a source.
@@ -209,6 +209,33 @@ extension ScreenshotHarness {
                 view.displayIgnoringOpacity(view.bounds, in: context)
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
             }
+        }
+    }
+
+    // MARK: File context menu
+
+    /// `GITBONSAI_FILE_MENU=<n>` asks file row n for the menu a right click would open and prints its entries, ⌥ alternates marked, without showing it on screen.
+    /// `GITBONSAI_FILE_MENU_PICK=<title>` then chooses an entry; confirmations are answered by `GITBONSAI_CONFIRM` and rendered by `GITBONSAI_SHEET_SHOT`.
+    static func fileMenu(on tab: RepositoryViewController, attempt: Int = 0) {
+        guard let index = environment["GITBONSAI_FILE_MENU"].flatMap(Int.init) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            guard let window = tab.view.window else { return }
+            // A commit's file list loads asynchronously; try again until the row is there.
+            let rows = views(of: FileRowView.self, in: window)
+            guard rows.indices.contains(index) else {
+                if attempt < 10 { return fileMenu(on: tab, attempt: attempt + 1) }
+                FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
+                return
+            }
+            let row = rows[index]
+            let point = row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
+            guard let event = NSEvent.mouseEvent(with: .rightMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1), let menu = row.menu(for: event) else {
+                FileHandle.standardError.write(Data("file row \(index) has no menu\n".utf8))
+                return
+            }
+            let entries = menu.items.map { item in item.isSeparatorItem ? "|" : item.isAlternate ? "⌥ \(item.title)" : item.title }
+            FileHandle.standardError.write(Data("file menu \(row.model.selection.path): \(entries.joined(separator: "; "))\n".utf8))
+            if let pick = environment["GITBONSAI_FILE_MENU_PICK"] { choose(pick, in: menu) }
         }
     }
 }

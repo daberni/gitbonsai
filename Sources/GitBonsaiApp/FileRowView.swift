@@ -26,6 +26,8 @@ final class FileRowView: NSView {
         let note: String?
         /// Shown from right to left while the row is hovered.
         var actions: [Action] = []
+        /// What happened to the file, where the context menu needs to know; nil for an untracked file.
+        var state: FileState? = nil
     }
 
     private typealias M = Theme.FileList
@@ -33,6 +35,8 @@ final class FileRowView: NSView {
     var isSelected = false { didSet { needsDisplay = true } }
     var onClick: (() -> Void)?
     var onAction: ((Action) -> Void)?
+    /// Built at the moment of the right click, so it reflects the file as it is then.
+    var contextMenu: (() -> NSMenu?)?
     private var isHovered = false { didSet { needsDisplay = true } }
     private var hoveredAction: Action? { didSet { needsDisplay = true } }
 
@@ -90,6 +94,8 @@ final class FileRowView: NSView {
         guard bounds.contains(point) else { return }
         if let action = action(at: point) { onAction?(action) } else { onClick?() }
     }
+
+    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelected || isHovered {
@@ -162,6 +168,8 @@ final class FileListView: NSStackView {
 
     var onSelect: ((FileSelection) -> Void)?
     var onAction: ((FileSelection, FileRowView.Action) -> Void)?
+    /// The context menu's entries for a row; none leaves the row without a menu.
+    var menuItems: ((FileRowView.Model) -> [NSMenuItem])?
     var selected: FileSelection? { didSet { rowViews.forEach { $0.isSelected = $0.model.selection == selected } } }
     private var rowViews: [FileRowView] = []
     private var actions: [() -> Void] = []
@@ -191,6 +199,12 @@ final class FileListView: NSStackView {
                     choose(row)
                 }
                 row.onAction = { [weak self] action in self?.onAction?(model.selection, action) }
+                row.contextMenu = { [weak self] in
+                    guard let items = self?.menuItems?(model), !items.isEmpty else { return nil }
+                    let menu = NSMenu()
+                    items.forEach(menu.addItem)
+                    return menu
+                }
                 rowViews.append(row)
                 addFull(row)
             }

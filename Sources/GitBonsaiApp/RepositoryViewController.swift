@@ -23,6 +23,7 @@ final class RepositoryViewController: NSObject {
     let fetchController: FetchController
     let operationBanner: OperationBannerController
     let staging: StagingController
+    let fileActions: FileActionsController
     let commitController: CommitController
     let diff: DiffViewController
     let tagsController: TagsController
@@ -49,6 +50,7 @@ final class RepositoryViewController: NSObject {
         fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
+        fileActions = FileActionsController(viewModel: viewModel, staging: staging)
         commitController = CommitController(viewModel: viewModel)
         tagsController = TagsController(viewModel: viewModel)
         stashesController = StashesController(viewModel: viewModel)
@@ -132,6 +134,12 @@ final class RepositoryViewController: NSObject {
         detail.onStage = { [weak self] paths in self?.staging.stage(paths) }
         detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
         detail.onDiscard = { [weak self] selection in self?.staging.discard(selection) }
+        detail.fileMenuItems = { [weak self] file in self?.fileActions.menuItems(for: file) ?? [] }
+        fileActions.prompter.window = { [weak self] in self?.view.window }
+        fileActions.onChange = { [weak self] in
+            self?.diff.reload()
+            self?.refreshWorkingDirectoryCounts()
+        }
         detail.showNothing()
         checkoutController.window = { [weak self] in self?.view.window }
         commitActions.prompter.window = { [weak self] in self?.view.window }
@@ -308,6 +316,7 @@ final class RepositoryViewController: NSObject {
             ScreenshotHarness.pressFileKeys(on: self)
             ScreenshotHarness.fillCommit(on: self)
             ScreenshotHarness.discard(on: self)
+            ScreenshotHarness.fileMenu(on: self)
             ScreenshotHarness.scrollSidebar(sidebar)
             ScreenshotHarness.openCommitMenu(on: self)
             ScreenshotHarness.runRemotesAndRebase(on: self)

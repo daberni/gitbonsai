@@ -11,6 +11,8 @@ final class DetailView: NSView {
     var onUnstage: (([String]) -> Void)?
     /// Discard the unstaged changes of one file, or delete it when it is untracked.
     var onDiscard: ((FileSelection) -> Void)?
+    /// The entries of a file's context menu.
+    var fileMenuItems: ((FileRowView.Model) -> [NSMenuItem])?
     /// Kept across redraws of the same commit or working directory, cleared otherwise.
     var selectedFile: FileSelection? { didSet { fileList?.selected = selectedFile } }
 
@@ -138,7 +140,7 @@ final class DetailView: NSView {
             summary.append(FileRowView.statText(total))
             filesHeader.attributedStringValue = summary
             let rows = files.map { file in
-                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: Self.color(for: file.state), stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil)
+                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: Self.color(for: file.state), stat: file.stat, note: file.stat == nil && file.state != .deleted ? "binär" : nil, state: file.state)
             }
             list.show([FileListView.Section(title: "Dateien", rows: rows, action: nil)])
         }
@@ -162,18 +164,18 @@ final class DetailView: NSView {
         func sections(unstagedStats: [String: DiffStat], stagedStats: [String: DiffStat]) -> [FileListView.Section] {
             let unstagedRows = unstaged.map { entry in
                 entry.isUntracked
-                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", actions: [.stage, .discard])
-                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil, actions: [.stage, .discard])
+                    ? FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .untracked), letter: "?", color: Theme.inkMuted, stat: nil, note: "untracked", actions: [.stage, .discard], state: nil)
+                    : FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: nil, source: .unstaged), letter: String(entry.worktreeState.rawValue), color: Self.color(for: entry.worktreeState), stat: unstagedStats[entry.path], note: nil, actions: [.stage, .discard], state: entry.worktreeState)
             }
             let stagedRows = staged.map { entry in
-                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil, actions: [.unstage])
+                FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: Self.color(for: entry.indexState), stat: stagedStats[entry.path], note: nil, actions: [.unstage], state: entry.indexState)
             }
             var result = [
                 FileListView.Section(title: "Unstaged  \(unstaged.count)", rows: unstagedRows, action: unstaged.isEmpty ? nil : ("Alle stagen", { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
                 FileListView.Section(title: "Staged  \(staged.count)", rows: stagedRows, action: staged.isEmpty ? nil : ("Alle unstagen", { [weak self] in self?.onUnstage?(staged.map(\.path)) })),
             ]
             if status.hasConflicts {
-                let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: "Konflikt") }
+                let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: "Konflikt", state: .unmerged) }
                 result.append(FileListView.Section(title: "Konflikte  \(conflictRows.count)", rows: conflictRows, action: nil))
             }
             return result
@@ -203,6 +205,7 @@ final class DetailView: NSView {
             case .discard: self?.onDiscard?(selection)
             }
         }
+        list.menuItems = { [weak self] model in self?.fileMenuItems?(model) ?? [] }
         fileList = list
         add(list)
         return list
