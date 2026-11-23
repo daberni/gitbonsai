@@ -108,7 +108,8 @@ private struct SettingsPaneFrame<Content: View>: View {
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentSize.height + geometry.contentInsets.top + geometry.contentInsets.bottom
             } action: { _, height in
-                contentHeight = height
+                // The action runs inside the layout pass that measured the content; a height set there only takes effect at the next event, so the window would resize under the pointer of the following click.
+                DispatchQueue.main.async { contentHeight = height }
             }
             .frame(width: Theme.Settings.width, height: min(contentHeight ?? Theme.Settings.maxHeight, Theme.Settings.maxHeight))
     }

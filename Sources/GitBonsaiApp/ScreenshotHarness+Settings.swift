@@ -45,8 +45,10 @@ extension ScreenshotHarness {
                 // A checkbox or radio button spans its whole row in a grouped form; the box sits at its leading edge.
                 let boxed = [.checkBox, .radioButton].contains(element.accessibilityRole?())
                 let point = CGPoint(x: boxed ? frame.minX + frame.height / 2 : frame.midX, y: frame.midY)
+                let height = window.frame.height
                 click(in: window, at: point)
                 print("settings: clicked \(describe(element))")
+                if boxed { reportResponse(of: element, in: window, from: height) }
             } else {
                 print("settings: no element \(argument)")
             }
@@ -96,6 +98,28 @@ extension ScreenshotHarness {
             print("settings: unknown step \(step)")
         }
         after(delay) { runSettingsSteps(steps.dropFirst(), in: window) }
+    }
+
+    /// After a click on a checkbox or radio button, prints how long until the control shows its new state and until the window has its final height,
+    /// measured every 2 ms against the wall clock; a window that changes height while the user looks at it is part of what feels slow.
+    private static func reportResponse(of element: AnyObject, in window: NSWindow, from height: CGFloat) {
+        let start = CACurrentMediaTime()
+        let before = value(of: element) as? NSNumber
+        var selectedAfter: Double?
+        var lastResize = start
+        var lastHeight = height
+        func poll() {
+            let now = CACurrentMediaTime()
+            if selectedAfter == nil, let current = value(of: element) as? NSNumber, current != before || current.intValue == 1 { selectedAfter = now - start }
+            if window.frame.height != lastHeight {
+                lastHeight = window.frame.height
+                lastResize = now
+            }
+            guard now - start > 0.45 else { return after(0.002) { poll() } }
+            let shown = selectedAfter.map { "\(Int($0 * 1000)) ms" } ?? "never"
+            print("settings: response shown after \(shown), window \(Int(height))→\(Int(lastHeight)) pt, settled after \(Int((lastResize - start) * 1000)) ms")
+        }
+        poll()
     }
 
     /// SwiftUI publishes its accessibility tree only once an assistive app asks, which it learns from `AXEnhancedUserInterface` on the application;
