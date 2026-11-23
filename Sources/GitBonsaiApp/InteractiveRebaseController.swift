@@ -62,9 +62,10 @@ final class InteractiveRebaseController {
 
     /// Why an in-place rebase from `commit`, an ancestor of HEAD, is not offered; nil when it is.
     func inPlaceReason(for commit: Commit) -> String? {
-        guard let line = firstParentLine(to: commit.id) else { return Self.offLineReason(viewModel.currentBranch ?? "HEAD") }
+        guard firstParentLine(to: commit.id) != nil else { return Self.offLineReason(viewModel.currentBranch ?? "HEAD") }
         if commit.id == viewModel.headSHA { return String(localized: "rebase.disabled.nothingAbove", defaultValue: "Nothing lies above this commit", bundle: .module) }
-        return line.dropLast().contains { $0.parents.count > 1 } ? Self.mergeReason : nil
+        // Merges are checked when the sheet opens: one that only brings in what the base has is flattened.
+        return nil
     }
 
     private static var mergeReason: String { String(localized: "rebase.disabled.merge", defaultValue: "A merge lies in between", bundle: .module) }
@@ -272,7 +273,8 @@ final class InteractiveRebaseController {
     static func describe(_ error: RebasePlanError) -> String {
         switch error {
         case .baseNotInHistory: String(localized: "rebase.error.baseNotInHistory", defaultValue: "The commit is not in the history of the current branch.", bundle: .module)
-        case .mergeInRange: String(localized: "rebase.error.mergeInRange", defaultValue: "A merge lies between the commit and HEAD; an interactive rebase would flatten it.", bundle: .module)
+        case let .mergeInRange(commits):
+            String(localized: "rebase.error.mergeBringsIn", defaultValue: "A merge between the commit and HEAD brings in commits the target does not have, which flattening it would replay: \(commits.map { "\($0.id.prefix(RefString.shortSHA)) “\($0.subject)”" }.joined(separator: ", ")).", bundle: .module, comment: "The placeholder lists the commits as short SHA and subject.")
         case .nothingToRebase: String(localized: "rebase.error.nothingToRebase", defaultValue: "Nothing lies above this commit that could be rewritten.", bundle: .module)
         case .notOnCurrentBranch: String(localized: "rebase.error.notOnCurrentBranch", defaultValue: "The commit is not on the line of the current branch.", bundle: .module)
         case .rootCommit: String(localized: "rebase.error.rootCommit", defaultValue: "The repository’s first commit has no parent the rebase could start from.", bundle: .module)

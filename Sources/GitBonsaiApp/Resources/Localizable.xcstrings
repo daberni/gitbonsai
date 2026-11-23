@@ -12046,19 +12046,20 @@
         }
       }
     },
-    "rebase.error.mergeInRange" : {
+    "rebase.error.mergeBringsIn" : {
+      "comment" : "The placeholder lists the commits as short SHA and subject.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zwischen dem Commit und HEAD liegt ein Merge; ein interaktives Rebase würde ihn flach machen."
+            "value" : "Ein Merge zwischen dem Commit und HEAD bringt Commits mit, die das Ziel nicht hat und die beim Flachmachen neu angewendet würden: %@."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "A merge lies between the commit and HEAD; an interactive rebase would flatten it."
+            "value" : "A merge between the commit and HEAD brings in commits the target does not have, which flattening it would replay: %@."
           }
         }
       }

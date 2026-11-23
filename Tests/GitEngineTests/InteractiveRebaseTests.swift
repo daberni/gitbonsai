@@ -318,9 +318,9 @@ final class InteractiveRebaseTests: XCTestCase {
 
         do {
             _ = try await repo.rebaseCommits(after: base)
-            XCTFail("a merge is in the range")
+            XCTFail("the merge brings in a commit the base does not have")
         } catch let error as RebasePlanError {
-            XCTAssertEqual(error, .mergeInRange)
+            XCTAssertEqual(error, .mergeInRange(bringsIn: [RebaseCommit(id: side, parents: [base], subject: "side", message: "side")]))
         }
         try fixture.git("switch", "-q", "-c", "other", base)
         try fixture.commit("other", file: "other.txt")
@@ -330,6 +330,30 @@ final class InteractiveRebaseTests: XCTestCase {
         } catch let error as RebasePlanError {
             XCTAssertEqual(error, .baseNotInHistory)
         }
+    }
+
+    /// The branch pulled the target in earlier: the merge brings nothing the target lacks, so flattening it loses nothing.
+    func testMergeOfTheTargetItselfIsFlattened() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "base.txt")
+        try fixture.git("switch", "-q", "-c", "feature")
+        try fixture.commit("f1", file: "f1.txt")
+        try fixture.git("switch", "-q", "main")
+        let main = try fixture.commit("m1", file: "m1.txt")
+        try fixture.git("switch", "-q", "feature")
+        try fixture.git("merge", "-q", "--no-edit", "main")
+        try fixture.commit("f2", file: "f2.txt")
+        let repo = fixture.repository
+
+        let range = try await repo.rebaseRange(from: main, onto: main)
+        XCTAssertEqual(range.commits.map(\.subject), ["f1", "f2"])
+        XCTAssertEqual(range.flattenedMerges, 1)
+        let outcome = try await repo.startInteractiveRebase(RebasePlan(range: range))
+
+        XCTAssertEqual(outcome, .finished)
+        XCTAssertEqual(try subjects(fixture, "main..feature"), ["f1", "f2"])
+        XCTAssertEqual(try fixture.git("rev-list", "--merges", "--count", "main..feature"), "0")
     }
 
     func testDirtyWorkingTreeNeedsAutostash() async throws {

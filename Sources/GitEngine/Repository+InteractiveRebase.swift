@@ -4,8 +4,8 @@ import Foundation
 public enum RebasePlanError: Error, Sendable, Equatable {
     /// The base is not an ancestor of HEAD.
     case baseNotInHistory
-    /// A merge lies between the base and HEAD; replaying it would flatten it.
-    case mergeInRange
+    /// A merge between the base and HEAD brings in these commits, which the base does not have; flattening it would replay or lose them.
+    case mergeInRange(bringsIn: [RebaseCommit])
     /// The base is HEAD itself.
     case nothingToRebase
     /// The commit is not on the current branch's own line of commits.
@@ -48,20 +48,36 @@ extension RebasePlan {
 }
 
 extension Repository {
-    /// The commits `base..HEAD`, oldest first, which an interactive rebase from `base` replays. Refuses a base outside HEAD's history and a range with merges.
+    /// The commits `base..HEAD`, oldest first, which an interactive rebase from `base` replays. Refuses a base outside HEAD's history and a range with merges that bring in commits the base lacks.
     public func rebaseCommits(after base: String) async throws -> [RebaseCommit] {
+        try await inPlaceRange(after: base).commits
+    }
+
+    /// The first-parent line `base..HEAD` without its merges, and how many merges it drops. A merge whose other parents only bring in what `base` already has (the target pulled in earlier) is flattened like `git rebase -i` does; any other merge is refused with the commits it brings in.
+    private func inPlaceRange(after base: String) async throws -> (commits: [RebaseCommit], merges: Int) {
         guard (try? await runner.run(["merge-base", "--is-ancestor", base, "HEAD"])) != nil else { throw RebasePlanError.baseNotInHistory }
-        let result = try await runner.run(["log", "--reverse", "--format=%H%x1f%P%x1f%s%x1f%B%x1e", "\(base)..HEAD"])
-        let commits = Self.parseRebaseCommits(result.stdout)
-        if commits.contains(where: { $0.parents.count > 1 }) { throw RebasePlanError.mergeInRange }
+        let format = "--format=%H%x1f%P%x1f%s%x1f%B%x1e"
+        let line = Self.parseRebaseCommits(try await runner.run(["log", "--reverse", "--first-parent", format, "\(base)..HEAD"]).stdout)
+        let merges = line.filter { $0.parents.count > 1 }
+        if !merges.isEmpty {
+            // Commits of the range off the first-parent line came in through a merge and are not in the base.
+            let all = Self.parseRebaseCommits(try await runner.run(["log", "--reverse", "--topo-order", "--no-merges", format, "\(base)..HEAD"]).stdout)
+            let onLine = Set(line.map(\.id))
+            let broughtIn = all.filter { !onLine.contains($0.id) }
+            if !broughtIn.isEmpty { throw RebasePlanError.mergeInRange(bringsIn: broughtIn) }
+        }
+        let commits = line.filter { $0.parents.count <= 1 }
         if commits.isEmpty { throw RebasePlanError.nothingToRebase }
-        return commits
+        return (commits, merges.count)
     }
 
     /// The commits an interactive rebase of the current branch onto `target` replays, from `base` on. With `base == target` it is the in-place rebase of `rebaseCommits(after:)`;
     /// otherwise `base` need not be an ancestor of HEAD (a branch whose commits stay behind, say), merges are flattened, and commits whose changes the target already has are marked by `git cherry`.
     public func rebaseRange(from base: String, onto target: String) async throws -> RebaseRange {
-        guard base != target else { return RebaseRange(base: base, target: target, commits: try await rebaseCommits(after: base), alreadyOnTarget: []) }
+        guard base != target else {
+            let range = try await inPlaceRange(after: base)
+            return RebaseRange(base: base, target: target, commits: range.commits, alreadyOnTarget: [], flattenedMerges: range.merges)
+        }
         // Like a plain `git rebase` without --rebase-merges, merges in the range are flattened: only their commits are replayed, in topological order.
         let result = try await runner.run(["log", "--reverse", "--topo-order", "--no-merges", "--format=%H%x1f%P%x1f%s%x1f%B%x1e", "\(base)..HEAD"])
         let commits = Self.parseRebaseCommits(result.stdout)
