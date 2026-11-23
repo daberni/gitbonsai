@@ -41,6 +41,7 @@ extension RepositoryViewController: CommandProvider {
     func commitCommands(_ state: RepositoryCommandState) -> [Command] {
         [
             Command(.commit, context: state.stagedCount > 0 ? String(localized: "command.commit.stagedCount", defaultValue: "\(state.stagedCount) staged", bundle: .module, comment: "Count of staged files after the Commit command.") : nil, blocker: CommandRules.commit(state)) { [weak self] in self?.showCommitForm(amend: false) },
+            Command(.commitAll, blocker: CommandRules.commitAll(state)) { [weak self] in self?.showCommitForm(amend: false) },
             Command(.amend, blocker: CommandRules.amend(state)) { [weak self] in self?.showCommitForm(amend: true) },
             Command(.editMessage, context: selectedCommitForMessage?.shortID, disabledReason: editMessageReason) { [weak self] in self?.editSelectedCommitMessage() },
         ]

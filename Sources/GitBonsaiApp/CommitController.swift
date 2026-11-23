@@ -9,6 +9,9 @@ final class CommitController {
 
     private let viewModel: GraphViewModel
     private var stagedCount = 0
+    /// Staged, unstaged and untracked files, for commit all.
+    private var changeCount = 0
+    private var conflictCount = 0
     private var signing: String?
     /// The text typed before amend was switched on, put back when it is switched off again.
     private var draft: (subject: String, body: String)?
@@ -29,6 +32,8 @@ final class CommitController {
         form.onAmendChanged = { [weak self] on in self?.amendChanged(on) }
         form.onCommit = { [weak self] in self?.commit(amend: self?.form.isAmend ?? false) }
         form.onAmendCommit = { [weak self] in self?.commit(amend: true) }
+        form.onCommitAll = { [weak self] in self?.commitAll() }
+        form.onShiftChanged = { [weak self] in self?.updateButton() }
         form.onCoAuthorMenu = { [weak self] anchor in self?.showCoAuthorMenu(at: anchor) }
         Task { [weak self] in
             guard let self else { return }
@@ -41,6 +46,8 @@ final class CommitController {
 
     func update(status: RepositoryStatus?) {
         stagedCount = status?.staged.count ?? 0
+        conflictCount = status?.conflicted.count ?? 0
+        changeCount = stagedCount + (status?.unstaged.count ?? 0) + conflictCount
         updateButton()
     }
 
@@ -60,6 +67,12 @@ final class CommitController {
         return amend ? stagedCount > 0 || message != amendedMessage || !trailers.isEmpty || form.isSignOff : stagedCount > 0
     }
 
+    /// Commit all needs a subject and any change, but no unresolved conflict: staging would mark it resolved.
+    private var canCommitAll: Bool {
+        guard !isCommitting, !form.subjectText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return changeCount > 0 && conflictCount == 0
+    }
+
     /// The template goes into the body only while the form is empty, so it never replaces what was typed.
     private func applyTemplate() {
         guard let template, !form.isAmend, form.subjectText.isEmpty, form.bodyText.isEmpty else { return }
@@ -67,7 +80,13 @@ final class CommitController {
     }
 
     private func updateButton() {
-        form.show(signing: signing, canCommit: canCommit(amend: form.isAmend), buttonTitle: form.isAmend ? LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit.") : LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
+        if form.isAmend {
+            form.show(signing: signing, canCommit: canCommit(amend: true), buttonTitle: LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit."))
+        } else if form.isShiftHeld {
+            form.show(signing: signing, canCommit: canCommitAll, buttonTitle: LocalizedStringResource("commit.form.commitAll", defaultValue: "Commit All", bundle: .module, comment: "The commit button while Shift is held: stages every change and commits."))
+        } else {
+            form.show(signing: signing, canCommit: canCommit(amend: false), buttonTitle: LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
+        }
     }
 
     /// Ticks amend and loads the last message, for an edit stop of an interactive rebase.
@@ -124,7 +143,12 @@ final class CommitController {
         }
     }
 
-    private func run(amend: Bool) {
+    private func commitAll() {
+        guard canCommitAll else { return }
+        run(amend: false, all: true)
+    }
+
+    private func run(amend: Bool, all: Bool = false) {
         let message = message
         let trailers = trailers
         let signOff = form.isSignOff
@@ -133,7 +157,11 @@ final class CommitController {
         updateButton()
         Task { [weak self] in
             do {
-                try await repository.commit(message: message, amend: amend, trailers: trailers, signOff: signOff)
+                if all {
+                    try await repository.commitAll(message: message, trailers: trailers, signOff: signOff)
+                } else {
+                    try await repository.commit(message: message, amend: amend, trailers: trailers, signOff: signOff)
+                }
                 self?.clear()
             } catch {
                 let alert = NSAlert()

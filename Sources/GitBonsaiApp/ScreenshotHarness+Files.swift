@@ -202,7 +202,8 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_COMMIT_SUBJECT` and `GITBONSAI_COMMIT_BODY` fill the commit form, `GITBONSAI_AMEND=1` ticks amend,
     /// `GITBONSAI_COMMIT_COAUTHOR=Name <email>` adds a co-author, `GITBONSAI_COMMIT_SIGNOFF=1` ticks sign-off,
-    /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button, `GITBONSAI_COMMIT_RUN=amend-key` presses ⌘⇧⏎ as a real key event.
+    /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button, `GITBONSAI_COMMIT_RUN=amend-key` presses ⌥⌘⏎ and `all-key` ⇧⌘⏎ as real key events,
+    /// `GITBONSAI_COMMIT_SHIFT=1` holds ⇧ through a real modifier event, so the button shows "Commit All".
     static func fillCommit(on tab: RepositoryViewController) {
         let form = tab.commitController.form
         if let coAuthor = environment["GITBONSAI_COMMIT_COAUTHOR"] {
@@ -216,7 +217,12 @@ extension ScreenshotHarness {
             if let body = environment["GITBONSAI_COMMIT_BODY"] { form.bodyText = body.replacingOccurrences(of: "\\n", with: "\n") }
             form.onEdit?()
             if environment["GITBONSAI_COMMIT_RUN"] == "1" { form.pressCommit() }
-            if environment["GITBONSAI_COMMIT_RUN"] == "amend-key", let window = form.window, let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command, .shift], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: KeyCode.return) {
+            if environment["GITBONSAI_COMMIT_SHIFT"] == "1", let window = form.window, let event = NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: .shift, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: KeyCode.shift) {
+                // Posted to the queue, not sent, so the form's local event monitor sees it as it sees a real ⇧.
+                NSApp.postEvent(event, atStart: false)
+            }
+            let shortcuts: [String: NSEvent.ModifierFlags] = ["amend-key": [.command, .option], "all-key": [.command, .shift]]
+            if let modifiers = environment["GITBONSAI_COMMIT_RUN"].flatMap({ shortcuts[$0] }), let window = form.window, let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: KeyCode.return) {
                 // A background harness window is never key, so the key equivalent goes to the window as AppKit would route it.
                 _ = window.performKeyEquivalent(with: event)
             }

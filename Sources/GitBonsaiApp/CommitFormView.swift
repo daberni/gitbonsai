@@ -5,8 +5,14 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     private typealias M = Theme.CommitForm
 
     var onCommit: (() -> Void)?
-    /// ⌘⇧⏎: commit as an amend of the last commit, with the message as typed.
+    /// ⌥⌘⏎: commit as an amend of the last commit, with the message as typed.
     var onAmendCommit: (() -> Void)?
+    /// ⇧⌘⏎, or the button clicked with ⇧: stage every change and commit.
+    var onCommitAll: (() -> Void)?
+    /// ⇧ was pressed or released while the window is active; the button shows "Commit All" while it is held.
+    var onShiftChanged: (() -> Void)?
+    private(set) var isShiftHeld = false
+    private var flagsMonitor: Any?
     /// The co-author button was pressed; the controller shows the menu of known authors.
     var onCoAuthorMenu: ((NSView) -> Void)?
     var onAmendChanged: ((Bool) -> Void)?
@@ -39,7 +45,7 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         commit.target = self
         commit.action = #selector(commitPressed(_:))
         commit.respondsToCommandReturn = true
-        commit.toolTip = String(localized: "commit.form.commitToolTip", defaultValue: "Commit (⌘⏎), amend the last Commit with this message (⌘⇧⏎)", bundle: .module, comment: "Tooltip of the commit button with its shortcuts.")
+        commit.toolTip = String(localized: "commit.form.commitToolTip", defaultValue: "Commit (⌘⏎), commit all changes (⇧⌘⏎), amend the last Commit with this message (⌥⌘⏎)", bundle: .module, comment: "Tooltip of the commit button with its shortcuts.")
         buildTrailers()
         layout(views: [subjectBox, bodyBox, coAuthorButton, coAuthorList, signOff, signing, amend, commit])
         updateCounter()
@@ -221,7 +227,26 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     @objc private func commitPressed(_ sender: Any?) {
-        onCommit?()
+        if isShiftHeld, !isAmend, let onCommitAll { onCommitAll() } else { onCommit?() }
+    }
+
+    /// Follows ⇧ through the app's events, wherever the focus is, so the button title changes while it is held.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let flagsMonitor { NSEvent.removeMonitor(flagsMonitor) }
+        flagsMonitor = nil
+        setShiftHeld(false)
+        guard window != nil else { return }
+        flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.setShiftHeld(event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .shift)
+            return event
+        }
+    }
+
+    private func setShiftHeld(_ held: Bool) {
+        guard held != isShiftHeld else { return }
+        isShiftHeld = held
+        onShiftChanged?()
     }
 
     @objc private func signOffChanged(_ sender: Any?) {
@@ -232,11 +257,14 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         onCoAuthorMenu?(sender)
     }
 
-    /// ⌘⇧⏎ anywhere in the window while the form shows; ⌘⏎ belongs to the commit button.
+    /// ⇧⌘⏎ and ⌥⌘⏎ anywhere in the window while the form shows; ⌘⏎ belongs to the commit button.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let isAmendShortcut = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command, .shift] && event.keyCode == KeyCode.return
-        guard isAmendShortcut, !isHiddenOrHasHiddenAncestor, let onAmendCommit else { return super.performKeyEquivalent(with: event) }
-        onAmendCommit()
+        guard event.keyCode == KeyCode.return, !isHiddenOrHasHiddenAncestor else { return super.performKeyEquivalent(with: event) }
+        switch event.modifierFlags.intersection(.deviceIndependentFlagsMask) {
+        case [.command, .shift] where onCommitAll != nil: onCommitAll?()
+        case [.command, .option] where onAmendCommit != nil: onAmendCommit?()
+        default: return super.performKeyEquivalent(with: event)
+        }
         return true
     }
 }

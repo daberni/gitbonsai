@@ -104,6 +104,12 @@ public enum CommandRules {
         return state.stagedCount == 0 ? .nothingStaged : nil
     }
 
+    /// Stages everything first, so any change will do; unresolved conflicts still block, as staging would mark them resolved.
+    public static func commitAll(_ state: RepositoryCommandState) -> CommandBlocker? {
+        if state.conflictCount > 0 { return .conflicts }
+        return state.hasChanges ? nil : .noChanges
+    }
+
     public static func amend(_ state: RepositoryCommandState) -> CommandBlocker? {
         if state.headSHA == nil { return .noCommits }
         return state.conflictCount > 0 ? .conflicts : nil

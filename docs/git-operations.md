@@ -53,7 +53,8 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Discard a hunk | `git apply --reverse --whitespace=nowarn -` | |
 | Discard file changes | `git restore --worktree -- <paths>` | Asks first. The command bar's "Discard all changes…" passes every tracked file with unstaged changes; staged changes and untracked files stay |
 | Delete untracked files | `git clean -f -q -- <paths>` | Asks first |
-| Commit / amend | `git commit --cleanup=whitespace -F - [--amend] [--trailer "Co-authored-by: <name> <email>" …] [--trailer "Signed-off-by: <committer>"]` | Message on stdin. ⌘⇧⏎ amends with the typed message. Trailers the message already has (`git interpret-trailers --parse`, stdin) are not passed again; the sign-off identity comes from `git var GIT_COMMITTER_IDENT` |
+| Commit / amend | `git commit --cleanup=whitespace -F - [--amend] [--trailer "Co-authored-by: <name> <email>" …] [--trailer "Signed-off-by: <committer>"]` | Message on stdin. ⌥⌘⏎ amends with the typed message. Trailers the message already has (`git interpret-trailers --parse`, stdin) are not passed again; the sign-off identity comes from `git var GIT_COMMITTER_IDENT` |
+| Commit all changes | `git diff --name-only --diff-filter=U -z`, then `git add -A`, then the commit above without `--amend` | ⇧⌘⏎, or the button with ⇧ held ("Commit All"). Takes modified, deleted and untracked files whatever is staged. Unmerged paths refuse it before anything is staged, since `git add` would mark them resolved; during a merge it otherwise concludes the merge like `git commit -a`. A failing commit leaves everything staged |
 | Commit template | `git config --path commit.template`, then the file is read | Prefills the body of an empty commit form; `#` lines are dropped, a relative path counts from the working tree |
 | Co-author picker | `git shortlog -sne --all` | Loaded when the menu first opens; the mailmap applies |
 | Message for amend | `git log -1 --format=%B` | |

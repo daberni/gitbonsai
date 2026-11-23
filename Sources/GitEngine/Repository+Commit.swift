@@ -14,6 +14,15 @@ extension Repository {
         _ = try await runner.runWrite(arguments, stdin: Data(message.utf8))
     }
 
+    /// Stages every change in the working tree, untracked and deleted files included, with `git add -A`, then commits as `commit(message:amend:false…)`.
+    /// Unmerged paths refuse it before anything is staged: `git add` would mark them resolved with their conflict markers.
+    public func commitAll(message: String, trailers: [CommitTrailer] = [], signOff: Bool = false) async throws {
+        let unmerged = try await runner.run(["diff", "--name-only", "--diff-filter=U", "-z"])
+        guard unmerged.stdout.isEmpty else { throw GitError(arguments: ["add", "-A"], exitCode: 1, stderr: "Resolve the conflicts before committing all changes.") }
+        _ = try await runner.runWrite(["add", "-A"])
+        try await commit(message: message, amend: false, trailers: trailers, signOff: signOff)
+    }
+
     /// The text of the file `commit.template` names, without its `#` comment lines, or nil when none is set or it cannot be read.
     /// A relative path counts from the working tree's root, as git reads it for `git commit` run there.
     public func commitTemplate() async -> String? {

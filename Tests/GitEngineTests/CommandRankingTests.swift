@@ -122,6 +122,9 @@ final class CommandRulesTests: XCTestCase {
         XCTAssertEqual(CommandRules.stageAll(state), .nothingToStage)
         XCTAssertEqual(CommandRules.unstageAll(state), .nothingToUnstage)
         XCTAssertEqual(CommandRules.stash(state), .noChanges)
+        XCTAssertEqual(CommandRules.commitAll(state), .noChanges)
+        state.unstagedCount = 1
+        XCTAssertNil(CommandRules.commitAll(state), "unstaged and untracked changes are enough, commit all stages them")
         state.stagedCount = 1
         state.unstagedCount = 2
         XCTAssertNil(CommandRules.commit(state))
@@ -130,6 +133,7 @@ final class CommandRulesTests: XCTestCase {
         XCTAssertNil(CommandRules.stash(state))
         state.conflictCount = 1
         XCTAssertEqual(CommandRules.commit(state), .conflicts)
+        XCTAssertEqual(CommandRules.commitAll(state), .conflicts, "staging all would mark the conflicts resolved")
     }
 
     func testDiscardAllOnlyCountsTrackedChanges() throws {

@@ -2231,6 +2231,40 @@
         }
       }
     },
+    "command.commitAll.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "commit -a, alles hinzufügen, alles stagen, unversioniert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "commit -a, add all, stage all, untracked"
+          }
+        }
+      }
+    },
+    "command.commitAll.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Änderungen committen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Commit all changes…"
+          }
+        }
+      }
+    },
     "command.copyBranch.keywords" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -3664,6 +3698,24 @@
         }
       }
     },
+    "commit.form.commitAll" : {
+      "comment" : "The commit button while Shift is held: stages every change and commits.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle committen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Commit All"
+          }
+        }
+      }
+    },
     "commit.form.commitToolTip" : {
       "comment" : "Tooltip of the commit button with its shortcuts.",
       "extractionState" : "extracted_with_value",
@@ -3671,13 +3723,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Commit (⌘⏎), letzten Commit mit dieser Nachricht ändern (⌘⇧⏎)"
+            "value" : "Commit (⌘⏎), alle Änderungen committen (⇧⌘⏎), letzten Commit mit dieser Nachricht ändern (⌥⌘⏎)"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Commit (⌘⏎), amend the last Commit with this message (⌘⇧⏎)"
+            "value" : "Commit (⌘⏎), commit all changes (⇧⌘⏎), amend the last Commit with this message (⌥⌘⏎)"
           }
         }
       }
