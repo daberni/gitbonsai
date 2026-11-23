@@ -27,6 +27,12 @@ extension ScreenshotHarness {
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 
+    /// `GITBONSAI_AVATAR_FALLBACK=initials|tintedInitials|pattern` draws missing avatars in that style instead of `Theme.Avatar.fallback`.
+    static var avatarFallbackStyle: AvatarFallbackStyle? {
+        guard isActive else { return nil }
+        return environment["GITBONSAI_AVATAR_FALLBACK"].flatMap(AvatarFallbackStyle.init(rawValue:))
+    }
+
     /// `GITBONSAI_AVATAR_LOG=1` prints every avatar request with its status and the running count; the query, which can hold an address, is left out.
     static func avatarFetcher(wrapping fetcher: AvatarFetching) -> AvatarFetching {
         guard isActive, environment["GITBONSAI_AVATAR_LOG"] == "1" else { return fetcher }

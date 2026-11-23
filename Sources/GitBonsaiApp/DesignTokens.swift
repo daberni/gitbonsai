@@ -38,6 +38,8 @@ enum Theme {
         dynamic(0xe39a5c, 0xdfb18a), dynamic(0x35a3b1, 0x74bcc6), dynamic(0xad4a7c, 0xbf86a6), dynamic(0x86943a, 0xaab46e),
     ]
 
+    static let strandCount = strands.count
+
     static func strand(_ index: Int) -> NSColor {
         strands[((index % strands.count) + strands.count) % strands.count]
     }

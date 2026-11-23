@@ -125,6 +125,12 @@ extension Theme {
         static let pixels = Int(Detail.avatar * 2)
         /// Background between the lane ring and the picture, so the ring keeps its full width over a picture of the same colour.
         static let ringGap = Stroke.hairline
+        /// How a missing avatar is drawn; `ScreenshotHarness` can override it for a run.
+        static let fallback: AvatarFallbackStyle = .tintedInitials
+        /// Strength of the hashed tint behind the initials.
+        static let tintAlpha: CGFloat = 0.24
+        /// Share of the picture circle the 5×5 pattern's square spans; its corners stay inside the circle.
+        static let patternSpan: CGFloat = 0.66
     }
 
     enum Graph {

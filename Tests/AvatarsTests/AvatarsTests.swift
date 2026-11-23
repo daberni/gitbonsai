@@ -413,6 +413,15 @@ final class GitHubLookupMemoryTests: XCTestCase {
         XCTAssertEqual(cache.read(found, now: start), .image(Data([9])))
         XCTAssertNil(cache.read(none, now: start))
     }
+
+    func testFallbackIsStableAndMirrored() {
+        let a = AvatarFallback(email: " Me@Example.com", palette: 12)
+        XCTAssertEqual(a, AvatarFallback(email: "me@example.com", palette: 12))
+        XCTAssertTrue((0..<12).contains(a.tint))
+        for row in 0..<5 {
+            XCTAssertEqual(Array(a.cells[row * 5..<row * 5 + 5]), Array(a.cells[row * 5..<row * 5 + 5].reversed()))
+        }
+    }
 }
 
 /// Answers from a closure and records every requested URL. With a gate, every request waits until the gate opens.

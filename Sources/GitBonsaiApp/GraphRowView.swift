@@ -24,7 +24,7 @@ final class GraphRowView: NSView {
         var wipCounts: (changed: Int, staged: Int, untracked: Int)?
         /// A search is active and this row does not match: everything but the strands is drawn at `Theme.Focus.dimmedAlpha`.
         var isSearchMiss = false
-        /// The author's picture when the avatar store has it; the node shows initials otherwise.
+        /// The author's picture when the avatar store has it; the node shows the generated fallback otherwise.
         var avatar: NSImage?
         var highlights = Highlights()
         var columns: HistoryColumns
@@ -186,10 +186,7 @@ final class GraphRowView: NSView {
             if let avatar = model.avatar {
                 AvatarDrawing.draw(avatar, in: rect, ring: G.strandWidth, context: context)
             } else {
-                let initials = Self.initials(model.commit.authorName)
-                let text = NSAttributedString(string: initials, attributes: [.font: Theme.initialsSmall, .foregroundColor: Theme.inkMuted])
-                let size = text.size()
-                text.draw(at: CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))
+                AvatarFallbackDrawing.draw(email: model.commit.authorEmail, initials: Self.initials(model.commit.authorName), font: Theme.initialsSmall, in: rect, ring: G.strandWidth, context: context)
             }
             context.setStrokeColor(strand.cgColor)
             context.setLineWidth(G.strandWidth)
