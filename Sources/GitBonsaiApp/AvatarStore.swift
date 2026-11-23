@@ -4,7 +4,8 @@ import GitEngine
 
 /// Author avatars for the history and the detail panel.
 ///
-/// Drawing only reads memory: asking for an avatar that is not there yet returns nil, so the initials show, and starts one background lookup per author.
+/// Pictures are kept per address, not per repository: one found in any repository shows in every other.
+/// Drawing reads memory, and the disk cache once per address and run, so pictures from an earlier launch show with the first frame. Anything else returns nil, so the generated fallback shows, and starts one background lookup per author.
 /// Rows only ask while they are on screen, which keeps the network lazy and the history's cost per row a dictionary lookup.
 @MainActor
 final class AvatarStore {
@@ -17,6 +18,7 @@ final class AvatarStore {
     /// Pictures kept in memory; well above a screenful of authors, a few MB at 56 px.
     private static let memoryCapacity = 1000
 
+    private let cache: AvatarDiskCache
     private let resolver: AvatarResolver
     /// The avatar service of each repository folder, from its remotes.
     private var services: [String: AvatarService] = [:]
@@ -24,11 +26,13 @@ final class AvatarStore {
     private var images = AvatarMemoryCache<NSImage>(capacity: memoryCapacity)
     /// When each author without image was last looked up, including lookups still running.
     private var attempts: [String: Date] = [:]
+    /// Addresses whose picture was already looked for on disk this run.
+    private var diskRead: Set<String> = []
     private var applied: (enabled: Bool, sources: AvatarSources)
     private var changePending = false
 
     private init() {
-        let cache = AvatarDiskCache(directory: ScreenshotHarness.avatarCacheDirectory ?? Self.defaultCacheDirectory)
+        cache = AvatarDiskCache(directory: ScreenshotHarness.avatarCacheDirectory ?? Self.defaultCacheDirectory)
         resolver = AvatarResolver(cache: cache, fetcher: ScreenshotHarness.avatarFetcher(wrapping: URLSessionAvatarFetcher()))
         applied = (AppSettings.avatarsEnabled, AppSettings.avatarSources)
         let resolver = resolver
@@ -51,10 +55,14 @@ final class AvatarStore {
     /// The avatar of whoever uses `email`, if it is in memory; otherwise nil, and a lookup starts unless one ran recently.
     /// `commit` is a commit with that address as author or committer; GitHub's commit list starts there to name the account.
     func image(email: String, commit: String, in repository: Repository) -> NSImage? {
-        guard applied.enabled, let address = AvatarPlan.normalized(email) else { return nil }
-        guard let service = service(of: repository) else { return nil }
-        let key = "\(service)|\(applied.sources.rawValue)|\(address)"
+        guard applied.enabled, let personKey = AvatarPlan.personKey(email: email, sources: applied.sources, pixels: Theme.Avatar.pixels) else { return nil }
+        let key = personKey
         if let image = images.value(for: key) { return image }
+        if diskRead.insert(key).inserted, case .image(let data) = cache.read(key, now: Date()), let image = NSImage(data: data) {
+            images.insert(image, for: key)
+            return image
+        }
+        guard let service = service(of: repository), let address = AvatarPlan.normalized(email) else { return nil }
         if let last = attempts[key], Date().timeIntervalSince(last) < Self.retryInterval { return nil }
         attempts[key] = Date()
         let steps = AvatarPlan.steps(email: address, commit: commit, service: service, sources: applied.sources, pixels: Theme.Avatar.pixels)
@@ -62,7 +70,7 @@ final class AvatarStore {
         let resolver = resolver
         let sources = applied.sources
         Task {
-            guard let data = await resolver.image(for: steps), let image = NSImage(data: data) else { return }
+            guard let data = await resolver.image(for: steps, personKey: personKey), let image = NSImage(data: data) else { return }
             // Settings may have changed while the lookup ran.
             guard applied.enabled, applied.sources == sources else { return }
             images.insert(image, for: key)
@@ -110,6 +118,7 @@ final class AvatarStore {
         applied = current
         images.removeAll()
         attempts.removeAll()
+        diskRead.removeAll()
         if turnedOff {
             let resolver = resolver
             Task { await resolver.discardAll() }

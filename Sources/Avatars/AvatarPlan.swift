@@ -58,8 +58,18 @@ public enum AvatarPlan {
         return address
     }
 
+    /// The disk cache key of the picture found for `email` under `sources`, whatever repository or step found it, so every repository reuses it.
+    /// Only found pictures are stored under it: a miss depends on the repository's host and stays with its step.
+    public static func personKey(email: String, sources: AvatarSources, pixels: Int) -> String? {
+        normalized(email).map { "person|\(sources.rawValue)|\($0)|\(pixels)" }
+    }
+
     static func gravatarHash(_ address: String) -> String {
-        SHA256.hash(data: Data(address.utf8)).map { String(format: "%02x", $0) }.joined()
+        sha256(address)
+    }
+
+    static func sha256(_ text: String) -> String {
+        SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     /// Whether a picture address belongs to Gravatar, whose default image a host hands out for addresses without their own picture.

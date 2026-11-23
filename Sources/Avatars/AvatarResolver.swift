@@ -28,6 +28,9 @@ public struct URLSessionAvatarFetcher: AvatarFetching {
 }
 
 /// Runs the steps of `AvatarPlan` against the disk cache and the network: one lookup per cache key at a time, a few requests at once, and no GitHub API calls while its rate limit is used up.
+///
+/// GitHub's signed-out API only shows public repositories. In a private one every listing answers 404, so authors with their own address get no GitHub avatar (noreply addresses still do, they name the account);
+/// in a public one an address maps to an account only when its owner added it to their GitHub account. Both outcomes are remembered on disk for the miss lifetime and tried again afterwards; avatars from private repositories need a signed-in connection to the host.
 public actor AvatarResolver {
     /// What one step found. Only `image` and `missing` are cached; `unavailable` (offline, rate limit, server error) is tried again later.
     enum Outcome: Sendable, Equatable {
@@ -43,13 +46,10 @@ public actor AvatarResolver {
     private var running = 0
     private var waiting: [CheckedContinuation<Void, Never>] = []
     private var inFlight: [String: Task<Outcome, Never>] = [:]
-    private var gitHubBlockedUntil: Date?
-    /// Repositories GitHub does not show without signing in, such as private ones; their lookups stop for this run.
-    private var unreachableRepositories: Set<String> = []
-    /// Commits GitHub does not have, such as unpushed ones, so no listing starts there again.
+    /// Accounts GitHub's commit lists named, repositories it does not show and the rate limit's reset, read from and written to the disk cache.
+    private var gitHub: GitHubLookupState
+    /// Commits GitHub does not have, such as unpushed ones, so no listing starts there again this run.
     private var unknownCommits: Set<String> = []
-    /// Account id per lower-cased address from GitHub's commit lists; nil where GitHub knows no account.
-    private var gitHubAccounts: [String: Int?] = [:]
     private var gitHubListings: [String: Task<Bool, Never>] = [:]
     /// Raised by `discardAll`, so lookups that were running then do not write their results back.
     private var generation = 0
@@ -59,6 +59,7 @@ public actor AvatarResolver {
         self.fetcher = fetcher
         self.maxConcurrent = maxConcurrent
         self.now = now
+        gitHub = cache?.readGitHubState(now: now()) ?? GitHubLookupState()
     }
 
     /// Expired entries and the oldest beyond the size limit leave the disk cache.
@@ -69,14 +70,18 @@ public actor AvatarResolver {
     /// Deletes the disk cache and forgets the accounts GitHub named; lookups still running keep their results to themselves.
     public func discardAll() {
         generation += 1
-        gitHubAccounts.removeAll()
+        gitHub = GitHubLookupState()
         cache?.removeAll()
     }
 
     /// The picture's bytes from the first step that has one; nil when none has, or none could be reached now.
-    public func image(for steps: [AvatarStep]) async -> Data? {
+    /// A found picture is also stored under `personKey` (`AvatarPlan.personKey`), where every repository finds it.
+    public func image(for steps: [AvatarStep], personKey: String? = nil) async -> Data? {
+        let started = generation
         for step in steps {
-            if case .image(let data) = await outcome(of: step) { return data }
+            guard case .image(let data) = await outcome(of: step) else { continue }
+            if let personKey, generation == started { cache?.write(.image(data), for: personKey, now: now()) }
+            return data
         }
         return nil
     }
@@ -128,8 +133,8 @@ public actor AvatarResolver {
     private func gitHub(repository: String, commit: String, email: String, pixels: Int) async -> Outcome {
         var listedOwn = false
         while true {
-            if let known = gitHubAccounts[email] {
-                guard let id = known else { return .missing }
+            if let known = gitHub.accounts[GitHubLookupState.key(email)] {
+                guard let id = known.id else { return .missing }
                 return await download(URL(string: "https://avatars.githubusercontent.com/u/\(id)?s=\(pixels)&v=4")!)
             }
             if let listing = gitHubListings[repository] {
@@ -154,30 +159,40 @@ public actor AvatarResolver {
     /// A listing still out when `discardAll` ran keeps its accounts to itself.
     private func listGitHubCommits(repository: String, from commit: String) async -> Bool {
         let started = generation
-        if let blocked = gitHubBlockedUntil, blocked > now() { return false }
-        guard !unreachableRepositories.contains(repository), !unknownCommits.contains(commit) else { return false }
+        if let blocked = gitHub.blockedUntil, blocked > now() { return false }
+        guard gitHub.unreachableRepositories[GitHubLookupState.key(repository)] == nil, !unknownCommits.contains(commit) else { return false }
         guard let url = URL(string: "https://api.github.com/repos/\(repository)/commits?sha=\(commit)&per_page=100") else { return false }
         guard let (data, response) = await get(url, headers: Self.gitHubHeaders) else { return false }
         switch response.statusCode {
         case 200:
             guard generation == started else { return true }
-            for (email, id) in Self.gitHubAccounts(in: data) where gitHubAccounts[email] == nil || id != nil {
-                gitHubAccounts[email] = id
+            let seen = now()
+            for (email, id) in Self.gitHubAccounts(in: data) {
+                let key = GitHubLookupState.key(email)
+                guard gitHub.accounts[key]?.id == nil || id != nil else { continue }
+                gitHub.accounts[key] = GitHubLookupState.Account(id: id, seen: seen)
             }
+            saveGitHubState()
             return true
         case 403, 429:
-            gitHubBlockedUntil = Self.rateLimitReset(response, now: now()) ?? now().addingTimeInterval(3600)
+            gitHub.blockedUntil = Self.rateLimitReset(response, now: now()) ?? now().addingTimeInterval(3600)
+            if generation == started { saveGitHubState() }
             return false
         case 404, 422:
             // Either the commit was never pushed or the repository is not public; one look at the repository tells which.
             unknownCommits.insert(commit)
-            if let probe = URL(string: "https://api.github.com/repos/\(repository)"), let (_, answer) = await get(probe, headers: Self.gitHubHeaders), answer.statusCode == 404 {
-                unreachableRepositories.insert(repository)
+            if let probe = URL(string: "https://api.github.com/repos/\(repository)"), let (_, answer) = await get(probe, headers: Self.gitHubHeaders), answer.statusCode == 404, generation == started {
+                gitHub.unreachableRepositories[GitHubLookupState.key(repository)] = now()
+                saveGitHubState()
             }
             return false
         default:
             return false
         }
+    }
+
+    private func saveGitHubState() {
+        cache?.writeGitHubState(gitHub)
     }
 
     private static let gitHubHeaders = ["Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"]

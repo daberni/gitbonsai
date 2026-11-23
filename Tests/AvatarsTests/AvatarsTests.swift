@@ -317,6 +317,104 @@ final class AvatarResolverTests: XCTestCase {
     }
 }
 
+/// What GitHub said survives a launch: accounts, absences, private repositories and the rate limit, each until its lifetime ends.
+final class GitHubLookupMemoryTests: XCTestCase {
+    private var directory: URL!
+    private let start = Date(timeIntervalSince1970: 1_800_000_000)
+    private let day: TimeInterval = 86_400
+
+    override func setUpWithError() throws {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("avatar-state-\(UUID().uuidString)")
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    private func steps(_ email: String, repository: String = "o/r") -> [AvatarStep] {
+        AvatarPlan.steps(email: email, commit: "c", service: .gitHub(repository: repository), sources: .remoteHost, pixels: 56)
+    }
+
+    private func resolver(_ fetcher: FakeFetcher, at date: Date) -> AvatarResolver {
+        AvatarResolver(cache: AvatarDiskCache(directory: directory), fetcher: fetcher, now: { date })
+    }
+
+    /// Addresses named by an earlier run's listing need no listing after a launch, also those without account; once their lifetime ended they are listed again.
+    func testAccountsAndAbsencesFromAListingSurviveALaunch() async {
+        let listing = #"[{"commit":{"author":{"email":"me@example.com"},"committer":{"email":"ghost@example.com"}},"author":{"id":42},"committer":null}]"#
+        let online = FakeFetcher { url in url.host == "api.github.com" ? (200, Data(listing.utf8), [:]) : (200, Data(url.path.utf8), [:]) }
+        // Only the listing ran in the first launch: "me" was never drawn, so no picture is cached for it.
+        _ = await resolver(online, at: start).image(for: steps("someone@example.com"))
+        XCTAssertEqual(online.urls.count, 1)
+
+        let later = FakeFetcher { url in url.host == "api.github.com" ? (500, Data(), [:]) : (200, Data(url.path.utf8), [:]) }
+        let relaunched = resolver(later, at: start.addingTimeInterval(day))
+        let me = await relaunched.image(for: steps("me@example.com"))
+        let ghost = await relaunched.image(for: steps("ghost@example.com"))
+        XCTAssertEqual(me, Data("/u/42".utf8))
+        XCTAssertNil(ghost)
+        XCTAssertEqual(later.urls.map(\.path), ["/u/42"])
+
+        // The absence lasts as long as a miss, the account as long as a picture.
+        let afterMisses = FakeFetcher { _ in (500, Data(), [:]) }
+        let state = AvatarDiskCache(directory: directory).readGitHubState(now: start.addingTimeInterval(4 * day))
+        XCTAssertEqual(state.accounts.values.map(\.id), [42])
+        XCTAssertNil(state.accounts[GitHubLookupState.key("ghost@example.com")])
+        _ = await resolver(afterMisses, at: start.addingTimeInterval(8 * day)).image(for: steps("other@example.com"))
+        XCTAssertEqual(afterMisses.urls.filter { $0.host == "api.github.com" }.count, 1)
+        XCTAssertTrue(AvatarDiskCache(directory: directory).readGitHubState(now: start.addingTimeInterval(8 * day)).accounts.isEmpty)
+    }
+
+    /// A used-up rate limit is respected by the next launch until its reset time, and then lifted.
+    func testRateLimitResetSurvivesALaunch() async {
+        let reset = start.addingTimeInterval(1800)
+        let limited = FakeFetcher { _ in (403, Data(), ["X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "\(Int(reset.timeIntervalSince1970))"]) }
+        _ = await resolver(limited, at: start).image(for: steps("a@example.com"))
+        XCTAssertEqual(limited.urls.count, 1)
+
+        let before = FakeFetcher { _ in (200, Data("[]".utf8), [:]) }
+        let none = await resolver(before, at: start.addingTimeInterval(600)).image(for: steps("b@example.com"))
+        XCTAssertNil(none)
+        XCTAssertTrue(before.urls.isEmpty)
+
+        let after = FakeFetcher { _ in (200, Data("[]".utf8), [:]) }
+        _ = await resolver(after, at: reset.addingTimeInterval(1)).image(for: steps("b@example.com"))
+        XCTAssertEqual(after.urls.map(\.path), ["/repos/o/r/commits"])
+    }
+
+    /// A repository signed-out GitHub does not show is not asked again after a launch until a miss would expire.
+    func testPrivateRepositorySurvivesALaunch() async {
+        let hidden = FakeFetcher { _ in (404, Data(), [:]) }
+        _ = await resolver(hidden, at: start).image(for: steps("a@example.com", repository: "o/private"))
+        XCTAssertEqual(hidden.urls.map(\.path), ["/repos/o/private/commits", "/repos/o/private"])
+
+        let relaunched = FakeFetcher { _ in (404, Data(), [:]) }
+        _ = await resolver(relaunched, at: start.addingTimeInterval(day)).image(for: steps("b@example.com", repository: "o/private"))
+        XCTAssertTrue(relaunched.urls.isEmpty)
+        // Other repositories are still asked.
+        _ = await resolver(relaunched, at: start.addingTimeInterval(day)).image(for: steps("b@example.com", repository: "o/public"))
+        XCTAssertEqual(relaunched.urls.first?.path, "/repos/o/public/commits")
+
+        let expired = FakeFetcher { _ in (404, Data(), [:]) }
+        _ = await resolver(expired, at: start.addingTimeInterval(4 * day)).image(for: steps("c@example.com", repository: "o/private"))
+        XCTAssertEqual(expired.urls.first?.path, "/repos/o/private/commits")
+    }
+
+    /// A picture found through one repository's host is stored under the address alone, where a repository without host finds it; misses are not.
+    func testFoundPicturesAreStoredPerAddress() async {
+        let fetcher = FakeFetcher { url in url.path == "/u/1" ? (200, Data([9]), [:]) : (404, Data(), [:]) }
+        let resolver = resolver(fetcher, at: start)
+        let found = AvatarPlan.personKey(email: "1+me@users.noreply.github.com", sources: .remoteHost, pixels: 56)!
+        let none = AvatarPlan.personKey(email: "Nobody@Example.com ", sources: .remoteHost, pixels: 56)!
+        XCTAssertEqual(none, "person|remoteHost|nobody@example.com|56")
+        _ = await resolver.image(for: steps("1+me@users.noreply.github.com"), personKey: found)
+        _ = await resolver.image(for: AvatarPlan.steps(email: "nobody@example.com", commit: "c", service: .none, sources: .remoteHostAndGravatar, pixels: 56), personKey: none)
+        let cache = AvatarDiskCache(directory: directory)
+        XCTAssertEqual(cache.read(found, now: start), .image(Data([9])))
+        XCTAssertNil(cache.read(none, now: start))
+    }
+}
+
 /// Answers from a closure and records every requested URL. With a gate, every request waits until the gate opens.
 final class FakeFetcher: AvatarFetching, @unchecked Sendable {
     typealias Answer = (status: Int, data: Data, headers: [String: String])
