@@ -109,8 +109,7 @@ enum ScreenshotHarness {
 
     /// Renders the view and its subviews as they would draw on screen and writes them as a PNG.
     static func writePNG(of view: NSView, to path: String) {
-        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let rep = renderWithGlass(view) else { return }
         if let png = rep.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: path))
         }

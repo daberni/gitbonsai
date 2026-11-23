@@ -170,7 +170,7 @@ extension ScreenshotHarness {
         return responder.map { "\(type(of: $0))" } ?? "none"
     }
 
-    /// A foreground run takes the picture from the window server, the only renderer that draws Liquid Glass (it needs Screen Recording for the app); a background run renders the views.
+    /// A foreground run takes the picture from the window server, the only renderer that draws real Liquid Glass (it needs Screen Recording for the app); a background run renders the views and composites the glass.
     private static func render(_ window: NSWindow, to path: String) {
         if !runsInBackground {
             let capture = Process()
@@ -179,11 +179,10 @@ extension ScreenshotHarness {
             try? capture.run()
             capture.waitUntilExit()
             if capture.terminationStatus == 0 { return }
-            report("screencapture failed (Screen Recording not allowed?); rendering the views, which leaves the glass's surroundings blank")
+            report("screencapture failed (Screen Recording not allowed?); rendering the views with the harness's glass")
         }
-        guard let view = window.contentView?.superview, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        guard let view = window.contentView?.superview else { return }
+        writePNG(of: view, to: path)
     }
 
     private static func report(_ line: String) {

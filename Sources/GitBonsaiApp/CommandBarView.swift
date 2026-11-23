@@ -34,8 +34,7 @@ final class CommandBarPanel: NSView {
     let search = TextInput()
     let table = NSTableView()
     private let scroll = NSScrollView()
-    /// Background harness captures render views with `cacheDisplay`, which draws a glass view's surroundings blank; they get a matte stand-in. Foreground runs and the app use real glass.
-    private let glass: NSView = ScreenshotHarness.runsInBackground ? FillView(color: Theme.surface2) : NSGlassEffectView()
+    private let glass = NSGlassEffectView()
     private let stepLabel = NSTextField(labelWithString: "")
     private let emptyLabel = NSTextField(labelWithString: String(localized: "commandBar.list.noMatches", defaultValue: "No matching commands", bundle: .module))
     private var listHeight: NSLayoutConstraint!
@@ -50,25 +49,9 @@ final class CommandBarPanel: NSView {
 
     private func build() {
         let content = NSView()
-        if let glass = glass as? NSGlassEffectView {
-            glass.cornerRadius = Theme.Radius.lg
-            glass.tintColor = Theme.surface1.withAlphaComponent(C.glassTint)
-            glass.contentView = content
-        } else {
-            glass.wantsLayer = true
-            glass.layer?.cornerRadius = Theme.Radius.lg
-            glass.layer?.masksToBounds = true
-            glass.layer?.borderWidth = Theme.Stroke.hairline
-            glass.layer?.borderColor = Theme.hairline.cgColor
-            content.translatesAutoresizingMaskIntoConstraints = false
-            glass.addSubview(content)
-            NSLayoutConstraint.activate([
-                content.topAnchor.constraint(equalTo: glass.topAnchor),
-                content.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
-                content.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
-                content.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
-            ])
-        }
+        glass.cornerRadius = Theme.Radius.lg
+        glass.tintColor = Theme.surface1.withAlphaComponent(C.glassTint)
+        glass.contentView = content
         glass.translatesAutoresizingMaskIntoConstraints = false
         addSubview(glass)
 
