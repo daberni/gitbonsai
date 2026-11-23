@@ -53,6 +53,8 @@ extension ScreenshotHarness {
             let keys: [String: (characters: String, code: UInt16, flags: NSEvent.ModifierFlags)] = [
                 "up": (String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)), 126, [.numericPad, .function]),
                 "down": (String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), 125, [.numericPad, .function]),
+                "cmd-up": (String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)), 126, [.numericPad, .function, .command]),
+                "cmd-down": (String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), 125, [.numericPad, .function, .command]),
                 "return": ("\r", 36, []),
                 "escape": ("\u{1b}", 53, []),
             ]

@@ -71,6 +71,12 @@ public enum CommandBlocker: Sendable, Equatable {
     case checkedOut
     /// A stash has no checkout.
     case notCheckoutable
+    /// The command acts on one selected commit.
+    case noCommitSelected
+    /// A root commit has no parent.
+    case rootCommit
+    /// No loaded commit has the selected one as parent.
+    case noChildren
 }
 
 /// The enabled rules of the repository commands, one function per command family. Nil means the command can run.
@@ -178,6 +184,18 @@ public enum CommandRules {
 
     public static func copyBranchName(_ state: RepositoryCommandState) -> CommandBlocker? {
         state.branch == nil ? .detachedHead : nil
+    }
+
+    /// `parentCount` is nil when no single commit is selected.
+    public static func goToParent(parentCount: Int?) -> CommandBlocker? {
+        guard let parentCount else { return .noCommitSelected }
+        return parentCount == 0 ? .rootCommit : nil
+    }
+
+    /// `childCount` counts the loaded commits that have the selected one as parent; nil when no single commit is selected.
+    public static func goToChild(childCount: Int?) -> CommandBlocker? {
+        guard let childCount else { return .noCommitSelected }
+        return childCount == 0 ? .noChildren : nil
     }
 
     public static func copyHead(_ state: RepositoryCommandState) -> CommandBlocker? {

@@ -1788,6 +1788,40 @@
         }
       }
     },
+    "command.blocker.noChildren" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein neuerer Commit darauf"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No newer Commit on it"
+          }
+        }
+      }
+    },
+    "command.blocker.noCommitSelected" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Commit ausgewählt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No Commit selected"
+          }
+        }
+      }
+    },
     "command.blocker.noCommits" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -1988,6 +2022,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%@ in progress"
+          }
+        }
+      }
+    },
+    "command.blocker.rootCommit" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erster Commit, ohne Eltern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "First Commit, no parent"
           }
         }
       }
@@ -2465,6 +2516,126 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "fetch, prune, clean up"
+          }
+        }
+      }
+    },
+    "command.goToChild.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kind, neuer, springen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "child, newer, jump"
+          }
+        }
+      }
+    },
+    "command.goToChild.placeholder" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kinder durchsuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Search Children"
+          }
+        }
+      }
+    },
+    "command.goToChild.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Kind"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Go to Child"
+          }
+        }
+      }
+    },
+    "command.goToParent.firstParent" : {
+      "comment" : "Marks the parent a merge was made on in the Go to Parent list.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "erster Elternteil"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "first parent"
+          }
+        }
+      }
+    },
+    "command.goToParent.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eltern, älter, Merge, springen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "parent, older, merge, jump"
+          }
+        }
+      }
+    },
+    "command.goToParent.placeholder" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eltern durchsuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Search Parents"
+          }
+        }
+      }
+    },
+    "command.goToParent.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Elternteil"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Go to Parent"
           }
         }
       }

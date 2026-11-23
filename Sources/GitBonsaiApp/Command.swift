@@ -171,6 +171,9 @@ extension CommandBlocker {
         case .upToDate: LocalizedStringResource("command.blocker.upToDate", defaultValue: "Already up to date", bundle: .module)
         case .checkedOut: LocalizedStringResource("checkout.command.checkedOut", defaultValue: "Checked out", bundle: .module)
         case .notCheckoutable: LocalizedStringResource("command.blocker.notCheckoutable", defaultValue: "Cannot be checked out", bundle: .module)
+        case .noCommitSelected: LocalizedStringResource("command.blocker.noCommitSelected", defaultValue: "No Commit selected", bundle: .module)
+        case .rootCommit: LocalizedStringResource("command.blocker.rootCommit", defaultValue: "First Commit, no parent", bundle: .module)
+        case .noChildren: LocalizedStringResource("command.blocker.noChildren", defaultValue: "No newer Commit on it", bundle: .module)
         }
     }
 }

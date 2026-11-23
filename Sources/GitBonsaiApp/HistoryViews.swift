@@ -102,6 +102,8 @@ final class HistoryTableView: NSTableView {
     var onRowsReloaded: ((IndexSet) -> Void)?
     /// Escape; returns true when something closed.
     var onCancel: (() -> Bool)?
+    /// ⌘↓ goes to the selected commit's parent, ⌘↑ to its child; the table's own ⌘-arrows only scroll, which Home and End also do.
+    var onRelative: ((_ parent: Bool) -> Void)?
     private var hoverArea: NSTrackingArea?
     private let cursor = DividerCursor()
 
@@ -170,6 +172,11 @@ final class HistoryTableView: NSTableView {
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == KeyCode.escape, onCancel?() == true { return }
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function])
+        if modifiers == .command, let key = event.specialKey, key == .upArrow || key == .downArrow, let onRelative {
+            onRelative(key == .downArrow)
+            return
+        }
         super.keyDown(with: event)
     }
 

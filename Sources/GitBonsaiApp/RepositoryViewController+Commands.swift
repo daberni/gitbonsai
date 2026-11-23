@@ -19,7 +19,7 @@ extension RepositoryViewController: CommandProvider {
     }
 
     func commands(_ state: RepositoryCommandState) -> [Command] {
-        goToRefCommands(state) + commitCommands(state) + worktreeCommands(state) + openCommands() + copyCommands(state) + viewCommands()
+        goToRefCommands(state) + relativeCommands() + commitCommands(state) + worktreeCommands(state) + openCommands() + copyCommands(state) + viewCommands()
     }
 
     // MARK: View
