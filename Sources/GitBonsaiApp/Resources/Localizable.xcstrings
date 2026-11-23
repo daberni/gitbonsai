@@ -1015,16 +1015,16 @@
     "branch.upstream.remove" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Remove upstream"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Upstream entfernen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove upstream"
           }
         }
       }
@@ -10872,16 +10872,16 @@
       "comment" : "Accessibility label of the magnifier that opens the filter's scope menu.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Filter scope"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filterbereich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Filter scope"
           }
         }
       }
@@ -11092,23 +11092,6 @@
         }
       }
     },
-    "pull.menu.fastForwardOnlyDefault" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nur Fast-Forward (Standard)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Fast-forward only (default)"
-          }
-        }
-      }
-    },
     "pull.menu.headNoUpstream" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -11143,23 +11126,6 @@
         }
       }
     },
-    "pull.menu.mergeDefault" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge (Standard)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Merge (default)"
-          }
-        }
-      }
-    },
     "pull.menu.noUpstream" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -11173,23 +11139,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%@ has no upstream"
-          }
-        }
-      }
-    },
-    "pull.menu.rebaseDefault" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase (Standard)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase (default)"
           }
         }
       }

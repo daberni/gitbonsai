@@ -61,7 +61,9 @@ final class PullPushController {
         menu.addItem(header(LocalizedStringResource("pull.menu.header", defaultValue: "Pull \(RefName.remoteBranch(upstream.name)) into \(RefName.branch(branch))", bundle: .module)))
         let modes = [defaultMode] + PullMode.allCases.filter { $0 != defaultMode }
         for mode in modes {
-            menu.addItem(pullItem(Self.title(of: mode, isDefault: mode == defaultMode), PullVariant(mode: mode)))
+            let item = pullItem(Self.title(of: mode), PullVariant(mode: mode))
+            if mode == defaultMode { item.setTitle(RefString(Self.title(of: mode)), marker: String(localized: "common.default", defaultValue: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals.")) }
+            menu.addItem(item)
         }
         return menu
     }
@@ -90,14 +92,11 @@ final class PullPushController {
         return menu
     }
 
-    private static func title(of mode: PullMode, isDefault: Bool) -> LocalizedStringResource {
-        switch (mode, isDefault) {
-        case (.fastForwardOnly, false): LocalizedStringResource("pull.menu.fastForwardOnly", defaultValue: "Fast-forward only", bundle: .module)
-        case (.fastForwardOnly, true): LocalizedStringResource("pull.menu.fastForwardOnlyDefault", defaultValue: "Fast-forward only (default)", bundle: .module)
-        case (.merge, false): LocalizedStringResource("pull.mode.merge", defaultValue: "Merge", bundle: .module, comment: "Pull mode.")
-        case (.merge, true): LocalizedStringResource("pull.menu.mergeDefault", defaultValue: "Merge (default)", bundle: .module)
-        case (.rebase, false): LocalizedStringResource("pull.mode.rebase", defaultValue: "Rebase", bundle: .module, comment: "Pull mode.")
-        case (.rebase, true): LocalizedStringResource("pull.menu.rebaseDefault", defaultValue: "Rebase (default)", bundle: .module)
+    private static func title(of mode: PullMode) -> LocalizedStringResource {
+        switch mode {
+        case .fastForwardOnly: LocalizedStringResource("pull.menu.fastForwardOnly", defaultValue: "Fast-forward only", bundle: .module)
+        case .merge: LocalizedStringResource("pull.mode.merge", defaultValue: "Merge", bundle: .module, comment: "Pull mode.")
+        case .rebase: LocalizedStringResource("pull.mode.rebase", defaultValue: "Rebase", bundle: .module, comment: "Pull mode.")
         }
     }
 

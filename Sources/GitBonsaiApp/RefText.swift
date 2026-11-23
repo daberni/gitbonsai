@@ -108,6 +108,26 @@ enum RefText {
         return NSAttributedString(attachment: attachment)
     }
 
+    /// A word such as "Default" in the muted pill of the settings lists, without a glyph, for a menu item's marker.
+    static func marker(_ text: String, font: NSFont) -> NSAttributedString {
+        let textFont = NSFont.systemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
+        let attributes: [NSAttributedString.Key: Any] = [.font: textFont, .foregroundColor: Theme.ink]
+        let textSize = (text as NSString).size(withAttributes: attributes)
+        let size = CGSize(width: ceil(textSize.width) + 2 * M.trailingPadding, height: ceil(textSize.height) + M.extraHeight)
+        let image = NSImage(size: size, flipped: true) { rect in
+            Theme.inkMuted.mixed(into: Theme.surface0, fraction: Theme.Pill.tint.plain).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2).fill()
+            (text as NSString).draw(at: CGPoint(x: M.trailingPadding, y: (rect.height - textSize.height) / 2), withAttributes: attributes)
+            return true
+        }
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = CGRect(x: 0, y: (font.capHeight - size.height) / 2, width: size.width, height: size.height)
+        let result = NSMutableAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: M.hiddenSize), .foregroundColor: NSColor.clear])
+        result.append(NSAttributedString(attachment: attachment))
+        return result
+    }
+
     static func textFont(_ kind: RefKind, like font: NSFont) -> NSFont {
         switch kind {
         case .commit, .path: NSFont.monospacedSystemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
@@ -191,6 +211,17 @@ extension NSMenuItem {
     }
 
     @MainActor func setTitle(_ title: LocalizedStringResource) { setTitle(RefString(title)) }
+
+    /// Shows `title` followed by `marker`, such as "Default", as a pill.
+    @MainActor func setTitle(_ title: RefString, marker: String) {
+        let font = NSFont.menuFont(ofSize: 0)
+        self.title = title.plain + " " + marker
+        let text = NSMutableAttributedString(attributedString: RefText.attributed(title, font: font))
+        text.append(NSAttributedString(string: " ", attributes: [.font: font]))
+        text.append(RefText.marker(marker, font: font))
+        attributedTitle = text
+        setAccessibilityLabel(self.title)
+    }
 
     /// The title as a person reads it, without the pills' attachment characters; what the harness matches entries by.
     var plainTitle: String { RefText.plain(title) }
