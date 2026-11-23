@@ -12,6 +12,8 @@ extension RepositoryViewController {
     }
 
     func showDiff(_ selection: FileSelection) {
+        if isConflict(selection) { return showConflict(selection.path) }
+        conflicts.close()
         diff.show(selection) { [weak self] in
             guard let self else { return }
             historyPane.show(diff.view)
@@ -21,6 +23,7 @@ extension RepositoryViewController {
     /// The diff's close button or Escape: the graph comes back with the focus.
     func showGraph() {
         diff.close()
+        conflicts.close()
         historyPane.show(history.view)
         detail.selectedFile = nil
         view.window?.makeFirstResponder(history.tableView)
@@ -30,9 +33,11 @@ extension RepositoryViewController {
     /// elsewhere, such as in the search field, it stays, so typing goes on.
     private func closeDiff() {
         diff.close()
-        guard historyPane.current === diff.view else { return }
+        conflicts.close()
+        let open = historyPane.current
+        guard open === diff.view || open === conflicts.view, let open else { return }
         let focus = view.window?.firstResponder as? NSView
-        let focusFollows = focus.map { $0.isDescendant(of: diff.view) || $0.isDescendant(of: detail) } ?? true
+        let focusFollows = focus.map { $0.isDescendant(of: open) || $0.isDescendant(of: detail) } ?? true
         historyPane.show(history.view)
         if focusFollows { view.window?.makeFirstResponder(history.tableView) }
     }

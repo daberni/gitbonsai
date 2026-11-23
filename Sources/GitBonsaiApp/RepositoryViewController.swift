@@ -32,9 +32,11 @@ final class RepositoryViewController: NSObject {
     let fileActions: FileActionsController
     let commitController: CommitController
     let diff: DiffViewController
+    /// Takes the diff's place for a file with unresolved conflicts.
+    var conflicts: ConflictViewController!
     let tagsController: TagsController
     let stashesController: StashesController
-    /// The history column shows the graph, or the diff of one file in its place.
+    /// The history column shows the graph, or the diff or conflict view of one file in its place.
     let historyPane = ContainerView()
     /// Detail panel, and below it the commit form for the working directory.
     var rightColumn: ColumnWithBottomBar!
@@ -85,6 +87,7 @@ final class RepositoryViewController: NSObject {
         let model = viewModel
         diff = DiffViewController(staging: staging, repository: { model.repository })
         super.init()
+        conflicts = ConflictViewController(repository: { model.repository }, sides: { [weak self] in self?.conflictSides() ?? ConflictSides(ours: "HEAD", theirs: "MERGE_HEAD") }, refresh: { await model.refresh(note: nil) }, prompter: commitActions.prompter)
         let rebase = commitActions.interactiveRebase
         inlineReword = InlineRewordController(viewModel: viewModel, prompter: commitActions.prompter, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutController
@@ -118,7 +121,7 @@ final class RepositoryViewController: NSObject {
             case .revisions:
                 break
             case .unstaged, .staged, .untracked:
-                diff.reload()
+                if historyPane.current === conflicts.view { conflicts.reload() } else { diff.reload() }
             }
         }
         // Editing an already changed file keeps its status line, so the working directory's line counts are read again, unless a changed status just did.

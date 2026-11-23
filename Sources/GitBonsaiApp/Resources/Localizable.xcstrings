@@ -4781,6 +4781,928 @@
         }
       }
     },
+    "conflict.action.delete" : {
+      "comment" : "Resolve a conflict by deleting the file",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete File"
+          }
+        }
+      }
+    },
+    "conflict.action.ignoreOurs" : {
+      "comment" : "Tooltip of the gutter button that leaves our change out of the merge result",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsere ignorieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignore ours"
+          }
+        }
+      }
+    },
+    "conflict.action.ignoreTheirs" : {
+      "comment" : "Tooltip of the gutter button that leaves their change out of the merge result",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre ignorieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignore theirs"
+          }
+        }
+      }
+    },
+    "conflict.action.keep" : {
+      "comment" : "Resolve a conflict by keeping the file the other side deleted",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei behalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep File"
+          }
+        }
+      }
+    },
+    "conflict.action.takeOurs" : {
+      "comment" : "Tooltip of the gutter button that puts our change into the merge result",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsere ins Ergebnis übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take ours into the result"
+          }
+        }
+      }
+    },
+    "conflict.action.takeTheirs" : {
+      "comment" : "Tooltip of the gutter button that puts their change into the merge result",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre ins Ergebnis übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take theirs into the result"
+          }
+        }
+      }
+    },
+    "conflict.action.useOurs" : {
+      "comment" : "Resolve a binary conflict with our whole file",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsere verwenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Ours"
+          }
+        }
+      }
+    },
+    "conflict.action.useTheirs" : {
+      "comment" : "Resolve a binary conflict with their whole file",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre verwenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Theirs"
+          }
+        }
+      }
+    },
+    "conflict.choice.both" : {
+      "comment" : "Link above an open conflict: take ours, then theirs",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beide"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both"
+          }
+        }
+      }
+    },
+    "conflict.choice.mergeWords" : {
+      "comment" : "Link above an open conflict: combine the changes of both sides word by word",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wörter zusammenführen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge words"
+          }
+        }
+      }
+    },
+    "conflict.choice.ours" : {
+      "comment" : "Resolve the open conflicts with our side",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsere"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ours"
+          }
+        }
+      }
+    },
+    "conflict.choice.oursThenTheirs" : {
+      "comment" : "Resolve the open conflicts with both sides, ours first",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsere, dann ihre"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ours, then Theirs"
+          }
+        }
+      }
+    },
+    "conflict.choice.theirs" : {
+      "comment" : "Resolve the open conflicts with their side",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theirs"
+          }
+        }
+      }
+    },
+    "conflict.choice.theirsThenOurs" : {
+      "comment" : "Resolve the open conflicts with both sides, theirs first",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre, dann unsere"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theirs, then Ours"
+          }
+        }
+      }
+    },
+    "conflict.choice.undo" : {
+      "comment" : "Link above a decided conflict: open it again",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rückgängig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
+          }
+        }
+      }
+    },
+    "conflict.command.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konflikt, zusammenführen, lösen, Merge-Tool"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "conflict, merge, resolve, mergetool"
+          }
+        }
+      }
+    },
+    "conflict.command.mergeTool" : {
+      "comment" : "Command that opens the conflicted file in git's merge tool; the argument is git's name of the tool",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In %@ öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in %@"
+          }
+        }
+      }
+    },
+    "conflict.command.window" : {
+      "comment" : "Command that opens the conflicted file in the app's merge window",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Merge-Fenster lösen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolve in merge window"
+          }
+        }
+      }
+    },
+    "conflict.counter" : {
+      "comment" : "Caption of the result column: how many conflicts still need a decision",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Konflikt offen"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Konflikte offen"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld conflict open"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld conflicts open"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "conflict.counterResolved" : {
+      "comment" : "Caption of the result column: no conflict is open",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Konflikte gelöst"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All conflicts resolved"
+          }
+        }
+      }
+    },
+    "conflict.explain.addedByOneSide" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur %1$@ hat die Datei unter diesem Pfad; %2$@ hat sie gelöscht oder anders umbenannt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only %1$@ has the file at this path; %2$@ deleted it or renamed it differently."
+          }
+        }
+      }
+    },
+    "conflict.explain.binary" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ und %2$@ haben beide diese Datei geändert, und sie lässt sich nicht zeilenweise zusammenführen: Sie ist binär oder zu groß. Übernimm eine Seite als Ganzes."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ and %2$@ both changed this file, and it can’t be merged line by line: it is binary or too large. Take one of them as a whole."
+          }
+        }
+      }
+    },
+    "conflict.explain.bothDeleted" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ und %2$@ haben die Datei beide gelöscht oder unter verschiedene Pfade umbenannt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ and %2$@ both deleted the file or renamed it to different paths."
+          }
+        }
+      }
+    },
+    "conflict.explain.deletedByThem" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ hat die Datei geändert, %2$@ hat sie gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ changed the file, %2$@ deleted it."
+          }
+        }
+      }
+    },
+    "conflict.explain.deletedByUs" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ hat die Datei gelöscht, %2$@ hat sie geändert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ deleted the file, %2$@ changed it."
+          }
+        }
+      }
+    },
+    "conflict.kind.addedByThem" : {
+      "comment" : "Badge on a conflict: only their side has the file at this path",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "von ihnen hinzugefügt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "added by them"
+          }
+        }
+      }
+    },
+    "conflict.kind.addedByUs" : {
+      "comment" : "Badge on a conflict: only our side has the file at this path",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "von uns hinzugefügt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "added by us"
+          }
+        }
+      }
+    },
+    "conflict.kind.bothAdded" : {
+      "comment" : "Badge on a conflict: both sides added a file at this path",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "beide hinzugefügt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "both added"
+          }
+        }
+      }
+    },
+    "conflict.kind.bothDeleted" : {
+      "comment" : "Badge on a conflict: both sides deleted or renamed the file",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "beide gelöscht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "both deleted"
+          }
+        }
+      }
+    },
+    "conflict.kind.bothModified" : {
+      "comment" : "Badge on a conflict: both sides changed the file",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "beide geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "both modified"
+          }
+        }
+      }
+    },
+    "conflict.kind.deletedByThem" : {
+      "comment" : "Badge on a conflict: their side deleted the file, ours changed it",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "von ihnen gelöscht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "deleted by them"
+          }
+        }
+      }
+    },
+    "conflict.kind.deletedByUs" : {
+      "comment" : "Badge on a conflict: our side deleted the file, theirs changed it",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "von uns gelöscht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "deleted by us"
+          }
+        }
+      }
+    },
+    "conflict.markResolved" : {
+      "comment" : "Button that writes the result of a conflicted file and stages it",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als gelöst markieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark resolved"
+          }
+        }
+      }
+    },
+    "conflict.markResolvedWaiting" : {
+      "comment" : "Tooltip of the disabled Mark resolved button",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zuerst jeden Konflikt entscheiden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Decide every conflict first"
+          }
+        }
+      }
+    },
+    "conflict.mergeWords" : {
+      "comment" : "Button that merges conflicts word by word where both sides changed different words of the same lines",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einfache Konflikte zusammenführen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge simple conflicts"
+          }
+        }
+      }
+    },
+    "conflict.mergeWordsToolTip" : {
+      "comment" : "Tooltip of the wand button that merges conflicts word by word",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einfache Konflikte zusammenführen: verbindet Änderungen beider Seiten an verschiedenen Wörtern derselben Zeilen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge simple conflicts: combines changes of both sides to different words of the same lines"
+          }
+        }
+      }
+    },
+    "conflict.next" : {
+      "comment" : "Tooltip of the button that moves to the next change of the merge",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nächste Änderung (⌥⌘↓)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next change (⌥⌘↓)"
+          }
+        }
+      }
+    },
+    "conflict.preview" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Datei, wie %@ sie hat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file as %@ has it"
+          }
+        }
+      }
+    },
+    "conflict.previous" : {
+      "comment" : "Tooltip of the button that moves to the previous change of the merge",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorherige Änderung (⌥⌘↑)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous change (⌥⌘↑)"
+          }
+        }
+      }
+    },
+    "conflict.resolve.mergeToolToolTip" : {
+      "comment" : "Tooltip of Resolve… when it opens the merge tool chosen in the settings; the argument is git's name of the tool",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In %@ öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in %@"
+          }
+        }
+      }
+    },
+    "conflict.resolve.title" : {
+      "comment" : "Button that opens the conflicted file in the merge window or in the merge tool chosen in the settings",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lösen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolve…"
+          }
+        }
+      }
+    },
+    "conflict.resolve.windowToolTip" : {
+      "comment" : "Tooltip of Resolve… when it opens the app's merge window",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nebeneinander im Merge-Fenster lösen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolve side by side in the merge window"
+          }
+        }
+      }
+    },
+    "conflict.result" : {
+      "comment" : "Caption of the middle column: the merge result",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ergebnis"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
+          }
+        }
+      }
+    },
+    "conflict.showBase" : {
+      "comment" : "Toggle that shows the common base in the middle column instead of the result",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basis zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show base"
+          }
+        }
+      }
+    },
+    "conflict.showBaseToolTip" : {
+      "comment" : "Tooltip of the Base toggle",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die gemeinsame Basis statt des Ergebnisses zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show the common base in place of the result"
+          }
+        }
+      }
+    },
+    "conflict.side.base" : {
+      "comment" : "Caption of the middle column while it shows the common base",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basis"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Base"
+          }
+        }
+      }
+    },
+    "conflict.side.empty" : {
+      "comment" : "A side of a conflict hunk that has no lines",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(keine Zeilen)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(no lines)"
+          }
+        }
+      }
+    },
+    "conflict.side.ours" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsere %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ours %@"
+          }
+        }
+      }
+    },
+    "conflict.side.theirs" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theirs %@"
+          }
+        }
+      }
+    },
+    "conflict.unified.decided" : {
+      "comment" : "Label of the row above a decided conflict in the unified view",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konflikt %lld gelöst"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conflict %lld resolved"
+          }
+        }
+      }
+    },
+    "conflict.unified.open" : {
+      "comment" : "Label of the action row above an open conflict in the unified view",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konflikt %lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conflict %lld"
+          }
+        }
+      }
+    },
+    "conflict.wholeFile" : {
+      "comment" : "Pull-down that resolves every open conflict of the file the same way",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offene Konflikte"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open conflicts"
+          }
+        }
+      }
+    },
+    "conflict.window.title" : {
+      "comment" : "Title of the merge window; the argument is the file's path",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ lösen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolve %@"
+          }
+        }
+      }
+    },
     "detail.commit.authored" : {
       "comment" : "Detail panel: role of the commit's author, followed by the date",
       "extractionState" : "extracted_with_value",
@@ -6120,6 +7042,38 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Commit failed"
+          }
+        }
+      }
+    },
+    "failure.conflict.mergeToolFailed" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge-Tool fehlgeschlagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge tool failed"
+          }
+        }
+      }
+    },
+    "failure.conflict.notResolved" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konflikt nicht gelöst"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conflict not resolved"
           }
         }
       }
@@ -13171,6 +14125,59 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "git %1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "settings.git.mergeTool.caption" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein anderes Werkzeug wird als merge.guitool in deiner globalen git-Konfiguration gespeichert, sodass auch git mergetool --gui es öffnet. Ein Repository mit eigenem merge.guitool verwendet dieses."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another tool is stored as merge.guitool in your global git config, so git mergetool --gui opens it as well. A repository that sets its own merge.guitool uses that one."
+          }
+        }
+      }
+    },
+    "settings.git.mergeTool.gitBonsai" : {
+      "comment" : "Choice of the merge tool setting: the app's own merge window.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitBonsai-Merge-Fenster"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitBonsai merge window"
+          }
+        }
+      }
+    },
+    "settings.git.mergeTool.label" : {
+      "comment" : "Label of the merge tool setting.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konflikte lösen mit"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolve conflicts with"
           }
         }
       }

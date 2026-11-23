@@ -11,6 +11,7 @@ extension ScreenshotHarness {
         driveHistoryContents(on: tab)
         driveStatusLine(on: tab)
         openDiff(on: tab)
+        driveConflicts(on: tab)
         clickFile(on: tab)
         pressFileKeys(on: tab)
         fillCommit(on: tab)

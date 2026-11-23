@@ -99,7 +99,7 @@ final class OperationBannerController {
     }
 
     /// The branch, remote branch or tag at a commit, or its short SHA.
-    private func name(of sha: String) -> RefString {
+    func name(of sha: String) -> RefString {
         // origin/HEAD only repeats the branch it points at.
         let refs = viewModel.refs.filter { $0.target == sha && !$0.name.hasSuffix("/HEAD") }
         let order: (Ref) -> Int = { ref in

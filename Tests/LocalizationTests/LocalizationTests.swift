@@ -183,7 +183,7 @@ struct Catalog {
     /// The first segment of every key; AGENTS.md says what each is for.
     static let areas: Set<String> = [
         "common", "menu", "window", "welcome", "repository", "toolbar", "sidebar", "history", "detail", "diff", "files", "commit", "branch", "checkout", "tag", "stash", "worktree",
-        "fetch", "pull", "push", "rebase", "operation", "clone", "settings", "command", "commandBar", "refPicker", "panel", "failure",
+        "fetch", "pull", "push", "rebase", "operation", "conflict", "clone", "settings", "command", "commandBar", "refPicker", "panel", "failure",
     ]
 
     /// `area.screen.element`: at least two dotted lowerCamelCase segments, the first one an area.

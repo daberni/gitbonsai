@@ -113,6 +113,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.fastForward),
             .command(.rebaseInteractive),
             .family("operation."),
+            .family("conflict."),
         ]),
         Section(title: LocalizedStringResource("menu.window.title", defaultValue: "Window", bundle: .module), role: .window, entries: [
             .standard(LocalizedStringResource("menu.window.minimize", defaultValue: "Minimize", bundle: .module), #selector(NSWindow.performMiniaturize(_:)), CommandShortcut("m")),

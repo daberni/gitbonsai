@@ -26,6 +26,11 @@ final class SettingsModel {
         set { AppSettings.gitPath = newValue }
     }
 
+    var conflictResolver: AppSettings.ConflictResolver {
+        get { read { AppSettings.conflictResolver } }
+        set { AppSettings.conflictResolver = newValue }
+    }
+
     var appearance: AppSettings.Appearance {
         get { read { AppSettings.appearance } }
         set { AppSettings.appearance = newValue }

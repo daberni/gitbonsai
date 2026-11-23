@@ -69,6 +69,7 @@ extension RepositoryViewController {
             self?.refreshWorkingDirectoryCounts()
         }
         diff.onClose = { [weak self] in self?.showGraph() }
+        wireConflicts()
         operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }

@@ -21,6 +21,14 @@ enum AppSettings {
         }
     }
 
+    /// What "Resolve…" of a conflicted file opens.
+    enum ConflictResolver: String, CaseIterable {
+        /// GitBonsai's own merge window.
+        case gitBonsai
+        /// The tool `git mergetool --gui` opens; the merge window where none is set.
+        case mergeTool
+    }
+
     private static var defaults: UserDefaults { ScreenshotHarness.defaults }
 
     /// Bundle id of the editor or terminal "Open in editor" and "Open in terminal" use; nil takes the first shown one. `ExternalApps.preferred(_:)` resolves it.
@@ -79,6 +87,12 @@ enum AppSettings {
             return FileManager.default.fileExists(atPath: developer) ? [developer] : []
         }
         set { store(newValue, forKey: "repositoryFolders") }
+    }
+
+    /// GitBonsai's merge window until the user chooses a merge tool in the settings, whatever git's config names.
+    static var conflictResolver: ConflictResolver {
+        get { defaults.string(forKey: "conflictResolver").flatMap(ConflictResolver.init) ?? .gitBonsai }
+        set { store(newValue == .gitBonsai ? nil : newValue.rawValue, forKey: "conflictResolver") }
     }
 
     /// Light or dark for every window, or whatever the system uses.

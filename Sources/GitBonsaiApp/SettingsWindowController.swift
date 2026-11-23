@@ -34,7 +34,9 @@ final class SettingsWindowController: NSWindowController {
             switch self {
             case .general: GeneralSettingsPane()
             case .apps: AppsSettingsPane()
-            case .git: GitSettingsPane()
+            case .git:
+                GitSettingsPane()
+                MergeToolSettingsSection()
             case .appearance: AppearanceSettingsPane()
             case .fetch: FetchSettingsPane()
             case .avatars: AvatarSettingsPane()
