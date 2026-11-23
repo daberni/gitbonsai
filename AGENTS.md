@@ -60,7 +60,7 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
 
 ## Task intake and backlog
 
-- There are no GitHub issues or pull requests yet. The backlog is kept outside the repository by the coordinating session (until it moves to GitHub issues): one entry per independently shippable task with the problem, the desired behavior and its state. Task briefs quote the entries they need; the backlog's location is given in the brief when a session must read it.
+- The backlog is GitHub issues in this repository: one issue per independently shippable task with the problem and the desired behavior, labelled `bug` or `enhancement` and `priority: high`, `priority: medium` or `priority: low`. The coordinating session creates and updates issues with the user's approval; task briefs quote the issue and name its number. The commit that completes an issue ends its body with `Closes #<n>`. There are no pull requests yet.
 - Treat feedback about the current work as steering for that work. Put unrelated requests into the backlog instead of starting them on the spot, unless the user makes them the current work.
 - Keep implemented, verified and integrated distinct. A task is done once it is merged into local `main` and verified there.
 
@@ -72,7 +72,7 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
 - The coordinator reviews each reported branch (diff, build, tests, screenshots, and its commits: topics, size, messages; a branch with work-in-progress commits goes back for curation), then puts its commits directly onto local `main` with a fast-forward: no merge commits, linear history. If `main` moved meanwhile, the branch is rebased onto it first. Afterwards the branch and worktree are removed.
 - Commands for the command bar (⇧⌘P) and the menu bar: title, glyph and shortcut go into `CommandCatalog` (`CommandSpec`, shortcuts in `CommandShortcut`); the controller that owns the action builds the `Command` in its `<Controller>+Commands.swift` (`CommandProvider`); `MainMenu.sections` places it in the menu bar; enabled rules go into `CommandRules` with tests.
 - Harness switches of a new area go into their own `ScreenshotHarness+<Area>.swift` extension and one line each in the README's grouped list; the core `ScreenshotHarness.swift` holds only shared helpers. Preferences live in `AppSettings`; the settings window edits them.
-- Task sessions do not edit the backlog; the coordinator keeps it.
+- Task sessions do not create, edit or close issues; the coordinator keeps them.
 - Never let two sessions edit the same files at the same time. Shared files are the coordinator's; a task that needs a new token namespace or harness switch adds only its own block and the coordinator resolves overlaps at integration.
 - Run as many task sessions in parallel as the work allows, but each worktree builds into its own `.build`, so keep heavy checks bounded and never run two `swift test` in one checkout.
 - The repository has a private GitHub remote (`origin`). Only the coordinating session pushes, and only `main` with the user's approval; task sessions never push. There are no pull requests yet: task branches are fast-forwarded onto local `main` as described above.
