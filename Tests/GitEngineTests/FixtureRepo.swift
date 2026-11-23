@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+@testable import GitEngine
 
 /// Builds throwaway repositories with the real git binary. Each fixture lives in its own temp dir and is removed on `tearDown` of the owning test.
 final class FixtureRepo {
@@ -12,6 +13,7 @@ final class FixtureRepo {
 
     /// A repository in a given folder, for tests that lay out several repositories in one tree.
     init(at url: URL) throws {
+        TestGitEnvironment.isolate()
         self.url = url
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         try git("init", "-q", "-b", "main")
@@ -22,6 +24,7 @@ final class FixtureRepo {
 
     /// A repository that already exists, such as a clone, to run git in.
     init(existing url: URL) {
+        TestGitEnvironment.isolate()
         self.url = url
     }
 
@@ -37,14 +40,12 @@ final class FixtureRepo {
     @discardableResult
     func git(_ arguments: [String], date: String? = nil) throws -> String {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
+        // The git the engine runs, with the environment it gives git, so fixtures and engine agree on formats and configuration.
+        process.executableURL = URL(fileURLWithPath: TestGitEnvironment.gitPath)
+        process.arguments = arguments
         process.currentDirectoryURL = url
-        var environment = ProcessInfo.processInfo.environment
-        environment["GIT_TERMINAL_PROMPT"] = "0"
-        environment["GIT_AUTHOR_DATE"] = date ?? environment["GIT_AUTHOR_DATE"] ?? "2024-01-01T12:00:00+0000"
-        environment["GIT_COMMITTER_DATE"] = date ?? environment["GIT_COMMITTER_DATE"] ?? "2024-01-01T12:00:00+0000"
-        process.environment = environment
+        let fixedDate = date ?? "2024-01-01T12:00:00+0000"
+        process.environment = ProcessExecution.environment(inherited: ProcessInfo.processInfo.environment, overrides: ["GIT_TERMINAL_PROMPT": "0", "GIT_AUTHOR_DATE": fixedDate, "GIT_COMMITTER_DATE": fixedDate])
         let stdout = Pipe()
         let stderr = Pipe()
         process.standardOutput = stdout
@@ -87,5 +88,39 @@ final class FixtureRepo {
         let command: String
         let stderr: String
         var description: String { "git \(command): \(stderr)" }
+    }
+}
+
+/// Keeps the user's git configuration out of every test: fixtures and the engine read one generated global config and no system config.
+/// The engine passes `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` through to git, so setting them for the test process covers both.
+enum TestGitEnvironment {
+    static let gitPath = GitRunner.defaultGitPath()
+
+    private static let configured: Void = {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-tests-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let config = directory.appendingPathComponent("gitconfig")
+        // Clones in tests commit too and need an identity; local submodules are refused by default since git 2.38.
+        let contents = """
+        [user]
+        \tname = Fixture
+        \temail = fixture@example.com
+        [init]
+        \tdefaultBranch = main
+        [commit]
+        \tgpgsign = false
+        [tag]
+        \tgpgsign = false
+        [protocol "file"]
+        \tallow = always
+
+        """
+        try? contents.write(to: config, atomically: true, encoding: .utf8)
+        setenv("GIT_CONFIG_GLOBAL", config.path, 1)
+        setenv("GIT_CONFIG_NOSYSTEM", "1", 1)
+    }()
+
+    static func isolate() {
+        _ = configured
     }
 }

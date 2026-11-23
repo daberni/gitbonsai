@@ -65,7 +65,7 @@ extension Repository {
 
     /// Deletes `branch` on `remote` and the matching remote-tracking ref.
     public func deleteRemoteBranch(_ branch: String, on remote: String) async throws {
-        _ = try await runner.runWrite(["push", remote, "--delete", branch])
+        _ = try await runner.runWithoutIndex(["push", remote, "--delete", branch])
     }
 }
 

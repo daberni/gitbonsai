@@ -31,6 +31,13 @@ public struct GitCommandResult: Sendable {
     }
 
     public var stdoutString: String { String(decoding: stdout, as: UTF8.self) }
+
+    /// The same result with stdout and stderr cut to their first `limit` bytes.
+    func truncated(to limit: Int) -> GitCommandResult {
+        guard stdout.count > limit || stderr.utf8.count > limit else { return self }
+        let error = stderr.utf8.count > limit ? String(decoding: stderr.utf8.prefix(limit), as: UTF8.self) : stderr
+        return GitCommandResult(arguments: arguments, stdout: stdout.prefix(limit), stderr: error, exitCode: exitCode, duration: duration)
+    }
 }
 
 /// One record of the command log: every git invocation the app makes is visible to the user.
@@ -111,13 +118,9 @@ public actor GitRunner {
 
     /// The version of the git binary at `gitPath`, from `git --version`.
     public static func version(ofGitAt gitPath: String) async throws -> GitVersion {
-        let arguments = ["--version"]
-        let execution = ProcessExecution(gitPath: gitPath, arguments: arguments, environment: readEnvironment, directory: NSTemporaryDirectory(), stdin: nil)
-        let collector = DataCollector()
-        let outcome = try await execution.run { chunk in collector.append(chunk) }
-        let output = String(decoding: collector.data, as: UTF8.self)
-        guard outcome.exitCode == 0, let version = GitVersion(versionOutput: output) else {
-            throw GitError(arguments: arguments, exitCode: outcome.exitCode, stderr: outcome.stderr.isEmpty ? output : outcome.stderr)
+        let result = try await GitRunner(repositoryPath: NSTemporaryDirectory(), gitPath: gitPath).run(["--version"])
+        guard let version = GitVersion(versionOutput: result.stdoutString) else {
+            throw GitError(arguments: result.arguments, exitCode: result.exitCode, stderr: result.stderr.isEmpty ? result.stdoutString : result.stderr)
         }
         return version
     }
@@ -172,6 +175,28 @@ public actor GitRunner {
         return result
     }
 
+    /// Runs a mutating command that changes refs or the remote but never the index or the working tree, such as `git fetch`, `git push` or `git tag`.
+    /// It does not wait in the working tree's write queue, so a slow remote cannot hold up staging; the file watcher still takes its ref changes for the app's own.
+    public func runWithoutIndex(_ arguments: [String], environment: [String: String] = [:]) async throws -> GitCommandResult {
+        let startedAt = Date()
+        let path = repositoryPath
+        WriteActivity.began(path)
+        defer { WriteActivity.ended(path) }
+        let result = try await execute(arguments, environment: Self.writeEnvironment.merging(environment) { $1 }, stdin: nil)
+        record(result, startedAt: startedAt)
+        guard result.exitCode == 0 else { throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr) }
+        return result
+    }
+
+    /// Runs a command that creates its own repository, such as `git clone`, outside of any write queue; `onStderr` sees git's progress as it arrives.
+    public func runCreating(_ arguments: [String], onStderr: @escaping @Sendable (Data) -> Void) async throws -> GitCommandResult {
+        let startedAt = Date()
+        let result = try await execute(arguments, environment: Self.writeEnvironment, stdin: nil, onStderr: onStderr)
+        record(result, startedAt: startedAt)
+        guard result.exitCode == 0 else { throw GitError(arguments: arguments, exitCode: result.exitCode, stderr: result.stderr) }
+        return result
+    }
+
     /// Streams stdout chunks of a read-only command as they arrive. The stream finishes with
     /// `GitError` when git exits non-zero, and cancelling the consuming task terminates git.
     public nonisolated func stream(_ arguments: [String], environment: [String: String] = [:]) -> AsyncThrowingStream<Data, Error> {
@@ -202,17 +227,20 @@ public actor GitRunner {
         }
     }
 
-    /// Most recent invocations, newest last. Capped to a few hundred entries.
+    /// Most recent invocations, newest last. Capped to a few hundred entries, each keeping at most `commandLogOutputLimit` bytes of stdout and of stderr.
     public var commandLog: [GitCommandLogEntry] { log }
 
+    /// A `cat-file blob` or a full-file diff can be many megabytes; the log keeps only their start.
+    public static let commandLogOutputLimit = 16 * 1024
+
     private func record(_ result: GitCommandResult, startedAt: Date) {
-        log.append(GitCommandLogEntry(startedAt: startedAt, result: result))
+        log.append(GitCommandLogEntry(startedAt: startedAt, result: result.truncated(to: Self.commandLogOutputLimit)))
         if log.count > Self.commandLogCapacity {
             log.removeFirst(log.count - Self.commandLogCapacity)
         }
     }
 
-    private func execute(_ arguments: [String], environment: [String: String], stdin: Data?) async throws -> GitCommandResult {
+    private func execute(_ arguments: [String], environment: [String: String], stdin: Data?, onStderr: (@Sendable (Data) -> Void)? = nil) async throws -> GitCommandResult {
         let execution = ProcessExecution(
             gitPath: gitPath,
             arguments: Self.baseArguments + arguments,
@@ -221,7 +249,7 @@ public actor GitRunner {
             stdin: stdin
         )
         let collector = DataCollector()
-        let outcome = try await execution.run { chunk in collector.append(chunk) }
+        let outcome = try await execution.run(onStdout: { chunk in collector.append(chunk) }, onStderr: onStderr)
         return GitCommandResult(arguments: arguments, stdout: collector.data, stderr: outcome.stderr, exitCode: outcome.exitCode, duration: outcome.duration)
     }
 }
@@ -241,137 +269,48 @@ actor IndexLockQueue {
         }
     }
 
-    /// Tail of the chain; each operation waits for the previous one before it starts.
-    private var tail: Task<Void, Never>?
+    private var busy = false
+    /// Callers waiting for the lock, first come first served.
+    private var waiting: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
 
-    func enqueue<Result: Sendable>(_ operation: @escaping @Sendable () async throws -> Result) async throws -> Result {
-        let previous = tail
-        let task = Task {
-            await previous?.value
-            return try await operation()
+    /// Runs `operation` once every earlier one has finished. A caller cancelled while it waits leaves the queue at once with `CancellationError`; its operation never starts.
+    func enqueue<Result: Sendable>(_ operation: @Sendable () async throws -> Result) async throws -> Result {
+        try await acquire()
+        defer { release() }
+        try Task.checkCancellation()
+        return try await operation()
+    }
+
+    private func acquire() async throws {
+        guard busy else {
+            busy = true
+            return
         }
-        tail = Task { _ = try? await task.value }
-        return try await task.value
-    }
-}
-
-/// Thread-safe accumulator for pipe output arriving on reader threads.
-final class DataCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var buffer = Data()
-
-    func append(_ chunk: Data) {
-        lock.lock()
-        buffer.append(chunk)
-        lock.unlock()
-    }
-
-    var data: Data {
-        lock.lock()
-        defer { lock.unlock() }
-        return buffer
-    }
-}
-
-struct ProcessOutcome: Sendable {
-    let exitCode: Int32
-    let stderr: String
-    let duration: TimeInterval
-}
-
-/// One git process. Stdout and stderr are drained on dedicated threads so large output never deadlocks the pipes.
-final class ProcessExecution: @unchecked Sendable {
-    private let process = Process()
-    private let stdin: Data?
-    private let lock = NSLock()
-    private var started = false
-    private var terminated = false
-
-    init(gitPath: String, arguments: [String], environment: [String: String], directory: String, stdin: Data?) {
-        process.executableURL = URL(fileURLWithPath: gitPath)
-        process.arguments = arguments
-        process.currentDirectoryURL = URL(fileURLWithPath: directory)
-        process.environment = ProcessInfo.processInfo.environment.merging(environment) { $1 }
-        self.stdin = stdin
-    }
-
-    func terminate() {
-        lock.lock()
-        terminated = true
-        let running = started && process.isRunning
-        lock.unlock()
-        if running { process.terminate() }
-    }
-
-    /// `onStderr` sees stderr as it arrives, for progress; stderr is collected for the outcome either way.
-    func run(onStdout: @escaping @Sendable (Data) -> Void, onStderr: (@Sendable (Data) -> Void)? = nil) async throws -> ProcessOutcome {
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-        let stdinPipe: Pipe? = stdin == nil ? nil : Pipe()
-        process.standardInput = stdinPipe ?? Pipe()
-        if stdinPipe == nil { (process.standardInput as? Pipe)?.fileHandleForWriting.closeFile() }
-
-        let stderrCollector = DataCollector()
-        let group = DispatchGroup()
-        let start = Date()
-
-        group.enter()
-        process.terminationHandler = { _ in group.leave() }
-
-        try launch()
-
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            Self.drain(stdoutPipe.fileHandleForReading, onStdout)
-            group.leave()
-        }
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            Self.drain(stderrPipe.fileHandleForReading) { chunk in
-                stderrCollector.append(chunk)
-                onStderr?(chunk)
-            }
-            group.leave()
-        }
-        if let stdin, let stdinPipe {
-            DispatchQueue.global(qos: .userInitiated).async {
-                try? stdinPipe.fileHandleForWriting.write(contentsOf: stdin)
-                try? stdinPipe.fileHandleForWriting.close()
-            }
-        }
-
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                group.notify(queue: .global()) { continuation.resume() }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                } else {
+                    waiting.append((id, continuation))
+                }
             }
         } onCancel: {
-            terminate()
+            Task { await self.leave(id) }
         }
-
-        return ProcessOutcome(
-            exitCode: process.terminationStatus,
-            stderr: String(decoding: stderrCollector.data, as: UTF8.self),
-            duration: Date().timeIntervalSince(start)
-        )
     }
 
-    /// Starts git unless `terminate` already ran, which happens when the consumer cancels before the stream starts.
-    private func launch() throws {
-        lock.lock()
-        defer { lock.unlock() }
-        if terminated { throw CancellationError() }
-        try process.run()
-        started = true
+    private func leave(_ id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.id == id }) else { return }
+        waiting.remove(at: index).continuation.resume(throwing: CancellationError())
     }
 
-    private static func drain(_ handle: FileHandle, _ sink: (Data) -> Void) {
-        while true {
-            let chunk = handle.availableData
-            if chunk.isEmpty { break }
-            sink(chunk)
+    /// Hands the lock straight to the next caller, so `busy` stays set.
+    private func release() {
+        if waiting.isEmpty {
+            busy = false
+        } else {
+            waiting.removeFirst().continuation.resume()
         }
-        try? handle.close()
     }
 }

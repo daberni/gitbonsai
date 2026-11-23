@@ -120,12 +120,10 @@ extension Repository {
         // git refuses a folder with content; that content is the user's and must survive the failure.
         let ownsContent = !existedBefore || ((try? FileManager.default.contentsOfDirectory(atPath: target.path).isEmpty) ?? false)
         let arguments = ["clone", "--progress"] + options.arguments + ["--", url, target.path]
-        let execution = ProcessExecution(gitPath: gitPath, arguments: GitRunner.baseArguments + arguments, environment: GitRunner.writeEnvironment, directory: NSTemporaryDirectory(), stdin: nil)
         let reader = ProgressReader(progress)
         do {
-            let outcome = try await execution.run(onStdout: { _ in }, onStderr: { reader.append($0) })
+            _ = try await GitRunner(repositoryPath: NSTemporaryDirectory(), gitPath: gitPath).runCreating(arguments) { reader.append($0) }
             try Task.checkCancellation()
-            guard outcome.exitCode == 0 else { throw GitError(arguments: arguments, exitCode: outcome.exitCode, stderr: outcome.stderr) }
         } catch {
             if ownsContent { removeLeftovers(at: target, existedBefore: existedBefore) }
             throw error

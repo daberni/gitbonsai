@@ -39,3 +39,70 @@ final class IndexLockTests: XCTestCase {
         }
     }
 }
+
+/// Cancelling an action stops its git, with everything git started, and frees the working tree's write queue.
+final class CancellationTests: XCTestCase {
+    var fixture: FixtureRepo!
+
+    override func setUpWithError() throws {
+        fixture = try FixtureRepo(name: "cancel")
+        try fixture.commit("one")
+    }
+
+    override func tearDown() {
+        fixture.remove()
+    }
+
+    /// A pre-commit hook that records its shell's PID and then waits; the commit hangs until it is stopped.
+    private func installHangingHook() throws -> URL {
+        let pidFile = fixture.url.appendingPathComponent(".git/hook.pid")
+        let hook = fixture.url.appendingPathComponent(".git/hooks/pre-commit")
+        try "#!/bin/sh\necho $$ > \"\(pidFile.path)\"\nsleep 30\n".write(to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        return pidFile
+    }
+
+    private func waitForFile(_ url: URL) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while !FileManager.default.fileExists(atPath: url.path) {
+            guard Date() < deadline else { throw XCTSkip("hook did not start") }
+            await Task.yield()
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    func testCancellingARunningWriteStopsGitAndItsHookAndThrowsCancellation() async throws {
+        let pidFile = try installHangingHook()
+        let runner = fixture.repository.runner
+        let commit = Task { try await runner.runWrite(["commit", "--allow-empty", "-q", "-m", "hangs"]) }
+        try await waitForFile(pidFile)
+        let hookPID = pid_t(try String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines))!
+        let started = Date()
+        commit.cancel()
+        let result = await commit.result
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+        XCTAssertThrowsError(try result.get()) { XCTAssertTrue($0 is CancellationError, "\($0)") }
+        // The hook's shell was in git's process group; a stopped git must not leave it running.
+        XCTAssertEqual(kill(hookPID, 0), -1)
+    }
+
+    func testACallerCancelledWhileQueuedLeavesAtOnceAndItsCommandNeverRuns() async throws {
+        let pidFile = try installHangingHook()
+        let runner = fixture.repository.runner
+        let blocking = Task { try await runner.runWrite(["commit", "--allow-empty", "-q", "-m", "hangs"]) }
+        defer { blocking.cancel() }
+        try await waitForFile(pidFile)
+        let queued = Task { try await runner.runWrite(["tag", "queued"]) }
+        try await Task.sleep(for: .milliseconds(100))
+        let started = Date()
+        queued.cancel()
+        let result = await queued.result
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1)
+        XCTAssertThrowsError(try result.get()) { XCTAssertTrue($0 is CancellationError, "\($0)") }
+        blocking.cancel()
+        _ = await blocking.result
+        XCTAssertEqual(try fixture.git("tag", "--list", "queued"), "")
+        // The queue is free again.
+        _ = try await runner.runWrite(["tag", "after"])
+    }
+}

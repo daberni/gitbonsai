@@ -11,7 +11,7 @@ extension Repository {
 
     /// Fetches one tag from `remote` and nothing else: `--no-tags` keeps git from following other tags along. An existing local tag of that name is not overwritten.
     public func fetchTag(_ name: String, from remote: String) async throws {
-        _ = try await runner.runWrite(["fetch", "--no-tags", remote, "refs/tags/\(name):refs/tags/\(name)"])
+        _ = try await runner.runWithoutIndex(["fetch", "--no-tags", remote, "refs/tags/\(name):refs/tags/\(name)"])
     }
 
     /// Every local tag, whatever it points at, so that a tag of a tree is not taken for one that exists only on the remote.

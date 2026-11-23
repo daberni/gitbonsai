@@ -58,3 +58,26 @@ final class FetchTests: XCTestCase {
         XCTAssertEqual(try clone.git("tag"), "v1\nv2")
     }
 }
+
+/// A fetch waits on the network; staging in the same working tree must not wait for it.
+final class FetchQueueTests: XCTestCase {
+    func testStagingDoesNotWaitForASlowFetch() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-fetch-queue-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: base) }
+        let origin = try FixtureRepo(at: base.appendingPathComponent("origin"))
+        try origin.commit("one")
+        let local = try FixtureRepo(at: base.appendingPathComponent("local"))
+        try local.commit("local")
+        try local.git("remote", "add", "origin", origin.path)
+        try local.git("config", "remote.origin.uploadpack", "sleep 3; git-upload-pack")
+        let repository = local.repository
+
+        let fetch = Task { try await repository.fetch(.remote("origin", prune: false)) }
+        try await Task.sleep(for: .milliseconds(200))
+        try local.write("new.txt", "new\n")
+        let started = Date()
+        try await repository.stage(["new.txt"])
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+        try await fetch.value
+    }
+}

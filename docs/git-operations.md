@@ -1,6 +1,8 @@
 # Git operations
 
-Which git command each operation in the app runs. Every call goes through `GitRunner` with `GIT_TERMINAL_PROMPT=0`, `LC_ALL=C`, `-c core.quotepath=off` and `-c color.ui=never`; reads also get `GIT_OPTIONAL_LOCKS=0`. Writes run one at a time per working tree, whichever runner or tab starts them. Reads that compare the working tree with the index (marked "Index queue") wait in the same queue: `git diff` rewrites stale stat information under `index.lock` and ignores `GIT_OPTIONAL_LOCKS`, which made concurrent checkouts fail.
+Which git command each operation in the app runs. Every call goes through `GitRunner` with `GIT_TERMINAL_PROMPT=0`, `LC_ALL=C`, `-c core.quotepath=off` and `-c color.ui=never`; reads also get `GIT_OPTIONAL_LOCKS=0`. Inherited `GIT_*` variables are removed, so a hook or parent git that exported `GIT_DIR`, `GIT_INDEX_FILE` or author dates cannot redirect the app's git; transport, credential, config-file and trace variables (`GIT_SSH_COMMAND`, `GIT_ASKPASS`, `GIT_CONFIG_GLOBAL`, `GIT_TRACE*` …) stay. Writes run one at a time per working tree, whichever runner or tab starts them. Reads that compare the working tree with the index (marked "Index queue") wait in the same queue: `git diff` rewrites stale stat information under `index.lock` and ignores `GIT_OPTIONAL_LOCKS`, which made concurrent checkouts fail. Commands that only change refs or the remote (fetch, push, tag push and remote deletes, marked "outside the queue") do not wait in it, so a slow remote never holds up staging.
+
+git runs in its own process group. Cancelling an action stops git and what it started (ssh, helpers, hooks) with SIGTERM, then SIGKILL after 2 s, and an action still waiting in the queue leaves it without running. The command log keeps the last 500 commands with the first 16 KB of their output.
 
 Keep this file in step with `Sources/GitEngine`: a change that adds or changes a git call updates its row here.
 
@@ -58,10 +60,10 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Check out a local branch | `git switch <branch>` | |
 | Check out a remote branch without local branch | `git switch -c <branch> --track <remote>/<branch>` | `git rev-parse --verify --quiet refs/heads/<branch>` decides; an existing local branch is switched to |
-| Check out a remote branch whose local branch is behind | `git switch <branch>`, `git merge --ff-only <remote>/<branch>` | The local branch tracks the remote one; a local branch that only has its name is checked out as it is |
+| Check out a remote branch whose local branch is behind | `git symbolic-ref -q HEAD` (or `git rev-parse --verify HEAD` when detached), `git switch <branch>`, `git merge --ff-only <remote>/<branch>` | The local branch tracks the remote one; a local branch that only has its name is checked out as it is. A refused fast-forward switches back (`git switch <original>` or `git switch --detach <commit>`) before the carried changes are put back |
 | Reset a diverged local branch to its remote branch | `git switch -C <branch> <remote>/<branch>` | Asks first, naming the local commits that are lost |
 | Check out a commit | `git switch --detach <commit>` | |
-| Carry local changes through any checkout | `git status --porcelain -z --untracked-files=normal --ignore-submodules=all`; with changes `git stash push --include-untracked -m "GitBonsai: changes when switching to <target>"`, the switch, `git stash pop --index` (retried as `git stash pop` when git cannot restore the index) | `git rev-parse --verify --quiet refs/stash` before and after the push tells whether a stash was made. A failed switch pops at once; a conflicting pop keeps the stash and lists `git diff --name-only -z --diff-filter=U` (index queue) |
+| Carry local changes through any checkout | `git status --porcelain -z --untracked-files=normal --ignore-submodules=all`; with changes `git stash list`, `git stash push --include-untracked -m "GitBonsai: changes when switching to <target>"`, `git stash list`, `git status --porcelain --untracked-files=all`, the switch, `git stash pop --index <selector>` (retried as `git stash pop <selector>` when git cannot restore the index) | The stash list before and after the push tells whether a stash was made, and the selector is looked up by its commit before the pop. A failed switch pops at once; if that pop fails, the error names the stash that keeps the changes. A conflicting pop on the target keeps the stash and lists `git diff --name-only -z --diff-filter=U` (index queue) |
 | New branch | `git switch -c <name> <start>` or `git branch <name> <start>`; in a new worktree `git worktree add -b <name> <path> <start>` | From a remote branch git sets it as upstream (`branch.autoSetupMerge`) |
 | Validate a new branch name | `git check-ref-format --branch <name>` | Live while typing; valid only when git returns the name unchanged, so shorthands like `@{-1}` are refused. Existing names are checked against the loaded local branches |
 | Start points and bases for the ref picker | `git for-each-ref --format=%(refname)%1f%(objectname)%1f%(committerdate:unix)%1f%(subject)%1f%(*objectname)%1f%(*committerdate:unix)%1f%(*subject)%1e refs/heads refs/remotes refs/tags` | Annotated tags peeled to their commit; remote `HEAD` and tags of trees or blobs left out |
@@ -69,7 +71,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Rename | `git branch -m <old> <new>` | |
 | Set / unset upstream | `git branch --set-upstream-to=<upstream> <branch>` / `git branch --unset-upstream <branch>` | |
 | Delete | `git branch -d <branch>`; `-D` after asking | |
-| Delete on the remote | `git push <remote> --delete <branch>` | Asks first |
+| Delete on the remote | `git push <remote> --delete <branch>` | Asks first. Outside the queue |
 | Merge into the current branch | `git merge --no-edit <ref>` | On failure `git rev-parse --verify --quiet MERGE_HEAD` tells a stopped merge; its conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
 | Reset the current branch | `git reset --soft\|--mixed\|--hard <commit>` | |
 
@@ -101,14 +103,14 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | List tags | `git for-each-ref --sort=-creatordate <format> refs/tags` | |
 | Create tag | `git tag <name> <commit>`; annotated `git tag -a <name> -F - <commit>` | |
 | Delete tag | `git tag --delete <name>` | |
-| Push / delete tag on a remote | `git push <remote> refs/tags/<name>` / `git push <remote> --delete refs/tags/<name>` | Delete asks first |
+| Push / delete tag on a remote | `git push <remote> refs/tags/<name>` / `git push <remote> --delete refs/tags/<name>` | Delete asks first. Outside the queue |
 | Tag status per remote | `git ls-remote --tags <remote>` and `git for-each-ref --format=<name, object, peeled object> refs/tags` | Once per remote when the Tags list opens, kept until the next `fetch`, `pull` or `push` through the repository; stopped after 10 s. Tags compare by the object their ref names, so an annotated tag recreated on the same commit differs |
 | Fetch one tag | `git fetch --no-tags <remote> refs/tags/<name>:refs/tags/<name>` | "Fetch Tag" for a tag only on the remote; never overwrites a differing local tag |
 | List stashes | `git stash list --format=…` | |
 | Stash from the toolbar | `git symbolic-ref -q --short HEAD`, `git log -1 --format=%s HEAD`, then `git stash push --include-untracked -m "WIP on <branch>: <subject>"` | Runs at once. `git stash list` before and after tells whether a stash was made, `git status --porcelain --untracked-files=all` records what it left |
 | Stash with a message / only staged changes | `git stash push [--include-untracked] [-m <message>]`, `git stash push --staged -m <message>` | From the Stash button's menu |
 | Undo the stash just made | `git stash list`, `git rev-parse --verify <stash>^1`, `git rev-parse --verify HEAD`, `git status --porcelain --untracked-files=all`, then `git stash pop --index stash@{0}` | Only while the stash is the newest, HEAD is where it was made and the working tree is as the stash left it |
-| Stash local changes and retry a refused command | `git stash push --include-untracked -m "GitBonsai: before <command>"`, the command, `git stash pop --index <selector>` (retried as `git stash pop` on "Conflicts in index") | Offered when local changes stop a cherry-pick, revert, merge or rebase. A failure without an operation in progress pops at once; a stop on conflicts keeps the stash; a conflicting pop keeps it too |
+| Stash local changes and retry a refused command | `git stash push --include-untracked -m "GitBonsai: before <command>"`, the command, `git stash pop --index <selector>` (retried as `git stash pop <selector>` on "Conflicts in index") | Offered when local changes stop a cherry-pick, revert, merge or rebase. A failure without an operation in progress pops at once, and if that pop fails the error names the stash; a stop on conflicts keeps the stash; a conflicting pop keeps it too |
 | Apply / pop / drop | `git stash apply\|pop\|drop <selector>` | Drop asks first |
 | Branch from a stash | `git stash branch <name> <selector>` | |
 

@@ -63,20 +63,38 @@ extension Repository {
         do {
             try await body()
         } catch {
-            if await operationInProgress() == nil { _ = try? await popBack(created.stash) }
+            if await operationInProgress() == nil { throw await putBack(created.stash, after: error) }
             throw error
         }
         return try await popBack(created.stash)
     }
 
+    /// Puts a stash back after the operation it was made for failed, and returns the error to throw: `error` itself once the changes are back,
+    /// otherwise a `GitError` that leads with the stash keeping them and ends with the operation's own message.
+    func putBack(_ stash: Stash, after error: Error) async -> Error {
+        let reason: String
+        var popOutput = ""
+        do {
+            guard try await popBack(stash) else { return error }
+            reason = "putting the local changes back conflicted"
+        } catch {
+            reason = "the local changes could not be put back"
+            popOutput = (error as? GitError)?.stderr ?? String(describing: error)
+        }
+        let original = error as? GitError
+        let note = "error: \(reason); they stay in the stash \"\(stash.text)\" (\(stash.commitID.prefix(7)))."
+        let details = [note, original?.stderr ?? String(describing: error), popOutput].filter { !$0.isEmpty }.joined(separator: "\n")
+        return GitError(arguments: original?.arguments ?? ["stash", "pop"], exitCode: original?.exitCode ?? 1, stderr: details)
+    }
+
     /// Pops a stash, with its index unless `index` is false; true when that conflicted, which git answers by keeping the stash.
-    private func popBack(_ stash: Stash, index: Bool = true) async throws -> Bool {
+    func popBack(_ stash: Stash, index: Bool = true) async throws -> Bool {
         do {
             _ = try await runner.runWrite(["stash", "pop"] + (index ? ["--index"] : []) + [try await currentSelector(of: stash)])
             return false
         } catch let error as GitError {
             // `--index` gives up when the staged part no longer applies; the plain pop still brings the changes back, unstaged.
-            if index, error.stderr.contains("Conflicts in index") { return try await popBack(stash, index: false) }
+            if index, error.stderr.contains("Conflicts in index") || error.stderr.contains("Try without --index") { return try await popBack(stash, index: false) }
             // A conflicting pop names the conflicts on stdout only ("Index was not unstashed." on stderr), so the working tree tells.
             let unmerged = await conflictedPaths()
             guard error.stoppedOnConflict || !unmerged.isEmpty else { throw error }

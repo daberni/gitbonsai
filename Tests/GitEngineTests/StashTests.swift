@@ -205,6 +205,27 @@ final class StashTests: XCTestCase {
         XCTAssertEqual(try fixture.git("stash", "list"), "")
     }
 
+    /// The failed command left an untracked file where the stash carries one, so popping the stash fails too; the error has to say where the changes are.
+    func testWithLocalChangesStashedNamesTheStashWhenPuttingBackFails() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", contents: "a\n")
+        try fixture.write("untracked.txt", "mine\n")
+        let repo = fixture.repository
+
+        do {
+            _ = try await repo.withLocalChangesStashed(message: "vor nichts") {
+                try fixture.write("untracked.txt", "left by the command\n")
+                _ = try await repo.runner.runWrite(["cherry-pick", "no-such-commit"])
+            }
+            XCTFail("the command's error is thrown")
+        } catch let error as GitError {
+            XCTAssertTrue(error.stderr.contains("vor nichts"), error.stderr)
+            XCTAssertTrue(error.stderr.contains("no-such-commit"), error.stderr)
+        }
+        XCTAssertTrue(try fixture.git("stash", "list").hasSuffix("vor nichts"))
+    }
+
     private func assertUndo(_ created: NewStash, in repo: Repository, fails expected: StashUndoError, line: UInt = #line) async {
         do {
             try await repo.undoStash(created)

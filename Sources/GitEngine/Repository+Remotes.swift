@@ -114,7 +114,7 @@ extension Repository {
     }
 
     public func fetch(_ variant: FetchVariant) async throws {
-        _ = try await runner.runWrite(variant.arguments)
+        _ = try await runner.runWithoutIndex(variant.arguments)
     }
 
     /// The upstream that `branch.<name>.remote` and `branch.<name>.merge` configure for a local branch, or nil.
@@ -149,7 +149,7 @@ extension Repository {
     }
 
     public func push(_ variant: PushVariant) async throws {
-        _ = try await runner.runWrite(variant.arguments)
+        _ = try await runner.runWithoutIndex(variant.arguments)
     }
 
     private func configValue(_ key: String, type: String? = nil) async -> String? {

@@ -80,3 +80,47 @@ final class GitRunnerTests: XCTestCase {
         }
     }
 }
+
+/// What git inherits from the app: a hook or parent git exports variables that would point git at another repository.
+final class GitEnvironmentTests: XCTestCase {
+    func testInheritedRepositoryVariablesDoNotRedirectGit() async throws {
+        let fixture = try FixtureRepo(name: "env-target")
+        let other = try FixtureRepo(name: "env-other")
+        defer {
+            fixture.remove()
+            other.remove()
+        }
+        try fixture.commit("one")
+        try other.git("checkout", "-q", "-b", "elsewhere")
+        try other.commit("other")
+        let inherited = ["GIT_DIR": other.path + "/.git", "GIT_WORK_TREE": other.path, "GIT_INDEX_FILE": other.path + "/.git/index"]
+        for (name, value) in inherited { setenv(name, value, 1) }
+        defer { for name in inherited.keys { unsetenv(name) } }
+
+        let branches = try await fixture.repository.refs().filter { $0.kind == .localBranch }.map(\.name)
+        XCTAssertEqual(branches, ["main"])
+        try fixture.write("new.txt", "new\n")
+        try await fixture.repository.stage(["new.txt"])
+        unsetenv("GIT_INDEX_FILE")
+        XCTAssertEqual(try fixture.git("diff", "--cached", "--name-only"), "new.txt")
+    }
+
+    func testUserChosenTransportAndConfigVariablesStay() {
+        let inherited = ["GIT_DIR": "/x", "GIT_CONFIG_PARAMETERS": "'a.b=c'", "GIT_AUTHOR_DATE": "1", "GIT_SSH_COMMAND": "ssh -i k", "GIT_CONFIG_GLOBAL": "/g", "GIT_TRACE": "1", "PATH": "/bin"]
+        let environment = ProcessExecution.environment(inherited: inherited, overrides: ["GIT_TERMINAL_PROMPT": "0"])
+        XCTAssertEqual(Set(environment.keys), ["GIT_SSH_COMMAND", "GIT_CONFIG_GLOBAL", "GIT_TRACE", "PATH", "GIT_TERMINAL_PROMPT"])
+    }
+
+    func testCommandLogKeepsOnlyTheStartOfLargeOutput() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let large = String(repeating: "x", count: GitRunner.commandLogOutputLimit * 4) + "\n"
+        try fixture.commit("large", file: "large.txt", contents: large)
+        let runner = GitRunner(repositoryPath: fixture.path)
+
+        let result = try await runner.run(["show", "HEAD:large.txt"])
+        XCTAssertEqual(result.stdout.count, large.utf8.count)
+        let logged = await runner.commandLog.last?.result.stdout.count
+        XCTAssertEqual(logged, GitRunner.commandLogOutputLimit)
+    }
+}

@@ -65,11 +65,7 @@ final class CloneTests: XCTestCase {
         try source.git("-c", "protocol.file.allow=always", "submodule", "add", "-q", library.path, "modules/library")
         try source.git("commit", "-q", "-m", "Add library")
         try source.git("push", "-q", base.appendingPathComponent("origin.git").path, "main")
-        // Local submodules are refused by default since git 2.38; the user's own config decides this outside the tests.
-        setenv("GIT_CONFIG_COUNT", "1", 1)
-        setenv("GIT_CONFIG_KEY_0", "protocol.file.allow", 1)
-        setenv("GIT_CONFIG_VALUE_0", "always", 1)
-        defer { for name in ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"] { unsetenv(name) } }
+        // Local submodules are refused by default since git 2.38; the tests' global config allows them, the user's own config decides outside the tests.
 
         try await Repository.clone(url: sourceURL, to: destination("with"), options: CloneOptions(recurseSubmodules: true))
         try await Repository.clone(url: sourceURL, to: destination("without"))

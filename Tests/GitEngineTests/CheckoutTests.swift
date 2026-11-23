@@ -129,4 +129,53 @@ final class CheckoutTests: XCTestCase {
         XCTAssertEqual(try contents(fixture, "untracked.txt"), "new\n")
         XCTAssertEqual(try fixture.git("stash", "list"), "")
     }
+
+    /// `topic` and the commit it should fast-forward to have both moved on, so `merge --ff-only` refuses after the switch.
+    private func divergedTopic(_ fixture: FixtureRepo) throws -> String {
+        try fixture.commit("base", file: "shared.txt", contents: "base\n")
+        try fixture.git("switch", "-q", "-c", "topic")
+        try fixture.commit("topic only", file: "topic.txt")
+        try fixture.git("switch", "-q", "-c", "elsewhere", "main")
+        let other = try fixture.commit("elsewhere only", file: "elsewhere.txt")
+        try fixture.git("switch", "-q", "main")
+        return other
+    }
+
+    func testAFailedFastForwardReturnsToTheOriginalBranchWithTheChanges() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let target = try divergedTopic(fixture)
+        try fixture.write("shared.txt", "edited\n")
+        try fixture.write("untracked.txt", "new\n")
+
+        do {
+            try await fixture.repository.checkout(.fastForward(branch: "topic", to: target), stashMessage: "carried by the test")
+            XCTFail("a fast-forward of diverged branches succeeded")
+        } catch let error as GitError {
+            XCTAssertTrue(error.stderr.contains("Not possible to fast-forward") || error.stderr.contains("fast-forward"), error.stderr)
+        }
+        XCTAssertEqual(try currentBranch(fixture), "main")
+        XCTAssertEqual(try contents(fixture, "shared.txt"), "edited\n")
+        XCTAssertEqual(try contents(fixture, "untracked.txt"), "new\n")
+        XCTAssertEqual(try fixture.git("stash", "list"), "")
+    }
+
+    /// A post-checkout hook recreates an untracked file the stash carries, so putting the stash back fails after the switch failed.
+    func testAFailedPutBackNamesTheStashThatKeepsTheChanges() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let target = try divergedTopic(fixture)
+        let hook = fixture.url.appendingPathComponent(".git/hooks/post-checkout")
+        try "#!/bin/sh\necho hook > untracked.txt\n".write(to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        try fixture.write("untracked.txt", "new\n")
+
+        do {
+            try await fixture.repository.checkout(.fastForward(branch: "topic", to: target), stashMessage: "carried by the test")
+            XCTFail("a fast-forward of diverged branches succeeded")
+        } catch let error as GitError {
+            XCTAssertTrue(error.stderr.contains("carried by the test"), error.stderr)
+        }
+        XCTAssertTrue(try fixture.git("stash", "list").contains("carried by the test"))
+    }
 }
