@@ -151,13 +151,16 @@ public actor AvatarResolver {
     }
 
     /// Records the accounts of the commit list's addresses. False when GitHub could not answer, rate-limited it, or does not know the commit.
+    /// A listing still out when `discardAll` ran keeps its accounts to itself.
     private func listGitHubCommits(repository: String, from commit: String) async -> Bool {
+        let started = generation
         if let blocked = gitHubBlockedUntil, blocked > now() { return false }
         guard !unreachableRepositories.contains(repository), !unknownCommits.contains(commit) else { return false }
         guard let url = URL(string: "https://api.github.com/repos/\(repository)/commits?sha=\(commit)&per_page=100") else { return false }
         guard let (data, response) = await get(url, headers: Self.gitHubHeaders) else { return false }
         switch response.statusCode {
         case 200:
+            guard generation == started else { return true }
             for (email, id) in Self.gitHubAccounts(in: data) where gitHubAccounts[email] == nil || id != nil {
                 gitHubAccounts[email] = id
             }

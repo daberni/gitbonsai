@@ -8,6 +8,8 @@ final class FetchController {
     private let viewModel: GraphViewModel
     /// The configured remotes as of the last refresh; a menu has to be built without waiting for git.
     private(set) var remotes: [String] = []
+    /// Called when the configured remotes changed, for instance after `git remote add` in a terminal.
+    var onRemotesChanged: (() -> Void)?
 
     init(viewModel: GraphViewModel, prompter: ActionPrompter) {
         self.viewModel = viewModel
@@ -20,6 +22,7 @@ final class FetchController {
         Task {
             guard let list = try? await repository.remotes(), list != remotes else { return }
             remotes = list
+            onRemotesChanged?()
         }
     }
 

@@ -8,6 +8,7 @@ extension RepositoryViewController {
     func wire() {
         toolbar.onFetch = { [weak self] in self?.fetchController.fetch(.allRemotes) }
         toolbar.fetchMenu = { [weak self] in self?.fetchController.menu() ?? NSMenu() }
+        fetchController.onRemotesChanged = { [weak self] in self?.showFetchState() }
         toolbar.pullMenu = { [weak self] in self?.pullPush.pullMenu() ?? NSMenu() }
         toolbar.pushMenu = { [weak self] in self?.pullPush.pushMenu() ?? NSMenu() }
         pullPush.onChange = { [weak self] in

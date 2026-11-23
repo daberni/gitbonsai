@@ -35,6 +35,11 @@ public struct WatchScope: Sendable, Equatable {
         Self.contains(root, commonDirectory) ? [root] : [root, commonDirectory]
     }
 
+    /// The worktree's own index, which git rewrites under `index.lock` and renames into place.
+    public func isIndex(_ path: String) -> Bool {
+        Self.trimmed(path) == gitDirectory + "/index"
+    }
+
     public func isRelevant(_ path: String) -> Bool {
         let path = Self.trimmed(path)
         if gitDirectory != commonDirectory, let relative = Self.relative(path, to: gitDirectory) {

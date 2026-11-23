@@ -104,3 +104,21 @@ final class RepositoryDiscoveryTests: XCTestCase {
         RealPath.of(path)
     }
 }
+
+/// File systems that leave the type out of `readdir` (`DT_UNKNOWN`) must not hide folders or `.git` files from the scan; APFS always reports it, so the classification is tested directly.
+final class DirectoryEntryTypeTests: XCTestCase {
+    func testUnknownEntriesAreClassifiedFromTheFileSystem() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-dtype-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: base) }
+        try FileManager.default.createDirectory(at: base.appendingPathComponent("folder"), withIntermediateDirectories: true)
+        try Data().write(to: base.appendingPathComponent("file"))
+        try FileManager.default.createSymbolicLink(at: base.appendingPathComponent("link"), withDestinationURL: base.appendingPathComponent("folder"))
+        let unknown = UInt8(DT_UNKNOWN)
+
+        XCTAssertEqual(RepositoryDiscovery.isDirectory(type: unknown, at: base.appendingPathComponent("folder").path), true)
+        XCTAssertEqual(RepositoryDiscovery.isDirectory(type: unknown, at: base.appendingPathComponent("file").path), false)
+        XCTAssertNil(RepositoryDiscovery.isDirectory(type: unknown, at: base.appendingPathComponent("link").path))
+        XCTAssertNil(RepositoryDiscovery.isDirectory(type: UInt8(DT_LNK), at: base.appendingPathComponent("link").path))
+        XCTAssertEqual(RepositoryDiscovery.isDirectory(type: UInt8(DT_DIR), at: "/nonexistent"), true)
+    }
+}

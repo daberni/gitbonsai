@@ -85,15 +85,32 @@ public enum RepositoryDiscovery {
         defer { closedir(directory) }
         var entries: [Entry] = []
         while let entry = readdir(directory) {
-            let type = entry.pointee.d_type
-            guard type == DT_DIR || type == DT_REG else { continue }
             let name = withUnsafeBytes(of: entry.pointee.d_name) { buffer in
                 String(decoding: buffer.prefix(Int(entry.pointee.d_namlen)), as: UTF8.self)
             }
             if name == "." || name == ".." { continue }
-            entries.append(Entry(name: name, isDirectory: type == DT_DIR))
+            guard let isDirectory = isDirectory(type: entry.pointee.d_type, at: path + "/" + name) else { continue }
+            entries.append(Entry(name: name, isDirectory: isDirectory))
         }
         return entries
+    }
+
+    /// Whether a `readdir` entry is a folder (true) or a file (false); nil for links and everything else.
+    /// Some file systems, network shares among them, report `DT_UNKNOWN`; only those entries cost an `lstat`.
+    static func isDirectory(type: UInt8, at path: String) -> Bool? {
+        switch Int32(type) {
+        case DT_DIR: return true
+        case DT_REG: return false
+        case DT_UNKNOWN:
+            var info = stat()
+            guard lstat(path, &info) == 0 else { return nil }
+            switch info.st_mode & S_IFMT {
+            case S_IFDIR: return true
+            case S_IFREG: return false
+            default: return nil
+            }
+        default: return nil
+        }
     }
 
     // MARK: Grouping

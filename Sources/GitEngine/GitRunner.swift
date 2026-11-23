@@ -144,9 +144,9 @@ public actor GitRunner {
         let startedAt = Date()
         let path = repositoryPath
         let result = try await indexQueue.enqueue {
-            // Refreshing stale stat information rewrites the index, which the file watcher must not take for an outside change.
-            WriteActivity.began(path)
-            defer { WriteActivity.ended(path) }
+            // Refreshing stale stat information rewrites the index, which the file watcher must not take for an outside change; other files changing meanwhile still count.
+            WriteActivity.began(path, .indexRefresh)
+            defer { WriteActivity.ended(path, .indexRefresh) }
             return try await self.execute(arguments, environment: environment, stdin: nil)
         }
         record(result, startedAt: startedAt)

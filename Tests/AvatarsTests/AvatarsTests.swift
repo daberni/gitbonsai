@@ -143,16 +143,36 @@ final class AvatarCacheCleanupTests: XCTestCase {
     func testDiscardAllDeletesTheCacheAndRunningLookupsDoNotRefillIt() async throws {
         let cache = AvatarDiskCache(directory: directory)
         cache.write(.image(Data([1])), for: "earlier", now: Date())
-        let fetcher = FakeFetcher { _ in (200, Data([2]), [:]) }
+        let gate = Gate()
+        let fetcher = FakeFetcher(gate: gate) { _ in (200, Data([2]), [:]) }
         let resolver = AvatarResolver(cache: cache, fetcher: fetcher)
         let steps = AvatarPlan.steps(email: "1+me@users.noreply.github.com", commit: "c", service: .gitHub(repository: "o/r"), sources: .remoteHost, pixels: 56)
         let lookup = Task { await resolver.image(for: steps) }
-        // The fake fetcher answers after 20 ms; discard while the request is out.
-        try await Task.sleep(nanoseconds: 5_000_000)
+        // Discard while the request is out.
+        await gate.arrived(1)
         await resolver.discardAll()
+        await gate.open()
         let image = await lookup.value
         XCTAssertEqual(image, Data([2]))
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
+    }
+
+    /// A commit listing that was out when avatars were turned off must not bring back the accounts it names; the next lookup lists again.
+    func testDiscardAllKeepsARunningListingFromRecordingAccounts() async throws {
+        let listing = #"[{"commit":{"author":{"email":"me@example.com"},"committer":{"email":"you@example.com"}},"author":{"id":42},"committer":{"id":7}}]"#
+        let gate = Gate()
+        let fetcher = FakeFetcher(gate: gate) { url in url.host == "api.github.com" ? (200, Data(listing.utf8), [:]) : (200, Data(url.path.utf8), [:]) }
+        let resolver = AvatarResolver(cache: nil, fetcher: fetcher)
+        let steps: @Sendable (String) -> [AvatarStep] = { email in AvatarPlan.steps(email: email, commit: "c", service: .gitHub(repository: "o/r"), sources: .remoteHost, pixels: 56) }
+        let first = Task { await resolver.image(for: steps("me@example.com")) }
+        await gate.arrived(1)
+        await resolver.discardAll()
+        await gate.open()
+        _ = await first.value
+
+        let second = await resolver.image(for: steps("you@example.com"))
+        XCTAssertEqual(second, Data("/u/7".utf8))
+        XCTAssertEqual(fetcher.urls.filter { $0.host == "api.github.com" }.count, 2)
     }
 
     func testMemoryCacheDropsTheLeastRecentlyUsed() {
@@ -297,14 +317,16 @@ final class AvatarResolverTests: XCTestCase {
     }
 }
 
-/// Answers from a closure and records every requested URL.
+/// Answers from a closure and records every requested URL. With a gate, every request waits until the gate opens.
 final class FakeFetcher: AvatarFetching, @unchecked Sendable {
     typealias Answer = (status: Int, data: Data, headers: [String: String])
     private let answer: @Sendable (URL) throws -> Answer
+    private let gate: Gate?
     private let lock = NSLock()
     private var requested: [URL] = []
 
-    init(_ answer: @escaping @Sendable (URL) throws -> Answer) {
+    init(gate: Gate? = nil, _ answer: @escaping @Sendable (URL) throws -> Answer) {
+        self.gate = gate
         self.answer = answer
     }
 
@@ -314,8 +336,37 @@ final class FakeFetcher: AvatarFetching, @unchecked Sendable {
         let url = request.url!
         lock.withLock { requested.append(url) }
         // Lets concurrent callers overlap, as real requests would.
-        try await Task.sleep(nanoseconds: 20_000_000)
+        await Task.yield()
+        await gate?.pass()
         let (status, data, headers) = try answer(url)
         return (data, HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: headers)!)
+    }
+}
+
+/// Holds requests until `open`, and tells a test when requests arrived, so tests wait on events instead of time.
+actor Gate {
+    private var isOpen = false
+    private var held: [CheckedContinuation<Void, Never>] = []
+    private var arrivals = 0
+    private var arrivalWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    func pass() async {
+        arrivals += 1
+        let reached = arrivalWaiters.filter { $0.count <= arrivals }
+        arrivalWaiters.removeAll { $0.count <= arrivals }
+        reached.forEach { $0.continuation.resume() }
+        guard !isOpen else { return }
+        await withCheckedContinuation { held.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        held.forEach { $0.resume() }
+        held = []
+    }
+
+    func arrived(_ count: Int) async {
+        guard arrivals < count else { return }
+        await withCheckedContinuation { arrivalWaiters.append((count, $0)) }
     }
 }

@@ -48,10 +48,11 @@ extension GraphViewModel {
     }
 
     /// Brings the tab in line with the repository after changes made outside the app, in a terminal, an editor or another worktree. Local only: it never fetches.
-    /// Everything is read again; only reading the log depends on whether a commit is new.
+    /// Everything is read again, the time of the last fetch too, since a fetch in a terminal moves it; only reading the log depends on whether a commit is new.
     func reconcile() async -> Reconciliation {
         if isLoading { return .loading }
         guard inPlaceRefreshes == 0 else { return .refreshing }
+        await loadLastFetch()
         await update()
         return .done
     }

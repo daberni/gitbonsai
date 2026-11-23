@@ -18,11 +18,14 @@ public final class RepositoryWatcher: @unchecked Sendable {
     private let onChange: @Sendable (Burst) -> Void
     /// Confines the stream, the burst and the timer.
     private let queue = DispatchQueue(label: "app.gitbonsai.watcher")
-    private var stream: FSEventStreamRef?
+    private let queueKey = DispatchSpecificKey<Void>()
+    private var stream: StreamHandle?
     private var burstStart: Date?
     private var burstLast = Date.distantPast
     private var burstEvents = 0
     private var burstFirstPath = ""
+    /// Every event of the burst was the index, which the app's own reads may rewrite.
+    private var burstOnlyIndex = true
     private var timer: DispatchSourceTimer?
 
     public init(scope: WatchScope, quiet: TimeInterval = 0.2, longest: TimeInterval = 1.0, ownWriteSettle: TimeInterval = 0.5, onChange: @escaping @Sendable (Burst) -> Void) {
@@ -31,38 +34,36 @@ public final class RepositoryWatcher: @unchecked Sendable {
         self.longest = longest
         self.ownWriteSettle = ownWriteSettle
         self.onChange = onChange
+        queue.setSpecific(key: queueKey, value: ())
     }
 
     deinit {
-        if let stream {
-            FSEventStreamStop(stream)
-            FSEventStreamInvalidate(stream)
-            FSEventStreamRelease(stream)
-        }
         timer?.cancel()
+        // Torn down on the queue, after any callback already running there; the callback only reaches the watcher through a weak reference.
+        if let stream { queue.async { stream.invalidate() } }
     }
 
     /// Starts the stream; events from before this moment are not reported.
     public func start() {
-        queue.sync {
+        onQueue {
             guard stream == nil else { return }
-            var context = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
+            let box = Unmanaged.passRetained(WeakWatcher(self))
+            var context = FSEventStreamContext(version: 0, info: box.toOpaque(), retain: nil, release: nil, copyDescription: nil)
             let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagWatchRoot)
-            guard let created = FSEventStreamCreate(nil, Self.callback, &context, scope.watchedPaths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.05, flags) else { return }
+            guard let created = FSEventStreamCreate(nil, Self.callback, &context, scope.watchedPaths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.05, flags) else {
+                box.release()
+                return
+            }
             FSEventStreamSetDispatchQueue(created, queue)
             FSEventStreamStart(created)
-            stream = created
+            stream = StreamHandle(stream: created, box: box)
         }
     }
 
-    /// Stops the stream; no change is reported afterwards.
+    /// Stops the stream; no change is reported afterwards. Safe to call from `onChange`.
     public func stop() {
-        queue.sync {
-            if let stream {
-                FSEventStreamStop(stream)
-                FSEventStreamInvalidate(stream)
-                FSEventStreamRelease(stream)
-            }
+        onQueue {
+            stream?.invalidate()
             stream = nil
             timer?.cancel()
             timer = nil
@@ -70,28 +71,38 @@ public final class RepositoryWatcher: @unchecked Sendable {
         }
     }
 
+    /// Runs `work` on the queue, inline when already there, so a call from a callback cannot deadlock.
+    private func onQueue(_ work: () -> Void) {
+        if DispatchQueue.getSpecific(key: queueKey) != nil { work() } else { queue.sync(execute: work) }
+    }
+
     private static let callback: FSEventStreamCallback = { _, info, count, paths, flags, _ in
-        guard let info else { return }
-        let watcher = Unmanaged<RepositoryWatcher>.fromOpaque(info).takeUnretainedValue()
+        guard let info, let watcher = Unmanaged<WeakWatcher>.fromOpaque(info).takeUnretainedValue().watcher else { return }
         let list = Unmanaged<CFArray>.fromOpaque(paths).takeUnretainedValue() as? [String] ?? []
         let rescan = FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged)
         var relevant: [String] = []
+        var onlyIndex = true
         for index in 0..<count where index < list.count {
-            if flags[index] & rescan != 0 || watcher.scope.isRelevant(list[index]) { relevant.append(list[index]) }
+            let mustScan = flags[index] & rescan != 0
+            guard mustScan || watcher.scope.isRelevant(list[index]) else { continue }
+            relevant.append(list[index])
+            if mustScan || !watcher.scope.isIndex(list[index]) { onlyIndex = false }
         }
-        watcher.received(relevant)
+        watcher.received(relevant, onlyIndex: onlyIndex)
     }
 
     /// Runs on `queue`.
-    private func received(_ paths: [String]) {
+    private func received(_ paths: [String], onlyIndex: Bool) {
         guard stream != nil, let first = paths.first else { return }
         let now = Date()
         if burstStart == nil {
             burstStart = now
             burstFirstPath = first
             burstEvents = 0
+            burstOnlyIndex = true
         }
         burstEvents += paths.count
+        burstOnlyIndex = burstOnlyIndex && onlyIndex
         burstLast = now
         schedule()
     }
@@ -112,7 +123,30 @@ public final class RepositoryWatcher: @unchecked Sendable {
         let burst = Burst(events: burstEvents, firstPath: burstFirstPath)
         burstStart = nil
         timer = nil
-        if WriteActivity.covers(scope.root, from: start, to: burstLast, settle: ownWriteSettle) { return }
+        if WriteActivity.covers(scope.root, from: start, to: burstLast, settle: ownWriteSettle, indexOnly: burstOnlyIndex) { return }
         onChange(burst)
+    }
+}
+
+/// What the stream's callback holds: the watcher may go away while the stream still delivers.
+private final class WeakWatcher: @unchecked Sendable {
+    weak var watcher: RepositoryWatcher?
+
+    init(_ watcher: RepositoryWatcher) {
+        self.watcher = watcher
+    }
+}
+
+/// A running stream and the box its callback reads; invalidated on the watcher's queue only.
+private struct StreamHandle: @unchecked Sendable {
+    let stream: FSEventStreamRef
+    let box: Unmanaged<WeakWatcher>
+
+    /// No callback follows once this returns on the stream's queue, so the box can go.
+    func invalidate() {
+        FSEventStreamStop(stream)
+        FSEventStreamInvalidate(stream)
+        FSEventStreamRelease(stream)
+        box.release()
     }
 }

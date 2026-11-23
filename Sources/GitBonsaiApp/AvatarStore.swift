@@ -76,14 +76,31 @@ final class AvatarStore {
         if let service = services[repository.path] { return service }
         guard servicesLoading.insert(repository.path).inserted else { return nil }
         Task {
-            let urls = try? await repository.remoteURLs()
-            let remotes = (urls?.remotes ?? []).map { (name: $0.name, url: $0.url) }
-            let url = AvatarService.remoteURL(in: remotes, upstreamRemote: urls?.upstreamRemote)
-            services[repository.path] = url.map(AvatarService.init(remoteURL:)) ?? AvatarService.none
+            services[repository.path] = await Self.resolveService(of: repository)
             servicesLoading.remove(repository.path)
             postChange()
         }
         return nil
+    }
+
+    /// The repository's remotes may have changed outside the app (`git remote add`, `set-url`, another upstream); a service already resolved is read again and replaced only when it differs, so the avatars on screen stay until then.
+    func remotesMayHaveChanged(in repository: Repository) {
+        guard applied.enabled, let current = services[repository.path], !servicesLoading.contains(repository.path) else { return }
+        servicesLoading.insert(repository.path)
+        Task {
+            let resolved = await Self.resolveService(of: repository)
+            servicesLoading.remove(repository.path)
+            guard resolved != current, services[repository.path] == current else { return }
+            services[repository.path] = resolved
+            postChange()
+        }
+    }
+
+    private static func resolveService(of repository: Repository) async -> AvatarService {
+        let urls = try? await repository.remoteURLs()
+        let remotes = (urls?.remotes ?? []).map { (name: $0.name, url: $0.url) }
+        let url = AvatarService.remoteURL(in: remotes, upstreamRemote: urls?.upstreamRemote)
+        return url.map(AvatarService.init(remoteURL:)) ?? AvatarService.none
     }
 
     private func settingsChanged() {

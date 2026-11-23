@@ -2,7 +2,7 @@ import Foundation
 import GitEngine
 
 /// The tags each remote has, asked once with `git ls-remote --tags` and kept until something may have changed them: a fetch, pull or push through this repository
-/// (whatever started it, an automatic fetch or a tag action included), another worktree, or other remotes.
+/// (whatever started it, an automatic fetch or a tag action included), another worktree, other remotes, or a remote URL changed outside the app.
 /// While a remote is asked again its last answer stays, so the marks change only once the new answer is in.
 @MainActor
 final class RemoteTagCache {
@@ -18,6 +18,8 @@ final class RemoteTagCache {
     /// The remotes being asked right now.
     private(set) var pending: Set<String> = []
     private var repository: Repository?
+    /// The URL each remote had when it was asked; a remote that now points elsewhere is asked again.
+    private var urls: [String: String] = [:]
     private var startedAt: Date?
     /// Answers of lookups started before the last round are dropped.
     private var generation = 0
@@ -25,8 +27,11 @@ final class RemoteTagCache {
     /// Asks every remote whose answer is missing or stale. Returns at once; answers arrive through `onChange`.
     func refresh(repository: Repository, remotes: [String]) async {
         let stale = await isStale(repository: repository, remotes: remotes)
-        if self.repository !== repository || !Set(lookups.keys).union(pending).isSubset(of: remotes) { reset() }
+        let current = Dictionary(((try? await repository.remoteURLs())?.remotes ?? []).map { ($0.name, $0.url) }) { first, _ in first }
+        let moved = urls.contains { name, url in current[name].map { $0 != url } ?? false }
+        if self.repository !== repository || moved || !Set(lookups.keys).union(pending).isSubset(of: remotes) { reset() }
         self.repository = repository
+        urls = current
         let due = remotes.filter { stale || (lookups[$0] == nil && !pending.contains($0)) }
         guard !due.isEmpty else { return }
         if stale {

@@ -112,6 +112,13 @@ final class RepositoryViewController: NSObject {
         }
         // Editing an already changed file keeps its status line, so the working directory's line counts are read again.
         refreshWorkingDirectoryCounts()
+        AvatarStore.shared.remotesMayHaveChanged(in: viewModel.repository)
+    }
+
+    /// A remote counts once it is configured, before anything was fetched from it.
+    func showFetchState() {
+        let hasRemoteBranch = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
+        toolbar.showFetchState(hasRemote: hasRemoteBranch || !fetchController.remotes.isEmpty, lastFetch: viewModel.lastFetch)
     }
 
     private func autoFetchSituation() async -> AutoFetchPolicy.Situation {
@@ -160,8 +167,7 @@ final class RepositoryViewController: NSObject {
         if let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)
         }
-        let hasRemote = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
-        toolbar.showFetchState(hasRemote: hasRemote, lastFetch: viewModel.lastFetch)
+        showFetchState()
         fetchController.refreshRemotes()
         pullPush.refresh()
         operationBanner.update()
