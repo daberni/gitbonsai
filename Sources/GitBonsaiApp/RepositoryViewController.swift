@@ -32,6 +32,8 @@ final class RepositoryViewController: NSObject {
     let fileActions: FileActionsController
     let commitController: CommitController
     let diff: DiffViewController
+    /// Takes the diff's place while several files are selected.
+    let stackedDiff: StackedDiffController
     /// Takes the diff's place for a file with unresolved conflicts.
     var conflicts: ConflictViewController!
     let tagsController: TagsController
@@ -88,6 +90,7 @@ final class RepositoryViewController: NSObject {
         stashesController = StashesController(viewModel: viewModel)
         let model = viewModel
         diff = DiffViewController(staging: staging, repository: { model.repository })
+        stackedDiff = StackedDiffController(staging: staging, repository: { model.repository })
         super.init()
         conflicts = ConflictViewController(repository: { model.repository }, sides: { [weak self] in self?.conflictSides() ?? ConflictSides(ours: "HEAD", theirs: "MERGE_HEAD") }, refresh: { await model.refresh(note: nil) }, prompter: commitActions.prompter)
         let rebase = commitActions.interactiveRebase
@@ -129,15 +132,13 @@ final class RepositoryViewController: NSObject {
 
     /// An open diff stays while its file still has changes there and, for a commit, while the commit is still in the history. A comparison of two revisions never changes, so it is not read again.
     private func reconciled() {
-        if let file = detail.selectedFile {
-            switch file.source {
-            case .commit(let commit):
-                if viewModel.rowIndex(of: commit.id) == nil { showGraph() }
-            case .revisions:
-                break
-            case .unstaged, .staged, .untracked:
-                if historyPane.current === conflicts.view { conflicts.reload() } else { diff.reload() }
-            }
+        let files = detail.selectedFiles
+        let commitGone = files.contains { if case .commit(let commit) = $0.source { viewModel.rowIndex(of: commit.id) == nil } else { false } }
+        let isWorking = files.contains { $0.isStageable || $0.isUnstageable }
+        if commitGone {
+            showGraph()
+        } else if isWorking {
+            if historyPane.current === conflicts.view { conflicts.reload() } else if files.count > 1 { stackedDiff.reload() } else { diff.reload() }
         }
         // Editing an already changed file keeps its status line, so the working directory's line counts are read again, unless a changed status just did.
         if !workingDirectoryShownDuringReconcile { refreshWorkingDirectoryCounts() }

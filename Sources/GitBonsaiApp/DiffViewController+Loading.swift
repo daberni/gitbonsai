@@ -117,6 +117,7 @@ extension DiffViewController {
         }
         column.minWidth = contentWidth()
         table.reloadData()
+        fitEmbeddedHeight()
         // The whole file opens where its first change is.
         if case .start(let sideways) = scrolling { scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0, resettingSideways: sideways) }
     }

@@ -51,11 +51,11 @@ extension RepositoryViewController {
         history.pillMenuItems = { [weak self] row, ref in self?.historyMenu.pillMenu(forRow: row, ref: ref) ?? [] }
 
         detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
-        detail.onSelectFile = { [weak self] selection in self?.showDiff(selection) }
+        detail.onSelectFiles = { [weak self] files in self?.showDiff(files) }
         detail.onStage = { [weak self] paths in self?.staging.stage(paths) }
         detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
-        detail.onDiscard = { [weak self] selection in self?.staging.discard(selection) }
-        detail.fileMenuItems = { [weak self] file in self?.fileActions.menuItems(for: file) ?? [] }
+        detail.onDiscard = { [weak self] files in self?.staging.discard(files) }
+        detail.fileMenuItems = { [weak self] files in self?.fileActions.menuItems(for: files) ?? [] }
         detail.messageAccess = { [weak self] commit in self?.commitActions.interactiveRebase.rewordAccess(for: commit) }
         detail.onEditMessage = { [weak self] in self?.editSelectedCommitMessage() }
         commitActions.interactiveRebase.onReword = { [weak self] commit in self?.editMessage(of: commit) }
@@ -63,7 +63,7 @@ extension RepositoryViewController {
         inlineReword.onClosed = { [weak self] in self?.messageEditingClosed() }
         fileActions.prompter.window = { [weak self] in self?.view.window }
         fileActions.onChange = { [weak self] in
-            self?.diff.reload()
+            self?.reloadDiffs()
             self?.refreshWorkingDirectoryCounts()
         }
         detail.showNothing()
@@ -74,10 +74,15 @@ extension RepositoryViewController {
         staging.window = { [weak self] in self?.view.window }
         commitController.window = { [weak self] in self?.view.window }
         staging.onChange = { [weak self] in
-            self?.diff.reload()
+            self?.reloadDiffs()
             self?.refreshWorkingDirectoryCounts()
         }
         diff.onClose = { [weak self] in self?.showGraph() }
+        stackedDiff.onClose = { [weak self] in self?.showGraph() }
+        stackedDiff.onFilesGone = { [weak self] gone in
+            guard let self else { return }
+            detail.selectedFiles.removeAll { gone.contains($0) }
+        }
         wireConflicts()
         operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }

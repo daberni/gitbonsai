@@ -5,27 +5,48 @@ import GitEngine
 extension RepositoryViewController {
     // MARK: Diff
 
-    /// Opens a file as if it was chosen in the detail panel.
+    /// Opens files as if they were chosen in the detail panel.
     func openFile(_ selection: FileSelection) {
-        detail.selectedFile = selection
-        showDiff(selection)
+        openFiles([selection])
     }
 
-    func showDiff(_ selection: FileSelection) {
-        if isConflict(selection) { return showConflict(selection.path) }
+    func openFiles(_ files: [FileSelection]) {
+        detail.selectedFiles = files
+        showDiff(files)
+    }
+
+    /// One file shows its diff or conflict view, several their diffs stacked, none the graph again.
+    func showDiff(_ files: [FileSelection]) {
+        guard let first = files.first else { return showGraph() }
+        if files.count == 1 && isConflict(first) { return showConflict(first.path) }
         conflicts.close()
-        diff.show(selection) { [weak self] in
-            guard let self else { return }
-            historyPane.show(diff.view)
+        if files.count == 1 {
+            stackedDiff.close()
+            diff.show(first) { [weak self] in
+                guard let self else { return }
+                historyPane.show(diff.view)
+            }
+        } else {
+            diff.close()
+            stackedDiff.show(files) { [weak self] in
+                guard let self else { return }
+                historyPane.show(stackedDiff.view)
+            }
         }
+    }
+
+    /// The index or the working tree changed: the open diffs read their files again.
+    func reloadDiffs() {
+        if historyPane.current === stackedDiff.view { stackedDiff.reload() } else { diff.reload() }
     }
 
     /// The diff's close button or Escape: the graph comes back with the focus.
     func showGraph() {
         diff.close()
+        stackedDiff.close()
         conflicts.close()
         historyPane.show(history.view)
-        detail.selectedFile = nil
+        detail.selectedFiles = []
         view.window?.makeFirstResponder(history.tableView)
     }
 
@@ -33,9 +54,10 @@ extension RepositoryViewController {
     /// elsewhere, such as in the search field, it stays, so typing goes on.
     private func closeDiff() {
         diff.close()
+        stackedDiff.close()
         conflicts.close()
         let open = historyPane.current
-        guard open === diff.view || open === conflicts.view, let open else { return }
+        guard open === diff.view || open === stackedDiff.view || open === conflicts.view, let open else { return }
         let focus = view.window?.firstResponder as? NSView
         let focusFollows = focus.map { $0.isDescendant(of: open) || $0.isDescendant(of: detail) } ?? true
         historyPane.show(history.view)
@@ -108,25 +130,21 @@ extension RepositoryViewController {
 
     /// The base switch replaces the files; an open diff moves to the same file in the new comparison, or closes when it is not part of it.
     func showComparison(of rows: IndexSet) {
-        detail.selectedFile = nil
+        detail.selectedFiles = []
         rightColumn.showsBar = false
         let panel = detail.showComparison(of: rows.map { viewModel.commits[$0] }, repository: viewModel.repository)
         panel.onFilesReplaced = { [weak self] models in
-            guard let self, let open = detail.selectedFile else { return }
-            if let match = models.first(where: { $0.selection.path == open.path })?.selection {
-                detail.selectedFile = match
-                showDiff(match)
-            } else {
-                detail.selectedFile = nil
-                closeDiff()
-            }
+            guard let self, !detail.selectedFiles.isEmpty else { return }
+            let matches = detail.selectedFiles.compactMap { open in models.first { $0.selection.path == open.path }?.selection }
+            detail.selectedFiles = matches
+            if matches.isEmpty { closeDiff() } else { showDiff(matches) }
         }
         comparison = panel
     }
 
     /// A new selection in the history starts without a chosen file; a redraw of the same one keeps it.
     func showDetail(for row: Int?, keepingFile: Bool = false) {
-        if !keepingFile { detail.selectedFile = nil }
+        if !keepingFile { detail.selectedFiles = [] }
         rightColumn.showsBar = showsCommitForm(at: row)
         guard let row else { detail.showNothing(); return }
         if viewModel.kinds[row] == .wip, let status = viewModel.status {

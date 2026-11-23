@@ -7000,6 +7000,94 @@
         }
       }
     },
+    "diff.stack.count" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Datei ausgewählt"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Dateien ausgewählt"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file selected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files selected"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "diff.stack.stage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien stagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stage files"
+          }
+        }
+      }
+    },
+    "diff.stack.tooMany" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu viele, um ihre Diffs untereinander zu zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many to show their diffs one below the other"
+          }
+        }
+      }
+    },
+    "diff.stack.unstage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien unstagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unstage files"
+          }
+        }
+      }
+    },
     "diff.toolbar.close" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -7524,6 +7612,22 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Couldn’t Restore File"
+          }
+        }
+      }
+    },
+    "failure.file.notReverted" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen konnten nicht rückgängig gemacht werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Revert Changes"
           }
         }
       }
@@ -8878,6 +8982,102 @@
         }
       }
     },
+    "files.discardSeveral.info" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre nicht gestagten Änderungen gehen verloren. Gestagte Änderungen bleiben. Das kann nicht rückgängig gemacht werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Their unstaged changes are lost. Staged changes stay. This cannot be undone."
+          }
+        }
+      }
+    },
+    "files.discardSeveral.infoUntracked" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nicht gestagte Änderungen gehen verloren und %lld nicht versionierte Datei wird gelöscht. Gestagte Änderungen bleiben. Das kann nicht rückgängig gemacht werden."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nicht gestagte Änderungen gehen verloren und %lld nicht versionierte Dateien werden gelöscht. Gestagte Änderungen bleiben. Das kann nicht rückgängig gemacht werden."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Unstaged changes are lost and %lld untracked file is deleted. Staged changes stay. This cannot be undone."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Unstaged changes are lost and %lld untracked files are deleted. Staged changes stay. This cannot be undone."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "files.discardSeveral.title" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Änderungen an %lld Datei verwerfen?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Änderungen an %lld Dateien verwerfen?"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Discard changes to %lld file?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Discard changes to %lld files?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "files.list.andMore" : {
       "comment" : "Below a cut-off file list",
       "extractionState" : "extracted_with_value",
@@ -8930,6 +9130,22 @@
         }
       }
     },
+    "files.menu.differentCommits" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die ausgewählten Dateien gehören zu verschiedenen Commits"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected files belong to different Commits"
+          }
+        }
+      }
+    },
     "files.menu.discard" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -8947,6 +9163,22 @@
         }
       }
     },
+    "files.menu.hasConflicts" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einige ausgewählte Dateien haben ungelöste Konflikte"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some selected files have unresolved conflicts"
+          }
+        }
+      }
+    },
     "files.menu.moveToTrash" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -8960,6 +9192,70 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Move to Trash…"
+          }
+        }
+      }
+    },
+    "files.menu.notAllOnDisk" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht jede ausgewählte Datei liegt im Arbeitsverzeichnis"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not every selected file is in the working directory"
+          }
+        }
+      }
+    },
+    "files.menu.notAllStaged" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht jede ausgewählte Datei ist gestagt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not every selected file is staged"
+          }
+        }
+      }
+    },
+    "files.menu.notAllUnstaged" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht jede ausgewählte Datei hat nicht gestagte Änderungen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not every selected file has unstaged changes"
+          }
+        }
+      }
+    },
+    "files.menu.oneAtATime" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Diff-Tool öffnet nur eine Datei auf einmal"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The diff tool opens one file at a time"
           }
         }
       }
@@ -9049,6 +9345,22 @@
         }
       }
     },
+    "files.menu.revertChanges" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen dieses Commits rückgängig machen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revert changes of this Commit"
+          }
+        }
+      }
+    },
     "files.menu.stage" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -9130,6 +9442,62 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Restore %1$@ from %2$@?"
+          }
+        }
+      }
+    },
+    "files.restoreSeveral.info" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ihre lokalen Änderungen werden überschrieben. Das kann nicht rückgängig gemacht werden. Gestagte Änderungen bleiben im Index."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Their local changes will be overwritten. This can’t be undone. Staged changes stay in the index."
+          }
+        }
+      }
+    },
+    "files.restoreSeveral.title" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld Datei aus %2$@ wiederherstellen?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$lld Dateien aus %2$@ wiederherstellen?"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Restore %1$lld file from %2$@?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Restore %1$lld files from %2$@?"
+                }
+              }
+            }
           }
         }
       }
@@ -9378,6 +9746,62 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Move %@ to the Trash?"
+          }
+        }
+      }
+    },
+    "files.trashSeveral.info" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie werden aus dem Arbeitsverzeichnis entfernt und landen im Papierkorb."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They are removed from the working directory and go to the Trash."
+          }
+        }
+      }
+    },
+    "files.trashSeveral.title" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Datei in den Papierkorb legen?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Dateien in den Papierkorb legen?"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Move %lld file to the Trash?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Move %lld files to the Trash?"
+                }
+              }
+            }
           }
         }
       }

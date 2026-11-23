@@ -1,7 +1,8 @@
 import AppKit
 import GitEngine
 
-/// Sections of file rows with a caption and an optional action, and one selected file across all of them.
+/// Sections of file rows with a caption and an optional action, and the selected files across all of them.
+/// A click selects one file, or deselects it when it is the only one; ⌘-click toggles a file, ⇧-click selects the range from the last clicked one.
 final class FileListView: NSStackView {
     struct Section {
         let title: String
@@ -10,11 +11,16 @@ final class FileListView: NSStackView {
         let action: (title: String, perform: () -> Void)?
     }
 
-    var onSelect: ((FileSelection) -> Void)?
-    var onAction: ((FileSelection, FileRowView.Action) -> Void)?
-    /// The context menu's entries for a row; none leaves the row without a menu.
-    var menuItems: ((FileRowView.Model) -> [NSMenuItem])?
-    var selected: FileSelection? { didSet { rowViews.forEach { $0.isSelected = $0.model.selection == selected } } }
+    /// The selection changed by a click or a key; empty when the last file was deselected.
+    var onSelect: (([FileSelection]) -> Void)?
+    var onAction: (([FileSelection], FileRowView.Action) -> Void)?
+    /// The context menu's entries for the files it acts on; none leaves the row without a menu.
+    var menuItems: (([FileRowView.Model]) -> [NSMenuItem])?
+    /// In row order.
+    var selection: [FileSelection] = [] { didSet { rowViews.forEach { $0.isSelected = selection.contains($0.model.selection) } } }
+    /// Where ⇧-click and ⇧-arrow ranges start, and where the arrow keys move from.
+    private var anchor: FileSelection?
+    private var cursor: FileSelection?
     /// While the rows belong to an earlier selection they take no clicks or keys; once loading takes long they are hidden and keep their room.
     enum Freshness { case current, stale, loading }
     var freshness = Freshness.current {
@@ -45,16 +51,20 @@ final class FileListView: NSStackView {
             addFull(header(for: section))
             for model in section.rows.prefix(Theme.Detail.maximumFiles) {
                 let row = FileRowView(model: model)
-                row.isSelected = model.selection == selected
-                row.onClick = { [weak self, weak row] in
+                row.isSelected = selection.contains(model.selection)
+                row.onClick = { [weak self, weak row] flags in
                     guard let self, let row else { return }
                     window?.makeFirstResponder(self)
-                    choose(row)
+                    click(row, flags: flags)
                 }
-                row.onAction = { [weak self] action in self?.onAction?(model.selection, action) }
+                row.onAction = { [weak self] action in
+                    guard let self else { return }
+                    onAction?(targets(of: model, fitting: action).map(\.selection), action)
+                }
                 row.contextMenu = { [weak self] in
-                    guard let items = self?.menuItems?(model), !items.isEmpty else { return nil }
+                    guard let self, let items = menuItems?(targets(of: model)), !items.isEmpty else { return nil }
                     let menu = NSMenu()
+                    menu.autoenablesItems = false
                     items.forEach(menu.addItem)
                     return menu
                 }
@@ -77,26 +87,76 @@ final class FileListView: NSStackView {
     }
 
     override func keyDown(with event: NSEvent) {
+        let extending = event.modifierFlags.contains(.shift)
         switch event.specialKey {
-        case .upArrow?: moveSelection(by: -1)
-        case .downArrow?: moveSelection(by: 1)
+        case .upArrow?: moveSelection(by: -1, extending: extending)
+        case .downArrow?: moveSelection(by: 1, extending: extending)
         default: super.keyDown(with: event)
         }
     }
 
-    func moveSelection(by offset: Int) {
+    /// An arrow moves a single selection on from the last clicked file; with ⇧ it grows or shrinks the range from the anchor instead.
+    func moveSelection(by offset: Int, extending: Bool = false) {
         guard !rowViews.isEmpty, freshness == .current else { return }
-        let current = rowViews.firstIndex { $0.model.selection == selected }
+        let current = index(of: cursor) ?? rowViews.lastIndex { selection.contains($0.model.selection) }
         let target = current.map { min(max($0 + offset, 0), rowViews.count - 1) } ?? (offset > 0 ? 0 : rowViews.count - 1)
         guard target != current else { return }
-        choose(rowViews[target])
+        let row = rowViews[target]
+        if extending, let start = index(of: anchor) {
+            cursor = row.model.selection
+            select(range(start, target))
+        } else {
+            anchor = row.model.selection
+            cursor = anchor
+            select([row.model.selection])
+        }
+        row.scrollToVisible(row.bounds)
     }
 
-    /// The same path for a click and a key: select, keep the row in sight, open its diff.
-    private func choose(_ row: FileRowView) {
-        selected = row.model.selection
+    private func click(_ row: FileRowView, flags: NSEvent.ModifierFlags) {
+        let file = row.model.selection
+        if flags.contains(.command) {
+            anchor = file
+            cursor = file
+            select(selection.contains(file) ? selection.filter { $0 != file } : rowViews.map(\.model.selection).filter { selection.contains($0) || $0 == file })
+        } else if flags.contains(.shift), let start = index(of: anchor), let end = index(of: file) {
+            cursor = file
+            select(range(start, end))
+        } else if selection == [file] {
+            anchor = nil
+            cursor = nil
+            select([])
+        } else {
+            anchor = file
+            cursor = file
+            select([file])
+        }
         row.scrollToVisible(row.bounds)
-        onSelect?(row.model.selection)
+    }
+
+    private func select(_ files: [FileSelection]) {
+        selection = files
+        onSelect?(files)
+    }
+
+    private func index(of file: FileSelection?) -> Int? {
+        file.flatMap { file in rowViews.firstIndex { $0.model.selection == file } }
+    }
+
+    private func range(_ start: Int, _ end: Int) -> [FileSelection] {
+        rowViews[min(start, end)...max(start, end)].map(\.model.selection)
+    }
+
+    /// A row that is part of a larger selection speaks for all selected rows; any other row only for itself, as in Finder.
+    private func targets(of model: FileRowView.Model) -> [FileRowView.Model] {
+        guard selection.contains(model.selection) else { return [model] }
+        return rowViews.map(\.model).filter { selection.contains($0.selection) }
+    }
+
+    /// A hovered button acts on every selected file only when each of them offers it.
+    private func targets(of model: FileRowView.Model, fitting action: FileRowView.Action) -> [FileRowView.Model] {
+        let all = targets(of: model)
+        return all.allSatisfy { $0.actions.contains(action) } ? all : [model]
     }
 
     private func addFull(_ view: NSView) {

@@ -3,6 +3,7 @@ import GitEngine
 
 /// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged, and unstaged or untracked hunks discarded.
 /// The "Whole file" mode shows the whole file with the changes in place instead; hunks are staged in the "Diff" mode only.
+/// Embedded in `StackedDiffController` it shows one of several files: as tall as its content, scrolled by the stack around it.
 @MainActor
 final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     enum Row {
@@ -22,7 +23,10 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     let repository: () -> Repository
     let header = DiffHeaderView()
     let table = NSTableView()
-    let scroll = NSScrollView()
+    let scroll: NSScrollView
+    let isEmbedded: Bool
+    /// The embedded view's height, which follows its content.
+    private var embeddedHeight: NSLayoutConstraint?
     /// Takes the place of the lines when there are none to show: binary files, pure renames, mode changes, no changes.
     let emptyState = EmptyStateView()
     /// Takes the place of the lines for a changed image.
@@ -45,10 +49,13 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     /// The read under way and what it does once it is in.
     var pending: PendingLoad?
 
-    init(staging: StagingController, repository: @escaping () -> Repository) {
+    init(staging: StagingController, repository: @escaping () -> Repository, embedded: Bool = false) {
         self.staging = staging
         self.repository = repository
+        isEmbedded = embedded
+        scroll = embedded ? NestedScrollView() : NSScrollView()
         super.init()
+        header.isEmbedded = embedded
         header.onClose = { [weak self] in self?.onClose?() }
         header.onModeChange = { [weak self] in self?.switchMode(to: $0) }
         header.onOptionsChange = { [weak self] in self?.changeOptions(to: $0) }
@@ -78,7 +85,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     private func layout() {
         scroll.documentView = table
-        scroll.hasVerticalScroller = true
+        scroll.hasVerticalScroller = !isEmbedded
         scroll.hasHorizontalScroller = true
         scroll.drawsBackground = true
         scroll.backgroundColor = Theme.surface0
@@ -108,6 +115,18 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             imageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+        if isEmbedded {
+            embeddedHeight = view.heightAnchor.constraint(equalToConstant: Theme.Diff.headerHeight + Theme.Diff.stackedEmptyHeight)
+            embeddedHeight?.isActive = true
+        }
+    }
+
+    /// Room for every row, for the images, or for the empty state, plus a horizontal scroller that takes space.
+    func fitEmbeddedHeight() {
+        guard let embeddedHeight else { return }
+        let lines = !imageView.isHidden ? Theme.Diff.stackedImageHeight : scroll.isHidden || rows.isEmpty ? Theme.Diff.stackedEmptyHeight : table.rect(ofRow: rows.count - 1).maxY
+        let scroller = scroll.hasHorizontalScroller && NSScroller.preferredScrollerStyle == .legacy ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
+        embeddedHeight.constant = Theme.Diff.headerHeight + lines + scroller
     }
 
     /// Hunk headers place their button by what is visible; a sideways scroll moves it along.
@@ -225,6 +244,17 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             view.identifier = .init("notice")
             view.text = text
             return view
+        }
+    }
+}
+
+/// The lines of one stacked file scroll sideways themselves; vertical scrolling belongs to the stack around them.
+final class NestedScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        if abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) {
+            nextResponder?.scrollWheel(with: event)
+        } else {
+            super.scrollWheel(with: event)
         }
     }
 }

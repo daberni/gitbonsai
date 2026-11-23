@@ -5,20 +5,20 @@ import GitEngine
 final class DetailView: NSView {
     private typealias M = Theme.Detail
     var onNavigate: ((String) -> Void)?
-    /// A file was chosen; the history pane shows its diff.
-    var onSelectFile: ((FileSelection) -> Void)?
+    /// The chosen files changed; the history pane shows their diffs, or the graph again when none is left.
+    var onSelectFiles: (([FileSelection]) -> Void)?
     var onStage: (([String]) -> Void)?
     var onUnstage: (([String]) -> Void)?
-    /// Discard the unstaged changes of one file, or delete it when it is untracked.
-    var onDiscard: ((FileSelection) -> Void)?
-    /// The entries of a file's context menu.
-    var fileMenuItems: ((FileRowView.Model) -> [NSMenuItem])?
+    /// Discard the unstaged changes of files, or delete them when they are untracked.
+    var onDiscard: (([FileSelection]) -> Void)?
+    /// The entries of the context menu for the files it acts on.
+    var fileMenuItems: (([FileRowView.Model]) -> [NSMenuItem])?
     /// Whether the shown commit's message can be edited; nil offers nothing, for commits off the current branch's line.
     var messageAccess: ((Commit) -> InteractiveRebaseController.RewordAccess?)?
     /// The pencil or a double click on the subject asks to edit the shown commit's message.
     var onEditMessage: (() -> Void)?
     /// Kept across redraws of the same commit or working directory, cleared otherwise.
-    var selectedFile: FileSelection? { didSet { fileList?.selected = selectedFile } }
+    var selectedFiles: [FileSelection] = [] { didSet { fileList?.selection = selectedFiles } }
 
     private let stack = NSStackView()
     var loadTask: Task<Void, Never>?
@@ -217,19 +217,19 @@ final class DetailView: NSView {
 
     func makeFileList() -> FileListView {
         let list = FileListView()
-        list.selected = selectedFile
-        list.onSelect = { [weak self] selection in
-            self?.selectedFile = selection
-            self?.onSelectFile?(selection)
+        list.selection = selectedFiles
+        list.onSelect = { [weak self] files in
+            self?.selectedFiles = files
+            self?.onSelectFiles?(files)
         }
-        list.onAction = { [weak self] selection, action in
+        list.onAction = { [weak self] files, action in
             switch action {
-            case .stage: self?.onStage?([selection.path])
-            case .unstage: self?.onUnstage?([selection.path])
-            case .discard: self?.onDiscard?(selection)
+            case .stage: self?.onStage?(files.map(\.path))
+            case .unstage: self?.onUnstage?(files.map(\.path))
+            case .discard: self?.onDiscard?(files)
             }
         }
-        list.menuItems = { [weak self] model in self?.fileMenuItems?(model) ?? [] }
+        list.menuItems = { [weak self] models in self?.fileMenuItems?(models) ?? [] }
         fileList = list
         add(list)
         return list

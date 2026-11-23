@@ -12,6 +12,7 @@ extension RepositoryViewController {
 
     func showConflict(_ path: String) {
         diff.close()
+        stackedDiff.close()
         conflicts.show(path: path) { [weak self] in
             guard let self else { return }
             historyPane.show(conflicts.view)
@@ -30,12 +31,12 @@ extension RepositoryViewController {
         guard let next = remaining.first else {
             conflicts.close()
             historyPane.show(history.view)
-            detail.selectedFile = nil
+            detail.selectedFiles = []
             view.window?.makeFirstResponder(history.tableView)
             return
         }
         let selection = FileSelection(path: next, originalPath: nil, source: .unstaged)
-        detail.selectedFile = selection
+        detail.selectedFiles = [selection]
         showConflict(next)
     }
 

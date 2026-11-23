@@ -33,7 +33,8 @@ final class FileRowView: NSView {
     private typealias M = Theme.FileList
     let model: Model
     var isSelected = false { didSet { needsDisplay = true } }
-    var onClick: (() -> Void)?
+    /// The click's modifier keys decide how it changes the list's selection.
+    var onClick: ((NSEvent.ModifierFlags) -> Void)?
     var onAction: ((Action) -> Void)?
     /// Built at the moment of the right click, so it reflects the file as it is then.
     var contextMenu: (() -> NSMenu?)?
@@ -99,7 +100,7 @@ final class FileRowView: NSView {
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard bounds.contains(point) else { return }
-        if let action = action(at: point) { onAction?(action) } else { onClick?() }
+        if let action = action(at: point) { onAction?(action) } else { onClick?(event.modifierFlags) }
     }
 
     override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }

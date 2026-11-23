@@ -20,13 +20,13 @@ final class FileActionsTests: XCTestCase {
         try fixture.commit("new", contents: "two\n")
         let repo = fixture.repository
 
-        let clean = try await repo.hasLocalChanges(at: "file.txt")
+        let clean = try await repo.hasLocalChanges(at: ["file.txt"])
         XCTAssertFalse(clean)
-        try await repo.restore("file.txt", of: try await commit(old, in: fixture))
+        try await repo.restore(["file.txt"], of: try await commit(old, in: fixture))
 
         XCTAssertEqual(try read(fixture, "file.txt"), "one\n")
         XCTAssertEqual(try fixture.git("status", "--porcelain"), " M file.txt")
-        let changed = try await repo.hasLocalChanges(at: "file.txt")
+        let changed = try await repo.hasLocalChanges(at: ["file.txt"])
         XCTAssertTrue(changed)
     }
 
@@ -41,22 +41,22 @@ final class FileActionsTests: XCTestCase {
         let repo = fixture.repository
 
         try fixture.write("file.txt", "local edit\n")
-        let edited = try await repo.hasLocalChanges(at: "file.txt")
+        let edited = try await repo.hasLocalChanges(at: ["file.txt"])
         XCTAssertTrue(edited)
-        let otherFile = try await repo.hasLocalChanges(at: "other.txt")
+        let otherFile = try await repo.hasLocalChanges(at: ["other.txt"])
         XCTAssertFalse(otherFile, "changes elsewhere do not count")
 
         // A staged edit counts too, and the restore leaves it in the index.
         try fixture.git("add", "file.txt")
-        let staged = try await repo.hasLocalChanges(at: "file.txt")
+        let staged = try await repo.hasLocalChanges(at: ["file.txt"])
         XCTAssertTrue(staged)
-        try await repo.restore("file.txt", of: try await commit(old, in: fixture))
+        try await repo.restore(["file.txt"], of: try await commit(old, in: fixture))
         XCTAssertEqual(try read(fixture, "file.txt"), "one\n")
         XCTAssertEqual(try fixture.git("show", ":file.txt"), "local edit")
 
         // An untracked file in the way counts as a local change.
         try fixture.write("new.txt", "mine\n")
-        let untracked = try await repo.hasLocalChanges(at: "new.txt")
+        let untracked = try await repo.hasLocalChanges(at: ["new.txt"])
         XCTAssertTrue(untracked)
     }
 
@@ -71,7 +71,7 @@ final class FileActionsTests: XCTestCase {
 
         let revision = try await repo.restoreRevision(for: "gone.txt", of: deletion)
         XCTAssertEqual(revision, deletion.parents.first)
-        try await repo.restore("gone.txt", of: deletion)
+        try await repo.restore(["gone.txt"], of: deletion)
         XCTAssertEqual(try read(fixture, "gone.txt"), "last words\n")
     }
 
@@ -87,9 +87,105 @@ final class FileActionsTests: XCTestCase {
 
         let revision = try await repo.restoreRevision(for: "after.txt", of: rename)
         XCTAssertEqual(revision, rename.id)
-        try await repo.restore("after.txt", of: rename)
+        try await repo.restore(["after.txt"], of: rename)
         XCTAssertEqual(try read(fixture, "after.txt"), "content\n")
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent("before.txt").path), "the old path stays gone")
+    }
+
+    // MARK: Several files
+
+    func testRestoringSeveralFilesTakesEachFromItsOwnSourceAndLeavesOthersAlone() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("add", file: "gone.txt", contents: "last words\n")
+        try fixture.commit("add", file: "über/naïve.txt", contents: "one\n")
+        try fixture.commit("add", file: "other.txt", contents: "keep\n")
+        try fixture.write("über/naïve.txt", "two\n")
+        try fixture.git("rm", "-q", "gone.txt")
+        try fixture.git("add", "-A")
+        try fixture.git("commit", "-q", "-m", "change")
+        let change = try await commit(try fixture.git("rev-parse", "HEAD"), in: fixture)
+        try fixture.commit("later", file: "über/naïve.txt", contents: "three\n")
+        try fixture.write("other.txt", "local\n")
+        let repo = fixture.repository
+
+        let touched = try await repo.hasLocalChanges(at: ["gone.txt", "über/naïve.txt"])
+        XCTAssertFalse(touched)
+        try await repo.restore(["gone.txt", "über/naïve.txt"], of: change)
+
+        XCTAssertEqual(try read(fixture, "gone.txt"), "last words\n", "a deleted file comes from the parent")
+        XCTAssertEqual(try read(fixture, "über/naïve.txt"), "two\n")
+        XCTAssertEqual(try read(fixture, "other.txt"), "local\n")
+        let any = try await repo.hasLocalChanges(at: ["gone.txt", "über/naïve.txt"])
+        XCTAssertTrue(any)
+    }
+
+    func testRevertingACommitsChangesToSomeFilesUndoesOnlyThoseIncludingARename() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("add", file: "before.txt", contents: "content\n")
+        try fixture.commit("add", file: "ünï.txt", contents: "one\n2\n3\n4\n5\n6\n7\ntwo\n")
+        try fixture.commit("add", file: "kept.txt", contents: "a\n")
+        try fixture.git("mv", "before.txt", "after.txt")
+        try fixture.write("ünï.txt", "one\n2\n3\n4\n5\n6\n7\nzwei\n")
+        try fixture.write("kept.txt", "b\n")
+        try fixture.git("add", "-A")
+        try fixture.git("commit", "-q", "-m", "change")
+        let change = try await commit(try fixture.git("rev-parse", "HEAD"), in: fixture)
+        // A later edit elsewhere in the file does not stop the revert.
+        try fixture.write("ünï.txt", "uno\n2\n3\n4\n5\n6\n7\nzwei\n")
+        let repo = fixture.repository
+
+        try await repo.revertChanges(of: change, paths: ["before.txt", "after.txt", "ünï.txt"])
+
+        XCTAssertEqual(try read(fixture, "ünï.txt"), "uno\n2\n3\n4\n5\n6\n7\ntwo\n")
+        XCTAssertEqual(try read(fixture, "before.txt"), "content\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent("after.txt").path))
+        XCTAssertEqual(try read(fixture, "kept.txt"), "b\n", "files not named stay")
+        XCTAssertEqual(try fixture.git("diff", "--cached", "--name-only"), "", "the index stays")
+    }
+
+    func testRevertThatDoesNotApplyWritesNothing() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("add", file: "a.txt", contents: "one\n")
+        try fixture.commit("add", file: "b.txt", contents: "one\n")
+        try fixture.write("a.txt", "two\n")
+        try fixture.write("b.txt", "two\n")
+        try fixture.git("commit", "-q", "-am", "change")
+        let change = try await commit(try fixture.git("rev-parse", "HEAD"), in: fixture)
+        try fixture.write("b.txt", "three\n")
+        let repo = fixture.repository
+
+        do {
+            try await repo.revertChanges(of: change, paths: ["a.txt", "b.txt"])
+            XCTFail("b.txt changed since, so the patch must not apply")
+        } catch {}
+        XCTAssertEqual(try read(fixture, "a.txt"), "two\n", "a failed revert leaves every file as it was")
+    }
+
+    func testStagingUnstagingAndDiscardingSeveralPathsInOneCall() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("add", file: "ä b.txt", contents: "one\n")
+        try fixture.commit("add", file: "old.txt", contents: "content\n")
+        try fixture.commit("add", file: "c.txt", contents: "one\n")
+        try fixture.write("ä b.txt", "two\n")
+        try fixture.write("c.txt", "two\n")
+        try fixture.git("mv", "old.txt", "new.txt")
+        try fixture.write("neu ü.txt", "fresh\n")
+        let repo = fixture.repository
+
+        try await repo.stage(["ä b.txt", "neu ü.txt"])
+        XCTAssertEqual(try fixture.git("diff", "--cached", "--no-renames", "--name-only", "-z").split(separator: "\0").sorted(), ["neu ü.txt", "new.txt", "old.txt", "ä b.txt"])
+
+        try await repo.unstage(["ä b.txt", "neu ü.txt", "new.txt", "old.txt"])
+        XCTAssertEqual(try fixture.git("diff", "--cached", "--name-only"), "")
+
+        try await repo.discardUnstagedChanges(["ä b.txt", "c.txt"])
+        XCTAssertEqual(try read(fixture, "ä b.txt"), "one\n")
+        XCTAssertEqual(try read(fixture, "c.txt"), "one\n")
+        XCTAssertEqual(try read(fixture, "neu ü.txt"), "fresh\n", "untracked files stay")
     }
 
     // MARK: Diff tool

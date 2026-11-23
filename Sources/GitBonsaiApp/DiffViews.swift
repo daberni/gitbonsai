@@ -10,6 +10,13 @@ final class DiffHeaderView: BarView {
     var onNext: (() -> Void)?
     var onFileAction: (() -> Void)?
     var onImageModeChange: ((ImageDiffMode) -> Void)?
+    /// One file among several stacked ones: the stack closes them all and scrolls through them, so close and hunk navigation are left out.
+    var isEmbedded = false {
+        didSet {
+            close.isHidden = isEmbedded
+            close.keyEquivalent = isEmbedded ? "" : "\u{1b}"
+        }
+    }
 
     private let indicator = NSTextField(labelWithString: "")
     private let title = NSTextField(labelWithString: "")
@@ -128,7 +135,7 @@ final class DiffHeaderView: BarView {
         optionsButton.isHidden = modes.isHidden
         self.options = options
         invisiblesItem.state = options.showsInvisibles ? .on : .off
-        let hasHunks = (diff?.hunks.count ?? 0) > 1
+        let hasHunks = (diff?.hunks.count ?? 0) > 1 && !isEmbedded
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
         fileAction.isHidden = !(selection.isStageable || selection.isUnstageable) || diff == nil

@@ -33,6 +33,7 @@ extension DiffViewController {
         ImageDiffMode.remembered = newMode
         header.show(selection, diff: diff, mode: mode, options: style.options)
         scroll.isHidden = applyImages() || !emptyState.isHidden
+        fitEmbeddedHeight()
     }
 
     func loadLargeImages() {

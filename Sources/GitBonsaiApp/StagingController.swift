@@ -59,20 +59,28 @@ final class StagingController {
         }
     }
 
-    /// Reverts a tracked file to its staged content, or deletes an untracked file, once the user confirmed it. Staged changes stay.
-    func discard(_ selection: FileSelection) {
-        let path = selection.path
-        switch selection.source {
-        case .unstaged:
-            confirm(title: LocalizedStringResource("files.discard.title", defaultValue: "Discard changes to \(RefName.path(selection.name))?", bundle: .module), text: LocalizedStringResource("files.discard.info", defaultValue: "All unstaged changes to \(RefName.path(path)) are lost. Staged changes stay. This cannot be undone.", bundle: .module)) { [weak self] in
-                self?.run(failure: Self.discardFailure) { try await $0.discardUnstagedChanges([path]) }
+    /// Reverts tracked files to their staged content and deletes untracked ones, once the user confirmed it; staged changes stay. Other files are left out.
+    func discard(_ files: [FileSelection]) {
+        let tracked = files.filter { $0.source == .unstaged }.map(\.path)
+        let untracked = files.filter { $0.source == .untracked }.map(\.path)
+        let perform: () -> Void = { [weak self] in
+            self?.run(failure: Self.discardFailure) { repository in
+                try await repository.discardUnstagedChanges(tracked)
+                try await repository.removeUntracked(untracked)
             }
-        case .untracked:
-            confirmDeletion(of: path) { [weak self] in
-                self?.run(failure: Self.discardFailure) { try await $0.removeUntracked([path]) }
-            }
-        case .staged, .commit, .revisions:
-            break
+        }
+        switch (tracked.count, untracked.count) {
+        case (0, 0):
+            return
+        case (1, 0):
+            let path = tracked[0]
+            confirm(title: LocalizedStringResource("files.discard.title", defaultValue: "Discard changes to \(RefName.path((path as NSString).lastPathComponent))?", bundle: .module), text: LocalizedStringResource("files.discard.info", defaultValue: "All unstaged changes to \(RefName.path(path)) are lost. Staged changes stay. This cannot be undone.", bundle: .module), then: perform)
+        case (0, 1):
+            confirmDeletion(of: untracked[0], then: perform)
+        default:
+            let count = tracked.count + untracked.count
+            let text: LocalizedStringResource = untracked.isEmpty ? LocalizedStringResource("files.discardSeveral.info", defaultValue: "Their unstaged changes are lost. Staged changes stay. This cannot be undone.", bundle: .module) : LocalizedStringResource("files.discardSeveral.infoUntracked", defaultValue: "Unstaged changes are lost and \(untracked.count) untracked files are deleted. Staged changes stay. This cannot be undone.", bundle: .module)
+            confirm(title: LocalizedStringResource("files.discardSeveral.title", defaultValue: "Discard changes to \(count) files?", bundle: .module), text: text, then: perform)
         }
     }
 

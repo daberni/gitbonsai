@@ -87,6 +87,14 @@ extension Theme {
         @MainActor static let invisibleBadgeFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
         /// A notice above the lines, such as a line ending conversion.
         static let noticeHeight: CGFloat = 26
+        /// Most files the diff pane stacks one below the other; more selected files show their count and the shared actions instead.
+        static let maximumStacked = 12
+        /// Where a stacked file has no lines to show, such as a binary file.
+        static let stackedEmptyHeight: CGFloat = 120
+        /// A stacked image file: both sides scaled to fit this height.
+        static let stackedImageHeight: CGFloat = 360
+        /// Between two stacked files.
+        static let stackedGap = Space.m
     }
 
     /// The image diff in the history pane: changed images side by side, under a swipe line or faded over each other.
