@@ -1,7 +1,8 @@
 import AppKit
 import GitEngine
 
-/// The steps of the interactive rebase sheet, oldest first: drag a row or press ⌥↑/⌥↓ to move it, choose its action in the pop-up or with p, r, e, s, f, d.
+/// The steps of the interactive rebase sheet, newest on top like the history and the preview; the plan keeps git's todo order, `RebasePlan.step(atRow:)` maps between them.
+/// Drag a row a row or press ⌥↑/⌥↓ to move it, choose its action in the pop-up or with p, r, e, s, f, d.
 /// Its columns work like the history's: boundaries drag over the header or the rows with a guide line, widths are remembered, and wider columns scroll sideways.
 @MainActor
 final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate {
@@ -27,12 +28,12 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         table.columnAutoresizingStyle = .noColumnAutoresizing
         table.dataSource = self
         table.delegate = self
-        table.setAccessibilityLabel(String(localized: "rebase.steps.accessibility", defaultValue: "Commits of the rebase, oldest first", bundle: .module))
+        table.setAccessibilityLabel(String(localized: "rebase.steps.accessibility", defaultValue: "Commits of the rebase, newest first", bundle: .module))
         table.onMove = { [weak self] from, to in self?.move(from: from, to: to) }
         table.onShift = { [weak self] offset in self?.shiftSelection(by: offset) }
         table.onAction = { [weak self] action in
-            guard let self, table.selectedRow >= 0 else { return }
-            model.setAction(action, at: table.selectedRow)
+            guard let self, let index = selectedIndex else { return }
+            model.setAction(action, at: index)
         }
         table.dividers = { [weak self] in self.map { $0.columns.dividers(in: $0.visibleWidth) } ?? [] }
         table.onDrag = { [weak self] column, x in self?.resize(column, to: x) }
@@ -67,18 +68,26 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     /// The width the rows fill when the columns need no more.
     private var visibleWidth: CGFloat { scrollView.contentView.bounds.width }
 
-    var selectedIndex: Int? { table.selectedRow >= 0 ? table.selectedRow : nil }
+    private func index(ofRow row: Int) -> Int { model.plan.step(atRow: row) }
 
+    /// The step of the selected row, in the plan's order.
+    var selectedIndex: Int? { table.selectedRow >= 0 ? index(ofRow: table.selectedRow) : nil }
+
+    /// Selects the step at `index` of the plan.
     func select(_ index: Int) {
         guard model.steps.indices.contains(index) else { return }
-        table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
-        table.scrollRowToVisible(index)
+        let row = self.index(ofRow: index)
+        table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        table.scrollRowToVisible(row)
     }
+
+    /// Selects the top row, the newest step.
+    func selectNewest() { select(model.steps.count - 1) }
 
     /// Shows the model again without rebuilding the rows, so a subject being typed keeps its editor.
     func refresh() {
-        for index in model.steps.indices {
-            (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? RebaseStepRowView)?.configure(with: model, at: index)
+        for row in model.steps.indices {
+            (table.view(atColumn: 0, row: row, makeIfNecessary: false) as? RebaseStepRowView)?.configure(with: model, at: index(ofRow: row))
         }
     }
 
@@ -110,16 +119,18 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         table.window?.invalidateCursorRects(for: table)
     }
 
-    private func move(from: Int, to: Int) {
-        let landed = model.move(from: from, to: to)
-        select(landed)
+    private func move(from row: Int, to gap: Int) {
+        let landed = model.moveListed(row: row, toGap: gap)
+        table.selectRowIndexes(IndexSet(integer: landed), byExtendingSelection: false)
+        table.scrollRowToVisible(landed)
     }
 
     private func shiftSelection(by offset: Int) {
-        guard let index = selectedIndex else { return }
-        let destination = offset < 0 ? index + offset : index + offset + 1
-        guard destination >= 0, destination <= model.steps.count else { return }
-        move(from: index, to: destination)
+        guard table.selectedRow >= 0 else { return }
+        let row = table.selectedRow
+        let gap = offset < 0 ? row + offset : row + offset + 1
+        guard gap >= 0, gap <= model.steps.count else { return }
+        move(from: row, to: gap)
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int { model.steps.count }
@@ -129,16 +140,16 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         let view = tableView.makeView(withIdentifier: identifier, owner: nil) as? RebaseStepRowView ?? RebaseStepRowView(identifier: identifier)
         view.onAction = { [weak self, weak view] action in
             guard let self, let view else { return }
-            let index = table.row(for: view)
-            if index >= 0 { model.setAction(action, at: index) }
+            let row = table.row(for: view)
+            if row >= 0 { model.setAction(action, at: index(ofRow: row)) }
         }
         view.onSubject = { [weak self, weak view] subject in
             guard let self, let view else { return }
-            let index = table.row(for: view)
-            if index >= 0 { model.setSubject(subject, at: index) }
+            let row = table.row(for: view)
+            if row >= 0 { model.setSubject(subject, at: index(ofRow: row)) }
         }
         view.apply(columns.layout(in: visibleWidth))
-        view.configure(with: model, at: row)
+        view.configure(with: model, at: index(ofRow: row))
         return view
     }
 

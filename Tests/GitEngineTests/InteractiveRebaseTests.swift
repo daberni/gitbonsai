@@ -79,6 +79,24 @@ final class InteractiveRebaseTests: XCTestCase {
 
     // MARK: Running
 
+    func testListedOrderIsNewestOnTopAndMovingUpMeansNewer() async throws {
+        let (fixture, base) = try linearFixture(name: "irebase-listed")
+        defer { fixture.remove() }
+        let repo = fixture.repository
+        var plan = try await plan(repo, base: base)
+        XCTAssertEqual((0..<4).map { plan.steps[plan.step(atRow: $0)].commit!.subject }, ["d", "c", "b", "a"])
+
+        XCTAssertEqual(plan.moveListed(row: 3, toGap: 0), 0, "a moves to the top")
+        XCTAssertEqual(plan.moveListed(row: 1, toGap: 3), 2, "d moves down one row, below c")
+        XCTAssertEqual(plan.moveListed(row: 2, toGap: 2), 2, "a gap next to the row leaves it in place")
+        XCTAssertTrue(plan.todoText.hasPrefix("pick \(id(plan, "b")) b\npick \(id(plan, "d")) d\npick \(id(plan, "c")) c\npick \(id(plan, "a")) a"), "the todo stays oldest first")
+
+        let outcome = try await repo.startInteractiveRebase(plan)
+
+        XCTAssertEqual(outcome, .finished)
+        XCTAssertEqual(try subjects(fixture, "\(base)..main"), ["b", "d", "c", "a"])
+    }
+
     func testReorderRewordSquashAndDropInOneRun() async throws {
         let (fixture, base) = try linearFixture()
         defer { fixture.remove() }

@@ -11331,13 +11331,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Im Commit darüber aufgehen, seine Nachricht verwerfen"
+            "value" : "Im Commit darunter aufgehen, seine Nachricht verwerfen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Fold into the commit above, discard its message"
+            "value" : "Fold into the commit below, discard its message"
           }
         }
       }
@@ -11436,13 +11436,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mit dem Commit darüber zusammenführen, Nachrichten zusammenfassen"
+            "value" : "Mit dem Commit darunter zusammenführen, Nachrichten zusammenfassen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Combine with the commit above, join the messages"
+            "value" : "Combine with the commit below, join the messages"
           }
         }
       }
@@ -11973,13 +11973,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ kann nicht in den Commit darüber aufgehen: Über ihm bleibt keiner stehen."
+            "value" : "%@ kann nicht in den Commit darunter aufgehen: Unter ihm bleibt keiner stehen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%@ can’t fold into the commit above: no commit stays above it."
+            "value" : "%@ can’t fold into the commit below: no commit stays below it."
           }
         }
       }
@@ -12617,13 +12617,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Älteste oben · ziehen oder ⌥↑ ⌥↓ verschiebt, p r e s f d wählt die Aktion · Spaltengrenzen lassen sich ziehen"
+            "value" : "Neueste oben · ziehen oder ⌥↑ ⌥↓ verschiebt, p r e s f d wählt die Aktion · Spaltengrenzen lassen sich ziehen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Oldest on top · drag or ⌥↑ ⌥↓ to move, p r e s f d to choose the action · column edges can be dragged"
+            "value" : "Newest on top · drag or ⌥↑ ⌥↓ to move, p r e s f d to choose the action · column edges can be dragged"
           }
         }
       }
@@ -13103,19 +13103,19 @@
         }
       }
     },
-    "rebase.step.foldsIntoAbove" : {
+    "rebase.step.foldsIntoBelow" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "geht im Commit darüber auf"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "folds into the commit above"
+            "value" : "folds into the commit below"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "geht im Commit darunter auf"
           }
         }
       }
@@ -13143,19 +13143,19 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Commits des Rebase, älteste zuerst"
+            "value" : "Commits des Rebase, neueste zuerst"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Commits of the rebase, oldest first"
+            "value" : "Commits of the rebase, newest first"
           }
         }
       }
     },
     "rebase.summary.combined" : {
-      "comment" : "Rebase sheet summary: how many commits squash or fixup into the commit above.",
+      "comment" : "Rebase sheet summary: how many commits squash or fixup into the commit below.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {

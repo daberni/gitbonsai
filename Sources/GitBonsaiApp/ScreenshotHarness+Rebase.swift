@@ -60,7 +60,7 @@ extension ScreenshotHarness {
             guard let box = argument == "update-refs" ? sheet.updateRefsBox : sheet.autostashBox else { break }
             press(box)
         case "print":
-            log("rebase rows: " + sheet.model.steps.indices.map { "\(sheet.model.steps[$0].action.rawValue) \(sheet.model.steps[$0].commit?.shortID ?? "") \(sheet.model.subject(at: $0))" }.joined(separator: " | "))
+            log("rebase rows, top first: " + sheet.model.steps.indices.map { sheet.model.plan.step(atRow: $0) }.map { "\(sheet.model.steps[$0].action.rawValue) \(sheet.model.steps[$0].commit?.shortID ?? "") \(sheet.model.subject(at: $0))" }.joined(separator: " | "))
             log("rebase preview: " + sheet.preview.textLines.joined(separator: " | "))
             log("rebase message: \(sheet.messageView.string.replacingOccurrences(of: "\n", with: "\\n")), start \(sheet.startButton.isEnabled ? "an" : "aus"), selected \(sheet.list.selectedIndex.map(String.init) ?? "-")")
         case "shot":

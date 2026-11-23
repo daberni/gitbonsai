@@ -24,7 +24,7 @@ final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
         grip.image = NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: String(localized: "rebase.step.drag", defaultValue: "Drag to move", bundle: .module))
         grip.contentTintColor = Theme.inkFaint
         grip.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .regular)
-        fold.image = NSImage(systemSymbolName: "arrow.turn.left.up", accessibilityDescription: String(localized: "rebase.step.foldsIntoAbove", defaultValue: "folds into the commit above", bundle: .module))
+        fold.image = NSImage(systemSymbolName: "arrow.turn.left.down", accessibilityDescription: String(localized: "rebase.step.foldsIntoBelow", defaultValue: "folds into the commit below", bundle: .module))
         fold.contentTintColor = Theme.moss
         fold.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
         for action in RebaseAction.commitActions {
@@ -140,8 +140,8 @@ final class RebaseStepRowView: NSTableCellView, NSTextFieldDelegate {
         case .pick: String(localized: "rebase.action.pickHelp", defaultValue: "Use the commit", bundle: .module)
         case .reword: String(localized: "rebase.action.rewordHelp", defaultValue: "Use the commit, change its message", bundle: .module)
         case .edit: String(localized: "rebase.action.editHelp", defaultValue: "Use the commit and stop to amend it", bundle: .module)
-        case .squash: String(localized: "rebase.action.squashHelp", defaultValue: "Combine with the commit above, join the messages", bundle: .module)
-        case .fixup: String(localized: "rebase.action.fixupHelp", defaultValue: "Fold into the commit above, discard its message", bundle: .module)
+        case .squash: String(localized: "rebase.action.squashHelp", defaultValue: "Combine with the commit below, join the messages", bundle: .module)
+        case .fixup: String(localized: "rebase.action.fixupHelp", defaultValue: "Fold into the commit below, discard its message", bundle: .module)
         case .drop: String(localized: "rebase.action.dropHelp", defaultValue: "Remove the commit", bundle: .module)
         case .exec: String(localized: "rebase.action.execHelp", defaultValue: "Run a command", bundle: .module)
         }

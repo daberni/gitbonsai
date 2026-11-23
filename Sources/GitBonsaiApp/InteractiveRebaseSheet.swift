@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The interactive rebase sheet: "from <old base> to <target>" at the top, the steps oldest first and the resulting history side by side on one grid, the message of the selected step
+/// The interactive rebase sheet: "from <old base> to <target>" at the top, the steps newest on top and the resulting history side by side on one grid, the message of the selected step
 /// below both, hints and options at the bottom. Sizes come from `Theme.InteractiveRebase` and hold through Auto Layout at any size between the sheet's limits. It returns the plan to run, or nil when cancelled.
 @MainActor
 final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
@@ -64,7 +64,7 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         title.font = Theme.title
         title.textColor = Theme.ink
         title.setText(LocalizedStringResource("rebase.sheet.heading", defaultValue: "Rebase \(RefName.branch(model.branch)) interactively", bundle: .module))
-        let keys = NSTextField(labelWithString: String(localized: "rebase.sheet.hint", defaultValue: "Oldest on top · drag or ⌥↑ ⌥↓ to move, p r e s f d to choose the action · column edges can be dragged", bundle: .module))
+        let keys = NSTextField(labelWithString: String(localized: "rebase.sheet.hint", defaultValue: "Newest on top · drag or ⌥↑ ⌥↓ to move, p r e s f d to choose the action · column edges can be dragged", bundle: .module))
         keys.font = Theme.caption
         keys.textColor = Theme.inkMuted
         keys.lineBreakMode = .byTruncatingTail
@@ -197,7 +197,7 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     private func reload() {
         list.table.reloadData()
         list.applyColumns()
-        list.select(0)
+        list.selectNewest()
         let merges = model.range.flattenedMerges
         let flattened = merges == 0 ? nil : String(localized: "rebase.sheet.mergesFlattened", defaultValue: "\(merges) merges in the range are flattened, as git rebase does without --rebase-merges", bundle: .module)
         // Two independent hints, each a complete sentence.

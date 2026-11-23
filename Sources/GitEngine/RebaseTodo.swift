@@ -164,7 +164,7 @@ public enum RebasePlanProblem: Sendable, Equatable {
     case emptyMessage(RebaseCommit)
 }
 
-/// The todo list the app writes for `git rebase --interactive [--onto <onto>] <base>`, oldest commit first, with the messages it supplies.
+/// The todo list the app writes for `git rebase --interactive [--onto <onto>] <base>`, oldest commit first, with the messages it supplies. Lists show it newest on top through `step(atRow:)`.
 public struct RebasePlan: Sendable, Equatable {
     public var base: String
     /// The commit the steps are replayed onto; nil replays them onto `base` itself, in place.
@@ -201,6 +201,23 @@ public struct RebasePlan: Sendable, Equatable {
 
     /// Whether the steps land somewhere other than their base, so that even an unchanged list rewrites the branch.
     public var movesBase: Bool { onto != nil }
+
+    // MARK: Listed order
+
+    /// Lists show the steps newest on top, like the history, while `steps` keeps git's todo order: row 0 is the last step. The mapping is its own inverse.
+    public func step(atRow row: Int) -> Int { steps.count - 1 - row }
+
+    /// Moves the step shown in `row` into the gap before row `gap` of the listed order (`gap == steps.count` is below the last row), so moving up means towards newer. Returns the row it lands in.
+    @discardableResult
+    public mutating func moveListed(row: Int, toGap gap: Int) -> Int {
+        guard steps.indices.contains(row), (0...steps.count).contains(gap) else { return row }
+        let landing = gap > row ? gap - 1 : gap
+        guard landing != row else { return row }
+        let from = self.step(atRow: row)
+        let to = self.step(atRow: landing)
+        steps.insert(steps.remove(at: from), at: to)
+        return landing
+    }
 
     // MARK: Groups
 

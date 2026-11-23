@@ -69,16 +69,12 @@ final class InteractiveRebaseModel {
         changed()
     }
 
-    /// Moves the step at `index` so it lands before the step now at `destination`; `destination == steps.count` puts it last. Returns the new index.
+    /// Moves the step shown in `row` into the gap before row `gap`, newest on top. Returns the row it lands in.
     @discardableResult
-    func move(from index: Int, to destination: Int) -> Int {
-        guard plan.steps.indices.contains(index), (0...plan.steps.count).contains(destination) else { return index }
-        let target = destination > index ? destination - 1 : destination
-        guard target != index else { return index }
-        let step = plan.steps.remove(at: index)
-        plan.steps.insert(step, at: target)
-        changed()
-        return target
+    func moveListed(row: Int, toGap gap: Int) -> Int {
+        let landed = plan.moveListed(row: row, toGap: gap)
+        if landed != row { changed() }
+        return landed
     }
 
     /// The message of the commit the step at `index` ends up in; a message equal to git's own proposal is not stored.
@@ -125,7 +121,7 @@ final class InteractiveRebaseModel {
         return nil
     }
 
-    /// Whether the step at `index` melts into a commit above it.
+    /// Whether the step at `index` melts into the commit before it, shown below it in the list.
     func isFolded(_ index: Int) -> Bool {
         plan.steps.indices.contains(index) && plan.steps[index].action.foldsIntoPrevious
     }
@@ -162,7 +158,7 @@ final class InteractiveRebaseModel {
     /// Why the plan cannot start, in the sheet's words.
     var problemText: RefString? {
         switch plan.problem {
-        case let .nothingToFoldInto(commit)?: RefString(LocalizedStringResource("rebase.error.cannotFold", defaultValue: "\(RefName.commit(commit.id)) can’t fold into the commit above: no commit stays above it.", bundle: .module))
+        case let .nothingToFoldInto(commit)?: RefString(LocalizedStringResource("rebase.error.cannotFold", defaultValue: "\(RefName.commit(commit.id)) can’t fold into the commit below: no commit stays below it.", bundle: .module))
         case let .emptyMessage(commit)?: RefString(LocalizedStringResource("rebase.error.emptyMessage", defaultValue: "The commit from \(RefName.commit(commit.id)) needs a message.", bundle: .module))
         case nil: nil
         }
@@ -177,7 +173,7 @@ final class InteractiveRebaseModel {
         var parts = [String(localized: "rebase.summary.commitsAfterwards", defaultValue: "\(resulting) commits afterwards", bundle: .module, comment: "Rebase sheet summary: how many commits the branch has after the rebase.")]
         if dropped > 0 { parts.append(String(localized: "rebase.summary.dropped", defaultValue: "\(dropped) dropped", bundle: .module, comment: "Rebase sheet summary: how many commits are dropped.")) }
         let folded = plan.steps.filter { $0.action.foldsIntoPrevious }.count
-        if folded > 0 { parts.append(String(localized: "rebase.summary.combined", defaultValue: "\(folded) combined", bundle: .module, comment: "Rebase sheet summary: how many commits squash or fixup into the commit above.")) }
+        if folded > 0 { parts.append(String(localized: "rebase.summary.combined", defaultValue: "\(folded) combined", bundle: .module, comment: "Rebase sheet summary: how many commits squash or fixup into the commit below.")) }
         return RefString(verbatim: parts.joined(separator: ", "))
     }
 }
