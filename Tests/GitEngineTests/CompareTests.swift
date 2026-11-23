@@ -38,6 +38,21 @@ final class CompareTests: XCTestCase {
         XCTAssertEqual(files.first { $0.path == "a.txt" }?.stat, DiffStat(added: 1, removed: 1))
     }
 
+    /// The ancestor is the base whichever commit came first, so the diff never runs backwards.
+    func testPairTakesTheAncestorAsBaseWhateverTheOrder() async throws {
+        let (fixture, ids) = try makeRepository()
+        defer { fixture.remove() }
+        let repo = Repository(path: fixture.path)
+        for names in [["c", "a"], ["a", "c"], ["merge", "f1"], ["f1", "merge"]] {
+            let comparison = await repo.comparison(of: try await commits(repo, ids, names))
+            guard case .pair(let older, let newer, let base) = comparison else { return XCTFail("\(comparison)") }
+            let expectedOlder = names.contains("a") ? "a" : "f1"
+            XCTAssertEqual(older.id, ids[expectedOlder], "\(names)")
+            XCTAssertEqual(newer.id, ids[expectedOlder == "a" ? "c" : "merge"], "\(names)")
+            XCTAssertNil(base, "\(names)")
+        }
+    }
+
     func testPairOnDifferentBranchesComparesFromTheMergeBase() async throws {
         let (fixture, ids) = try makeRepository()
         defer { fixture.remove() }

@@ -11,13 +11,14 @@ public enum CommitComparison: Sendable, Hashable {
 }
 
 extension Repository {
-    /// Decides what `commits` compare. They come newest first, as the history lists them; `older` and `newer` of a pair follow that order.
+    /// Decides what `commits` compare. They come newest first, as the history lists them; of a pair, an ancestor is always `older`, whichever order they come in.
     public func comparison(of commits: [Commit]) async -> CommitComparison {
         precondition(commits.count >= 2, "A comparison needs at least two commits")
         if commits.count == 2 {
-            let newer = commits[0]
-            let older = commits[1]
-            let base = await mergeBase(older.id, newer.id)
+            let base = await mergeBase(commits[0].id, commits[1].id)
+            // An ancestor is the older side, so the diff never runs backwards; commits on different branches go by committer date, then by the history's order.
+            let firstIsOlder = base == commits[0].id || (base != commits[1].id && commits[0].committerDate < commits[1].committerDate)
+            let (older, newer) = firstIsOlder ? (commits[0], commits[1]) : (commits[1], commits[0])
             return .pair(older: older, newer: newer, mergeBase: base == older.id ? nil : base)
         }
         if let run = Self.firstParentRun(commits) { return .run(run) }
