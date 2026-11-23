@@ -51,14 +51,9 @@ final class SettingsModel {
         set { AppSettings.autoFetchMinutes = newValue }
     }
 
-    var avatarsEnabled: Bool {
-        get { read { AppSettings.avatarsEnabled } }
-        set { AppSettings.avatarsEnabled = newValue }
-    }
-
-    var avatarSources: AvatarSources {
-        get { read { AppSettings.avatarSources } }
-        set { AppSettings.avatarSources = newValue }
+    var avatarMode: AvatarMode {
+        get { read { AppSettings.avatarMode } }
+        set { AppSettings.avatarMode = newValue }
     }
 
     var repositoryFolders: [String] {

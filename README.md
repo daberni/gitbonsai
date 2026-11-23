@@ -113,7 +113,7 @@ Settings:
 
 Avatars (harness runs load none unless asked):
 
-- `GITBONSAI_AVATARS=off|remote|gravatar` sets "Load avatars" and its sources for the run; `GITBONSAI_AVATAR_CACHE=<folder>` keeps the disk cache there, an empty folder for a cold load; without it harness runs use a temporary folder.
+- `GITBONSAI_AVATARS=off|remote|gravatar` sets "Avatars" (Initials only, From the remote host, Remote host and Gravatar) for the run; `GITBONSAI_AVATAR_CACHE=<folder>` keeps the disk cache there, an empty folder for a cold load; without it harness runs use a temporary folder.
 - `GITBONSAI_AVATAR_FALLBACK=initials|tintedInitials|pattern` draws authors without avatar in that style.
 - `GITBONSAI_AVATAR_LOG=1` prints every avatar request with status, host and path and a running number; `GITBONSAI_AVATAR_SWEEP=<rows>` pages the history down to that row, half a second per screen.
 

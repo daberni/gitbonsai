@@ -1,39 +1,47 @@
 import Avatars
 import SwiftUI
 
-/// Avatars: whether author pictures are loaded, and which services learn about the authors for that. Turning them off deletes the caches (`AvatarStore`).
+/// Avatars: plain initials, or pictures from the remote host and optionally Gravatar. Choosing initials only deletes the caches (`AvatarStore`).
+/// The caption says what leaves the machine for the current choice; every caption takes the same space, so the pane never changes height.
 struct AvatarSettingsPane: View {
     @Environment(SettingsModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
         Section {
-            Toggle(isOn: $model.avatarsEnabled) {
-                Text(LocalizedStringResource("settings.avatars.load", defaultValue: "Load avatars", bundle: .module, comment: "Toggle for loading author pictures."))
-            }
-            .accessibilityIdentifier("settings.avatars.load")
-        } footer: {
-            SettingsCaption(LocalizedStringResource("settings.avatars.authors.caption", defaultValue: "Shows profile pictures instead of initials. The remote's host is asked: GitHub gets the commit SHA, GitLab the email address. Turned off, nothing goes over the network.", bundle: .module))
-        }
-        Section {
-            Picker(selection: $model.avatarSources) {
-                ForEach(AvatarSources.allCases, id: \.self) { sources in
-                    Text(Self.title(sources)).tag(sources)
+            Picker(selection: $model.avatarMode) {
+                ForEach(AvatarMode.allCases, id: \.self) { mode in
+                    Text(Self.title(mode)).tag(mode)
                 }
             } label: {
-                Text(LocalizedStringResource("settings.avatars.sources.label", defaultValue: "Sources", bundle: .module, comment: "Label of the avatar sources choice."))
+                Text(LocalizedStringResource("settings.avatars.mode.label", defaultValue: "Avatars", bundle: .module, comment: "Label of the choice between initials and profile pictures from the network."))
             }
             .pickerStyle(.radioGroup)
-            .disabled(!model.avatarsEnabled)
+            .accessibilityIdentifier("settings.avatars.mode")
         } footer: {
-            SettingsCaption(LocalizedStringResource("settings.avatars.sources.caption", defaultValue: "Gravatar (gravatar.com) gets the SHA-256 hash of the email address, also for repositories on Bitbucket or your own servers. Pictures stay cached for 7 days, missing ones for 3 days.", bundle: .module))
+            ZStack(alignment: .topLeading) {
+                ForEach(AvatarMode.allCases, id: \.self) { mode in
+                    SettingsCaption(Self.caption(mode))
+                        .opacity(mode == model.avatarMode ? 1 : 0)
+                        .accessibilityHidden(mode != model.avatarMode)
+                }
+            }
         }
     }
 
-    private static func title(_ sources: AvatarSources) -> LocalizedStringResource {
-        switch sources {
-        case .remoteHost: LocalizedStringResource("settings.avatars.sources.remoteHost", defaultValue: "Remote host only", bundle: .module)
-        case .remoteHostAndGravatar: LocalizedStringResource("settings.avatars.sources.gravatar", defaultValue: "Gravatar too", bundle: .module)
+    private static func title(_ mode: AvatarMode) -> LocalizedStringResource {
+        switch mode {
+        case .initialsOnly: LocalizedStringResource("settings.avatars.mode.initialsOnly", defaultValue: "Initials only", bundle: .module, comment: "Avatar choice: plain initials, no network.")
+        case .remoteHost: LocalizedStringResource("settings.avatars.mode.remoteHost", defaultValue: "From the remote host", bundle: .module, comment: "Avatar choice: pictures from the host of the repository's remote, such as GitHub or GitLab.")
+        case .remoteHostAndGravatar: LocalizedStringResource("settings.avatars.mode.remoteHostAndGravatar", defaultValue: "Remote host and Gravatar", bundle: .module, comment: "Avatar choice: pictures from the remote's host, then from Gravatar.")
+        }
+    }
+
+    private static func caption(_ mode: AvatarMode) -> LocalizedStringResource {
+        switch mode {
+        case .initialsOnly: LocalizedStringResource("settings.avatars.mode.caption.initialsOnly", defaultValue: "Nothing leaves this Mac.", bundle: .module, comment: "What is sent for avatars with initials only.")
+        case .remoteHost: LocalizedStringResource("settings.avatars.mode.caption.remoteHost", defaultValue: "The remote host gets commit SHAs or author email addresses.", bundle: .module, comment: "What is sent for avatars from the remote host.")
+        case .remoteHostAndGravatar: LocalizedStringResource("settings.avatars.mode.caption.remoteHostAndGravatar", defaultValue: "The remote host gets commit SHAs or email addresses, Gravatar their hashes.", bundle: .module, comment: "What is sent for avatars from the remote host and Gravatar.")
         }
     }
 }

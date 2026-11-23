@@ -107,7 +107,7 @@ Clone sheet: URL (a URL on the clipboard is suggested), parent folder, branch, "
 | Git | The git binary (automatic or chosen) with its version; a warning below 2.38 |
 | Appearance | System, light or dark appearance |
 | Fetching | Automatic fetch on activation and periodically, with its interval |
-| Avatars | Load avatars, from the remote host and optionally Gravatar; turning them off deletes the caches. A picture found once shows in every repository; authors without one get initials on a tint from their address. Signed-out GitHub only maps addresses in public repositories, so private ones show pictures for noreply addresses only |
+| Avatars | One choice: Initials only, From the remote host, or Remote host and Gravatar, with one line on what leaves the machine; the pane keeps its height. Initials only draws plain initials, loads nothing and deletes the caches. A picture found once shows in every repository; authors without one get initials on a tint from their address. Signed-out GitHub only maps addresses in public repositories, so private ones show pictures for noreply addresses only |
 
 ## 4. Interactive rebase
 

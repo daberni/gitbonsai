@@ -9,13 +9,11 @@ extension ScreenshotHarness {
         guard isActive, let value = environment["GITBONSAI_AVATARS"] else { return }
         switch value {
         case "remote":
-            AppSettings.avatarsEnabled = true
-            AppSettings.avatarSources = .remoteHost
+            AppSettings.avatarMode = .remoteHost
         case "gravatar":
-            AppSettings.avatarsEnabled = true
-            AppSettings.avatarSources = .remoteHostAndGravatar
+            AppSettings.avatarMode = .remoteHostAndGravatar
         default:
-            AppSettings.avatarsEnabled = false
+            AppSettings.avatarMode = .initialsOnly
         }
     }
 

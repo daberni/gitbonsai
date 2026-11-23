@@ -115,16 +115,17 @@ enum AppSettings {
         }
     }
 
-    /// Whether author avatars are loaded from the network. Harness runs keep them off unless `GITBONSAI_AVATARS` turns them on.
-    static var avatarsEnabled: Bool {
-        get { defaults.object(forKey: "avatarsEnabled") as? Bool ?? !ScreenshotHarness.isActive }
-        set { store(newValue, forKey: "avatarsEnabled") }
-    }
-
-    /// Which services may be asked for an avatar; by default only the host of the repository's remote.
-    static var avatarSources: AvatarSources {
-        get { defaults.string(forKey: "avatarSources").flatMap(AvatarSources.init) ?? .remoteHost }
-        set { store(newValue.rawValue, forKey: "avatarSources") }
+    /// Plain initials, or pictures from the remote host and optionally Gravatar; by default pictures from the remote host only. Harness runs show initials unless `GITBONSAI_AVATARS` asks for pictures.
+    static var avatarMode: AvatarMode {
+        get {
+            let stored = AvatarMode.stored(defaults.string(forKey: "avatarMode"), legacyEnabled: defaults.object(forKey: "avatarsEnabled") as? Bool, legacySources: defaults.string(forKey: "avatarSources"))
+            return stored ?? (ScreenshotHarness.isActive ? .initialsOnly : .remoteHost)
+        }
+        set {
+            defaults.removeObject(forKey: "avatarsEnabled")
+            defaults.removeObject(forKey: "avatarSources")
+            store(newValue.rawValue, forKey: "avatarMode")
+        }
     }
 
     /// The settings section shown last, so the window opens there again; view state, so changing it notifies no one.

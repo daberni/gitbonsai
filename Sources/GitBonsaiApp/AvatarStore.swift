@@ -9,7 +9,7 @@ import GitEngine
 /// Rows only ask while they are on screen, which keeps the network lazy and the history's cost per row a dictionary lookup.
 @MainActor
 final class AvatarStore {
-    static let shared = AvatarStore()
+    static let shared = AvatarStore(cacheDirectory: ScreenshotHarness.avatarCacheDirectory ?? defaultCacheDirectory, fetcher: ScreenshotHarness.avatarFetcher(wrapping: URLSessionAvatarFetcher())) { AppSettings.avatarMode }
     /// Posted, at most once per run loop turn, when avatars arrived or were dropped; views showing avatars redraw.
     static let didChange = Notification.Name("AvatarStore.didChange")
 
@@ -28,22 +28,25 @@ final class AvatarStore {
     private var attempts: [String: Date] = [:]
     /// Addresses whose picture was already looked for on disk this run.
     private var diskRead: Set<String> = []
-    private var applied: (enabled: Bool, sources: AvatarSources)
+    private let settings: @MainActor () -> AvatarMode
+    private var applied: AvatarMode
     private var changePending = false
 
-    private init() {
-        cache = AvatarDiskCache(directory: ScreenshotHarness.avatarCacheDirectory ?? Self.defaultCacheDirectory)
-        resolver = AvatarResolver(cache: cache, fetcher: ScreenshotHarness.avatarFetcher(wrapping: URLSessionAvatarFetcher()))
-        applied = (AppSettings.avatarsEnabled, AppSettings.avatarSources)
+    /// `settings` is read again whenever `AppSettings` posts a change; tests pass their own instead of the user's preferences.
+    init(cacheDirectory: URL, fetcher: AvatarFetching, settings: @escaping @MainActor () -> AvatarMode) {
+        cache = AvatarDiskCache(directory: cacheDirectory)
+        resolver = AvatarResolver(cache: cache, fetcher: fetcher)
+        self.settings = settings
+        applied = settings()
         let resolver = resolver
-        if applied.enabled {
+        if applied.showsPictures {
             Task { await resolver.sweepCache() }
         } else {
             // Covers a cache left from before the setting was turned off, or from a run that ended before deleting it.
             Task { await resolver.discardAll() }
         }
-        NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { AvatarStore.shared.settingsChanged() }
+        NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.settingsChanged() }
         }
     }
 
@@ -52,10 +55,13 @@ final class AvatarStore {
         return support.appendingPathComponent("GitBonsai/Avatars", isDirectory: true)
     }
 
+    /// Whether nodes show pictures and, for authors without one, the generated stand-in; otherwise plain initials.
+    var showsPictures: Bool { applied.showsPictures }
+
     /// The avatar of whoever uses `email`, if it is in memory; otherwise nil, and a lookup starts unless one ran recently.
     /// `commit` is a commit with that address as author or committer; GitHub's commit list starts there to name the account.
     func image(email: String, commit: String, in repository: Repository) -> NSImage? {
-        guard applied.enabled, let personKey = AvatarPlan.personKey(email: email, sources: applied.sources, pixels: Theme.Avatar.pixels) else { return nil }
+        guard let sources = applied.sources, let personKey = AvatarPlan.personKey(email: email, sources: sources, pixels: Theme.Avatar.pixels) else { return nil }
         let key = personKey
         if let image = images.value(for: key) { return image }
         if diskRead.insert(key).inserted, case .image(let data) = cache.read(key, now: Date()), let image = NSImage(data: data) {
@@ -65,14 +71,13 @@ final class AvatarStore {
         guard let service = service(of: repository), let address = AvatarPlan.normalized(email) else { return nil }
         if let last = attempts[key], Date().timeIntervalSince(last) < Self.retryInterval { return nil }
         attempts[key] = Date()
-        let steps = AvatarPlan.steps(email: address, commit: commit, service: service, sources: applied.sources, pixels: Theme.Avatar.pixels)
+        let steps = AvatarPlan.steps(email: address, commit: commit, service: service, sources: sources, pixels: Theme.Avatar.pixels)
         guard !steps.isEmpty else { return nil }
         let resolver = resolver
-        let sources = applied.sources
         Task {
             guard let data = await resolver.image(for: steps, personKey: personKey), let image = NSImage(data: data) else { return }
             // Settings may have changed while the lookup ran.
-            guard applied.enabled, applied.sources == sources else { return }
+            guard applied.sources == sources else { return }
             images.insert(image, for: key)
             attempts[key] = nil
             postChange()
@@ -93,7 +98,7 @@ final class AvatarStore {
 
     /// The repository's remotes may have changed outside the app (`git remote add`, `set-url`, another upstream); a service already resolved is read again and replaced only when it differs, so the avatars on screen stay until then.
     func remotesMayHaveChanged(in repository: Repository) {
-        guard applied.enabled, let current = services[repository.path], !servicesLoading.contains(repository.path) else { return }
+        guard showsPictures, let current = services[repository.path], !servicesLoading.contains(repository.path) else { return }
         servicesLoading.insert(repository.path)
         Task {
             let resolved = await Self.resolveService(of: repository)
@@ -112,9 +117,9 @@ final class AvatarStore {
     }
 
     private func settingsChanged() {
-        let current = (AppSettings.avatarsEnabled, AppSettings.avatarSources)
+        let current = settings()
         guard current != applied else { return }
-        let turnedOff = applied.enabled && !current.0
+        let turnedOff = applied.showsPictures && !current.showsPictures
         applied = current
         images.removeAll()
         attempts.removeAll()
@@ -131,7 +136,7 @@ final class AvatarStore {
         changePending = true
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
-                AvatarStore.shared.changePending = false
+                self.changePending = false
                 NotificationCenter.default.post(name: AvatarStore.didChange, object: nil)
             }
         }

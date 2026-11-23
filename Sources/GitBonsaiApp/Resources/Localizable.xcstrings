@@ -6225,16 +6225,16 @@
       "comment" : "Below 'Only whitespace changed' while Ignore Whitespace or Ignore blank Lines is on",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The diff options hide these changes."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Die Diff-Optionen blenden diese Änderungen aus."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The diff options hide these changes."
           }
         }
       }
@@ -6276,16 +6276,16 @@
     "diff.empty.onlyBlankLines" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Only blank lines changed"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nur Leerzeilen geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Only blank lines changed"
           }
         }
       }
@@ -6293,16 +6293,16 @@
     "diff.empty.onlyWhitespace" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Only whitespace changed"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nur Whitespace geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Only whitespace changed"
           }
         }
       }
@@ -6414,16 +6414,16 @@
       "comment" : "Tooltip of the disabled hunk buttons while the diff options change the hunks",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Turn off Word Diff and the Ignore options to stage or discard single hunks. Whole files can still be staged."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wort-Diff und die Ignorieren-Optionen ausschalten, um einzelne Hunks zu stagen oder zu verwerfen. Ganze Dateien lassen sich weiterhin stagen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Turn off Word Diff and the Ignore options to stage or discard single hunks. Whole files can still be staged."
           }
         }
       }
@@ -6805,16 +6805,16 @@
       "comment" : "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Ignore blank Lines"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Leerzeilen ignorieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ignore blank Lines"
           }
         }
       }
@@ -6823,16 +6823,16 @@
       "comment" : "Diff option: leave out every whitespace difference, git diff -w",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Ignore Whitespace"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Whitespace ignorieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ignore Whitespace"
           }
         }
       }
@@ -6841,16 +6841,16 @@
       "comment" : "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Ignore Whitespace amount"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Whitespace-Menge ignorieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ignore Whitespace amount"
           }
         }
       }
@@ -6877,16 +6877,16 @@
       "comment" : "Diff option: mark changed words within a line instead of whole lines",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Word Diff"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wort-Diff"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Word Diff"
           }
         }
       }
@@ -13886,106 +13886,128 @@
         }
       }
     },
-    "settings.avatars.authors.caption" : {
+    "settings.avatars.mode.caption.initialsOnly" : {
+      "comment" : "What is sent for avatars with initials only.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zeigt Profilbilder statt Initialen. Gefragt wird der Host des Remotes: GitHub erhält die Commit-SHA, GitLab die E-Mail-Adresse. Ausgeschaltet geht nichts ins Netz."
+            "value" : "Nichts verlässt diesen Mac."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Shows profile pictures instead of initials. The remote's host is asked: GitHub gets the commit SHA, GitLab the email address. Turned off, nothing goes over the network."
+            "value" : "Nothing leaves this Mac."
           }
         }
       }
     },
-    "settings.avatars.load" : {
-      "comment" : "Toggle for loading author pictures.",
+    "settings.avatars.mode.caption.remoteHost" : {
+      "comment" : "What is sent for avatars from the remote host.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avatare laden"
+            "value" : "Der Remote-Host bekommt Commit-SHAs oder E-Mail-Adressen der Autoren."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Load avatars"
+            "value" : "The remote host gets commit SHAs or author email addresses."
           }
         }
       }
     },
-    "settings.avatars.sources.caption" : {
+    "settings.avatars.mode.caption.remoteHostAndGravatar" : {
+      "comment" : "What is sent for avatars from the remote host and Gravatar.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gravatar (gravatar.com) erhält den SHA-256-Hash der E-Mail-Adresse, auch für Repositories auf Bitbucket oder eigenen Servern. Bilder bleiben 7 Tage im Cache, fehlende 3 Tage."
+            "value" : "Der Remote-Host bekommt Commit-SHAs oder E-Mail-Adressen, Gravatar deren Hashes."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Gravatar (gravatar.com) gets the SHA-256 hash of the email address, also for repositories on Bitbucket or your own servers. Pictures stay cached for 7 days, missing ones for 3 days."
+            "value" : "The remote host gets commit SHAs or email addresses, Gravatar their hashes."
           }
         }
       }
     },
-    "settings.avatars.sources.gravatar" : {
+    "settings.avatars.mode.initialsOnly" : {
+      "comment" : "Avatar choice: plain initials, no network.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Auch Gravatar"
+            "value" : "Nur Initialen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Gravatar too"
+            "value" : "Initials only"
           }
         }
       }
     },
-    "settings.avatars.sources.label" : {
-      "comment" : "Label of the avatar sources choice.",
+    "settings.avatars.mode.label" : {
+      "comment" : "Label of the choice between initials and profile pictures from the network.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quellen"
+            "value" : "Avatare"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Sources"
+            "value" : "Avatars"
           }
         }
       }
     },
-    "settings.avatars.sources.remoteHost" : {
+    "settings.avatars.mode.remoteHost" : {
+      "comment" : "Avatar choice: pictures from the host of the repository's remote, such as GitHub or GitLab.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nur vom Remote-Host"
+            "value" : "Vom Remote-Host"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Remote host only"
+            "value" : "From the remote host"
+          }
+        }
+      }
+    },
+    "settings.avatars.mode.remoteHostAndGravatar" : {
+      "comment" : "Avatar choice: pictures from the remote's host, then from Gravatar.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote-Host und Gravatar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remote host and Gravatar"
           }
         }
       }

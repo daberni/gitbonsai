@@ -3,7 +3,7 @@ import Avatars
 
 /// The stand-in for an author without avatar, derived from the address so it looks the same in every repository and the detail panel.
 enum AvatarFallbackStyle: String, CaseIterable {
-    /// Muted initials on the node's background.
+    /// Muted initials on the node's background; the only stand-in with "Initials only".
     case initials
     /// Initials in a palette colour picked by the address hash, on a wash of the same colour.
     case tintedInitials
@@ -14,7 +14,8 @@ enum AvatarFallbackStyle: String, CaseIterable {
 @MainActor
 enum AvatarFallbackDrawing {
     static var style: AvatarFallbackStyle {
-        ScreenshotHarness.avatarFallbackStyle ?? Theme.Avatar.fallback
+        guard AvatarStore.shared.showsPictures else { return .initials }
+        return ScreenshotHarness.avatarFallbackStyle ?? Theme.Avatar.fallback
     }
 
     /// Draws inside the ring whose outer bounds are `rect`, where a picture would go; the caller draws background and ring.

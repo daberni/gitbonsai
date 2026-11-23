@@ -477,3 +477,17 @@ actor Gate {
         await withCheckedContinuation { arrivalWaiters.append((count, $0)) }
     }
 }
+
+final class AvatarModeTests: XCTestCase {
+    func testStoredChoiceAndTheEarlierKeys() {
+        XCTAssertNil(AvatarMode.stored(nil, legacyEnabled: nil, legacySources: nil))
+        XCTAssertEqual(AvatarMode.stored(nil, legacyEnabled: false, legacySources: "remoteHostAndGravatar"), .initialsOnly)
+        XCTAssertEqual(AvatarMode.stored(nil, legacyEnabled: true, legacySources: nil), .remoteHost)
+        XCTAssertEqual(AvatarMode.stored(nil, legacyEnabled: true, legacySources: "remoteHostAndGravatar"), .remoteHostAndGravatar)
+        XCTAssertEqual(AvatarMode.stored("pictures", legacyEnabled: nil, legacySources: "remoteHost"), .remoteHost)
+        XCTAssertEqual(AvatarMode.stored("pictures", legacyEnabled: false, legacySources: "remoteHostAndGravatar"), .remoteHostAndGravatar)
+        XCTAssertEqual(AvatarMode.stored("remoteHostAndGravatar", legacyEnabled: false, legacySources: "remoteHost"), .remoteHostAndGravatar)
+        XCTAssertEqual(AvatarMode.stored("initialsOnly", legacyEnabled: true, legacySources: nil), .initialsOnly)
+        XCTAssertEqual(AvatarMode.stored("unknown", legacyEnabled: true, legacySources: nil), .initialsOnly)
+    }
+}
