@@ -1,8 +1,9 @@
 import Foundation
 
 /// Parses `git diff -p --no-color` output into files, hunks and numbered lines, with renames, copies, their similarity and mode changes from the extended header.
+/// With `words` the hunks are `--word-diff=porcelain`: one changed or kept run of words per line and `~` for each line end.
 enum DiffParser {
-    static func parse(_ data: Data) -> [FileDiff] {
+    static func parse(_ data: Data, words: Bool = false) -> [FileDiff] {
         // Split on the newline byte before decoding: a CR stays at the end of its line instead of forming one character with the LF.
         // The raw bytes stay alongside: a patch for `git apply` must carry the file's own bytes, which decoding would replace where they are not UTF-8.
         var raw = data.split(separator: 0x0A, omittingEmptySubsequences: false)
@@ -15,7 +16,7 @@ enum DiffParser {
             let start = index
             index += 1
             while index < lines.count, !isFileHeader(lines[index]) { index += 1 }
-            files.append(parseFile(lines[start..<index], raw: raw[start..<index]))
+            files.append(parseFile(lines[start..<index], raw: raw[start..<index], words: words))
         }
         return files
     }
@@ -35,7 +36,7 @@ enum DiffParser {
         return data
     }
 
-    private static func parseFile(_ lines: ArraySlice<String>, raw: ArraySlice<Data>) -> FileDiff {
+    private static func parseFile(_ lines: ArraySlice<String>, raw: ArraySlice<Data>, words: Bool) -> FileDiff {
         var header: [String] = []
         var hunks: [DiffHunk] = []
         var oldPath: String?
@@ -76,7 +77,8 @@ enum DiffParser {
                 rest = rest.dropFirst()
             }
             let hunkRaw = joined(raw[start..<rest.startIndex])
-            if let hunk = line.hasPrefix("@@@") ? parseCombinedHunk(body) : parseHunk(body, raw: hunkRaw) { hunks.append(hunk) }
+            let hunk = line.hasPrefix("@@@") ? parseCombinedHunk(body) : words ? parseWordHunk(body) : parseHunk(body, raw: hunkRaw)
+            if let hunk { hunks.append(hunk) }
         }
         let gitLine = header.first ?? ""
         let fallback = gitLine.hasPrefix("diff --cc ") ? String(gitLine.dropFirst("diff --cc ".count)) : Self.pathFromGitLine(gitLine)
@@ -138,6 +140,59 @@ enum DiffParser {
             }
         }
         return DiffHunk(oldStart: oldStart, oldCount: oldCount, newStart: newStart, newCount: newCount, section: section, lines: lines, header: header, rawPatch: raw)
+    }
+
+    /// A hunk of `--word-diff=porcelain`: lines starting with ` `, `-` or `+` are runs of words both sides share or only one has, `~` ends a line.
+    /// A line of only removed or only added words is a removed or added line; a line mixing kept and changed words keeps its segments and counts on both sides.
+    /// git moves line ends between words as it sees fit, so the numbers follow the lines as shown and can differ from the files' where line breaks changed. The hunk has no raw patch: a word diff cannot be applied.
+    private static func parseWordHunk(_ body: [String]) -> DiffHunk? {
+        let header = body[0]
+        let parts = header.split(separator: " ", maxSplits: 4, omittingEmptySubsequences: false)
+        guard parts.count >= 4, parts[1].hasPrefix("-"), parts[2].hasPrefix("+") else { return nil }
+        func range(_ token: Substring) -> (Int, Int) {
+            let numbers = token.dropFirst().split(separator: ",").compactMap { Int($0) }
+            return (numbers.first ?? 0, numbers.count > 1 ? numbers[1] : 1)
+        }
+        let (oldStart, oldCount) = range(parts[1])
+        let (newStart, newCount) = range(parts[2])
+        let section = parts.count > 4 ? String(parts[4]) : ""
+        var lines: [DiffLine] = []
+        var segments: [DiffSegment] = []
+        var missingNewline = false
+        var oldNumber = oldStart
+        var newNumber = newStart
+        func endLine() {
+            let onOldSide = segments.isEmpty || segments.contains { $0.kind != .added }
+            let onNewSide = segments.isEmpty || segments.contains { $0.kind != .removed }
+            let kind: DiffLine.Kind = onOldSide && onNewSide ? .context : onNewSide ? .added : .removed
+            let isMixed = kind == .context && segments.contains { $0.kind != .context }
+            lines.append(DiffLine(kind: kind, text: segments.map(\.text).joined(), oldNumber: onOldSide ? oldNumber : nil, newNumber: onNewSide ? newNumber : nil, missingNewline: missingNewline, segments: isMixed ? segments : []))
+            if onOldSide { oldNumber += 1 }
+            if onNewSide { newNumber += 1 }
+            segments = []
+            missingNewline = false
+        }
+        for raw in body.dropFirst() {
+            // Scalars, not characters: a combining mark right after the sign would merge with it into one character.
+            let scalars = raw.unicodeScalars
+            let text = String(String.UnicodeScalarView(scalars.dropFirst()))
+            switch scalars.first {
+            case "~": endLine()
+            case " ": segments.append(DiffSegment(kind: .context, text: text))
+            case "-": segments.append(DiffSegment(kind: .removed, text: text))
+            case "+": segments.append(DiffSegment(kind: .added, text: text))
+            case "\\":
+                // The marker follows the words of the line it belongs to, before or after its `~`.
+                if !segments.isEmpty {
+                    missingNewline = true
+                } else if let last = lines.popLast() {
+                    lines.append(DiffLine(kind: last.kind, text: last.text, oldNumber: last.oldNumber, newNumber: last.newNumber, missingNewline: true, segments: last.segments))
+                }
+            default: continue
+            }
+        }
+        if !segments.isEmpty { endLine() }
+        return DiffHunk(oldStart: oldStart, oldCount: oldCount, newStart: newStart, newCount: newCount, section: section, lines: lines, header: header, rawPatch: Data())
     }
 
     /// `@@@ -o1 -o2 +n @@@` of a combined diff, read as a diff against the first parent (ours): each line has one marker column per parent.

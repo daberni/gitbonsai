@@ -22,10 +22,11 @@ extension Repository {
     /// The diff of one file, or nil when the file has no changes in that source.
     /// For a renamed or copied file pass `originalPath` too; limited to the new path alone git would show it as entirely new.
     /// With `fullFile` the context reaches over the whole file, so its one hunk holds every line of both sides with the changes in place.
-    public func diff(of path: String, originalPath: String? = nil, in source: DiffSource, fullFile: Bool = false) async throws -> FileDiff? {
+    /// `whitespace` leaves out whitespace differences; a file whose only changes are left out has no diff then. With `words` changed words are marked within their line (`--word-diff=porcelain`); such hunks cannot be applied.
+    public func diff(of path: String, originalPath: String? = nil, in source: DiffSource, fullFile: Bool = false, whitespace: DiffWhitespace = DiffWhitespace(), words: Bool = false) async throws -> FileDiff? {
         let paths = [originalPath, path].compactMap { $0 }
         // git takes the context length as a C int.
-        let diffOptions = Self.diffOptions + (fullFile ? ["--unified=\(Int32.max)"] : [])
+        let diffOptions = Self.diffOptions + (fullFile ? ["--unified=\(Int32.max)"] : []) + whitespace.arguments + (words ? ["--word-diff=porcelain"] : [])
         let result: GitCommandResult
         switch source {
         case .commit(let commit):
@@ -47,7 +48,7 @@ extension Repository {
             // Exits with 1 because the files differ.
             result = try await runner.run(["diff", "--no-index"] + diffOptions + ["--", "/dev/null", path], accepting: [0, 1])
         }
-        return DiffParser.parse(result.stdout).first
+        return DiffParser.parse(result.stdout, words: words).first
     }
 
     /// For a file git shows as binary: the UTF-16 or UTF-32 encoding of its newer side (the older one when it was deleted), or nil when it is no such text.

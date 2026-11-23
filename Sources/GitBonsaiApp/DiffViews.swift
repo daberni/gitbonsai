@@ -26,9 +26,13 @@ final class DiffHeaderView: BarView {
     /// Takes the place of `modes` for a changed image.
     let imageModes = NSSegmentedControl(labels: [], trackingMode: .selectOne, target: nil, action: nil)
     private(set) var offeredImageModes: [ImageDiffMode] = []
-    /// Options of how a diff is shown; word diff and ignoring whitespace are to join "Show invisible characters" here.
+    /// Options of how a diff is shown: invisible characters, word diff and which whitespace differences are left out.
     let optionsButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let invisiblesItem = NSMenuItem(title: String(localized: "diff.options.invisibles", defaultValue: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), action: nil, keyEquivalent: "")
+    private let wordDiffItem = NSMenuItem(title: String(localized: "diff.options.wordDiff", defaultValue: "Word Diff", bundle: .module, comment: "Diff option: mark changed words within a line instead of whole lines"), action: nil, keyEquivalent: "")
+    private let ignoreAllItem = NSMenuItem(title: String(localized: "diff.options.ignoreWhitespace", defaultValue: "Ignore Whitespace", bundle: .module, comment: "Diff option: leave out every whitespace difference, git diff -w"), action: nil, keyEquivalent: "")
+    private let ignoreChangesItem = NSMenuItem(title: String(localized: "diff.options.ignoreWhitespaceAmount", defaultValue: "Ignore Whitespace amount", bundle: .module, comment: "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b"), action: nil, keyEquivalent: "")
+    private let ignoreBlankLinesItem = NSMenuItem(title: String(localized: "diff.options.ignoreBlankLines", defaultValue: "Ignore blank Lines", bundle: .module, comment: "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines"), action: nil, keyEquivalent: "")
     private var options = DiffOptions()
     private let previous = NSButton()
     let next = NSButton()
@@ -101,9 +105,37 @@ final class DiffHeaderView: BarView {
         let face = NSMenuItem()
         face.image = NSImage(systemSymbolName: "slider.horizontal.3", accessibilityDescription: optionsButton.toolTip)
         optionsButton.menu?.addItem(face)
-        invisiblesItem.target = self
-        invisiblesItem.action = #selector(toggleInvisibles(_:))
-        optionsButton.menu?.addItem(invisiblesItem)
+        let entries: [(NSMenuItem, Selector)] = [
+            (invisiblesItem, #selector(toggleInvisibles(_:))),
+            (wordDiffItem, #selector(toggleWordDiff(_:))),
+            (ignoreAllItem, #selector(toggleIgnoreAll(_:))),
+            (ignoreChangesItem, #selector(toggleIgnoreChanges(_:))),
+            (ignoreBlankLinesItem, #selector(toggleIgnoreBlankLines(_:))),
+        ]
+        for (item, action) in entries {
+            item.target = self
+            item.action = action
+            if item === wordDiffItem || item === ignoreAllItem { optionsButton.menu?.addItem(.separator()) }
+            optionsButton.menu?.addItem(item)
+        }
+        ignoreAllItem.toolTip = "git diff -w --ignore-cr-at-eol"
+        ignoreChangesItem.toolTip = "git diff -b --ignore-cr-at-eol"
+        ignoreBlankLinesItem.toolTip = "git diff --ignore-blank-lines"
+        wordDiffItem.toolTip = "git diff --word-diff"
+    }
+
+    private func showOptionStates() {
+        invisiblesItem.state = options.showsInvisibles ? .on : .off
+        wordDiffItem.state = options.wordDiff ? .on : .off
+        ignoreAllItem.state = options.whitespace.ignoring == .all ? .on : .off
+        ignoreChangesItem.state = options.whitespace.ignoring == .changes ? .on : .off
+        ignoreBlankLinesItem.state = options.whitespace.ignoresBlankLines ? .on : .off
+    }
+
+    private func change(_ edit: (inout DiffOptions) -> Void) {
+        edit(&options)
+        showOptionStates()
+        onOptionsChange?(options)
     }
 
     func show(_ selection: FileSelection, diff: FileDiff?, mode: DiffMode, options: DiffOptions) {
@@ -132,9 +164,10 @@ final class DiffHeaderView: BarView {
         // Binary files and files without changes have nothing to show in full.
         modes.isHidden = diff.map { $0.isBinary || $0.hunks.isEmpty } ?? true
         modes.selectedSegment = DiffMode.allCases.firstIndex(of: mode) ?? 0
-        optionsButton.isHidden = modes.isHidden
+        // A file whose changes the options leave out keeps the menu, so they can be turned off again.
+        optionsButton.isHidden = modes.isHidden && !(diff != nil && options.changesHunks)
         self.options = options
-        invisiblesItem.state = options.showsInvisibles ? .on : .off
+        showOptionStates()
         let hasHunks = (diff?.hunks.count ?? 0) > 1 && !isEmbedded
         previous.isHidden = !hasHunks
         next.isHidden = !hasHunks
@@ -175,11 +208,12 @@ final class DiffHeaderView: BarView {
         guard offeredImageModes.indices.contains(imageModes.selectedSegment) else { return }
         onImageModeChange?(offeredImageModes[imageModes.selectedSegment])
     }
-    @objc private func toggleInvisibles(_ sender: Any?) {
-        options.showsInvisibles.toggle()
-        invisiblesItem.state = options.showsInvisibles ? .on : .off
-        onOptionsChange?(options)
-    }
+    @objc private func toggleInvisibles(_ sender: Any?) { change { $0.showsInvisibles.toggle() } }
+    @objc private func toggleWordDiff(_ sender: Any?) { change { $0.wordDiff.toggle() } }
+    /// Ignoring all whitespace and only its amount exclude each other.
+    @objc private func toggleIgnoreAll(_ sender: Any?) { change { $0.whitespace.ignoring = $0.whitespace.ignoring == .all ? .nothing : .all } }
+    @objc private func toggleIgnoreChanges(_ sender: Any?) { change { $0.whitespace.ignoring = $0.whitespace.ignoring == .changes ? .nothing : .changes } }
+    @objc private func toggleIgnoreBlankLines(_ sender: Any?) { change { $0.whitespace.ignoresBlankLines.toggle() } }
     @objc private func goPrevious(_ sender: Any?) { onPrevious?() }
     @objc private func goNext(_ sender: Any?) { onNext?() }
     @objc private func runFileAction(_ sender: Any?) { onFileAction?() }
@@ -250,11 +284,16 @@ final class DiffHunkView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(_ hunk: DiffHunk, actionTitle: String?, canDiscard: Bool) {
+    /// With `blockedReason` the buttons stay in place but disabled, with the reason as their tooltip.
+    func show(_ hunk: DiffHunk, actionTitle: String?, canDiscard: Bool, blockedReason: String? = nil) {
         label.stringValue = hunk.header
         action.title = actionTitle ?? ""
         action.isHidden = actionTitle == nil
         discard.isHidden = !canDiscard
+        for button in [action, discard] {
+            button.isEnabled = blockedReason == nil
+            button.toolTip = blockedReason
+        }
         needsLayout = true
     }
 

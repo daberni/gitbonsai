@@ -6,6 +6,14 @@ final class DiffLineView: NSView {
     struct Content {
         let line: DiffLine
         let runs: [DiffLineText.Run]
+        /// In place of `runs` for a word diff line that kept some words and changed others.
+        var words: [Word] = []
+    }
+
+    /// Words both sides share, or that only the old (struck through) or the new side has.
+    struct Word {
+        let kind: DiffLine.Kind
+        let runs: [DiffLineText.Run]
     }
 
     var content: Content? { didSet { needsDisplay = true } }
@@ -50,6 +58,16 @@ final class DiffLineView: NSView {
         for run in content.runs {
             x = draw(run, at: x, top: top, emphasis: tint)
         }
+        for word in content.words {
+            let wordTint: NSColor? = switch word.kind {
+            case .added: Theme.moss
+            case .removed: Theme.persimmon
+            case .context: nil
+            }
+            for run in word.runs {
+                x = draw(run, at: x, top: top, emphasis: wordTint, struck: word.kind == .removed)
+            }
+        }
         if line.missingNewline {
             let note = NSAttributedString(string: "  " + String(localized: "diff.noNewlineAtEnd", defaultValue: "⏎ missing at end of file", bundle: .module, comment: "Marks a last line without a newline"), attributes: [.font: Theme.caption, .foregroundColor: Theme.inkFaint])
             note.draw(at: CGPoint(x: x, y: bounds.midY - note.size().height / 2))
@@ -57,12 +75,14 @@ final class DiffLineView: NSView {
     }
 
     /// Draws one run from `x` and returns where the next one starts.
-    private func draw(_ run: DiffLineText.Run, at x: CGFloat, top: CGFloat, emphasis tint: NSColor?) -> CGFloat {
+    private func draw(_ run: DiffLineText.Run, at x: CGFloat, top: CGFloat, emphasis tint: NSColor?, struck: Bool = false) -> CGFloat {
         typealias D = Theme.Diff
         switch run.kind {
         case .text, .marker:
             let color = run.kind == .text ? Theme.ink : Theme.inkFaint
-            let text = NSAttributedString(string: run.text, attributes: [.font: Theme.mono, .foregroundColor: color])
+            var attributes: [NSAttributedString.Key: Any] = [.font: Theme.mono, .foregroundColor: color]
+            if struck { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+            let text = NSAttributedString(string: run.text, attributes: attributes)
             let width = text.size().width
             if run.emphasized, let tint {
                 tint.withAlphaComponent(D.emphasisTint).setFill()

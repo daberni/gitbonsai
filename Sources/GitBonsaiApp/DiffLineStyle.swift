@@ -41,7 +41,16 @@ struct DiffLineStyle {
     }
 
     private func content(_ line: DiffLine, change: IntralineChange?) -> DiffLineView.Content {
-        DiffLineView.Content(line: line, runs: DiffLineText.runs(line.text, options: textOptions(for: line, change: change)))
+        guard !line.segments.isEmpty else { return DiffLineView.Content(line: line, runs: DiffLineText.runs(line.text, options: textOptions(for: line, change: change))) }
+        // A word diff line that kept some words: each changed word is emphasized on its own, in the colour of its side.
+        let words = line.segments.map { segment in
+            var options = textOptions(for: line, change: nil)
+            options.isChanged = segment.kind != .context
+            options.emphasis = segment.kind == .context ? nil : 0..<segment.text.unicodeScalars.count
+            options.isFileStart = options.isFileStart && segment == line.segments.first
+            return DiffLineView.Word(kind: segment.kind, runs: DiffLineText.runs(segment.text, options: options))
+        }
+        return DiffLineView.Content(line: line, runs: [], words: words)
     }
 
     private func textOptions(for line: DiffLine, change: IntralineChange?) -> DiffLineText.Options {

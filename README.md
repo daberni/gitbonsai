@@ -133,6 +133,7 @@ Files, diffs and commits:
 - `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the close button of the open diff with a real click and prints whether the diff is still shown.
 - `GITBONSAI_DIFF_MODE=diff|file|remembered` starts the diff in that mode; harness runs otherwise start in "Diff", and `remembered` reads the choice an earlier harness run with the same `GITBONSAI_DEFAULTS` stored.
 - `GITBONSAI_DIFF_INVISIBLES=1|0|remembered` starts the diff with or without invisible characters; harness runs otherwise start without them.
+- `GITBONSAI_DIFF_WORDS=1`, `GITBONSAI_DIFF_WHITESPACE=all|changes` and `GITBONSAI_DIFF_BLANK_LINES=1` start the diff with Word Diff, Ignore Whitespace (or its amount) and Ignore blank Lines; `GITBONSAI_DIFF_INVISIBLES=remembered` reads all options an earlier run stored.
 - `GITBONSAI_DIFF_OPTION=<title>` prints the diff options menu with each entry's state, chooses that entry without opening the menu and prints it again.
 - `GITBONSAI_IMAGE_MODE=sideBySide|swipe|onionSkin|text` starts an image diff in that mode (harness default: side by side); `GITBONSAI_CLICK_IMAGE_MODE=<mode>` clicks that segment of the image toggle, `GITBONSAI_IMAGE_SWIPE=<0…1>` drags the swipe line and `GITBONSAI_IMAGE_OPACITY=<0…1>` the onion skin slider, all with real mouse events, printing the state after each step.
 - File rows are counted from 0 in every switch that takes `<n>` for a file. `GITBONSAI_CLICK_FILE=<n>` clicks file n in the detail panel with real mouse events and prints which diff opened.

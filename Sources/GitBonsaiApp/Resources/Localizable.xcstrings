@@ -644,16 +644,16 @@
     "branch.pull.divergedInWorktree" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Pull in its worktree %@."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Im Worktree %@ pullen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pull in its worktree %@."
           }
         }
       }
@@ -6166,6 +6166,24 @@
         }
       }
     },
+    "diff.empty.leftOutHint" : {
+      "comment" : "Below 'Only whitespace changed' while Ignore Whitespace or Ignore blank Lines is on",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The diff options hide these changes."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Diff-Optionen blenden diese Änderungen aus."
+          }
+        }
+      }
+    },
     "diff.empty.modeOnly" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -6196,6 +6214,40 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "No changes"
+          }
+        }
+      }
+    },
+    "diff.empty.onlyBlankLines" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Only blank lines changed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Leerzeilen geändert"
+          }
+        }
+      }
+    },
+    "diff.empty.onlyWhitespace" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Only whitespace changed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Whitespace geändert"
           }
         }
       }
@@ -6299,6 +6351,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "renamed from %1$@ to %2$@ (similarity %3$lld %%)"
+          }
+        }
+      }
+    },
+    "diff.hunk.blockedByOptions" : {
+      "comment" : "Tooltip of the disabled hunk buttons while the diff options change the hunks",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Turn off Word Diff and the Ignore options to stage or discard single hunks. Whole files can still be staged."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wort-Diff und die Ignorieren-Optionen ausschalten, um einzelne Hunks zu stagen oder zu verwerfen. Ganze Dateien lassen sich weiterhin stagen."
           }
         }
       }
@@ -6676,6 +6746,60 @@
         }
       }
     },
+    "diff.options.ignoreBlankLines" : {
+      "comment" : "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ignore blank Lines"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leerzeilen ignorieren"
+          }
+        }
+      }
+    },
+    "diff.options.ignoreWhitespace" : {
+      "comment" : "Diff option: leave out every whitespace difference, git diff -w",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ignore Whitespace"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whitespace ignorieren"
+          }
+        }
+      }
+    },
+    "diff.options.ignoreWhitespaceAmount" : {
+      "comment" : "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Ignore Whitespace amount"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whitespace-Menge ignorieren"
+          }
+        }
+      }
+    },
     "diff.options.invisibles" : {
       "comment" : "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph",
       "extractionState" : "extracted_with_value",
@@ -6690,6 +6814,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Show invisible characters"
+          }
+        }
+      }
+    },
+    "diff.options.wordDiff" : {
+      "comment" : "Diff option: mark changed words within a line instead of whole lines",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Word Diff"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wort-Diff"
           }
         }
       }

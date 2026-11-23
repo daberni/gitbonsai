@@ -37,7 +37,12 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     /// Images over the automatic limit load once asked for, for the file shown.
     var loadsLargeImages = false
     let column = NSTableColumn(identifier: .init("diff"))
+    /// The diff git applies hunks from, under the whitespace options.
     var diff: FileDiff?
+    /// The same changes as a word diff, read in the "Diff" mode while that option is on.
+    var words: FileDiff?
+    /// The hunks whose lines are shown.
+    var shown: FileDiff? { words ?? diff }
     var mode = DiffMode.remembered
     var style = DiffLineStyle(options: DiffOptions.remembered)
     /// Every line of the file, read only in the "Whole file" mode.
@@ -145,12 +150,12 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     }
 
     func runHunkAction(_ index: Int) {
-        guard let selection, let diff, diff.hunks.indices.contains(index) else { return }
+        guard !style.options.changesHunks, let selection, let diff, diff.hunks.indices.contains(index) else { return }
         if selection.isUnstageable { staging.unstage(diff.hunks[index], of: diff) } else { staging.stage(diff.hunks[index], of: diff) }
     }
 
     func discardHunk(_ index: Int) {
-        guard let selection, selection.isStageable, let diff, diff.hunks.indices.contains(index) else { return }
+        guard !style.options.changesHunks, let selection, selection.isStageable, let diff, diff.hunks.indices.contains(index) else { return }
         staging.discard(diff.hunks[index], of: diff, untracked: selection.source == .untracked)
     }
 
@@ -199,12 +204,18 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private func lineNumbers(ofRow row: Int) -> String {
         guard rows.indices.contains(row) else { return "none" }
         let line: DiffLine? = switch rows[row] {
-        case .line(let hunk, let line): diff?.hunks[hunk].lines[line]
+        case .line(let hunk, let line): shown?.hunks[hunk].lines[line]
         case .fileLine(let index): fileLines[index]
-        case .hunk(let index): diff?.hunks[index].lines.first
+        case .hunk(let index): shown?.hunks[index].lines.first
         case .notice: nil
         }
         return line.map { "\($0.oldNumber.map(String.init) ?? "-")/\($0.newNumber.map(String.init) ?? "-")" } ?? "none"
+    }
+
+    /// Hunks of a word diff or a diff without some whitespace do not match the file; staging or discarding them needs the plain diff.
+    private var hunkBlockedReason: String? {
+        guard style.options.changesHunks else { return nil }
+        return String(localized: "diff.hunk.blockedByOptions", defaultValue: "Turn off Word Diff and the Ignore options to stage or discard single hunks. Whole files can still be staged.", bundle: .module, comment: "Tooltip of the disabled hunk buttons while the diff options change the hunks")
     }
 
     // MARK: Table
@@ -225,14 +236,14 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             let view = (tableView.makeView(withIdentifier: .init("hunk"), owner: nil) as? DiffHunkView) ?? DiffHunkView()
             view.identifier = .init("hunk")
             let title: String? = selection?.isUnstageable == true ? String(localized: "diff.hunk.unstage", defaultValue: "Unstage Hunk", bundle: .module) : selection?.isStageable == true ? String(localized: "diff.hunk.stage", defaultValue: "Stage Hunk", bundle: .module) : nil
-            if let diff { view.show(diff.hunks[index], actionTitle: title, canDiscard: selection?.isStageable == true) }
+            if let shown { view.show(shown.hunks[index], actionTitle: title, canDiscard: selection?.isStageable == true, blockedReason: hunkBlockedReason) }
             view.onAction = { [weak self] in self?.runHunkAction(index) }
             view.onDiscard = { [weak self] in self?.discardHunk(index) }
             return view
         case .line(let hunk, let line):
             let view = (tableView.makeView(withIdentifier: .init("line"), owner: nil) as? DiffLineView) ?? DiffLineView()
             view.identifier = .init("line")
-            if let diff { view.content = style.content(ofHunk: hunk, line: line, in: diff) }
+            if let shown { view.content = style.content(ofHunk: hunk, line: line, in: shown) }
             return view
         case .fileLine(let index):
             let view = (tableView.makeView(withIdentifier: .init("line"), owner: nil) as? DiffLineView) ?? DiffLineView()

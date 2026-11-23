@@ -24,14 +24,58 @@ public struct DiffLine: Sendable, Hashable {
     public let missingNewline: Bool
     /// The line ended with CR LF.
     public let carriageReturn: Bool
+    /// In a word diff, the words of a line that kept some and changed others, in order; `text` joins them. Empty for every other line.
+    public let segments: [DiffSegment]
 
-    public init(kind: Kind, text: String, oldNumber: Int?, newNumber: Int?, missingNewline: Bool = false, carriageReturn: Bool = false) {
+    public init(kind: Kind, text: String, oldNumber: Int?, newNumber: Int?, missingNewline: Bool = false, carriageReturn: Bool = false, segments: [DiffSegment] = []) {
         self.kind = kind
         self.text = text
         self.oldNumber = oldNumber
         self.newNumber = newNumber
         self.missingNewline = missingNewline
         self.carriageReturn = carriageReturn
+        self.segments = segments
+    }
+}
+
+/// A run of a word-diff line that both sides share, or that only the old or the new side has.
+public struct DiffSegment: Sendable, Hashable {
+    public let kind: DiffLine.Kind
+    public let text: String
+
+    public init(kind: DiffLine.Kind, text: String) {
+        self.kind = kind
+        self.text = text
+    }
+}
+
+/// Which whitespace differences a diff leaves out: none, changes in the amount of whitespace (`-b`) or all of it (`-w`); optionally also added or removed blank lines.
+public struct DiffWhitespace: Sendable, Hashable {
+    public enum Ignoring: String, Sendable, Hashable, CaseIterable {
+        case nothing
+        case changes
+        case all
+    }
+
+    public var ignoring: Ignoring
+    public var ignoresBlankLines: Bool
+
+    public init(ignoring: Ignoring = .nothing, ignoresBlankLines: Bool = false) {
+        self.ignoring = ignoring
+        self.ignoresBlankLines = ignoresBlankLines
+    }
+
+    /// Some difference is left out, so a hunk no longer matches the file and cannot be applied.
+    public var isFiltering: Bool { ignoring != .nothing || ignoresBlankLines }
+
+    /// A changed line ending counts as whitespace too.
+    var arguments: [String] {
+        let ignoring: [String] = switch self.ignoring {
+        case .nothing: []
+        case .changes: ["-b", "--ignore-cr-at-eol"]
+        case .all: ["-w", "--ignore-cr-at-eol"]
+        }
+        return ignoring + (ignoresBlankLines ? ["--ignore-blank-lines"] : [])
     }
 }
 

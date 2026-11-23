@@ -1,4 +1,5 @@
 import Foundation
+import GitEngine
 
 /// How a file diff is shown: the hunks with context around them, or the whole file with the changes in place. The last choice holds for the next file and the next launch.
 enum DiffMode: String, CaseIterable {
@@ -31,17 +32,38 @@ enum DiffMode: String, CaseIterable {
 struct DiffOptions: Equatable {
     /// Marks tabs and trailing spaces in changed lines, line ends with CR, a byte order mark, and names characters without a glyph such as NBSP and ZWSP.
     var showsInvisibles = false
+    /// Changed words are marked within their line instead of whole lines.
+    var wordDiff = false
+    var whitespace = DiffWhitespace()
+
+    /// The diff shown is not the one git applies: hunks can be staged and discarded only without these options.
+    var changesHunks: Bool { wordDiff || whitespace.isFiltering }
+
+    /// The same lines read again under other options; only the invisibles change no more than the drawing.
+    func readsDifferently(from other: DiffOptions) -> Bool { wordDiff != other.wordDiff || whitespace != other.whitespace }
 
     private static let invisiblesKey = "diffShowsInvisibles"
+    private static let wordDiffKey = "diffWordDiff"
+    private static let whitespaceKey = "diffIgnoresWhitespace"
+    private static let blankLinesKey = "diffIgnoresBlankLines"
 
-    /// Harness runs start without invisibles unless `GITBONSAI_DIFF_INVISIBLES` is `1` or `remembered`.
+    /// Harness runs start without any option unless `GITBONSAI_DIFF_INVISIBLES` or `GITBONSAI_DIFF_WORDS` is `1`, `GITBONSAI_DIFF_WHITESPACE` names `changes` or `all`, `GITBONSAI_DIFF_BLANK_LINES` is `1`, or `GITBONSAI_DIFF_INVISIBLES` is `remembered`.
     @MainActor static var remembered: DiffOptions {
         get {
-            let harnessValue = ProcessInfo.processInfo.environment["GITBONSAI_DIFF_INVISIBLES"]
-            if ScreenshotHarness.isActive, harnessValue != "remembered" { return DiffOptions(showsInvisibles: harnessValue == "1") }
-            return DiffOptions(showsInvisibles: defaults.bool(forKey: invisiblesKey))
+            let environment = ProcessInfo.processInfo.environment
+            if ScreenshotHarness.isActive, environment["GITBONSAI_DIFF_INVISIBLES"] != "remembered" {
+                let ignoring = environment["GITBONSAI_DIFF_WHITESPACE"].flatMap(DiffWhitespace.Ignoring.init) ?? .nothing
+                return DiffOptions(showsInvisibles: environment["GITBONSAI_DIFF_INVISIBLES"] == "1", wordDiff: environment["GITBONSAI_DIFF_WORDS"] == "1", whitespace: DiffWhitespace(ignoring: ignoring, ignoresBlankLines: environment["GITBONSAI_DIFF_BLANK_LINES"] == "1"))
+            }
+            let ignoring = defaults.string(forKey: whitespaceKey).flatMap(DiffWhitespace.Ignoring.init) ?? .nothing
+            return DiffOptions(showsInvisibles: defaults.bool(forKey: invisiblesKey), wordDiff: defaults.bool(forKey: wordDiffKey), whitespace: DiffWhitespace(ignoring: ignoring, ignoresBlankLines: defaults.bool(forKey: blankLinesKey)))
         }
-        set { defaults.set(newValue.showsInvisibles, forKey: invisiblesKey) }
+        set {
+            defaults.set(newValue.showsInvisibles, forKey: invisiblesKey)
+            defaults.set(newValue.wordDiff, forKey: wordDiffKey)
+            defaults.set(newValue.whitespace.ignoring.rawValue, forKey: whitespaceKey)
+            defaults.set(newValue.whitespace.ignoresBlankLines, forKey: blankLinesKey)
+        }
     }
 
     @MainActor private static var defaults: UserDefaults { ScreenshotHarness.defaults }

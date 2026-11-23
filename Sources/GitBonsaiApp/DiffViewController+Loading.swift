@@ -42,9 +42,10 @@ extension DiffViewController {
         pending = load
         let repository = self.repository()
         let mode = mode
+        let options = style.options
         let loadsLargeImages = loadsLargeImages
         loadTask = Task { [weak self] in
-            let read = try? await Self.read(selection, mode: mode, loadingLargeImages: loadsLargeImages, from: repository)
+            let read = try? await Self.read(selection, mode: mode, options: options, loadingLargeImages: loadsLargeImages, from: repository)
             guard let self, !Task.isCancelled else { return }
             pending = nil
             if load.closesWhenGone {
@@ -54,51 +55,68 @@ extension DiffViewController {
             }
             self.selection = selection
             images = read?.images
-            apply(read?.diff, full: read?.full, encoding: read?.encoding, scrolling: load.scroll)
+            words = read?.words
+            apply(read?.diff, full: read?.full, encoding: read?.encoding, onlyLeftOut: read?.onlyLeftOut ?? false, scrolling: load.scroll)
             load.ready.forEach { $0() }
         }
     }
 
     private struct Read {
-        let diff: FileDiff?
-        let full: FileDiff?
-        let encoding: WideTextEncoding?
-        let images: ImageDiffContent?
+        var diff: FileDiff?
+        var full: FileDiff?
+        var words: FileDiff?
+        var encoding: WideTextEncoding?
+        var images: ImageDiffContent?
+        /// The file changed, but only in what the whitespace options leave out; `diff` then has the file without hunks.
+        var onlyLeftOut = false
     }
 
-    /// The diff, and in the "Whole file" mode also the whole file; both are read before either is shown. A binary file is checked for UTF-16 text.
-    /// A changed image also reads both of its sides.
-    private static func read(_ selection: FileSelection, mode: DiffMode, loadingLargeImages: Bool, from repository: Repository) async throws -> Read {
-        async let diff = repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
-        async let full = mode == .file ? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil
-        let (readDiff, readFull) = try await (diff, full)
-        guard let readDiff else { return Read(diff: nil, full: readFull, encoding: nil, images: nil) }
-        let images = await ImageDiffLoader.load(readDiff, path: selection.path, source: selection.source, from: repository, loadingLarge: loadingLargeImages)
-        if case .images = images { return Read(diff: readDiff, full: readFull, encoding: nil, images: images) }
-        guard readDiff.isBinary else { return Read(diff: readDiff, full: readFull, encoding: nil, images: images) }
-        return Read(diff: readDiff, full: readFull, encoding: await repository.wideTextEncoding(of: readDiff, in: selection.source), images: images)
+    /// The diff, and in the "Whole file" mode also the whole file; all are read before any is shown. A binary file is checked for UTF-16 text.
+    /// A changed image also reads both of its sides. Under the options the word diff is read beside the diff, whose hunks the actions apply; in the "Whole file" mode the whole file is the word diff.
+    private static func read(_ selection: FileSelection, mode: DiffMode, options: DiffOptions, loadingLargeImages: Bool, from repository: Repository) async throws -> Read {
+        let whitespace = options.whitespace
+        async let diff = repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, whitespace: whitespace)
+        async let full = mode == .file ? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true, whitespace: whitespace, words: options.wordDiff) : nil
+        async let words = mode == .diff && options.wordDiff ? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, whitespace: whitespace, words: true) : nil
+        let (readDiff, readFull, readWords) = try await (diff, full, words)
+        guard let readDiff else {
+            // git prints nothing for a file whose every change is left out; the plain diff tells it from a file without changes.
+            guard whitespace.isFiltering, let plain = try await repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source) else { return Read() }
+            let withoutHunks = FileDiff(path: plain.path, oldPath: plain.oldPath, isCopy: plain.isCopy, similarity: plain.similarity, isNew: plain.isNew, isDeleted: plain.isDeleted, isBinary: plain.isBinary, oldMode: plain.oldMode, newMode: plain.newMode, hunks: [], rawHeader: Data())
+            return Read(diff: withoutHunks, onlyLeftOut: true)
+        }
+        var read = Read(diff: readDiff, full: readFull, words: readWords)
+        read.images = await ImageDiffLoader.load(readDiff, path: selection.path, source: selection.source, from: repository, loadingLarge: loadingLargeImages)
+        if case .images = read.images { return read }
+        if readDiff.isBinary { read.encoding = await repository.wideTextEncoding(of: readDiff, in: selection.source) }
+        return read
     }
 
-    /// Options change how the lines are drawn, not what was read.
+    /// Invisibles change how the lines are drawn; word diff and whitespace read the file again.
     func changeOptions(to newOptions: DiffOptions) {
         guard newOptions != style.options else { return }
+        let readsAgain = newOptions.readsDifferently(from: style.options)
         style.options = newOptions
         DiffOptions.remembered = newOptions
+        if readsAgain, let selection = pending?.selection ?? selection {
+            load(selection, scroll: .keep, closesWhenGone: false)
+            return
+        }
         column.minWidth = contentWidth()
         table.reloadData()
     }
 
-    private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, scrolling: PendingLoad.Scroll) {
+    private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, onlyLeftOut: Bool, scrolling: PendingLoad.Scroll) {
         guard let selection else { return }
         self.diff = diff
         fileLines = full?.hunks.flatMap(\.lines) ?? []
         header.show(selection, diff: diff, mode: mode, options: style.options)
-        style.prepare(diff: diff, fileLines: fileLines)
+        style.prepare(diff: shown, fileLines: fileLines)
         rows = imageNotice.map { [.notice($0)] } ?? []
         rows += style.notice.map { [.notice($0)] } ?? []
         hunkStarts = []
         let showsImages = applyImages()
-        let empty = showsImages ? nil : Self.emptyContent(for: diff, encoding: encoding)
+        let empty = showsImages ? nil : onlyLeftOut ? Self.leftOutContent(style.options.whitespace) : Self.emptyContent(for: diff, encoding: encoding)
         if let empty { emptyState.show(empty) }
         emptyState.isHidden = empty == nil
         scroll.isHidden = empty != nil || showsImages
@@ -106,10 +124,16 @@ extension DiffViewController {
             let firstLineRow = rows.count
             rows += fileLines.indices.map { .fileLine($0) }
             // A hunk starts with the same line in both views, and a line's pair of old and new number occurs once in the file.
-            let rowOfNumbers = Dictionary(fileLines.enumerated().map { (NumberPair($1), firstLineRow + $0) }, uniquingKeysWith: { first, _ in first })
-            hunkStarts = diff.hunks.compactMap { $0.lines.first.flatMap { rowOfNumbers[NumberPair($0)] } }
-        } else if let diff, empty == nil {
-            for (hunkIndex, hunk) in diff.hunks.enumerated() {
+            if style.options.wordDiff {
+                // Word diff numbers follow the lines as shown, not the line diff's; navigation stops at each run of changed lines instead.
+                let changed = fileLines.map { $0.kind != .context || !$0.segments.isEmpty }
+                hunkStarts = changed.indices.filter { changed[$0] && ($0 == 0 || !changed[$0 - 1]) }.map { firstLineRow + max(0, $0 - Self.contextAboveChange) }
+            } else {
+                let rowOfNumbers = Dictionary(fileLines.enumerated().map { (NumberPair($1), firstLineRow + $0) }, uniquingKeysWith: { first, _ in first })
+                hunkStarts = diff.hunks.compactMap { $0.lines.first.flatMap { rowOfNumbers[NumberPair($0)] } }
+            }
+        } else if let shown, empty == nil {
+            for (hunkIndex, hunk) in shown.hunks.enumerated() {
                 hunkStarts.append(rows.count)
                 rows.append(.hunk(hunkIndex))
                 rows += hunk.lines.indices.map { .line(hunk: hunkIndex, line: $0) }
@@ -120,6 +144,15 @@ extension DiffViewController {
         fitEmbeddedHeight()
         // The whole file opens where its first change is.
         if case .start(let sideways) = scrolling { scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0, resettingSideways: sideways) }
+    }
+
+    /// git's default context, so a jump in a word diff lands where the hunk would start.
+    private static let contextAboveChange = 3
+
+    /// The file changed only in whitespace or blank lines the options leave out.
+    private static func leftOutContent(_ whitespace: DiffWhitespace) -> EmptyStateView.Content {
+        let title = whitespace.ignoring == .nothing ? String(localized: "diff.empty.onlyBlankLines", defaultValue: "Only blank lines changed", bundle: .module) : String(localized: "diff.empty.onlyWhitespace", defaultValue: "Only whitespace changed", bundle: .module)
+        return EmptyStateView.Content(title: title, detail: [String(localized: "diff.empty.leftOutHint", defaultValue: "The diff options hide these changes.", bundle: .module, comment: "Below 'Only whitespace changed' while Ignore Whitespace or Ignore blank Lines is on")])
     }
 
     /// What to say instead of lines, or nil when the diff has lines to show. A rename or mode change without content change says so rather than "no changes".
@@ -150,7 +183,7 @@ extension DiffViewController {
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.
     private func contentWidth() -> CGFloat {
-        let lines = mode == .file && !fileLines.isEmpty ? fileLines : diff?.hunks.flatMap(\.lines) ?? []
+        let lines = mode == .file && !fileLines.isEmpty ? fileLines : shown?.hunks.flatMap(\.lines) ?? []
         return style.width(of: lines) + Theme.Space.xl
     }
 }
