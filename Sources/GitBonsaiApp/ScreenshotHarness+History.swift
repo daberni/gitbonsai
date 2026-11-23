@@ -114,6 +114,17 @@ extension ScreenshotHarness {
                     for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                         if let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1) { window.sendEvent(event) }
                     }
+                case let name? where name.hasPrefix("pill="):
+                    // A real double click on one pill of the expanded labels: a first click, then the second with its click count.
+                    guard let content = history.refOverlay.overlay.content, let index = Int(name.dropFirst(5)), content.placements.indices.contains(index) else { return }
+                    let rect = content.placements[index].rect
+                    let location = table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
+                    FileHandle.standardError.write(Data("ref pills: double click on \(content.pills[content.placements[index].index].name)\n".utf8))
+                    for count in [1, 2] {
+                        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                            if let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1) { window.sendEvent(event) }
+                        }
+                    }
                 default:
                     FileHandle.standardError.write(Data("unknown ref pills step \(step)\n".utf8))
                 }

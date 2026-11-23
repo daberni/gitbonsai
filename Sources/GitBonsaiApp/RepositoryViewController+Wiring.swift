@@ -45,7 +45,7 @@ extension RepositoryViewController {
         sidebarActions.prompter.window = { [weak self] in self?.view.window }
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
-        history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
+        history.onActivate = { [weak self] row, pill in self?.checkoutController.activate(row: row, pill: pill) }
         history.menuItems = { [weak self] row in self?.historyMenu.rowMenu(forRow: row) ?? [] }
         history.pillMenuItems = { [weak self] row, ref in self?.historyMenu.pillMenu(forRow: row, ref: ref) ?? [] }
 

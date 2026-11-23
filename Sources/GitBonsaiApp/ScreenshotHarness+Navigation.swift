@@ -6,7 +6,7 @@ import GitEngine
 extension ScreenshotHarness {
     /// `GITBONSAI_NAVIGATE=<step>;…` runs one step every `GITBONSAI_NAVIGATE_INTERVAL` seconds (default 1.5) with real clicks and keys through the window, and after each prints
     /// whether a diff is open, the selected commits, what the detail panel shows and the first responder. Steps:
-    /// `file:<n>` clicks file n in the detail panel, `row:<n>`, `cmd:<n>` and `shift:<n>` click history row n plainly, with ⌘ or with ⇧, `key:up|down|return` presses that key,
+    /// `file:<n>` clicks file n in the detail panel, `row:<n>`, `cmd:<n>` and `shift:<n>` click history row n plainly, with ⌘ or with ⇧, `key:up|down|return|escape` presses that key,
     /// `parent:<n>` clicks parent link n, `sidebar:<subject>` clicks a sidebar row and `sidebar2:<subject>` double-clicks it (subjects as for `GITBONSAI_SIDEBAR_MENU_LIST`), `tags:<n>` opens the tag list and presses entry n,
     /// `search:<text>` types into the commit search, `git:<argument>,<argument>…` runs a git command and refreshes the history in place like a write action, `stage:<path>` stages a file through the app,
     /// `base` clicks the comparison's "since common base", `close` the diff's close button, `focus:history` focuses the history, `tooltips:<row>` prints the tooltip a row registers over its labels, subject, author and date, `width:<points>` resizes the window and `shot:<png>` renders the window.
@@ -54,6 +54,7 @@ extension ScreenshotHarness {
                 "up": (String(Character(UnicodeScalar(NSUpArrowFunctionKey)!)), 126, [.numericPad, .function]),
                 "down": (String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)), 125, [.numericPad, .function]),
                 "return": ("\r", 36, []),
+                "escape": ("\u{1b}", 53, []),
             ]
             guard let key = keys[argument], let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: key.flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: key.characters, charactersIgnoringModifiers: key.characters, isARepeat: false, keyCode: key.code) else { return }
             // Keys typed into the search field reach its field editor through the application's event queue; the rest goes straight to the window.

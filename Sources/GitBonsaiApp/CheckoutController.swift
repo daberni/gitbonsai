@@ -69,8 +69,11 @@ final class CheckoutController: NSObject {
     }
 
     /// A double click checks out the branch at the row. A row without a branch does nothing: a detached HEAD should be asked for, not happen by accident.
-    func activate(row index: Int) {
-        guard let choice = choices(forRow: index).first, choice.target != .commit(viewModel.commits[index].id) else { return }
+    /// A double click on a branch pill checks out that branch rather than the row's first.
+    func activate(row index: Int, pill: PillRef? = nil) {
+        let choices = choices(forRow: index)
+        let onPill = choices.first { choice in pill.map { $0 == .branch(choice.target.branchName ?? "") } ?? false }
+        guard let choice = onPill ?? choices.first, choice.target != .commit(viewModel.commits[index].id) else { return }
         perform(choice)
     }
 
@@ -172,5 +175,15 @@ extension CheckoutTarget {
     /// The message of the stash that carries uncommitted changes across this checkout, in the interface's language like everything the app writes into a repository.
     var stashMessage: String {
         String(localized: "stash.message.switching", defaultValue: "GitBonsai: changes when switching to \(label)", bundle: .module, comment: "Message of the stash that carries local changes across a checkout; the argument is the branch or commit switched to.")
+    }
+}
+
+private extension CheckoutTarget {
+    /// The branch a checkout lands on, by the name its pill shows; nil for a detached HEAD.
+    var branchName: String? {
+        switch self {
+        case .localBranch(let branch), .fastForward(let branch, _), .reset(let branch, _), .remoteBranch(_, let branch): branch
+        case .commit: nil
+        }
     }
 }

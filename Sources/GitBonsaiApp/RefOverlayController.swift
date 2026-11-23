@@ -4,9 +4,9 @@ import AppKit
 /// Only the row under the pointer is laid out at full length, from the model its visible row view already holds.
 @MainActor
 final class RefOverlayController {
-    /// Single click on the expanded labels selects their row, a double click activates it like a double click on the row.
+    /// Single click on the expanded labels selects their row, a double click activates it like a double click on the row, with the pill under the pointer.
     var select: ((Int) -> Void)?
-    var activate: ((Int) -> Void)?
+    var activate: ((Int, PillRef?) -> Void)?
     var menuItems: ((Int) -> [NSMenuItem])?
     /// Items for the context menu of one pill of a row.
     var pillMenuItems: ((Int, PillRef) -> [NSMenuItem])?
@@ -24,11 +24,6 @@ final class RefOverlayController {
         table.onPressLabels = { [weak self] point in self?.pressCounter(at: point) ?? false }
         table.onLayoutChange = { [weak self] in self?.collapse() }
         table.onRowsReloaded = { [weak self] rows in self?.rowsReloaded(rows) }
-        table.onCancel = { [weak self] in
-            guard let self, shownRow != nil else { return false }
-            collapse()
-            return true
-        }
         overlay.onPress = { [weak self] event in self?.press(event) }
         table.labelMenu = { [weak self] point in self?.labelMenu(at: point) }
         overlay.makeMenu = { [weak self] event in self?.overlayMenu(for: event) }
@@ -63,6 +58,12 @@ final class RefOverlayController {
         cancelPending()
         open(target.row)
         return true
+    }
+
+    /// The pill a row draws at `point` in the table, for a double click on it.
+    func pill(at point: NSPoint) -> PillRef? {
+        guard let target = target(at: point), case .pill(let index) = RefPills.hit(target.compact, at: point) else { return nil }
+        return target.model.pills[index].ref
     }
 
     // MARK: Menus
@@ -100,7 +101,10 @@ final class RefOverlayController {
     private func press(_ event: NSEvent) {
         guard let row = shownRow else { return }
         table.window?.makeFirstResponder(table)
-        if event.clickCount == 2 { activate?(row) } else { select?(row) }
+        guard event.clickCount == 2 else { select?(row); return }
+        let point = table.convert(event.locationInWindow, from: nil)
+        let pill = overlay.content.flatMap { content in RefPills.hit(content.placements, at: point).map { content.pills[$0.index].ref } }
+        activate?(row, pill)
     }
 
     // MARK: Showing
@@ -133,6 +137,13 @@ final class RefOverlayController {
             table.addSubview(overlay, positioned: .above, relativeTo: nil)
         }
         observeScrolling()
+    }
+
+    /// Esc closes the expanded labels first; returns whether there were any.
+    func cancel() -> Bool {
+        guard shownRow != nil else { return false }
+        collapse()
+        return true
     }
 
     func collapse() {

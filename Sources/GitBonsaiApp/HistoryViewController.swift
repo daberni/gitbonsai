@@ -40,8 +40,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     /// The selection changed; empty when nothing is selected.
     var onSelect: ((IndexSet) -> Void)?
-    /// Double click on a row, while no other rows are selected.
-    var onActivate: ((Int) -> Void)?
+    /// Double click on a row, while no other rows are selected, with the ref pill it hit, in the row or in its expanded labels.
+    var onActivate: ((Int, PillRef?) -> Void)?
     /// Items for the context menu of a row.
     var menuItems: ((Int) -> [NSMenuItem])?
     /// Items for the context menu of one ref pill of a row, in the row and in its expanded labels.
@@ -59,8 +59,9 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         search = HistorySearchController(viewModel: viewModel)
         refOverlay = RefOverlayController(table: tableView)
         super.init()
+        tableView.onCancel = { [weak self] in self?.cancel() ?? false }
         refOverlay.select = { [weak self] row in self?.select(row: row, scroll: false) }
-        refOverlay.activate = { [weak self] row in self?.onActivate?(row) }
+        refOverlay.activate = { [weak self] row, pill in self?.onActivate?(row, pill) }
         refOverlay.menuItems = { [weak self] row in self?.menuItems?(row) ?? [] }
         refOverlay.pillMenuItems = { [weak self] row, ref in self?.pillMenuItems?(row, ref) ?? [] }
         columnsController.onChange = { [weak self] in self?.reloadVisibleRows() }
@@ -152,6 +153,15 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         scrollWithContext(to: headRow)
     }
 
+    /// Esc closes expanded labels; otherwise, without an active search, it goes back to where the work is: the working directory row when it has changes, else HEAD.
+    private func cancel() -> Bool {
+        if refOverlay.cancel() { return true }
+        guard search.search == nil, let row = viewModel.currentRow else { return false }
+        search.userSelected()
+        select(row: row, scroll: true)
+        return true
+    }
+
     /// False while HEAD is not loaded.
     @discardableResult
     func selectHead() -> Bool {
@@ -208,7 +218,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     @objc private func activateClickedRow(_ sender: Any?) {
         let index = tableView.clickedRow >= 0 ? tableView.clickedRow : selectedRow
         guard index >= 0, selectedRows.count <= 1 else { return }
-        onActivate?(index)
+        let point = NSApp.currentEvent.map { tableView.convert($0.locationInWindow, from: nil) }
+        onActivate?(index, point.flatMap(refOverlay.pill(at:)))
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
