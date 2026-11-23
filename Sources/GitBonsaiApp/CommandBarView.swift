@@ -55,7 +55,6 @@ final class CommandBarPanel: NSView {
         glass.translatesAutoresizingMaskIntoConstraints = false
         addSubview(glass)
 
-        search.font = Theme.title
         table.addTableColumn(NSTableColumn(identifier: .init("command")))
         table.headerView = nil
         table.backgroundColor = .clear
