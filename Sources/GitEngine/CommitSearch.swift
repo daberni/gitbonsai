@@ -1,6 +1,6 @@
 import Foundation
 
-/// A case-insensitive text query over loaded commits: subject, body, author name and email, ref names on the commit, and a SHA prefix.
+/// A case-insensitive text query over loaded commits: subject, body, author name and email, co-authors, ref names on the commit, and a SHA prefix.
 ///
 /// It reads only values that `git log` already delivered, so a search needs no further git call and can run over a partly loaded history.
 public struct CommitSearch: Sendable, Equatable {
@@ -26,7 +26,7 @@ public struct CommitSearch: Sendable, Equatable {
 
     public func matches(_ commit: Commit, refNames: [String] = []) -> Bool {
         if matchesSHA(commit.id) { return true }
-        return contains(commit.subject) || contains(commit.authorName) || contains(commit.authorEmail) || refNames.contains(where: contains) || contains(commit.body)
+        return contains(commit.subject) || contains(commit.authorName) || contains(commit.authorEmail) || refNames.contains(where: contains) || contains(commit.body) || commit.coAuthors.contains { contains($0.value) }
     }
 
     /// Whether the query is a prefix of `id`, long enough to count as one.

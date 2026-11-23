@@ -36,8 +36,8 @@ public struct LogParser: Sendable {
 
     private static func parseRecord(_ record: Data.SubSequence) -> Commit? {
         // git separates records with a newline after each record terminator; skip that leading newline.
-        var fields = record.split(separator: LogFormat.fieldSeparator, maxSplits: 9, omittingEmptySubsequences: false)
-        guard fields.count == 10 else { return nil }
+        var fields = record.split(separator: LogFormat.fieldSeparator, maxSplits: 10, omittingEmptySubsequences: false)
+        guard fields.count == 11 else { return nil }
         if let first = fields[0].first, first == 0x0A { fields[0] = fields[0].dropFirst() }
         func string(_ index: Int) -> String { String(decoding: fields[index], as: UTF8.self) }
         let id = string(0)
@@ -58,7 +58,8 @@ public struct LogParser: Sendable {
             committerEmail: string(6),
             committerDate: committerDate,
             subject: string(8),
-            body: body
+            body: body,
+            trailers: TrailerParser.parse(string(10))
         )
     }
 }
@@ -69,11 +70,11 @@ public enum LogFormat {
     /// Terminates a record. Placed at the very end of the format so `-z` is not needed.
     public static let recordSeparator: UInt8 = 0x1E
 
-    /// `--format=` argument: id, parents, author name, author email, author date (unix), committer name, committer email, committer date (unix), subject, body.
+    /// `--format=` argument: id, parents, author name, author email, author date (unix), committer name, committer email, committer date (unix), subject, body, trailers (unfolded `Key: value` lines from git's trailer parser).
     ///
     /// Assumes commit messages never contain the 0x1E/0x1F control bytes; git does not forbid them, but no real-world tool emits them.
     public static var formatArgument: String {
-        let fields = ["%H", "%P", "%an", "%ae", "%at", "%cn", "%ce", "%ct", "%s", "%b"]
+        let fields = ["%H", "%P", "%an", "%ae", "%at", "%cn", "%ce", "%ct", "%s", "%b", "%(trailers:only,unfold)"]
         return "--format=" + fields.joined(separator: "%x1f") + "%x1e"
     }
 }

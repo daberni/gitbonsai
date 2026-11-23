@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// Runs the commit form: what the button may do, amend with the last message, the commit itself and what follows it.
+/// Runs the commit form: what the button may do, amend with the last message, the template, co-authors and sign-off, the commit itself and what follows it.
 @MainActor
 final class CommitController {
     let form = CommitFormView()
@@ -17,15 +17,24 @@ final class CommitController {
     private var isCommitting = false
     /// Counts amend switches, so the last message that arrives after amend was switched off again, or on anew, is dropped.
     private var amendToggles = 0
+    /// The body `commit.template` prefills into an empty form.
+    private var template: String?
+    private var coAuthors: [KnownAuthor] = []
+    /// Loaded when the co-author menu first opens.
+    private var knownAuthors: [KnownAuthor]?
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
         form.onEdit = { [weak self] in self?.updateButton() }
         form.onAmendChanged = { [weak self] on in self?.amendChanged(on) }
-        form.onCommit = { [weak self] in self?.commit() }
+        form.onCommit = { [weak self] in self?.commit(amend: self?.form.isAmend ?? false) }
+        form.onAmendCommit = { [weak self] in self?.commit(amend: true) }
+        form.onCoAuthorMenu = { [weak self] anchor in self?.showCoAuthorMenu(at: anchor) }
         Task { [weak self] in
             guard let self else { return }
             signing = await viewModel.repository.signingFormat()
+            template = await viewModel.repository.commitTemplate()
+            applyTemplate()
             updateButton()
         }
     }
@@ -41,14 +50,24 @@ final class CommitController {
         return body.isEmpty ? subject : subject + "\n\n" + body
     }
 
+    private var trailers: [CommitTrailer] {
+        coAuthors.map { CommitTrailer(key: CommitTrailer.coAuthorKey, value: $0.identity) }
+    }
+
     /// Commit needs a subject and something staged; amend needs a subject and either staged changes or a changed message.
-    private var canCommit: Bool {
+    private func canCommit(amend: Bool) -> Bool {
         guard !isCommitting, !form.subjectText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return form.isAmend ? stagedCount > 0 || message != amendedMessage : stagedCount > 0
+        return amend ? stagedCount > 0 || message != amendedMessage || !trailers.isEmpty || form.isSignOff : stagedCount > 0
+    }
+
+    /// The template goes into the body only while the form is empty, so it never replaces what was typed.
+    private func applyTemplate() {
+        guard let template, !form.isAmend, form.subjectText.isEmpty, form.bodyText.isEmpty else { return }
+        form.bodyText = template
     }
 
     private func updateButton() {
-        form.show(signing: signing, canCommit: canCommit, buttonTitle: form.isAmend ? LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit.") : LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
+        form.show(signing: signing, canCommit: canCommit(amend: form.isAmend), buttonTitle: form.isAmend ? LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit.") : LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
     }
 
     /// Ticks amend and loads the last message, for an edit stop of an interactive rebase.
@@ -81,9 +100,9 @@ final class CommitController {
         }
     }
 
-    private func commit() {
-        guard canCommit else { return }
-        guard form.isAmend else { run(amend: false); return }
+    private func commit(amend: Bool) {
+        guard canCommit(amend: amend) else { return }
+        guard amend else { run(amend: false); return }
         isCommitting = true
         updateButton()
         Task { [weak self] in
@@ -107,12 +126,14 @@ final class CommitController {
 
     private func run(amend: Bool) {
         let message = message
+        let trailers = trailers
+        let signOff = form.isSignOff
         let repository = viewModel.repository
         isCommitting = true
         updateButton()
         Task { [weak self] in
             do {
-                try await repository.commit(message: message, amend: amend)
+                try await repository.commit(message: message, amend: amend, trailers: trailers, signOff: signOff)
                 self?.clear()
             } catch {
                 let alert = NSAlert()
@@ -133,6 +154,49 @@ final class CommitController {
         form.isAmend = false
         draft = nil
         amendedMessage = ""
+        coAuthors = []
+        form.show(coAuthors: [])
+        applyTemplate()
+    }
+
+    // MARK: Co-authors
+
+    private func showCoAuthorMenu(at anchor: NSView) {
+        Task { [weak self] in
+            guard let self else { return }
+            if knownAuthors == nil { knownAuthors = await viewModel.repository.knownAuthors() }
+            let menu = NSMenu()
+            for author in knownAuthors ?? [] {
+                let item = NSMenuItem(title: author.name, action: #selector(CoAuthorTarget.toggle(_:)), keyEquivalent: "")
+                item.target = coAuthorTarget
+                item.representedObject = author.identity
+                item.toolTip = author.email
+                item.state = coAuthors.contains(author) ? .on : .off
+                menu.addItem(item)
+            }
+            if menu.items.isEmpty {
+                let none = NSMenuItem(title: String(localized: "commit.form.noAuthors", defaultValue: "No authors yet", bundle: .module), action: nil, keyEquivalent: "")
+                none.isEnabled = false
+                menu.addItem(none)
+            }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.maxY), in: anchor)
+        }
+    }
+
+    private lazy var coAuthorTarget = CoAuthorTarget { [weak self] identity in self?.toggleCoAuthor(identity) }
+
+    private func toggleCoAuthor(_ identity: String) {
+        guard let author = knownAuthors?.first(where: { $0.identity == identity }) else { return }
+        if let index = coAuthors.firstIndex(of: author) { coAuthors.remove(at: index) } else { coAuthors.append(author) }
+        form.show(coAuthors: coAuthors.map(\.name))
+        updateButton()
+    }
+
+    /// Adds a co-author by identity, as the harness does instead of opening the menu.
+    func addCoAuthor(name: String, email: String) {
+        let author = KnownAuthor(name: name, email: email)
+        knownAuthors = (knownAuthors ?? []) + [author]
+        toggleCoAuthor(author.identity)
     }
 
     private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
@@ -143,5 +207,20 @@ final class CommitController {
             return
         }
         alert.beginSheetModal(for: window) { response in completion(response) }
+    }
+}
+
+/// The menu items' target: `NSMenuItem` needs an Objective-C object to call.
+@MainActor
+private final class CoAuthorTarget: NSObject {
+    private let action: (String) -> Void
+
+    init(action: @escaping (String) -> Void) {
+        self.action = action
+    }
+
+    @objc func toggle(_ sender: NSMenuItem) {
+        guard let identity = sender.representedObject as? String else { return }
+        action(identity)
     }
 }

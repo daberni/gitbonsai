@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The header of one commit: subject, body, author and committer, SHA and parents, then its files.
+/// The header of one commit: subject, body, trailers, author, committer and co-authors, SHA and parents, then its files.
 extension DetailView {
     private typealias M = Theme.Detail
 
@@ -26,11 +26,18 @@ extension DetailView {
         add(subject)
         subjectLabel = subject
         var messageViews: [NSView] = [subject]
-        let body = commit.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Trailers read as data, not prose: co-authors join the people below, the rest form a key/value block.
+        let body = CommitTrailer.body(commit.body, without: commit.trailers).trimmingCharacters(in: .whitespacesAndNewlines)
         if !body.isEmpty {
             let bodyLabel = MessageBodyView(body)
             add(bodyLabel)
             messageViews.append(bodyLabel)
+        }
+        let otherTrailers = commit.trailers.filter { !$0.isCoAuthor }
+        if !otherTrailers.isEmpty {
+            let block = trailerBlock(otherTrailers)
+            add(block, fill: false)
+            messageViews.append(block)
         }
         message = (commit.id, messageViews)
 
@@ -42,6 +49,10 @@ extension DetailView {
         } else {
             add(person(commit.authorName, role: String(localized: "detail.commit.authored", defaultValue: "Authored", bundle: .module, comment: "Detail panel: role of the commit's author, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
             add(person(commit.committerName, role: String(localized: "detail.commit.committed", defaultValue: "Committed", bundle: .module, comment: "Detail panel: role of the commit's committer, followed by the date"), date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository)))
+        }
+        for coAuthor in commit.coAuthors {
+            let identity = coAuthor.person
+            add(person(identity.name, role: String(localized: "detail.commit.coAuthored", defaultValue: "Co-Author", bundle: .module, comment: "Detail panel: role of a person named in a Co-authored-by trailer"), date: nil, ring: Theme.hairline, avatar: AvatarView.Source(email: identity.email, commit: commit.id, repository: repository)))
         }
 
         add(divider())
@@ -115,11 +126,12 @@ extension DetailView {
 
     // MARK: Parts
 
-    private func person(_ name: String, role: String, date: Date, ring: NSColor, avatar source: AvatarView.Source) -> NSView {
+    /// `date` is nil for a co-author, whose trailer has none.
+    private func person(_ name: String, role: String, date: Date?, ring: NSColor, avatar source: AvatarView.Source) -> NSView {
         let avatar = AvatarView(initials: GraphRowView.initials(name), ring: ring, source: source)
         let nameLabel = label(name, font: Theme.body, color: Theme.ink)
-        let detail = label("\(role) · \(DateText.relative(date))", font: Theme.caption, color: Theme.inkMuted)
-        detail.toolTip = DateText.exact(date)
+        let detail = label(date.map { "\(role) · \(DateText.relative($0))" } ?? role, font: Theme.caption, color: Theme.inkMuted)
+        detail.toolTip = date.map(DateText.exact)
         let text = NSStackView(views: [nameLabel, detail])
         text.orientation = .vertical
         text.alignment = .leading
@@ -128,6 +140,23 @@ extension DetailView {
         row.orientation = .horizontal
         row.spacing = M.spacing
         return row
+    }
+
+    /// Keys muted in one column, values selectable beside them, as git wrote them.
+    private func trailerBlock(_ trailers: [CommitTrailer]) -> NSView {
+        let rows = trailers.map { trailer -> [NSView] in
+            let value = label(trailer.value, font: Theme.caption, color: Theme.ink)
+            value.isSelectable = true
+            value.lineBreakMode = .byTruncatingTail
+            value.toolTip = trailer.line
+            value.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            return [label(trailer.key, font: Theme.caption, color: Theme.inkMuted), value]
+        }
+        let grid = NSGridView(views: rows)
+        grid.rowSpacing = M.trailerRowGap
+        grid.columnSpacing = Theme.Space.s
+        grid.setAccessibilityIdentifier("detail.commit.trailers")
+        return grid
     }
 
     /// A click copies the full SHA, ⌥-click the short one; the icon turns into a checkmark for a moment as the confirmation.

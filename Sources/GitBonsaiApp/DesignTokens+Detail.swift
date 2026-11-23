@@ -13,6 +13,8 @@ extension Theme {
         static let avatar: CGFloat = 28
         /// Between the name and the role line of a person.
         static let personLineGap: CGFloat = 1
+        /// Between the lines of the trailer block under the message.
+        static let trailerRowGap = Space.xs
         /// How long the copy icon shows its checkmark.
         static let copiedFeedback: TimeInterval = 1
         /// How long a commit's file list may take before the previous one gives way to a loading note.

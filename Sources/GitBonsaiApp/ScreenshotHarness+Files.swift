@@ -201,15 +201,25 @@ extension ScreenshotHarness {
     }
 
     /// `GITBONSAI_COMMIT_SUBJECT` and `GITBONSAI_COMMIT_BODY` fill the commit form, `GITBONSAI_AMEND=1` ticks amend,
-    /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button.
+    /// `GITBONSAI_COMMIT_COAUTHOR=Name <email>` adds a co-author, `GITBONSAI_COMMIT_SIGNOFF=1` ticks sign-off,
+    /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button, `GITBONSAI_COMMIT_RUN=amend-key` presses ⌘⇧⏎ as a real key event.
     static func fillCommit(on tab: RepositoryViewController) {
         let form = tab.commitController.form
+        if let coAuthor = environment["GITBONSAI_COMMIT_COAUTHOR"] {
+            let person = CommitTrailer(key: CommitTrailer.coAuthorKey, value: coAuthor).person
+            tab.commitController.addCoAuthor(name: person.name, email: person.email)
+        }
+        if environment["GITBONSAI_COMMIT_SIGNOFF"] == "1" { form.isSignOff = true }
         if environment["GITBONSAI_AMEND"] == "1" { form.pressAmend() }
         after(0.3) {
             if let subject = environment["GITBONSAI_COMMIT_SUBJECT"] { form.subjectText = subject }
             if let body = environment["GITBONSAI_COMMIT_BODY"] { form.bodyText = body.replacingOccurrences(of: "\\n", with: "\n") }
             form.onEdit?()
             if environment["GITBONSAI_COMMIT_RUN"] == "1" { form.pressCommit() }
+            if environment["GITBONSAI_COMMIT_RUN"] == "amend-key", let window = form.window, let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command, .shift], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: KeyCode.return) {
+                // A background harness window is never key, so the key equivalent goes to the window as AppKit would route it.
+                _ = window.performKeyEquivalent(with: event)
+            }
         }
     }
 

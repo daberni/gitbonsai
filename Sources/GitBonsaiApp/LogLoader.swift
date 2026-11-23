@@ -114,6 +114,6 @@ struct LogLoader: Sendable {
     /// A stash commit keeps only its base parent in the graph: the index and untracked helper commits would otherwise appear as a merge with two invisible strands.
     private static func layoutCommit(for commit: Commit, stashesByCommit: [String: Stash]) -> Commit {
         guard stashesByCommit[commit.id] != nil, commit.parents.count > 1 else { return commit }
-        return Commit(id: commit.id, parents: [commit.parents[0]], authorName: commit.authorName, authorEmail: commit.authorEmail, authorDate: commit.authorDate, committerName: commit.committerName, committerEmail: commit.committerEmail, committerDate: commit.committerDate, subject: commit.subject, body: commit.body)
+        return Commit(id: commit.id, parents: [commit.parents[0]], authorName: commit.authorName, authorEmail: commit.authorEmail, authorDate: commit.authorDate, committerName: commit.committerName, committerEmail: commit.committerEmail, committerDate: commit.committerDate, subject: commit.subject, body: commit.body, trailers: commit.trailers)
     }
 }

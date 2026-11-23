@@ -12,6 +12,8 @@ public struct Commit: Sendable, Hashable, Identifiable {
     public let committerDate: Date
     public let subject: String
     public let body: String
+    /// The trailers of the message, such as co-authors and sign-offs; they are still part of `body`.
+    public let trailers: [CommitTrailer]
 
     public init(
         id: String,
@@ -23,7 +25,8 @@ public struct Commit: Sendable, Hashable, Identifiable {
         committerEmail: String,
         committerDate: Date,
         subject: String,
-        body: String
+        body: String,
+        trailers: [CommitTrailer] = []
     ) {
         self.id = id
         self.parents = parents
@@ -35,7 +38,10 @@ public struct Commit: Sendable, Hashable, Identifiable {
         self.committerDate = committerDate
         self.subject = subject
         self.body = body
+        self.trailers = trailers
     }
+
+    public var coAuthors: [CommitTrailer] { trailers.filter(\.isCoAuthor) }
 
     public var isMerge: Bool { parents.count > 1 }
     public var shortID: String { String(id.prefix(7)) }

@@ -11,7 +11,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | Open a folder as repository | `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | Finds the worktree root and the shared `.git` |
-| History | `git log <format> --branches --remotes --tags [HEAD]` plus the stash commits | Streamed; tool refs and other worktrees' HEADs stay out. `HEAD` only when `git rev-parse --verify --quiet HEAD` finds it, so a repository without commits loads empty |
+| History | `git log <format> --branches --remotes --tags [HEAD]` plus the stash commits | Streamed; tool refs and other worktrees' HEADs stay out. `HEAD` only when `git rev-parse --verify --quiet HEAD` finds it, so a repository without commits loads empty. `<format>` ends with `%(trailers:only,unfold)`, git's trailer parser (the same as `git interpret-trailers --parse`), for co-authors and the trailer block in the detail panel and for the search |
 | Refs for labels and sidebar | `git for-each-ref <format> refs/heads refs/remotes refs/tags refs/stash` | Tool namespaces such as `refs/codex/…` stay out; tags of trees or blobs are dropped (`%(*objecttype)`), since as history tips they would force a full reload on every refresh. `%(upstream:track)` gives every local branch its ahead and behind counts for the sidebar in the same call |
 | Working directory status | `git status --porcelain=v2 -z --branch --untracked-files=all` | |
 | Worktrees | `git worktree list --porcelain -z` | |
@@ -52,7 +52,9 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Discard a hunk | `git apply --reverse --whitespace=nowarn -` | |
 | Discard file changes | `git restore --worktree -- <paths>` | Asks first. The command bar's "Discard all changes…" passes every tracked file with unstaged changes; staged changes and untracked files stay |
 | Delete untracked files | `git clean -f -q -- <paths>` | Asks first |
-| Commit / amend | `git commit --cleanup=whitespace -F - [--amend]` | Message on stdin |
+| Commit / amend | `git commit --cleanup=whitespace -F - [--amend] [--trailer "Co-authored-by: <name> <email>" …] [--trailer "Signed-off-by: <committer>"]` | Message on stdin. ⌘⇧⏎ amends with the typed message. Trailers the message already has (`git interpret-trailers --parse`, stdin) are not passed again; the sign-off identity comes from `git var GIT_COMMITTER_IDENT` |
+| Commit template | `git config --path commit.template`, then the file is read | Prefills the body of an empty commit form; `#` lines are dropped, a relative path counts from the working tree |
+| Co-author picker | `git shortlog -sne --all` | Loaded when the menu first opens; the mailmap applies |
 | Message for amend | `git log -1 --format=%B` | |
 | Signing hint | `git config --bool commit.gpgsign`, `git config gpg.format` | |
 | Amend warning for pushed HEAD | `git merge-base --is-ancestor HEAD @{upstream}` | |

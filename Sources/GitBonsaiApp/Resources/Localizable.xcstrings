@@ -3626,6 +3626,24 @@
         }
       }
     },
+    "commit.form.addCoAuthor" : {
+      "comment" : "Link that opens the list of the repository's authors to add as co-author.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Add Co-Author…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Co-Author hinzufügen…"
+          }
+        }
+      }
+    },
     "commit.form.amend" : {
       "comment" : "Button that amends the last commit.\nCheckbox: amend the last commit instead of making a new one.",
       "extractionState" : "extracted_with_value",
@@ -3640,6 +3658,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Amend"
+          }
+        }
+      }
+    },
+    "commit.form.coAuthors" : {
+      "comment" : "The co-authors chosen for the next commit, as a list of names.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "With %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit %@"
           }
         }
       }
@@ -3663,19 +3699,54 @@
       }
     },
     "commit.form.commitToolTip" : {
-      "comment" : "Tooltip of the commit button with its shortcut.",
+      "comment" : "Tooltip of the commit button with its shortcuts.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Commit (⌘⏎)"
+            "value" : "Commit (⌘⏎), letzten Commit mit dieser Nachricht ändern (⌘⇧⏎)"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Commit (⌘⏎)"
+            "value" : "Commit (⌘⏎), amend the last Commit with this message (⌘⇧⏎)"
+          }
+        }
+      }
+    },
+    "commit.form.noAuthors" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No authors yet"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Autoren"
+          }
+        }
+      }
+    },
+    "commit.form.signOff" : {
+      "comment" : "Checkbox: add a Signed-off-by trailer with the committer's name.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sign off"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abzeichnen"
           }
         }
       }
@@ -5508,6 +5579,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Authored and committed"
+          }
+        }
+      }
+    },
+    "detail.commit.coAuthored" : {
+      "comment" : "Detail panel: role of a person named in a Co-authored-by trailer",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Co-Author"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Co-Author"
           }
         }
       }

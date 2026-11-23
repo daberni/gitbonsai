@@ -135,6 +135,8 @@ struct CommandShortcut: Equatable {
     static let search = CommandShortcut("f")
     /// The commit form takes ⌘⏎ itself while it shows; elsewhere the menu item brings the form up.
     static let commit = CommandShortcut("\r")
+    /// The commit form amends with the typed message on ⇧⌘⏎; elsewhere the menu item opens the form in amend mode.
+    static let amend = CommandShortcut("\r", [.command, .shift])
     /// Edits the selected commit's message in place in the detail panel.
     static let editMessage = CommandShortcut("e")
     /// ⌃⌘S as in Finder and Mail.
