@@ -9,6 +9,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
 
     private struct Step {
         let title: String?
+        let glyph: CommandGlyph?
         let placeholder: String
         let commands: [Command]
         var query = ""
@@ -34,7 +35,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         if isOpen { close() }
         guard let host = window.contentView else { return }
         previousResponder = window.firstResponder
-        let overlay = CommandBarOverlay()
+        let overlay = CommandBarOverlay(top: Self.top(in: host))
         overlay.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(overlay, positioned: .above, relativeTo: nil)
         NSLayoutConstraint.activate([
@@ -50,12 +51,29 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         panel.table.delegate = self
         panel.search.onChange = { [weak self] text in self?.queryChanged(text) }
         panel.search.onCommand = { [weak self] command in self?.handle(command) ?? false }
-        steps = [Step(title: nil, placeholder: String(localized: "commandBar.search.placeholder", defaultValue: "Search commands", bundle: .module), commands: commands)]
+        steps = [Step(title: nil, glyph: nil, placeholder: String(localized: "commandBar.search.placeholder", defaultValue: "Search commands", bundle: .module), commands: commands)]
         if let step, case .choose(let placeholder, let build) = step.action {
-            steps.append(Step(title: step.title, placeholder: placeholder.text, commands: build()))
+            steps.append(Step(title: step.title, glyph: step.glyph, placeholder: placeholder.text, commands: build()))
         }
         showStep()
         window.makeFirstResponder(panel.search.field)
+    }
+
+    /// The panel's distance from the top of `host`: below the visible history header with a gap, so the header stays readable; without a history, below the top of the content.
+    private static func top(in host: NSView) -> CGFloat {
+        host.layoutSubtreeIfNeeded()
+        guard let header = visibleHistoryHeader(in: host) else { return Theme.CommandBar.topGap }
+        let frame = header.convert(header.bounds, to: host)
+        let bottom = host.isFlipped ? frame.maxY : host.bounds.height - frame.minY
+        return bottom + Theme.CommandBar.topGap
+    }
+
+    private static func visibleHistoryHeader(in view: NSView) -> HistoryHeaderView? {
+        if let header = view as? HistoryHeaderView, !header.isHiddenOrHasHiddenAncestor, header.window != nil { return header }
+        for subview in view.subviews where !subview.isHidden {
+            if let header = visibleHistoryHeader(in: subview) { return header }
+        }
+        return nil
     }
 
     func close() {
@@ -72,13 +90,13 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
 
     private func showStep() {
         guard let panel, let step = steps.last else { return }
-        panel.showStep(steps.count > 1 ? step.title.map(Self.withoutEllipsis) : nil)
+        panel.showMode(steps.count > 1 ? step.title.map(Self.withoutEllipsis) : nil, glyph: step.glyph)
         panel.search.placeholder = step.placeholder
         panel.search.stringValue = step.query
         reload()
     }
 
-    /// A step's title is the command that opened it, without the ellipsis that promised the step: "Switch to tab…" heads its list as "Switch to Tab".
+    /// A step's mode is the command that opened it, without the ellipsis that promised the step: "Go to Ref…" shows as "Go to Ref".
     private static func withoutEllipsis(_ title: String) -> String {
         guard title.hasSuffix("…") else { return title }
         return String(title.dropLast()).trimmingCharacters(in: .whitespaces)
@@ -150,7 +168,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
             close()
             perform()
         case .choose(let placeholder, let build):
-            steps.append(Step(title: command.title, placeholder: placeholder.text, commands: build()))
+            steps.append(Step(title: command.title, glyph: command.glyph, placeholder: placeholder.text, commands: build()))
             showStep()
         }
     }
@@ -177,10 +195,11 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
 
     // MARK: Screenshot harness
 
-    /// The step's title, the field and each listed row with selection, context or reason and shortcut.
+    /// The mode pill, the field with its placeholder and each listed row with selection, context or reason and shortcut.
     var harnessDescription: String {
         guard let panel else { return "command bar closed" }
-        var lines = ["command bar\(steps.last?.title.map { " step \"\($0)\"" } ?? ""): field \"\(panel.search.stringValue)\", \(rows.count) rows"]
+        let mode = (panel.search.leadingAddon as? CommandModePill).map { " mode \"\($0.title)\"" } ?? ""
+        var lines = ["command bar\(mode): field \"\(panel.search.stringValue)\" placeholder \"\(panel.search.placeholder)\", \(rows.count) rows"]
         for (index, row) in rows.enumerated() {
             let command = row.command
             let mark = index == panel.table.selectedRow ? ">" : " "

@@ -34,6 +34,8 @@ extension Theme {
         static let accessory = Icon.regular
         /// Point size of an SF Symbol in an accessory; matches the drawn glyphs at `accessory`.
         static let accessorySymbol: CGFloat = 12.5
+        /// Before a leading addon, such as a pill, which carries its own padding.
+        static let addonInset = Space.xs
         /// Between a field's caption above it and the field, and between the field and its message below.
         static let captionGap = Space.xs
     }

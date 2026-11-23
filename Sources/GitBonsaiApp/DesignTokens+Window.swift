@@ -161,8 +161,8 @@ extension Theme {
     /// The command bar (⌘⇧P): a glass panel centred near the top of the window.
     enum CommandBar {
         static let width: CGFloat = 560
-        /// From the top of the window's content, below the tab row and the toolbar.
-        static let topOffset: CGFloat = 88
+        /// Below the history header, or below the top of the content where a tab shows no history.
+        static let topGap = Space.s
         static let padding = Space.s
         /// The list reaches closer to the edges than the field, so the selection wash lines up with it.
         static let listInset = Space.xs
@@ -176,8 +176,11 @@ extension Theme {
         static let detailGap = Space.s
         /// SF Symbols carry their own padding; at this share of the box they match the drawn glyphs.
         static let symbolScale: CGFloat = 0.78
-        /// Height of the step's caption above the field while a second list is open.
-        static let stepHeight: CGFloat = 20
+        /// The mode pill at the start of the field while a second list is open: glyph and the command's name on an ink wash.
+        static let modeHeight: CGFloat = 22
+        static let modeGlyph = Icon.small
+        static let modePadding = Space.s
+        static let modeGap = Space.xs
         /// Paper tint of the glass, about 60 % as the design language asks for system-level glass.
         static let glassTint: CGFloat = 0.6
     }

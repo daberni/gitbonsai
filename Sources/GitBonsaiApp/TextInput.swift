@@ -8,6 +8,28 @@ final class TextInput: NSView, NSTextFieldDelegate, DrawsOwnFocus {
     let field = PlainTextField()
     private let box = FieldBox()
     private(set) var accessory: NSView?
+    private var fieldLeading: NSLayoutConstraint!
+
+    /// A view inside the box before the text, such as the command bar's mode; nil gives the text the whole box.
+    var leadingAddon: NSView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            fieldLeading.isActive = false
+            if let addon = leadingAddon {
+                addon.translatesAutoresizingMaskIntoConstraints = false
+                box.addSubview(addon)
+                fieldLeading = field.leadingAnchor.constraint(equalTo: addon.trailingAnchor, constant: T.accessoryGap)
+                NSLayoutConstraint.activate([
+                    addon.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: T.addonInset),
+                    addon.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+                    fieldLeading,
+                ])
+            } else {
+                fieldLeading = field.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: T.inset.width)
+                fieldLeading.isActive = true
+            }
+        }
+    }
 
     /// Every edit, with the new text.
     var onChange: ((String) -> Void)?
@@ -48,13 +70,14 @@ final class TextInput: NSView, NSTextFieldDelegate, DrawsOwnFocus {
         field.translatesAutoresizingMaskIntoConstraints = false
         addSubview(box)
         box.addSubview(field)
+        fieldLeading = field.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: T.inset.width)
         var constraints = [
             box.topAnchor.constraint(equalTo: topAnchor),
             box.bottomAnchor.constraint(equalTo: bottomAnchor),
             box.leadingAnchor.constraint(equalTo: leadingAnchor),
             box.trailingAnchor.constraint(equalTo: trailingAnchor),
             heightAnchor.constraint(equalToConstant: T.height),
-            field.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: T.inset.width),
+            fieldLeading!,
             field.centerYAnchor.constraint(equalTo: box.centerYAnchor),
         ]
         if let accessory {
