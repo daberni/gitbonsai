@@ -122,6 +122,7 @@ A floating panel centered under the toolbar: a search field and up to ten rows. 
 - Commands with an argument open a second list in the same panel (Checkout Branch…, Switch to tab…, Open in editor with…, Open in terminal with…, Switch Worktree…, Interactive Rebase…); ⌫ in the empty field goes back.
 - What cannot run now stays in the list, greyed and below the others, with the reason instead of the context ("No remote", "Nothing staged", "No stash").
 - An empty tab offers only the window's commands (tabs, open, clone, settings).
+- Go to Ref… (⇧⌘O) lists every branch, remote branch, tag, worktree and stash with its kind's glyph, its name as a pill in its strand's colour, the short SHA and the worktree's branch or stash message. Matches rank by name; a name typed in full or its last segment (`login` for `feature/login`) comes first. ↩ selects the commit in the history and shows the branch or worktree in the sidebar (expanding its section and folder); ⌥↩ checks the branch or tag out or switches to the worktree.
 
 ## 6. Shortcuts
 
@@ -134,6 +135,7 @@ The menu bar (GitBonsai, File, Edit, View, Repository, Branch, Window, Help) is 
 | ⌘O / ⌥⌘N | Open Repository… / Clone Repository… |
 | ⇧⌘] / ⇧⌘[ | Next tab / Previous tab |
 | ⇧⌘P | Command bar… |
+| ⇧⌘O | Go to Ref… |
 | ⌘F | Search Commits |
 | ⌃⌘S / ⌥⌘I | Hide sidebar / Hide detail panel |
 | ⇧⌘F | Fetch all Remotes |

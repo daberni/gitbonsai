@@ -25,7 +25,7 @@ final class SidebarView: NSView {
     var hovered: Int?
     /// Bottom of the last row; taller than the visible area when the sidebar scrolls.
     private(set) var contentHeight: CGFloat = 0
-    private weak var model: GraphViewModel?
+    private(set) weak var model: GraphViewModel?
 
     override var isFlipped: Bool { true }
 

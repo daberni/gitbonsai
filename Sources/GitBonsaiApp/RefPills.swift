@@ -104,8 +104,8 @@ enum RefPills {
         return layout
     }
 
-    /// Draws one pill into `rect` (flipped coordinates); the name gets `textWidth` and is cut with "…" beyond it.
-    static func draw(_ pill: PillModel, in rect: CGRect, textWidth: CGFloat, strand: NSColor, context: CGContext) {
+    /// Draws one pill into `rect` (flipped coordinates); the name gets `textWidth` and is cut with "…" beyond it. `title` replaces the plain name, such as with search hits highlighted.
+    static func draw(_ pill: PillModel, in rect: CGRect, textWidth: CGFloat, strand: NSColor, context: CGContext, title: NSAttributedString? = nil) {
         let midY = rect.midY
         let path = shape(of: rect)
         // The ground is opaque (strand mixed into the surface) so the connector never shows through.
@@ -123,7 +123,7 @@ enum RefPills {
             glyph.draw(in: CGRect(x: x, y: midY - P.glyph / 2, width: P.glyph, height: P.glyph), color: Theme.ink, context: context)
             x += P.glyph + P.glyphGap
         }
-        let title = title(pill)
+        let title = title ?? Self.title(pill)
         let textRect = CGRect(x: x + P.textGap, y: midY - title.size().height / 2, width: textWidth, height: title.size().height)
         title.draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
     }

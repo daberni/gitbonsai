@@ -84,6 +84,10 @@ struct SidebarOutline {
         if collapsed.remove(key) == nil { collapsed.insert(key) }
     }
 
+    mutating func open(_ key: String) {
+        collapsed.remove(key)
+    }
+
     mutating func items(from model: GraphViewModel) -> [SidebarItem] {
         var result: [SidebarItem] = []
         let otherWorktrees = model.branchesInOtherWorktrees

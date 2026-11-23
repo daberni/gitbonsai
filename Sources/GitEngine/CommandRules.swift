@@ -67,6 +67,10 @@ public enum CommandBlocker: Sendable, Equatable {
     case notFastForward
     /// The branch already contains the target.
     case upToDate
+    /// The branch is checked out, or the worktree is the one shown.
+    case checkedOut
+    /// A stash has no checkout.
+    case notCheckoutable
 }
 
 /// The enabled rules of the repository commands, one function per command family. Nil means the command can run.

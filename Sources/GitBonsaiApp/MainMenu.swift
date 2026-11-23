@@ -66,6 +66,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
         ]),
         Section(title: LocalizedStringResource("menu.view.title", defaultValue: "View", bundle: .module, comment: "The View menu."), entries: [
             .commandBar,
+            .command(.goToRef),
             .separator,
             .command(.toggleSidebar),
             .command(.toggleDetail),

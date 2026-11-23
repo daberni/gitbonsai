@@ -2162,6 +2162,23 @@
         }
       }
     },
+    "command.blocker.notCheckoutable" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht auscheckbar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cannot be checked out"
+          }
+        }
+      }
+    },
     "command.blocker.notFastForward" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -2686,6 +2703,57 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "fetch, prune, clean up"
+          }
+        }
+      }
+    },
+    "command.goToRef.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "springen, finden, gehe zu, schnell öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "jump, find, branch, tag, worktree, stash, open quickly"
+          }
+        }
+      }
+    },
+    "command.goToRef.searchPlaceholder" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branches, Tags, Worktrees und Stashes suchen · ⌥⏎ checkt aus"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Search Branches, Tags, Worktrees and Stashes · ⌥⏎ checks out"
+          }
+        }
+      }
+    },
+    "command.goToRef.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu Ref springen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Go to Ref…"
           }
         }
       }

@@ -30,6 +30,8 @@ struct Command {
     /// Why the command cannot run now; the bar shows it greyed out with this text instead of hiding it.
     var disabledReason: String? = nil
     let action: Action
+    /// Set on the entries of "Go to Ref…": the bar ranks such a list by ref name and draws the name as a pill.
+    var ref: RefEntry? = nil
 
     var isEnabled: Bool { disabledReason == nil }
 
@@ -48,6 +50,16 @@ struct Command {
     init(id: String, title: LocalizedStringResource, keywords: [String] = [], glyph: CommandGlyph, shortcut: CommandShortcut? = nil, scope: Scope = .repository, context: String? = nil, blocker: CommandBlocker? = nil, disabledReason: LocalizedStringResource? = nil, run: @escaping @MainActor () -> Void) {
         self.init(id: id, title: title, keywords: keywords, glyph: glyph, shortcut: shortcut, scope: scope, context: context, blocker: blocker, disabledReason: disabledReason, action: .run(run))
     }
+}
+
+/// A ref listed by "Go to Ref…": ⏎ runs the command's action, ⌥⏎ the checkout, unless `checkoutBlocked` says why it cannot.
+@MainActor
+struct RefEntry {
+    let target: RefJump.Target
+    let pill: PillModel
+    let strand: NSColor
+    var checkoutBlocked: String? = nil
+    let checkout: @MainActor () -> Void
 }
 
 extension Command {
@@ -108,6 +120,8 @@ struct CommandShortcut: Equatable {
     static let settings = CommandShortcut(",")
     static let newTab = CommandShortcut("t")
     static let openRepository = CommandShortcut("o")
+    /// ⇧⌘O as Open Quickly in Xcode; ⌘O stays Open Repository as in every document app.
+    static let goToRef = CommandShortcut("o", [.command, .shift])
     static let clone = CommandShortcut("n", [.command, .option])
     static let closeTab = CommandShortcut("w")
     static let nextTab = CommandShortcut("}")
@@ -151,6 +165,8 @@ extension CommandBlocker {
         case .noOperation: LocalizedStringResource("command.blocker.noOperation", defaultValue: "Nothing in progress", bundle: .module)
         case .notFastForward: LocalizedStringResource("command.blocker.notFastForward", defaultValue: "Not a fast-forward", bundle: .module)
         case .upToDate: LocalizedStringResource("command.blocker.upToDate", defaultValue: "Already up to date", bundle: .module)
+        case .checkedOut: LocalizedStringResource("checkout.command.checkedOut", defaultValue: "Checked out", bundle: .module)
+        case .notCheckoutable: LocalizedStringResource("command.blocker.notCheckoutable", defaultValue: "Cannot be checked out", bundle: .module)
         }
     }
 }

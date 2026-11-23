@@ -2,7 +2,7 @@ import AppKit
 import GitEngine
 
 /// The command bar (⌘⇧P): filters the commands the window and the active tab register, runs the chosen one, and continues in a second list for commands that need an argument.
-/// ↑ ↓ move, ⏎ runs, Esc closes, ⌫ on an empty field goes back a step. Disabled commands stay listed with their reason, below the enabled ones, so the bar also says why something cannot run now.
+/// ↑ ↓ move, ⏎ runs, ⌥⏎ checks out a ref of "Go to Ref…", Esc closes, ⌫ on an empty field goes back a step. Disabled commands stay listed with their reason, below the enabled ones, so the bar also says why something cannot run now.
 @MainActor
 final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     static let shared = CommandBarController()
@@ -93,10 +93,15 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
     /// Ranks the current step's commands for its query and selects the first enabled one.
     private func reload() {
         guard let panel, let step = steps.last else { return }
-        let candidates = step.commands.map { CommandRanking.Candidate(id: $0.id, title: $0.title, keywords: $0.keywords + [$0.context].compactMap { $0 }, isEnabled: $0.isEnabled) }
         let byID = Dictionary(step.commands.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let recent = steps.count == 1 ? recents.ids : []
-        rows = CommandRanking.rank(candidates, query: step.query, recent: recent).compactMap { result in byID[result.id].map { CommandRowView.Content(command: $0, titleRanges: result.titleRanges) } }
+        let targets = step.commands.compactMap(\.ref?.target)
+        if !targets.isEmpty {
+            rows = RefJump.rank(targets, query: step.query).compactMap { match in byID[match.target.id].map { CommandRowView.Content(command: $0, titleRanges: match.nameRanges) } }
+        } else {
+            let candidates = step.commands.map { CommandRanking.Candidate(id: $0.id, title: $0.title, keywords: $0.keywords + [$0.context].compactMap { $0 }, isEnabled: $0.isEnabled) }
+            let recent = steps.count == 1 ? recents.ids : []
+            rows = CommandRanking.rank(candidates, query: step.query, recent: recent).compactMap { result in byID[result.id].map { CommandRowView.Content(command: $0, titleRanges: result.titleRanges) } }
+        }
         panel.table.reloadData()
         panel.showRows(rows.count)
         select(rows.isEmpty ? nil : 0)
@@ -120,6 +125,8 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
             if !rows.isEmpty { select(max(table.selectedRow - 1, 0)) }
         case #selector(NSResponder.insertNewline(_:)):
             run(row: table.selectedRow)
+        case #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
+            checkout(row: table.selectedRow)
         case #selector(NSResponder.cancelOperation(_:)):
             close()
         case #selector(NSResponder.deleteBackward(_:)):
@@ -148,6 +155,13 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         }
     }
 
+    /// ⌥⏎ on a ref of "Go to Ref…" checks it out; elsewhere, or where it cannot be checked out, it beeps.
+    private func checkout(row: Int) {
+        guard rows.indices.contains(row), let ref = rows[row].command.ref, ref.checkoutBlocked == nil else { return NSSound.beep() }
+        close()
+        ref.checkout()
+    }
+
     // MARK: Table
 
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
@@ -174,6 +188,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
             var line = "\(mark) \(command.title)"
             if let context = command.context { line += " · \(context)" }
             if let reason = command.disabledReason { line += " [disabled: \(reason)]" }
+            if let ref = command.ref { line += ref.checkoutBlocked.map { " [⌥⏎: \($0)]" } ?? " [⌥⏎]" }
             if let shortcut = command.shortcut { line += " \(MainMenu.displayedShortcut(of: command.id) ?? shortcut.display)" }
             if !highlighted.isEmpty { line += " {\(highlighted)}" }
             lines.append(line)

@@ -5,7 +5,7 @@ import GitEngine
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_COMMAND_BAR=<step>;…` drives the command bar with real key events once the active tab has loaded, half a second per step, then captures the window:
-    /// `open` (⇧⌘P through the main menu), `type:<text>`, `key:down|up|return|escape|backspace`, `click:<row>`, `print`, `status`, `wait:<seconds>`, `shot:<png>`,
+    /// `open` (⇧⌘P through the main menu), `type:<text>`, `key:down|up|return|opt-return|escape|backspace`, `click:<row>`, `print`, `status`, `wait:<seconds>`, `shot:<png>`,
     /// `menu` (the menu bar tree), `shortcut:cmd-shift-u` (a key equivalent through the main menu), `pick:<menu>/<item>` (a menu item as a click chooses it),
     /// `settings` (opens the settings window and makes it key), `windows` (the visible windows, the key window and the tabs).
     /// `GITBONSAI_PRINT_OPENERS=1` first prints how every known terminal and editor would open the tab's folder. Returns false when there is nothing to drive.
@@ -50,6 +50,7 @@ extension ScreenshotHarness {
                 "down": (String(UnicodeScalar(NSDownArrowFunctionKey)!), 125, [.numericPad, .function]),
                 "up": (String(UnicodeScalar(NSUpArrowFunctionKey)!), 126, [.numericPad, .function]),
                 "return": ("\r", 36, []),
+                "opt-return": ("\r", 36, [.option]),
                 "escape": ("\u{1b}", 53, []),
                 "backspace": ("\u{7f}", 51, []),
             ]
