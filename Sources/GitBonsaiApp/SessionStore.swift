@@ -1,4 +1,5 @@
 import Foundation
+import GitEngine
 
 /// Remembers which repositories were open as tabs and which were used recently, across launches.
 @MainActor
@@ -49,6 +50,19 @@ final class SessionStore {
         defaults.set(Double(sidebar), forKey: "sidebarWidth")
         defaults.set(Double(detail), forKey: "detailWidth")
     }
+
+    /// Which sidebar sections and folders of the repository at `path` were collapsed.
+    func sidebarState(for path: String) -> OutlineState? {
+        sidebarStates.state(for: path)
+    }
+
+    /// Keeps the states of the repositories still among the recent ones or the open tabs only.
+    func saveSidebarState(_ state: OutlineState, for path: String) {
+        let known = Set(defaults.stringArray(forKey: "recentRepositories") ?? []).union(openTabs)
+        sidebarStates.save(state, for: path, keepingOnly: known)
+    }
+
+    private var sidebarStates: OutlineStateStore { OutlineStateStore(defaults: defaults, key: "sidebarState") }
 
     /// Forgets the window's frame and panel widths, so the next window opens with the defaults.
     func forgetLayout() {

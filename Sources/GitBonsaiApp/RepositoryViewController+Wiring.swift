@@ -40,6 +40,7 @@ extension RepositoryViewController {
         stashesController.onShowDiff = { [weak self] stash in self?.showStash(stash) }
         sidebar.menuItems = { [weak self] subject in self?.sidebarActions.menuItems(for: subject) ?? [] }
         sidebar.onNewBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        sidebar.onNewWorktree = { [weak self] in self?.sidebarActions.newBranch.show(worktree: true) }
         sidebar.onAddRemote = { [weak self] in self?.sidebarActions.remotes.showAdd() }
         toolbar.onBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
         sidebarActions.prompter.window = { [weak self] in self?.view.window }

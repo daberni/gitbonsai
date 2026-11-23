@@ -21,7 +21,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_SIDEBAR_MENU_LIST=<subject>` prints the entries of a sidebar row's menu without opening it; subjects are `branch:<name>` (also `branch:origin/main`) and `worktree:<folder>`.
     /// `GITBONSAI_SIDEBAR_MENU_PICK=<title prefix>` then runs one of those entries.
     /// `GITBONSAI_SIDEBAR_MENU=<subject>` right-clicks the row with a real event instead; AppKit shows that menu on screen for a moment while its entries are printed.
-    /// `GITBONSAI_NEW_BRANCH=plus|toolbar` opens the new-branch sheet with a real click on the Local header's plus, or on the toolbar's Branch button.
+    /// `GITBONSAI_NEW_BRANCH=plus|toolbar|worktree` opens the new-branch sheet with a real click on the Local header's plus, or on the toolbar's Branch button; `worktree` opens the new-worktree sheet from the Worktrees header's plus.
     static func openSidebarMenu(on tab: RepositoryViewController) {
         let sidebar = tab.sidebar
         if let name = environment["GITBONSAI_SIDEBAR_MENU_LIST"] {
@@ -62,15 +62,15 @@ extension ScreenshotHarness {
         // Like the other harness clicks, it waits until the window has taken its first events.
         after(0.3) {
             switch mode {
-            case "plus":
-                guard let index = sidebar.itemIndex(header: "local") else { return }
+            case "plus", "worktree":
+                guard let index = sidebar.itemIndex(header: mode == "plus" ? "local" : "worktrees") else { return }
                 let rect = sidebar.rowRect(at: index)
                 click(in: window, at: sidebar.convert(NSPoint(x: sidebar.slotRight - Theme.Sidebar.slot / 2, y: rect.midY), to: nil))
             case "toolbar":
                 guard let button = views(of: NSButton.self, in: window).first(where: { $0.action == #selector(RepositoryToolbar.runBranch(_:)) }) else { return }
                 click(in: window, at: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
             default:
-                FileHandle.standardError.write(Data("GITBONSAI_NEW_BRANCH takes plus or toolbar\n".utf8))
+                FileHandle.standardError.write(Data("GITBONSAI_NEW_BRANCH takes plus, toolbar or worktree\n".utf8))
             }
         }
     }

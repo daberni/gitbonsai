@@ -111,7 +111,7 @@ extension ScreenshotHarness {
     private static func clickSidebarRow(_ panel: SidebarPanel, on tab: RepositoryViewController) {
         let sidebar = tab.sidebar
         typealias M = Theme.Sidebar
-        var outline = SidebarOutline()
+        var outline = sidebar.outline
         var y = Theme.Space.s
         var anchor: CGRect?
         for item in outline.items(from: tab.viewModel, remotes: sidebar.remotes) {

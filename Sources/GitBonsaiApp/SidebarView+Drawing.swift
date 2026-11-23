@@ -111,11 +111,29 @@ extension SidebarView {
                     let inset = slotGlyph == .chevronRight ? M.slotChevronInset : M.slotInset
                     slotGlyph.draw(in: slot.insetBy(dx: inset, dy: inset), color: row.slotColor ?? Theme.inkMuted, context: context)
                 }
-                let limit = drawValue(row.value, atY: rect.midY)
+                let limit = row.ahead > 0 || row.behind > 0 ? drawSyncBadges(behind: row.behind, ahead: row.ahead, right: valueRight, midY: rect.midY) : drawValue(row.value, atY: rect.midY)
                 // The add-remote row is the one exception to the grid: its text starts right after the plus.
                 let x = row.ghost ? columnB.minX : textX + row.indent
                 drawText(row.text, font: row.strong ? Theme.bodyStrong : Theme.body, color: row.ghost ? Theme.inkFaint : Theme.ink, x: x, midY: rect.midY, maxX: limit)
             }
         }
+    }
+
+    /// Behind and ahead as capsules like the toolbar's Pull and Push badges, right-aligned at `right`; a count of 0 gets none. Returns where the text has to end.
+    private func drawSyncBadges(behind: Int, ahead: Int, right: CGFloat, midY: CGFloat) -> CGFloat {
+        typealias B = Theme.Badge
+        var x = right
+        for (arrow, count) in [("↑", ahead), ("↓", behind)] where count > 0 {
+            let number = count > B.maximumCount ? "\(B.maximumCount)+" : "\(count)"
+            let text = NSAttributedString(string: arrow + number, attributes: [.font: B.font, .foregroundColor: B.onAccent])
+            let size = text.size()
+            let width = max(size.width + 2 * B.padding, B.height)
+            let capsule = CGRect(x: x - width, y: midY - B.height / 2, width: width, height: B.height)
+            Theme.sky.setFill()
+            NSBezierPath(roundedRect: capsule, xRadius: B.height / 2, yRadius: B.height / 2).fill()
+            text.draw(at: CGPoint(x: capsule.midX - size.width / 2, y: midY - size.height / 2))
+            x = capsule.minX - Theme.Space.xs
+        }
+        return x - Theme.Space.xs
     }
 }

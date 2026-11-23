@@ -17101,6 +17101,94 @@
         }
       }
     },
+    "worktree.new.branch" : {
+      "comment" : "Caption of the branch, tag or commit the new worktree checks out.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branch"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Branch"
+          }
+        }
+      }
+    },
+    "worktree.new.create" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Worktree erstellen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Create Worktree"
+          }
+        }
+      }
+    },
+    "worktree.new.info" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ohne neuen Branch wird der gewählte lokale Branch selbst ausgecheckt. Der aktuelle Ordner bleibt unverändert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Leave the new branch empty to check out the picked local branch itself. The current folder stays unchanged."
+          }
+        }
+      }
+    },
+    "worktree.new.newBranch" : {
+      "comment" : "Caption of the optional name of a branch the new worktree creates.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer Branch"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New Branch"
+          }
+        }
+      }
+    },
+    "worktree.new.title" : {
+      "comment" : "Title of the sheet that creates a worktree.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer Worktree"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New Worktree"
+          }
+        }
+      }
+    },
     "worktree.remove.confirm" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {

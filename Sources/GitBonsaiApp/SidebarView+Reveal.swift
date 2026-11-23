@@ -7,6 +7,7 @@ extension SidebarView {
     func reveal(_ target: RefJump.Target) {
         guard let model else { return }
         outline.expand(toShow: target)
+        saveOutline()
         reload(from: model)
         guard let index = items.firstIndex(where: { Self.item($0, shows: target) }) else { return }
         hovered = index

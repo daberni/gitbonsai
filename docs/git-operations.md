@@ -12,7 +12,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Open a folder as repository | `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | Finds the worktree root and the shared `.git` |
 | History | `git log <format> --branches --remotes --tags [HEAD]` plus the stash commits | Streamed; tool refs and other worktrees' HEADs stay out. `HEAD` only when `git rev-parse --verify --quiet HEAD` finds it, so a repository without commits loads empty |
-| Refs for labels and sidebar | `git for-each-ref <format> refs/heads refs/remotes refs/tags refs/stash` | Tool namespaces such as `refs/codex/…` stay out; tags of trees or blobs are dropped (`%(*objecttype)`), since as history tips they would force a full reload on every refresh |
+| Refs for labels and sidebar | `git for-each-ref <format> refs/heads refs/remotes refs/tags refs/stash` | Tool namespaces such as `refs/codex/…` stay out; tags of trees or blobs are dropped (`%(*objecttype)`), since as history tips they would force a full reload on every refresh. `%(upstream:track)` gives every local branch its ahead and behind counts for the sidebar in the same call |
 | Working directory status | `git status --porcelain=v2 -z --branch --untracked-files=all` | |
 | Worktrees | `git worktree list --porcelain -z` | |
 | Reconcile a tab (it becomes visible, the app becomes active, its files change, after every fetch) | The in-place refresh: working directory status, `git for-each-ref`, the stash list and `git worktree list` side by side; `git log` only when a ref, HEAD or stash points at a commit that is not loaded; when commits left the history, `git rev-list --topo-order --branches --remotes --tags [HEAD]` plus the stash commits for the new order of the rest; `git rev-parse --git-common-dir` for the time of the last fetch (`FETCH_HEAD`), which a fetch in a terminal moves; afterwards `git remote` for the fetch menu and the toolbar, the pull and push state, and the avatar service's remotes again | Visible tab only, local only, never skipped; triggers that arrive together run once. A remote counts for the toolbar once it is configured, before anything was fetched |
@@ -138,7 +138,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 
 | Operation | Git command | Notes |
 |---|---|---|
-| New worktree | `git worktree add [-b <branch> \| --detach] <path> <commit>` or `git worktree add <path> <branch>` | |
+| New worktree | `git worktree add [-b <branch> \| --detach] <path> <commit>` or `git worktree add <path> <branch>` | The Worktrees plus in the sidebar checks out a picked local branch that no worktree has with the second form, anything else with `-b` and the new branch's name |
 | Remove | `git worktree remove [--force] <path>` | Asks first; can delete its branch too |
 | Lock / unlock | `git worktree lock [--reason <text>] <path>` / `git worktree unlock <path>` | |
 | Prune | `git worktree prune` | |

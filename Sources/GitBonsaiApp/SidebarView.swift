@@ -16,6 +16,8 @@ final class SidebarView: NSView {
     var onOpenPanel: ((SidebarPanel, NSRect) -> Void)?
     /// The plus on the Local header.
     var onNewBranch: (() -> Void)?
+    /// The plus on the Worktrees header.
+    var onNewWorktree: (() -> Void)?
     var onAddRemote: (() -> Void)?
     /// The configured remotes, so that one without fetched branches still shows.
     var remotes: [String] = []
@@ -25,6 +27,8 @@ final class SidebarView: NSView {
     var items: [SidebarItem] = []
     var frames: [CGRect] = []
     var outline = SidebarOutline()
+    /// The repository whose collapsed sections `outline` holds; another one restores its own.
+    private var outlinePath: String?
     var hovered: Int?
     /// Bottom of the last row; taller than the visible area when the sidebar scrolls.
     private(set) var contentHeight: CGFloat = 0
@@ -67,8 +71,25 @@ final class SidebarView: NSView {
 
     func reload(from model: GraphViewModel) {
         self.model = model
+        let path = model.repository.path
+        if path != outlinePath {
+            outlinePath = path
+            outline = SidebarOutline(state: SessionStore.standard().sidebarState(for: path) ?? OutlineState())
+        }
         items = outline.items(from: model, remotes: remotes)
         layoutItems()
+    }
+
+    /// Collapses or expands a section or folder and remembers it for the next launch.
+    func toggle(_ key: String) {
+        guard let model else { return }
+        outline.toggle(key)
+        saveOutline()
+        reload(from: model)
+    }
+
+    func saveOutline() {
+        if let outlinePath { SessionStore.standard().saveSidebarState(outline.state, for: outlinePath) }
     }
 
     private func layoutItems() {
@@ -114,15 +135,14 @@ final class SidebarView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
-        guard let index = index(at: convert(event.locationInWindow, from: nil)), let model else { return }
+        guard let index = index(at: convert(event.locationInWindow, from: nil)), model != nil else { return }
         switch items[index] {
         case .header(let key, _, _, _, let plus):
-            if plus, key == "local", plusRect(in: frames[index]).contains(convert(event.locationInWindow, from: nil)) {
-                onNewBranch?()
+            if plus, plusRect(in: frames[index]).contains(convert(event.locationInWindow, from: nil)) {
+                if key == "local" { onNewBranch?() } else if key == "worktrees" { onNewWorktree?() }
                 return
             }
-            outline.toggle(key)
-            reload(from: model)
+            toggle(key)
         case .worktree(let info, let isCurrent):
             // Same as a branch row: one click shows where it stands in the history, a double click goes there.
             if event.clickCount == 2, !isCurrent, !info.worktree.isPrunable, !info.worktree.isBare {
@@ -139,9 +159,7 @@ final class SidebarView: NSView {
             } else if let panel = SidebarPanel(target: target) {
                 onOpenPanel?(panel, frames[index])
             } else if target.hasPrefix("folder:") {
-                let key = String(target.dropFirst("folder:".count))
-                outline.toggle(key)
-                reload(from: model)
+                toggle(String(target.dropFirst("folder:".count)))
             } else {
                 onSelectCommit?(target)
             }

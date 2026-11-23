@@ -69,6 +69,35 @@ final class RefsTests: XCTestCase {
         XCTAssertEqual(RefsParser.parseTrack("[behind 5]").1, 5)
         XCTAssertNil(RefsParser.parseTrack("[gone]").0)
         XCTAssertNil(RefsParser.parseTrack("").1)
+        XCTAssertEqual(RefsParser.parseTrack("[ahead 4]").0, 4)
+        XCTAssertEqual(RefsParser.parseTrack("[ahead 4]").1, 0)
+    }
+
+    /// The sidebar shows ahead and behind on every local branch from the one `for-each-ref` call, including branches that are not checked out.
+    func testAheadAndBehindOfEveryTrackingBranch() async throws {
+        let remote = try FixtureRepo(name: "remote")
+        defer { remote.remove() }
+        let base = try remote.commit("base")
+        try remote.git("branch", "feature")
+        try remote.commit("remote main")
+        let fixture = try FixtureRepo(name: "local")
+        defer { fixture.remove() }
+        try fixture.git("remote", "add", "origin", remote.path)
+        try fixture.git("fetch", "-q", "origin")
+        try fixture.git("checkout", "-q", "-b", "main", "--track", "origin/main")
+        try fixture.git("branch", "--track", "stale", "origin/main")
+        try fixture.git("reset", "-q", "--hard", base)
+        try fixture.git("checkout", "-q", "-b", "feature", "--track", "origin/feature")
+        try fixture.commit("one", file: "a.txt")
+        try fixture.commit("two", file: "b.txt")
+        try fixture.git("branch", "--track", "even", "origin/main")
+
+        let refs = Dictionary(uniqueKeysWithValues: try await fixture.repository.refs().map { ($0.name, $0) })
+
+        XCTAssertEqual(refs["main"].map { [$0.ahead, $0.behind] }, [0, 1])
+        XCTAssertEqual(refs["feature"].map { [$0.ahead, $0.behind] }, [2, 0])
+        XCTAssertEqual(refs["stale"]?.upstream, "origin/main")
+        XCTAssertNil(refs["even"]?.ahead, "git reports nothing for a branch even with its upstream")
     }
 }
 

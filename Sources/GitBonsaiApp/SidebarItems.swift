@@ -39,6 +39,9 @@ struct SidebarRow {
     var text: String
     /// The count or other value right of the text.
     var value: String = ""
+    /// Commits a local branch has that its upstream lacks, and the reverse; drawn as badges in the value column, nothing at 0.
+    var ahead = 0
+    var behind = 0
     /// Drawn in the first column, as the plus of "Add Remote…".
     var expander: Glyph?
     var icon: Glyph?
@@ -83,17 +86,21 @@ struct SidebarOutline {
     /// A remote with more branches than this starts collapsed, even the first one.
     private static let expandedRemoteLimit = 40
 
-    private var collapsed: Set<String> = []
-    private var knownSections: Set<String> = []
+    /// Stored per repository by `SidebarStateStore`, so it survives a relaunch.
+    private(set) var state: OutlineState
 
-    func isCollapsed(_ key: String) -> Bool { collapsed.contains(key) }
+    init(state: OutlineState = OutlineState()) {
+        self.state = state
+    }
+
+    func isCollapsed(_ key: String) -> Bool { state.collapsed.contains(key) }
 
     mutating func toggle(_ key: String) {
-        if collapsed.remove(key) == nil { collapsed.insert(key) }
+        if state.collapsed.remove(key) == nil { state.collapsed.insert(key) }
     }
 
     mutating func open(_ key: String) {
-        collapsed.remove(key)
+        state.collapsed.remove(key)
     }
 
     /// `remotes` are the configured remotes; one without fetched branches still gets its header.
@@ -102,24 +109,14 @@ struct SidebarOutline {
         let otherWorktrees = model.branchesInOtherWorktrees
 
         func section(_ key: String, title: String, count: Int, icon: Glyph, plus: Bool = false, startCollapsed: Bool = false) -> Bool {
-            if knownSections.insert(key).inserted, startCollapsed { collapsed.insert(key) }
+            // A section seen before keeps the user's choice; only a new one takes its default.
+            if state.known.insert(key).inserted, startCollapsed { state.collapsed.insert(key) }
             result.append(.header(key: key, title: title, count: count, icon: icon, plus: plus))
-            return !collapsed.contains(key)
+            return !state.collapsed.contains(key)
         }
-        /// Branches grouped by their first path segment, folders first, like Fork and Tower.
+        /// Branches grouped into folders by their first path segment; folders and branches sorted together by name.
         func branches(_ refs: [Ref], display: (Ref) -> String, section key: String) {
-            var folders: [String: [(String, Ref)]] = [:]
-            var leaves: [(String, Ref)] = []
-            for ref in refs {
-                let name = display(ref)
-                if let slash = name.firstIndex(of: "/") {
-                    folders[String(name[..<slash]) + "/", default: []].append((String(name[name.index(after: slash)...]), ref))
-                } else {
-                    leaves.append((name, ref))
-                }
-            }
             func leaf(_ name: String, _ ref: Ref, indent: CGFloat) {
-                let value = [ref.ahead.flatMap { $0 > 0 ? "↑\($0)" : nil }, ref.behind.flatMap { $0 > 0 ? "↓\($0)" : nil }].compactMap { $0 }.joined(separator: " ")
                 let linked = otherWorktrees[ref.fullName]
                 let slot: Glyph? = ref.isHead ? .check : linked != nil ? .bonsaiLinked : nil
                 let checkout: CheckoutTarget? = switch ref.kind {
@@ -127,15 +124,19 @@ struct SidebarOutline {
                 case .remoteBranch(let remote): .remoteBranch(remote: remote, branch: String(ref.name.dropFirst(remote.count + 1)))
                 default: nil
                 }
-                result.append(.row(SidebarRow(text: name, value: value, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout, ref: ref)))
+                result.append(.row(SidebarRow(text: name, ahead: ref.ahead ?? 0, behind: ref.behind ?? 0, slot: slot, slotColor: ref.isHead ? Theme.moss : nil, indent: indent, strong: ref.isHead, isCheckedOut: ref.isHead, target: ref.target, linkedWorktree: linked?.path, checkout: ref.isHead ? nil : checkout, ref: ref)))
             }
-            for folder in folders.keys.sorted() {
-                let folderKey = key + "/" + folder
-                let open = !collapsed.contains(folderKey)
-                result.append(.row(SidebarRow(text: folder, value: open ? "" : "\(folders[folder]!.count)", icon: open ? .chevronDown : .chevronRight, target: "folder:" + folderKey)))
-                if open { for (name, ref) in folders[folder]!.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: Theme.Sidebar.folderIndent) } }
+            for entry in BranchTree.entries(refs.map { (name: display($0), item: $0) }) {
+                switch entry {
+                case .branch(let name, let ref):
+                    leaf(name, ref, indent: 0)
+                case .folder(let folder, let children):
+                    let folderKey = key + "/" + folder
+                    let open = !state.collapsed.contains(folderKey)
+                    result.append(.row(SidebarRow(text: folder, value: open ? "" : "\(children.count)", icon: open ? .chevronDown : .chevronRight, target: "folder:" + folderKey)))
+                    if open { for (name, ref) in children { leaf(name, ref, indent: Theme.Sidebar.folderIndent) } }
+                }
             }
-            for (name, ref) in leaves.sorted(by: { $0.0 < $1.0 }) { leaf(name, ref, indent: 0) }
         }
 
         if section("worktrees", title: String(localized: "sidebar.section.worktrees", defaultValue: "Worktrees", bundle: .module, comment: "Sidebar section."), count: model.worktrees.count, icon: .bonsaiMain, plus: true) {

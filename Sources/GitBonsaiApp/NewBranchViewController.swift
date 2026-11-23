@@ -2,17 +2,24 @@ import AppKit
 import GitEngine
 
 /// The form of the "New Branch" sheet: name with live validation, start point in a ref picker, and either a new worktree or whether to switch here.
+/// As "New Worktree" it always creates a worktree: from the picked local branch when the name stays empty, otherwise from a new branch starting there.
 /// It validates and collects; `NewBranchController` runs git.
 @MainActor
 final class NewBranchViewController: NSViewController {
     private typealias N = Theme.NewBranch
+
+    enum Purpose {
+        case branch
+        /// `freeBranches` are the local branches no worktree has checked out; only those can get a worktree of their own.
+        case worktree(freeBranches: Set<String>)
+    }
 
     let nameInput = TextInput(placeholder: "feature/…")
     let picker: RefPicker
     let worktreeBox = LabeledCheckbox(title: String(localized: "branch.new.inWorktree", defaultValue: "Check out in a new worktree", bundle: .module))
     let checkoutBox = LabeledCheckbox(title: String(localized: "branch.new.checkout", defaultValue: "Check out", bundle: .module, comment: "Checkbox in the New Branch sheet: switch to the new branch."))
     private(set) lazy var pathInput = TextInput(placeholder: String(localized: "common.folder", defaultValue: "Folder", bundle: .module, comment: "Placeholder of the worktree folder field."), accessory: FieldIconButton(symbol: "folder", label: String(localized: "branch.new.chooseFolder", defaultValue: "Choose Folder…", bundle: .module), target: self, action: #selector(choosePath(_:))))
-    let createButton = PrimaryButton(title: String(localized: "branch.new.create", defaultValue: "Create Branch", bundle: .module))
+    private(set) lazy var createButton = PrimaryButton(title: isWorktree ? String(localized: "worktree.new.create", defaultValue: "Create Worktree", bundle: .module) : String(localized: "branch.new.create", defaultValue: "Create Branch", bundle: .module))
     let cancelButton = SecondaryButton(title: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
     let nameMessage = NSTextField(wrappingLabelWithString: "")
     let pathMessage = NSTextField(wrappingLabelWithString: "")
@@ -23,6 +30,7 @@ final class NewBranchViewController: NSViewController {
     var onResize: (() -> Void)?
 
     private let repository: Repository
+    let purpose: Purpose
     private let existingBranches: Set<String>
     private let defaultPath: (String) -> String
     /// Once the folder was edited by hand it no longer follows the name.
@@ -31,8 +39,9 @@ final class NewBranchViewController: NSViewController {
     private var check = 0
     private(set) var isNameValid = false
 
-    init(repository: Repository, existingBranches: Set<String>, picker: RefPicker, defaultPath: @escaping (String) -> String) {
+    init(repository: Repository, purpose: Purpose = .branch, existingBranches: Set<String>, picker: RefPicker, defaultPath: @escaping (String) -> String) {
         self.repository = repository
+        self.purpose = purpose
         self.existingBranches = existingBranches
         self.picker = picker
         self.defaultPath = defaultPath
@@ -43,8 +52,16 @@ final class NewBranchViewController: NSViewController {
 
     // MARK: Layout
 
+    var isWorktree: Bool {
+        if case .worktree = purpose { true } else { false }
+    }
+
+    var sheetTitle: String {
+        isWorktree ? String(localized: "worktree.new.title", defaultValue: "New Worktree", bundle: .module, comment: "Title of the sheet that creates a worktree.") : String(localized: "branch.new.title", defaultValue: "New Branch", bundle: .module, comment: "Title of the sheet that creates a branch.")
+    }
+
     override func loadView() {
-        let title = NSTextField(labelWithString: String(localized: "branch.new.title", defaultValue: "New Branch", bundle: .module, comment: "Title of the sheet that creates a branch."))
+        let title = NSTextField(labelWithString: sheetTitle)
         title.font = Theme.title
         title.textColor = Theme.ink
 
@@ -73,10 +90,15 @@ final class NewBranchViewController: NSViewController {
         createButton.isEnabled = false
         cancelButton.target = self
         cancelButton.action = #selector(cancelPressed(_:))
-        picker.onChange = { [weak self] _ in self?.updateState() }
+        picker.onChange = { [weak self] _ in
+            self?.followDefaultPath()
+            self?.updateState()
+        }
 
-        let name = field(caption: String(localized: "common.name", defaultValue: "Name", bundle: .module, comment: "Caption of the branch name field."), control: nameInput, message: nameMessage)
-        let start = field(caption: String(localized: "branch.new.startPoint", defaultValue: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit."), control: picker.button, message: nil)
+        let nameCaption = isWorktree ? String(localized: "worktree.new.newBranch", defaultValue: "New Branch", bundle: .module, comment: "Caption of the optional name of a branch the new worktree creates.") : String(localized: "common.name", defaultValue: "Name", bundle: .module, comment: "Caption of the branch name field.")
+        let startCaption = isWorktree ? String(localized: "worktree.new.branch", defaultValue: "Branch", bundle: .module, comment: "Caption of the branch, tag or commit the new worktree checks out.") : String(localized: "branch.new.startPoint", defaultValue: "Start point", bundle: .module, comment: "Where a new branch starts: a branch, tag or commit.")
+        let name = field(caption: nameCaption, control: nameInput, message: nameMessage)
+        let start = field(caption: startCaption, control: picker.button, message: nil)
         pathGroup = stack([pathInput, pathMessage, worktreeHint], spacing: Theme.TextField.captionGap)
         pathGroup.isHidden = true
         let follow = stack([worktreeBox, pathGroup, checkoutBox], spacing: Theme.Space.s)
@@ -85,7 +107,16 @@ final class NewBranchViewController: NSViewController {
         let footer = NSStackView(views: [NSView(), buttons])
         footer.distribution = .fill
 
-        let form = stack([title, name, start, follow, footer], spacing: N.groupSpacing)
+        if isWorktree {
+            worktreeBox.isOn = true
+            worktreeBox.isHidden = true
+            checkoutBox.isHidden = true
+            pathGroup.isHidden = false
+            worktreeHint.stringValue = String(localized: "worktree.new.info", defaultValue: "Leave the new branch empty to check out the picked local branch itself. The current folder stays unchanged.", bundle: .module)
+        }
+        // A worktree is chosen by its branch first; a new branch only when the picked one cannot be used.
+        let fields = isWorktree ? [start, name] : [name, start]
+        let form = stack([title] + fields + [follow, footer], spacing: N.groupSpacing)
         let root = NSView()
         form.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(form)
@@ -97,6 +128,9 @@ final class NewBranchViewController: NSViewController {
             form.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -N.padding),
         ])
         view = root
+        // A worktree can start on a free branch before anything is typed.
+        followDefaultPath()
+        updateState()
     }
 
     /// A caption above its control and, when given, the control's message below.
@@ -123,8 +157,20 @@ final class NewBranchViewController: NSViewController {
 
     private var name: String { nameInput.stringValue }
 
+    /// The local branch a worktree checks out as it is: the picked one, when no worktree has it and no new name is given.
+    private var reusedBranch: String? {
+        guard case .worktree(let free) = purpose, name.isEmpty, case .localBranch = picker.selection?.kind, let branch = picker.selection?.revision, free.contains(branch) else { return nil }
+        return branch
+    }
+
+    private func followDefaultPath() {
+        guard !pathEdited else { return }
+        let suffix = name.isEmpty ? reusedBranch ?? "" : name
+        pathInput.stringValue = suffix.isEmpty ? "" : (defaultPath(suffix) as NSString).abbreviatingWithTildeInPath
+    }
+
     private func nameChanged() {
-        if !pathEdited { pathInput.stringValue = name.isEmpty ? "" : (defaultPath(name) as NSString).abbreviatingWithTildeInPath }
+        followDefaultPath()
         check += 1
         let current = check
         let candidate = name
@@ -177,7 +223,7 @@ final class NewBranchViewController: NSViewController {
             }
         }
         let pathReady = !usesWorktree || (!pathInput.stringValue.isEmpty && pathProblem == nil)
-        createButton.isEnabled = isNameValid && pathReady && picker.selection != nil
+        createButton.isEnabled = (isNameValid || reusedBranch != nil) && pathReady && picker.selection != nil
     }
 
     // MARK: Actions
@@ -228,7 +274,8 @@ final class NewBranchViewController: NSViewController {
         guard createButton.isEnabled, let start = picker.selection?.revision else { return }
         let path = (pathInput.stringValue as NSString).expandingTildeInPath
         let follow: NewBranchRequest.Follow = worktreeBox.isOn ? .worktree(path) : checkoutBox.isOn ? .checkout : .stay
-        onFinish?(NewBranchRequest(name: name, start: start, follow: follow))
+        // An empty name takes the picked local branch as it is; `NewBranchController` checks it out instead of creating one.
+        onFinish?(NewBranchRequest(name: reusedBranch == nil ? name : "", start: start, follow: follow))
     }
 
     func cancel() {

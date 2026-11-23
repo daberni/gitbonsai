@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// The "New Branch" sheet of the Local header's plus and the toolbar's Branch button: loads what the start point picker offers, shows the sheet and runs git with the answer.
+/// The "New Branch" sheet of the Local header's plus and the toolbar's Branch button, and as "New Worktree" the sheet of the Worktrees header's plus: loads what the picker offers, shows the sheet and runs git with the answer.
 @MainActor
 final class NewBranchController {
     private let runner: SidebarActionRunner
@@ -16,7 +16,7 @@ final class NewBranchController {
     }
 
     /// `commit` is offered under "Current" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
-    func show(commit: Commit? = nil) {
+    func show(commit: Commit? = nil, worktree: Bool = false) {
         guard !isOpen, let parent = runner.prompter.window?() else { return }
         isOpen = true
         let repository = viewModel.repository
@@ -28,10 +28,16 @@ final class NewBranchController {
             var current: [RefCatalog.Item] = headCommit.map { [.head(branch: headBranch, commit: $0)] } ?? []
             let picked = commit.map { RefCatalog.Item.commit(CommitSummary(sha: $0.id, date: $0.committerDate, subject: $0.subject)) }
             if let picked { current.append(picked) }
-            let picker = RefPicker(repository: repository)
-            picker.setCatalog(RefCatalog(tips: tips, current: current), selection: picked ?? current.first)
+            let catalog = RefCatalog(tips: tips, current: current)
             let existing = Set(tips.filter { $0.kind == .localBranch }.map(\.name))
-            let form = NewBranchViewController(repository: repository, existingBranches: existing, picker: picker) { [runner] name in runner.defaultWorktreePath(suffix: name) }
+            let checkedOut = Set(viewModel.worktrees.compactMap(\.worktree.branchName))
+            let free = existing.subtracting(checkedOut)
+            // A new worktree starts on the first branch it can check out as it is, otherwise on HEAD with a new branch.
+            let firstFree = catalog.groups(matching: "").lazy.flatMap(\.matches).map(\.item).first { if case .localBranch = $0.kind { free.contains($0.revision) } else { false } }
+            let picker = RefPicker(repository: repository)
+            picker.setCatalog(catalog, selection: worktree ? firstFree ?? current.first : picked ?? current.first)
+            let purpose: NewBranchViewController.Purpose = worktree ? .worktree(freeBranches: free) : .branch
+            let form = NewBranchViewController(repository: repository, purpose: purpose, existingBranches: existing, picker: picker) { [runner] name in runner.defaultWorktreePath(suffix: name) }
             let sheet = NewBranchSheet(form: form)
             self.sheet = sheet
             ScreenshotHarness.driveNewBranchSheet(sheet)
@@ -49,6 +55,8 @@ final class NewBranchController {
             await runner.run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
         case .checkout:
             await runner.run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
+        case .worktree(let path) where name.isEmpty:
+            await runner.run(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add") { try await $0.addWorktree(at: path, branch: start) }
         case .worktree(let path):
             await runner.run(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
         }
