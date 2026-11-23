@@ -10,7 +10,7 @@ extension ScreenshotHarness {
         isActive ? environment["GITBONSAI_LANGUAGE"] : nil
     }
 
-    /// `GITBONSAI_SETTINGS=general|apps|git|appearance|fetch|avatars` opens the settings on that section and captures the settings window instead of the main window.
+    /// `GITBONSAI_SETTINGS=general|apps|git|avatars` opens the settings on that section and captures the settings window instead of the main window.
     static var settingsSection: SettingsWindowController.Section? {
         environment["GITBONSAI_SETTINGS"].flatMap(SettingsWindowController.Section.init)
     }

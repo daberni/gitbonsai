@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Appearance: light, dark or the system's choice, applied to every window at once.
-struct AppearanceSettingsPane: View {
+/// Part of General: light, dark or the system's choice, applied to every window at once.
+struct AppearanceSettingsSection: View {
     @Environment(SettingsModel.self) private var model
 
     var body: some View {

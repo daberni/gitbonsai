@@ -127,6 +127,12 @@ enum AppSettings {
         set { store(newValue.rawValue, forKey: "avatarSources") }
     }
 
+    /// The settings section shown last, so the window opens there again; view state, so changing it notifies no one.
+    static var lastSettingsSection: String? {
+        get { defaults.string(forKey: "lastSettingsSection") }
+        set { defaults.set(newValue, forKey: "lastSettingsSection") }
+    }
+
     /// Hands the stored choices to AppKit and the git engine; called once at launch, before the first window.
     static func apply() {
         NSApp.appearance = appearance.nsAppearance

@@ -1,8 +1,8 @@
 import GitEngine
 import SwiftUI
 
-/// Fetch: whether the visible repository fetches on activation, and how often it fetches while it stays visible.
-struct FetchSettingsPane: View {
+/// Part of Git: whether the visible repository fetches on activation, and how often it fetches while it stays visible.
+struct FetchSettingsSection: View {
     @Environment(SettingsModel.self) private var model
 
     var body: some View {

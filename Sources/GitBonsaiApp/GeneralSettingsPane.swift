@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// General: the folders the empty tab suggests repositories from, and the interface language, applied on the next launch.
+/// General: the color scheme, the folders the empty tab suggests repositories from, and the interface language, applied on the next launch.
 struct GeneralSettingsPane: View {
     @Environment(SettingsModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
+        AppearanceSettingsSection()
         SettingsFolderList()
         Section {
             Picker(selection: $model.language) {

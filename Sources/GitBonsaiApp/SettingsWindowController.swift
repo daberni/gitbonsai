@@ -6,15 +6,13 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSWindowController {
     enum Section: String, CaseIterable {
-        case general, apps, git, appearance, fetch, avatars
+        case general, apps, git, avatars
 
         var title: String {
             switch self {
             case .general: String(localized: "settings.pane.general", defaultValue: "General", bundle: .module, comment: "Settings tab.")
             case .apps: String(localized: "settings.pane.apps", defaultValue: "Apps", bundle: .module, comment: "Settings tab of the editors and terminals.")
             case .git: String(localized: "settings.pane.git", defaultValue: "Git", bundle: .module, comment: "Settings tab.")
-            case .appearance: String(localized: "settings.pane.appearance", defaultValue: "Appearance", bundle: .module, comment: "Settings tab.")
-            case .fetch: String(localized: "settings.pane.fetch", defaultValue: "Fetch", bundle: .module, comment: "Settings tab.")
             case .avatars: String(localized: "settings.pane.avatars", defaultValue: "Avatars", bundle: .module, comment: "Settings tab.")
             }
         }
@@ -24,8 +22,6 @@ final class SettingsWindowController: NSWindowController {
             case .general: "gearshape"
             case .apps: "square.grid.2x2"
             case .git: "point.3.connected.trianglepath.dotted"
-            case .appearance: "circle.lefthalf.filled"
-            case .fetch: "arrow.down.circle"
             case .avatars: "person.crop.circle"
             }
         }
@@ -37,8 +33,7 @@ final class SettingsWindowController: NSWindowController {
             case .git:
                 GitSettingsPane()
                 MergeToolSettingsSection()
-            case .appearance: AppearanceSettingsPane()
-            case .fetch: FetchSettingsPane()
+                FetchSettingsSection()
             case .avatars: AvatarSettingsPane()
             }
         }
@@ -47,7 +42,7 @@ final class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
 
     let model = SettingsModel()
-    private let tabs = NSTabViewController()
+    private let tabs = SettingsTabs()
 
     private init() {
         tabs.tabStyle = .toolbar
@@ -62,10 +57,13 @@ final class SettingsWindowController: NSWindowController {
             item.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)
             tabs.addTabViewItem(item)
         }
+        let last = AppSettings.lastSettingsSection.flatMap(Section.init) ?? .general
+        tabs.selectedTabViewItemIndex = Section.allCases.firstIndex(of: last) ?? 0
+        tabs.onSelect = { AppSettings.lastSettingsSection = $0 }
         let window = NSWindow(contentViewController: tabs)
         window.styleMask = [.titled, .closable]
         window.toolbarStyle = .preference
-        window.title = Section.general.title
+        window.title = last.title
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.center()
@@ -84,6 +82,16 @@ final class SettingsWindowController: NSWindowController {
         }
         showWindow(nil)
         if !ScreenshotHarness.runsInBackground { window?.makeKeyAndOrderFront(nil) }
+    }
+}
+
+/// Reports the section the user switched to, so the window can open there next time.
+private final class SettingsTabs: NSTabViewController {
+    var onSelect: ((String) -> Void)?
+
+    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        super.tabView(tabView, didSelect: tabViewItem)
+        if let identifier = tabViewItem?.identifier as? String { onSelect?(identifier) }
     }
 }
 
