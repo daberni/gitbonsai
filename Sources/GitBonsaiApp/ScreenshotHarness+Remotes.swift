@@ -9,7 +9,7 @@ extension ScreenshotHarness {
 
     static func runRemotesAndRebase(on tab: RepositoryViewController) {
         // The remotes and the banner are read asynchronously after the load; both are there a moment later.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        after(0.4) {
             if environment["GITBONSAI_BANNER_CLICK"] != nil { printBanner(of: tab, when: "loaded") }
             printToolbarLayout(of: tab)
             runFetchMenu(on: tab)
@@ -44,14 +44,14 @@ extension ScreenshotHarness {
         guard autoFetchTabs.count == 1 else { return }
         let steps = ["loaded"] + spec.split(separator: ",").map(String.init)
         for (index, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0 * Double(index)) {
+            after(2.0 * Double(index)) {
                 FileHandle.standardError.write(Data("auto-fetch step \(step)\n".utf8))
                 switch step {
                 case "activate": NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
                 case "tab": NSApp.windows.lazy.compactMap { $0.windowController as? MainWindowController }.first?.selectNextTab()
                 default: break
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                after(1.5) {
                     for case let shown? in autoFetchTabs.map(\.tab) {
                         FileHandle.standardError.write(Data("toolbar counts \(shown.name)\(shown.view.window == nil ? "" : " (visible)"): \(shown.toolbar.upstreamCounts)\n".utf8))
                     }
@@ -98,7 +98,7 @@ extension ScreenshotHarness {
             choose(pick, in: menu)
             printBanner(of: tab, when: "after \(title.lowercased())", delay: 2.5)
             printStatus(of: tab, after: 2.5)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            after(2.5) {
                 FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n\(tab.toolbar.actionLayout)\n".utf8))
             }
         }
@@ -111,7 +111,7 @@ extension ScreenshotHarness {
         press(button, at: NSPoint(x: button.bounds.minX + button.bounds.height, y: button.bounds.midY))
         printBanner(of: tab, when: "after \(title.lowercased()) default", delay: 2.5)
         printStatus(of: tab, after: 2.5)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        after(2.5) {
             FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n".utf8))
         }
     }
@@ -186,7 +186,7 @@ extension ScreenshotHarness {
     }
 
     private static func printBanner(of tab: RepositoryViewController, when moment: String, delay: Double = 0) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        after(delay) {
             let banner = tab.operationBanner.view
             let state = banner.isHidden ? "hidden" : "\(banner.text) [Fortsetzen \(banner.continueButton.isEnabled ? "an" : "aus")]"
             FileHandle.standardError.write(Data("banner \(moment): \(state)\n".utf8))
@@ -194,7 +194,7 @@ extension ScreenshotHarness {
     }
 
     private static func printStatus(of tab: RepositoryViewController, after delay: Double) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        after(delay) {
             FileHandle.standardError.write(Data("status: \(tab.viewModel.statusText)\n".utf8))
         }
     }

@@ -25,12 +25,12 @@ extension ScreenshotHarness {
         }
         tab.openFile(FileSelection(path: path, originalPath: environment["GITBONSAI_OPEN_ORIGINAL"], source: source))
         if let hunk = environment["GITBONSAI_HUNK_ACTION"].flatMap(Int.init) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { tab.diff.runHunkAction(hunk) }
+            after(0.3) { tab.diff.runHunkAction(hunk) }
         }
         driveDiffHeader(on: tab)
         pickDiffOption(on: tab)
         if environment["GITBONSAI_PRINT_DIFF_HEADER"] == "1" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { FileHandle.standardError.write(Data("diff header: \(tab.diff.header.summary)\n".utf8)) }
+            after(0.6) { FileHandle.standardError.write(Data("diff header: \(tab.diff.header.summary)\n".utf8)) }
         }
     }
 
@@ -39,7 +39,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_DIFF_OPTION=<title>` prints the entries of the diff options menu with their state, chooses one without opening the menu on screen, and prints the entries again.
     static func pickDiffOption(on tab: RepositoryViewController) {
         guard let title = environment["GITBONSAI_DIFF_OPTION"] else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        after(0.6) {
             let button = tab.diff.header.optionsButton
             guard let menu = button.menu, !button.isHidden else {
                 FileHandle.standardError.write(Data("no diff options menu\n".utf8))
@@ -61,12 +61,12 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the diff's close button with a real click and prints whether the graph is back.
     static func clickDiffClose(on tab: RepositoryViewController) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        after(0.6) {
             guard let window = tab.view.window else { return }
             let close = tab.diff.header.close
             let before = tab.diff.view.window != nil && !tab.diff.view.isHiddenOrHasHiddenAncestor
             click(in: window, at: close.convert(CGPoint(x: close.bounds.midX, y: close.bounds.midY), to: nil))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            after(0.3) {
                 let after = tab.diff.view.window != nil && !tab.diff.view.isHiddenOrHasHiddenAncestor
                 FileHandle.standardError.write(Data("diff shown before close click: \(before), after: \(after)\n".utf8))
             }
@@ -85,13 +85,13 @@ extension ScreenshotHarness {
             guard remaining > 0, let window = tab.view.window else { return }
             let next = tab.diff.header.next
             click(in: window, at: next.convert(CGPoint(x: next.bounds.midX, y: next.bounds.midY), to: nil))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            after(0.2) {
                 report("after ↓")
                 jump(remaining - 1)
             }
         }
         // The diff loads asynchronously and the toggle shows once it is there.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        after(0.6) {
             guard let window = tab.view.window else { return }
             guard let mode else { return jump(jumps) }
             let modes = tab.diff.header.modes
@@ -101,7 +101,7 @@ extension ScreenshotHarness {
             }
             let segment = modes.bounds.width / CGFloat(DiffMode.allCases.count)
             click(in: window, at: modes.convert(CGPoint(x: segment * (CGFloat(index) + 0.5), y: modes.bounds.midY), to: nil))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            after(0.4) {
                 report("clicked \(mode.title)")
                 jump(jumps)
             }
@@ -112,7 +112,7 @@ extension ScreenshotHarness {
     static func clickFile(on tab: RepositoryViewController) {
         driveCommitHeader(on: tab)
         guard let index = environment["GITBONSAI_CLICK_FILE"].flatMap(Int.init) else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        after(0.4) {
             guard let window = tab.view.window else { return }
             let rows = views(of: FileRowView.self, in: window)
             guard rows.indices.contains(index) else {
@@ -124,7 +124,7 @@ extension ScreenshotHarness {
             let hit = window.contentView?.superview?.hitTest(point).map { "\(type(of: $0))" } ?? "nothing"
             click(in: window, at: point)
             // The release is still queued; the result is there once it has been handled.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            after(0.3) {
                 let opened = tab.diff.selection?.path
                 FileHandle.standardError.write(Data("clicked \(row.model.selection.path) (hit \(hit)), diff shows \(opened ?? "nothing")\n".utf8))
             }
@@ -135,7 +135,7 @@ extension ScreenshotHarness {
     static func pressFileKeys(on tab: RepositoryViewController) {
         guard let keys = environment["GITBONSAI_FILE_KEYS"]?.split(separator: ",").map(String.init), !keys.isEmpty else { return }
         for (step, key) in keys.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2 + 0.4 * Double(step)) {
+            after(1.2 + 0.4 * Double(step)) {
                 guard let window = tab.view.window else { return }
                 let arrow: (scalar: Int, code: UInt16)? = switch key {
                 case "up": (NSUpArrowFunctionKey, 126)
@@ -148,7 +148,7 @@ extension ScreenshotHarness {
                 if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: arrow.code) {
                     window.sendEvent(event)
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                after(0.2) {
                     let shown = tab.diff.selection.map { selection in
                         if case .commit(let commit) = selection.source { return "\(selection.path) (commit \(commit.shortID))" }
                         return "\(selection.path) (\(selection.source))"
@@ -164,7 +164,7 @@ extension ScreenshotHarness {
     static func fillCommit(on tab: RepositoryViewController) {
         let form = tab.commitController.form
         if environment["GITBONSAI_AMEND"] == "1" { form.pressAmend() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        after(0.3) {
             if let subject = environment["GITBONSAI_COMMIT_SUBJECT"] { form.subjectText = subject }
             if let body = environment["GITBONSAI_COMMIT_BODY"] { form.bodyText = body.replacingOccurrences(of: "\\n", with: "\n") }
             form.onEdit?()
@@ -179,7 +179,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_CLICK_FILE_DISCARD=<n>` also clicks that row's discard button; all with real mouse events through the window.
     static func discard(on tab: RepositoryViewController, attempt: Int = 0) {
         let environment = environment
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        after(0.6) {
             guard let window = tab.view.window else { return }
             if let index = environment["GITBONSAI_CLICK_HUNK_DISCARD"].flatMap(Int.init) {
                 // The diff loads asynchronously; try again until its hunk rows are there.
@@ -217,7 +217,7 @@ extension ScreenshotHarness {
     static func answerDiscardSheet(_ alert: NSAlert) {
         guard outputPath != nil else { return }
         let environment = environment
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        after(0.5) {
             let sheet = alert.window
             FileHandle.standardError.write(Data("discard sheet: \(alert.messageText) — \(alert.informativeText)\n".utf8))
             switch environment["GITBONSAI_DISCARD_ANSWER"] {
@@ -250,18 +250,18 @@ extension ScreenshotHarness {
         let parent = environment["GITBONSAI_CLICK_PARENT"].flatMap(Int.init)
         guard copyMode != nil || parent != nil else { return }
         pasteboard.clearContents()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        after(0.4) {
             guard let window = tab.view.window, let detail = views(of: DetailView.self, in: window).first else { return }
             if let copyMode, let button = detail.copyButton {
                 let flags: NSEvent.ModifierFlags = copyMode == "short" ? .option : []
                 printCopyFrames(button, in: detail, when: "before the click")
                 click(in: window, at: button.convert(CGPoint(x: button.bounds.maxX - Theme.Space.s, y: button.bounds.midY), to: nil), flags: flags)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                after(0.2) {
                     let copied = pasteboard.string(forType: .string) ?? "nothing"
                     FileHandle.standardError.write(Data("copy (\(copyMode)) put on the pasteboard: \(copied); icon \(button.image?.accessibilityDescription ?? "none"), tooltip \(button.toolTip ?? "none")\n".utf8))
                     printCopyFrames(button, in: detail, when: "with the checkmark")
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Detail.copiedFeedback + 0.3) { printCopyFrames(button, in: detail, when: "after the feedback") }
+                after(Theme.Detail.copiedFeedback + 0.3) { printCopyFrames(button, in: detail, when: "after the feedback") }
             }
             if let parent {
                 guard detail.parentLinks.indices.contains(parent) else {
@@ -271,7 +271,7 @@ extension ScreenshotHarness {
                 let link = detail.parentLinks[parent]
                 let before = selectedCommit(on: tab)
                 click(in: window, at: link.convert(CGPoint(x: link.bounds.midX, y: link.bounds.midY), to: nil))
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                after(0.3) {
                     FileHandle.standardError.write(Data("parent link \(parent) (\(link.title)) clicked: selected \(before) -> \(selectedCommit(on: tab))\n".utf8))
                 }
             }
@@ -310,7 +310,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_FILE_MENU_PICK=<title>` then chooses an entry; confirmations are answered by `GITBONSAI_CONFIRM` and rendered by `GITBONSAI_SHEET_SHOT`.
     static func fileMenu(on tab: RepositoryViewController, attempt: Int = 0) {
         guard let index = environment["GITBONSAI_FILE_MENU"].flatMap(Int.init) else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        after(0.4) {
             guard let window = tab.view.window else { return }
             // A commit's file list loads asynchronously; try again until the row is there.
             let rows = views(of: FileRowView.self, in: window)

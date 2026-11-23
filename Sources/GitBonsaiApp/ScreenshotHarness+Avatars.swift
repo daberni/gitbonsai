@@ -43,9 +43,9 @@ extension ScreenshotHarness {
             FileHandle.standardError.write(Data("avatar sweep: rows \(visible.location)–\(last)\n".utf8))
             guard last < min(rows, table.numberOfRows) - 1 else { return }
             table.scrollRowToVisible(min(last + visible.length - 1, rows - 1))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { step() }
+            after(0.5) { step() }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { step() }
+        after(0.5) { step() }
     }
 }
 

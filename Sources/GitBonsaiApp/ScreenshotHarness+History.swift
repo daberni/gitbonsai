@@ -81,7 +81,7 @@ extension ScreenshotHarness {
             return NSPoint(x: label.upperBound - Theme.Pill.trailing - Theme.Space.l, y: table.rect(ofRow: row).midY)
         }
         for (index, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + Double(index)) {
+            after(0.3 + Double(index)) {
                 guard let window = table.window else { return }
                 let parts = step.split(separator: ":")
                 let row = parts.count > 1 ? Int(parts[1]) ?? lastRow : lastRow
@@ -91,7 +91,7 @@ extension ScreenshotHarness {
                     move(to: labelPoint(row), in: window)
                 case "brush":
                     move(to: labelPoint(row), in: window)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + Theme.RefOverlay.hoverDelay / 3) { move(to: NSPoint(x: history.columnsController.columns.layout(in: table.bounds.width).commit.lowerBound + Theme.Space.xl, y: table.rect(ofRow: table.numberOfRows - 1).midY), in: window) }
+                    after(Theme.RefOverlay.hoverDelay / 3) { move(to: NSPoint(x: history.columnsController.columns.layout(in: table.bounds.width).commit.lowerBound + Theme.Space.xl, y: table.rect(ofRow: table.numberOfRows - 1).midY), in: window) }
                 case "counter":
                     guard let rowView = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? GraphRowView, let model = rowView.model, let label = model.columns.layout(in: table.bounds.width).label, let counter = RefPills.compactLayout(model.pills, labelEnd: label.upperBound, midY: table.rect(ofRow: row).midY).counter else {
                         FileHandle.standardError.write(Data("row \(row) has no counter\n".utf8))
@@ -117,7 +117,7 @@ extension ScreenshotHarness {
                 default:
                     FileHandle.standardError.write(Data("unknown ref pills step \(step)\n".utf8))
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { report(step) }
+                after(0.5) { report(step) }
             }
         }
     }
@@ -160,7 +160,7 @@ extension ScreenshotHarness {
             let stroke = strokes[index]
             guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: stroke.flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: stroke.characters, charactersIgnoringModifiers: stroke.characters, isARepeat: false, keyCode: stroke.code) else { return }
             NSApp.postEvent(event, atStart: false)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            after(0.5) {
                 report(stroke.name)
                 press(index + 1)
             }
@@ -199,7 +199,7 @@ extension ScreenshotHarness {
             }
         }
         for delay in delays {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { printHistory(of: tab, when: "after \(delay) s") }
+            after(delay) { printHistory(of: tab, when: "after \(delay) s") }
         }
     }
 
@@ -218,7 +218,7 @@ extension ScreenshotHarness {
         }
         FileHandle.standardError.write(Data("status line loaded: \(viewModel.statusText)\n".utf8))
         for (index, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + 2 * Double(index)) {
+            after(0.5 + 2 * Double(index)) {
                 stepStart = Date()
                 let (name, argument) = step.firstIndex(of: ":").map { (String(step[..<$0]), String(step[step.index(after: $0)...])) } ?? (step, "")
                 FileHandle.standardError.write(Data("status step \(step)\n".utf8))
@@ -234,7 +234,7 @@ extension ScreenshotHarness {
                 default: FileHandle.standardError.write(Data("unknown status step \(step)\n".utf8))
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + 2 * Double(index) + 1.9) {
+            after(0.5 + 2 * Double(index) + 1.9) {
                 FileHandle.standardError.write(Data("status line after \(step): \(viewModel.statusText)\n".utf8))
             }
         }
@@ -257,16 +257,15 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event through the window. AppKit shows that menu on screen above other apps for a moment. While the menu is open its entries go to stderr
     /// and `GITBONSAI_MENU_SHOT=<png>` captures the menu's window. `GITBONSAI_MENU_PICK=<title>`, or `<title>/<title>` in a submenu, then chooses an entry.
-    /// `GITBONSAI_MENU_LIST=<row>` only prints the entries of a row's menu, without opening it on screen, once its entries have had time to search.
+    /// `GITBONSAI_MENU_LIST=<row>` only prints the entries of a row's menu, without opening it on screen, right before the capture; entries that search the repository, such as the detected rebase base, hold the capture until they have their final titles.
     static func openCommitMenu(on tab: RepositoryViewController) {
         if let row = environment["GITBONSAI_MENU_LIST"].flatMap(Int.init), let items = tab.history.menuItems?(row) {
             let menu = NSMenu()
             items.forEach(menu.addItem)
-            // Entries that search the repository, such as the detected rebase base, update their titles once they know more.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { FileHandle.standardError.write(Data("menu: \(describe(menu))\n".utf8)) }
+            beforeCapture { FileHandle.standardError.write(Data("menu: \(describe(menu))\n".utf8)) }
         }
         guard let row = environment["GITBONSAI_COMMIT_MENU"].flatMap(Int.init) else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        after(0.3) {
             let table = tab.history.tableView
             guard let window = table.window, row < table.numberOfRows, let menu = table.menu else { return }
             table.scrollRowToVisible(row)

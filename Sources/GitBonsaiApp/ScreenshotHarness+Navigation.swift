@@ -18,12 +18,12 @@ extension ScreenshotHarness {
         func run(_ index: Int) {
             guard index < steps.count else { return }
             runNavigationStep(steps[index], on: tab)
-            DispatchQueue.main.asyncAfter(deadline: .now() + interval * 0.8) {
+            after(interval * 0.8) {
                 reportNavigation(after: steps[index], on: tab)
-                DispatchQueue.main.asyncAfter(deadline: .now() + interval * 0.2) { run(index + 1) }
+                after(interval * 0.2) { run(index + 1) }
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { run(0) }
+        after(0.5) { run(0) }
     }
 
     private static func runNavigationStep(_ step: String, on tab: RepositoryViewController) {
@@ -71,7 +71,7 @@ extension ScreenshotHarness {
         case "tags":
             // The popover opens beside the sidebar's top; the press on its row is real.
             tab.tagsController.show(relativeTo: NSRect(x: 0, y: 0, width: tab.sidebar.bounds.width, height: Theme.Sidebar.rowHeight), of: tab.sidebar)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            after(0.6) {
                 let list = tab.tagsController.popover.list
                 guard let popoverWindow = tab.tagsController.popover.window, let row = Int(argument), row < list.tableView.numberOfRows else { return navigationLog("tag list not open or no row \(argument)") }
                 let rect = list.tableView.rect(ofRow: row)

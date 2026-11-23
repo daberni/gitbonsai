@@ -49,7 +49,7 @@ extension ScreenshotHarness {
             cloner.fill(answers)
         }
         traceClone("destination \"\(sheet.destinationField.stringValue)\", warning \"\(sheet.warning.isHidden ? "" : sheet.warning.stringValue)\", Klonen \(sheet.cloneButton.isEnabled ? "enabled" : "disabled")")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        after(0.3) {
             if let path = environment["GITBONSAI_CLONE_SHOT"] { render(sheet.window, to: path) }
             guard environment["GITBONSAI_CLONE_RUN"] != nil else {
                 pressButton(sheet.cancelButton)
@@ -82,7 +82,7 @@ extension ScreenshotHarness {
             pressButton(sheet.cancelButton)
             return
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+        after(0.02) {
             MainActor.assumeIsolated { watchProgress(of: sheet, shotTaken: shotTaken, cancelled: cancelled) }
         }
     }

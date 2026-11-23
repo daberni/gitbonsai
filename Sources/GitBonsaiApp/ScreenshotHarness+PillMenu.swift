@@ -3,7 +3,7 @@ import AppKit
 /// Harness switch for the context menus of history ref pills.
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_PILL_MENU=<step>,…` right-clicks with real events, one step a second, and prints (set `GITBONSAI_CAPTURE_DELAY` past the last step) the menu the view under the pointer gives for them (without opening it on screen):
+    /// `GITBONSAI_PILL_MENU=<step>,…` right-clicks with real events, one step a second, and prints the menu the view under the pointer gives for them (without opening it on screen):
     /// `pill:<row>:<n>` the middle of the n-th pill of a row (0 is the rightmost), `corner:<row>:<n>` the top left corner of its frame just outside the capsule, `counter:<row>` the "+n" counter,
     /// `row:<row>` the commit text, `overlay:<n>` the n-th pill of the expanded labels. `GITBONSAI_PILL_MENU_PICK=<title>` chooses an entry from the last menu printed.
     static func drivePillMenus(_ history: HistoryViewController) {
@@ -36,7 +36,7 @@ extension ScreenshotHarness {
         }
         var lastMenu: NSMenu?
         for (offset, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + Double(offset)) {
+            after(0.3 + Double(offset)) {
                 guard let window = table.window else { return }
                 guard let (point, what) = target(step.split(separator: ":").map(String.init)) else {
                     FileHandle.standardError.write(Data("pill menu \(step): nothing there\n".utf8))
@@ -60,7 +60,7 @@ extension ScreenshotHarness {
             }
         }
         if let pick = environment["GITBONSAI_PILL_MENU_PICK"] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + Double(steps.count)) {
+            after(0.5 + Double(steps.count)) {
                 guard let lastMenu else { return }
                 FileHandle.standardError.write(Data("pill menu pick: \(pick)\n".utf8))
                 choose(pick, in: lastMenu)

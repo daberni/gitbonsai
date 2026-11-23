@@ -11,7 +11,7 @@ extension ScreenshotHarness {
     static func driveRebaseSheet(_ sheet: InteractiveRebaseSheet) {
         guard isActive, let script = environment["GITBONSAI_REBASE_SCRIPT"] else { return }
         let steps = script.split(separator: ";").map(String.init)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { runRebaseSteps(steps[...], on: sheet) }
+        after(0.5) { runRebaseSteps(steps[...], on: sheet) }
     }
 
     private static func runRebaseSteps(_ steps: ArraySlice<String>, on sheet: InteractiveRebaseSheet) {
@@ -81,7 +81,7 @@ extension ScreenshotHarness {
         default:
             log("unknown rebase step \(step)")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { runRebaseSteps(steps.dropFirst(), on: sheet) }
+        after(0.4) { runRebaseSteps(steps.dropFirst(), on: sheet) }
     }
 
     /// `GITBONSAI_PRINT_SELECTION=<seconds>,…` prints whether the toast shows, the selected history row, whether it is HEAD and whether a diff covers the history after each delay.
@@ -91,29 +91,29 @@ extension ScreenshotHarness {
     static func driveRebase(on tab: RepositoryViewController) {
         if let script = environment["GITBONSAI_REWORD_SCRIPT"] {
             let steps = script.split(separator: ";").map(String.init)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { runRewordSteps(steps[...], on: tab) }
+            after(0.5) { runRewordSteps(steps[...], on: tab) }
         }
         for row in (environment["GITBONSAI_REBASE_MENU"] ?? "").split(separator: ",").compactMap({ Int($0) }) where tab.viewModel.commits.indices.contains(row) {
             let items = tab.commitActions.interactiveRebase.menuItems(for: tab.viewModel.commits[row])
             log("rebase menu \(row): " + items.map { $0.action == nil ? "\($0.plainTitle) (aus: \($0.toolTip ?? ""))" : $0.plainTitle }.joined(separator: "; "))
         }
         if let subject = environment["GITBONSAI_EDIT_AMEND"] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { amendAtEditStop(on: tab, subject: subject) }
+            after(0.6) { amendAtEditStop(on: tab, subject: subject) }
         }
         for delay in (environment["GITBONSAI_PRINT_SELECTION"] ?? "").split(separator: ",").compactMap({ Double($0) }) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            after(delay) {
                 let row = tab.history.tableView.selectedRow
                 let selected = tab.viewModel.commits.indices.contains(row) ? tab.viewModel.commits[row].id : "-"
                 log("toast \(tab.toast.view.isHidden ? "hidden" : "shown"), selection: row \(row), HEAD \(selected == tab.viewModel.headSHA ? "selected" : "not selected"), history \(tab.history.view.window == nil ? "hidden behind a diff" : "shown"), status: \(tab.viewModel.statusText)")
             }
         }
         if environment["GITBONSAI_REBASE_UNDO"] == "1" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            after(0.8) {
                 let button = tab.rebaseUndo.button
                 log("undo \(button.isHidden ? "hidden" : "shown: \(button.toolTip ?? "")")")
                 guard !button.isHidden else { return }
                 press(button)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { log("status: \(tab.viewModel.statusText); undo \(button.isHidden ? "hidden" : "shown")") }
+                after(1.5) { log("status: \(tab.viewModel.statusText); undo \(button.isHidden ? "hidden" : "shown")") }
             }
         }
     }
@@ -195,7 +195,7 @@ extension ScreenshotHarness {
         default:
             log("unknown reword step \(step)")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { runRewordSteps(steps.dropFirst(), on: tab) }
+        after(delay) { runRewordSteps(steps.dropFirst(), on: tab) }
     }
 
     /// For two seconds after saving, prints every state of selection and detail panel that can reach the screen, each time the run loop goes to sleep and only when it changed, to show that nothing else flashes up in between.
@@ -215,7 +215,7 @@ extension ScreenshotHarness {
             }
         }
         CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, .commonModes) }
+        after(2) { CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, .commonModes) }
     }
 
     /// The first rows of the history, the selection, the panel's header and the editor's state.
@@ -239,20 +239,20 @@ extension ScreenshotHarness {
         log("banner: \(banner.isHidden ? "hidden" : banner.text), amend \(banner.amendButton.isHidden ? "hidden" : "shown")")
         guard !banner.amendButton.isHidden else { return }
         press(banner.amendButton)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        after(0.8) {
             let form = tab.commitController.form
             guard let window = form.window, let field = views(of: PlainTextField.self, in: window).first(where: { $0.isDescendant(of: form) }), let button = views(of: PrimaryButton.self, in: window).first(where: { $0.isDescendant(of: form) }) else {
                 return log("commit form not shown")
             }
             log("commit form: amend \(form.isAmend), subject \(form.subjectText)")
             replaceText(in: field, with: subject)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            after(0.4) {
                 log("amend button \(button.title) enabled \(button.isEnabled)")
                 press(button)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                after(1.5) {
                     log("banner after amend: \(banner.isHidden ? "hidden" : banner.text)")
                     press(banner.continueButton)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    after(1.5) {
                         log("banner after continue: \(banner.isHidden ? "hidden" : banner.text)")
                         log("status: \(tab.viewModel.statusText); undo \(tab.rebaseUndo.button.isHidden ? "hidden" : "shown")")
                     }

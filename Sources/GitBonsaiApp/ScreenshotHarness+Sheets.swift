@@ -38,7 +38,7 @@ extension ScreenshotHarness {
     static func pressKey(on alert: NSAlert) {
         guard let key = sheetKey else { return }
         let sheet = alert.window
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        after(1.0) {
             // A foreground run launched from a shell is not always activated; a sheet that is not key loses its default button's Return.
             NSApp.activate()
             sheet.makeKey()
@@ -50,7 +50,7 @@ extension ScreenshotHarness {
                 guard let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: sheet.windowNumber, context: nil, characters: key.characters, charactersIgnoringModifiers: key.characters, isARepeat: false, keyCode: key.keyCode) else { continue }
                 NSApp.postEvent(event, atStart: false)
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            after(0.5) {
                 let fields = views(of: NSTextField.self, in: sheet).filter(\.isEditable).map(\.stringValue)
                 let texts = views(of: NSTextView.self, in: sheet).filter { $0.isEditable && !$0.isFieldEditor }.map { $0.string.replacingOccurrences(of: "\n", with: "\\n") }
                 sheetLog("sheet \(alert.messageText): \(sheet.sheetParent == nil ? "closed" : "still open"), fields \(fields), texts \(texts)")
@@ -85,10 +85,10 @@ extension ScreenshotHarness {
     /// Prints the sheet's buttons and what the details look like, renders it to `GITBONSAI_REPORT_SHOT` and clicks the named button.
     static func clickReport(_ sheet: FailureSheet) {
         let window = sheet.window
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        after(0.8) {
             sheetLog("failure sheet up: \(sheet.title), attached \(window.sheetParent != nil), buttons \(sheet.buttons.map(buttonTitle))")
             if environment["GITBONSAI_REPORT_DETAILS"] == "1", let details = sheet.details { clickCentre(of: details.disclosure, in: window) }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            after(0.5) {
                 if let details = sheet.details {
                     let box = details.output.enclosingScrollView.map { $0.convert($0.bounds, to: details) } ?? .zero
                     sheetLog("failure details: expanded \(details.isExpanded), output box \(Int(box.minX)),\(Int(box.minY)) \(Int(box.width))x\(Int(box.height)) in \(Int(details.bounds.width)), selectable \(details.output.isSelectable), clip \(details.output.enclosingScrollView.map { NSStringFromRect($0.contentView.bounds) } ?? "-"), text \(NSStringFromRect(details.output.frame)) origin \(NSStringFromPoint(details.output.textContainerOrigin)) used \(details.output.layoutManager.flatMap { lm in details.output.textContainer.map { NSStringFromRect(lm.usedRect(for: $0)) } } ?? "-"), sheet \(Int(window.frame.width))x\(Int(window.frame.height))")
@@ -98,7 +98,7 @@ extension ScreenshotHarness {
                     return sheetLog("failure sheet: no button \(environment["GITBONSAI_REPORT_CLICK"] ?? "")")
                 }
                 clickCentre(of: button, in: window)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { sheetLog("failure sheet after \(title): \(window.sheetParent == nil ? "closed" : "still open")") }
+                after(0.3) { sheetLog("failure sheet after \(title): \(window.sheetParent == nil ? "closed" : "still open")") }
             }
         }
     }

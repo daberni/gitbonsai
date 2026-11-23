@@ -9,7 +9,7 @@ extension ScreenshotHarness {
     /// Called right before the sheet begins; `GITBONSAI_SHEET_SHOT=<png>` renders the window with the sheet and, beside it, any open popover's list.
     static func clickSheet(_ alert: NSAlert) {
         let confirms = environment["GITBONSAI_SHEET_CLICK"] == "confirm"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        after(0.5) {
             let sheet = alert.window
             let popovers = NSApp.windows.filter { $0.className.contains("Popover") && $0.isVisible }
             FileHandle.standardError.write(Data("sheet up: \(alert.messageText), key window \(NSApp.keyWindow?.className ?? "none"), popover windows shown \(popovers.count)\n".utf8))

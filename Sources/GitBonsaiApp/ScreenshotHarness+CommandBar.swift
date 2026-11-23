@@ -13,7 +13,7 @@ extension ScreenshotHarness {
         if environment["GITBONSAI_PRINT_OPENERS"] == "1" { printOpeners(for: host.activeRepository?.repositoryPath) }
         // The tab reads its remotes and pull settings right after loading; the menu is printed once they are in.
         if environment["GITBONSAI_PRINT_MENU"] == "1", environment["GITBONSAI_COMMAND_BAR"] == nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            after(1) {
                 printMainMenu()
                 captureAndQuit(window: window)
             }
@@ -26,7 +26,7 @@ extension ScreenshotHarness {
         func step(_ index: Int) {
             guard index < steps.count else { return captureAndQuit(window: window) }
             let delay = perform(steps[index], in: window, host: host)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { step(index + 1) }
+            after(delay) { step(index + 1) }
         }
         step(0)
         return true

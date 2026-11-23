@@ -52,6 +52,7 @@ final class RebaseOntoController {
         }
         // An open menu runs its own tracking loop, which serves no main-actor tasks; a timer in the common modes still fires and updates the entry in place.
         let started = Date()
+        let releaseCapture = ScreenshotHarness.hold()
         // The timer fires on the main run loop; the entry only crosses into its closure.
         nonisolated(unsafe) weak let entry = oneClick
         let poll = Timer(timeInterval: 0.05, repeats: true) { timer in
@@ -61,7 +62,10 @@ final class RebaseOntoController {
                 entry.setTitle(Self.title(branch: branch, place: place, detection: result))
                 return true
             }
-            if finished { timer.invalidate() }
+            if finished {
+                timer.invalidate()
+                MainActor.assumeIsolated { releaseCapture() }
+            }
         }
         RunLoop.main.add(poll, forMode: .common)
         return [oneClick, sheet]

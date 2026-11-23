@@ -10,7 +10,7 @@ extension ScreenshotHarness {
         if let button = environment["GITBONSAI_TOOLBAR"] { clickToolbar(button, on: tab) }
         guard let name = environment["GITBONSAI_OPEN_PANEL"], let panel = SidebarPanel(rawValue: name) else { return }
         let popover = panel == .tags ? tab.tagsController.popover : tab.stashesController.popover
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        after(0.2) {
             clickSidebarRow(panel, on: tab)
             whenShown(popover, attempts: 20) { window in
                 guard let window else {
@@ -82,7 +82,7 @@ extension ScreenshotHarness {
             FileHandle.standardError.write(Data("tag marks over \(samples.count) samples: fewest marked rows \(samples.min() ?? 0), most \(samples.max() ?? 0), refresh seen \(seen)\n".utf8))
             return body()
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { watchRefresh(of: tags, samples: samples + [marked], attempts: attempts - 1, sawRefresh: seen, then: body) }
+        after(0.05) { watchRefresh(of: tags, samples: samples + [marked], attempts: attempts - 1, sawRefresh: seen, then: body) }
     }
 
     private static func printRows(of list: PanelListView, name: String) {
@@ -97,12 +97,12 @@ extension ScreenshotHarness {
     /// The tag marks come from the remotes after the list opened; captures wait for their answers.
     private static func whenSettled(_ tags: TagsController, attempts: Int, _ body: @escaping () -> Void) {
         if tags.isSettled || attempts == 0 { return body() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { whenSettled(tags, attempts: attempts - 1, body) }
+        after(0.1) { whenSettled(tags, attempts: attempts - 1, body) }
     }
 
     /// The tags are read before the popover opens, so it appears a moment after the click.
     private static func whenShown(_ popover: PanelPopover, attempts: Int, _ body: @escaping (NSWindow?) -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        after(0.1) {
             if let window = popover.window { body(window) } else if attempts > 0 { whenShown(popover, attempts: attempts - 1, body) } else { body(nil) }
         }
     }
@@ -170,14 +170,14 @@ extension ScreenshotHarness {
         FileHandle.standardError.write(Data("toast: \(text.plain)\(action.map { " [\($0)]" } ?? "")\n".utf8))
         guard let action, !didHandleToast, let window = toast.window else { return }
         didHandleToast = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        after(0.6) {
             if let path = environment["GITBONSAI_TOAST_SHOT"] { renderWindow(window, to: path) }
             guard environment["GITBONSAI_TOAST_CLICK"] == action else { return }
             let button = toast.actionButton
             FileHandle.standardError.write(Data("toast click \(action)\n".utf8))
             pressView(in: window, at: button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil))
             guard let tab = toastTab else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            after(1.5) {
                 FileHandle.standardError.write(Data("status: \(tab.viewModel.statusText)\nworking tree: \(tab.viewModel.status?.entries.map(\.path).joined(separator: ", ") ?? "-"), stashes \(tab.viewModel.stashes.count)\n".utf8))
             }
         }

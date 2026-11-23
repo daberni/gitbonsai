@@ -33,7 +33,7 @@ extension ScreenshotHarness {
             if environment["GITBONSAI_SIDEBAR_MENU"] == nil, let pick = environment["GITBONSAI_SIDEBAR_MENU_PICK"] { choose(pick, in: menu) }
         }
         if let name = environment["GITBONSAI_SIDEBAR_MENU"], let index = sidebar.itemIndex(named: name), let window = sidebar.window {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            after(0.3) {
                 let rect = sidebar.rowRect(at: index)
                 let point = sidebar.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
                 let inspect = Timer(timeInterval: 0.4, repeats: false) { _ in
@@ -47,7 +47,7 @@ extension ScreenshotHarness {
                 }
                 // The entry runs from the menu that the right-clicked row builds, once the one on screen has closed.
                 if let pick = environment["GITBONSAI_SIDEBAR_MENU_PICK"] {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    after(0.8) {
                         guard let menu = sidebar.menu(forItemAt: index) else { return }
                         choose(pick, in: menu)
                     }
@@ -60,7 +60,7 @@ extension ScreenshotHarness {
         }
         guard let mode = environment["GITBONSAI_NEW_BRANCH"], let window = sidebar.window else { return }
         // Like the other harness clicks, it waits until the window has taken its first events.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        after(0.3) {
             switch mode {
             case "plus":
                 guard let index = sidebar.itemIndex(header: "local") else { return }
@@ -89,7 +89,7 @@ extension ScreenshotHarness {
         guard let script = environment["GITBONSAI_NEW_BRANCH_SCRIPT"] else { return }
         let steps = script.split(separator: ";").map(String.init)
         for (index, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 + 0.35 * Double(index)) {
+            after(0.5 + 0.35 * Double(index)) {
                 runNewBranchStep(step, on: sheet)
             }
         }
@@ -248,7 +248,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_PRINT_STATUS=<seconds>,…` prints the status line and the toolbar's ahead/behind counts after each delay.
     static func printStatusLine(of tab: RepositoryViewController) {
         for delay in (environment["GITBONSAI_PRINT_STATUS"] ?? "").split(separator: ",").compactMap({ Double($0) }) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            after(delay) {
                 let row = tab.history.selectedRow
                 let selected = tab.viewModel.commits.indices.contains(row) ? "\(row) „\(tab.viewModel.commits[row].subject)“" : "\(row)"
                 let marks = tab.viewModel.refs.filter { $0.kind == .localBranch }.map { "\($0.name) ↑\($0.ahead.map(String.init) ?? "-") ↓\($0.behind.map(String.init) ?? "-")" }.joined(separator: ", ")

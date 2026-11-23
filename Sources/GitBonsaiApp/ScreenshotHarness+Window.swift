@@ -201,7 +201,7 @@ extension ScreenshotHarness {
         guard returnTabs.count == 1 else { return }
         let steps = spec.split(separator: ",").map(String.init)
         for (index, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0 * Double(index + 1)) {
+            after(2.0 * Double(index + 1)) {
                 FileHandle.standardError.write(Data("[\(Int(Date().timeIntervalSince(launch) * 1000)) ms] return step \(step)\n".utf8))
                 let tabs = returnTabs.compactMap(\.tab)
                 for part in step.split(separator: "+") {

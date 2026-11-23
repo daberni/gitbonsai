@@ -24,7 +24,7 @@ extension ScreenshotHarness {
         let steps = environment["GITBONSAI_SETTINGS_SCRIPT"].map { $0.split(separator: ";").map(String.init) } ?? []
         if !steps.isEmpty { publishSwiftUIAccessibility() }
         // SwiftUI builds its accessibility tree a moment after it is asked for.
-        DispatchQueue.main.asyncAfter(deadline: .now() + (steps.isEmpty ? 0 : 0.5)) { runSettingsSteps(steps[...], in: window) }
+        after((steps.isEmpty ? 0 : 0.5)) { runSettingsSteps(steps[...], in: window) }
     }
 
     /// The main window is not captured while the settings window is.
@@ -95,7 +95,7 @@ extension ScreenshotHarness {
         default:
             print("settings: unknown step \(step)")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { runSettingsSteps(steps.dropFirst(), in: window) }
+        after(delay) { runSettingsSteps(steps.dropFirst(), in: window) }
     }
 
     /// SwiftUI publishes its accessibility tree only once an assistive app asks, which it learns from `AXEnhancedUserInterface` on the application;

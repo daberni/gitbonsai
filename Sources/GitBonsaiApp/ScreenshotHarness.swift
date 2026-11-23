@@ -37,23 +37,82 @@ enum ScreenshotHarness {
         }
     }
 
+    /// Captures the window once every pending step ran and the detail panel finished loading, then quits. `GITBONSAI_CAPTURE_DELAY=<seconds>` waits that much longer.
     static func captureAndQuit(window: NSWindow) {
-        // The frame view above the content view also holds the title bar, so the traffic lights are in the picture.
-        guard let outputPath, let view = window.contentView?.superview else { return }
+        guard outputPath != nil else { return }
         if capturesSettingsInstead(of: window) { return }
-        // Give the last batch of rows and the asynchronously loaded file list time to lay out and draw.
-        let delay = environment["GITBONSAI_CAPTURE_DELAY"].flatMap(Double.init) ?? 0.8
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-            view.cacheDisplay(in: view.bounds, to: rep)
-            if let png = rep.representation(using: .png, properties: [:]) {
-                try? png.write(to: URL(fileURLWithPath: outputPath))
+        captureWindow = window
+        let timeout = environment["GITBONSAI_TIMEOUT"].flatMap(Double.init) ?? 120
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+            MainActor.assumeIsolated {
+                guard captureWindow != nil, pendingSteps > 0 else { return }
+                FileHandle.standardError.write(Data("harness: \(pendingSteps) steps still pending after \(Int(timeout)) s; capturing anyway\n".utf8))
+                pendingSteps = 0
+                captureWhenIdle()
             }
+        }
+        captureWhenIdle()
+    }
+
+    /// Steps scheduled with `after` or holding with `hold` that have not finished; the capture waits for them.
+    private static var pendingSteps = 0
+    private static var captureWindow: NSWindow?
+    private static var beforeCaptureSteps: [@MainActor () -> Void] = []
+
+    /// Runs `work` right before the capture, once nothing holds it any more.
+    static func beforeCapture(_ work: @escaping @MainActor () -> Void) {
+        beforeCaptureSteps.append(work)
+    }
+
+    /// Runs `work` after `seconds` and holds the capture until it ran. Steps it schedules in turn hold the capture too, so a chain of steps finishes before the capture.
+    static func after(_ seconds: TimeInterval, _ work: @escaping @MainActor () -> Void) {
+        let release = hold()
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+            MainActor.assumeIsolated {
+                work()
+                release()
+            }
+        }
+    }
+
+    /// Holds the capture until the returned closure is called, for a step that waits on an event instead of a time.
+    static func hold() -> @MainActor () -> Void {
+        guard isActive else { return {} }
+        pendingSteps += 1
+        var released = false
+        return {
+            guard !released else { return }
+            released = true
+            pendingSteps = max(pendingSteps - 1, 0)
+            captureWhenIdle()
+        }
+    }
+
+    private static func captureWhenIdle() {
+        guard pendingSteps == 0, let window = captureWindow, let outputPath, let view = window.contentView?.superview else { return }
+        captureWindow = nil
+        Task { @MainActor in
+            // The file lists load asynchronously after the history; the capture shows them loaded.
+            for detail in views(of: DetailView.self, in: window) { await detail.loadTask?.value }
+            if let delay = environment["GITBONSAI_CAPTURE_DELAY"].flatMap(Double.init) { try? await Task.sleep(for: .seconds(delay)) }
+            // The frame view above the content view also holds the title bar, so the traffic lights are in the picture.
+            beforeCaptureSteps.forEach { $0() }
+            view.layoutSubtreeIfNeeded()
+            writePNG(of: view, to: outputPath)
             // A sheet left unanswered keeps the app from quitting; aborting it answers like a cancel.
             for window in NSApp.windows {
                 if let sheet = window.attachedSheet { window.endSheet(sheet, returnCode: .abort) }
             }
             NSApp.terminate(nil)
+        }
+    }
+
+    /// Renders the view and its subviews as they would draw on screen and writes them as a PNG.
+    static func writePNG(of view: NSView, to path: String) {
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        if let png = rep.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: path))
         }
     }
 
