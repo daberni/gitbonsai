@@ -100,6 +100,22 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Cherry-pick | `git cherry-pick [--empty=drop] [-m 1] <commit>` | `-m 1` for merges; `--empty=drop` from git 2.45 on, read once per binary with `git --version` |
 | Revert | `git revert --no-edit [-m 1] <commit>` | |
 
+## Conflicts
+
+| Operation | Git command | Notes |
+|---|---|---|
+| Diff of a conflicted file | `git diff -p --no-color --no-ext-diff -M -- <path>` (index queue) | git answers with a combined `diff --cc`, read as a diff against ours. `--numstat` lists an unmerged path twice, `0 0` first, then its count against ours |
+| Stages of a conflict | `git ls-files -u -z [-- <path>]` | Which of base (1), ours (2) and theirs (3) exist tells content, delete/modify, rename and both-deleted conflicts apart |
+| Three-way alignment of a text conflict | `git cat-file -s <oid>`, `git cat-file blob <oid>` per stage, then `git diff --no-index --no-color --no-ext-diff --no-textconv --text --diff-algorithm=histogram -U0 -- <base> <ours>` and the same for theirs | The stages go through a temporary folder; a missing base is an empty file. Hunks of both sides that overlap or touch form a conflict, as in git's merge; a change of one side is taken. A NUL byte in the first 8000 bytes of a side, or a side over 8 MB, means whole sides only. A side that is not valid UTF-8 is read and written as ISO Latin 1 |
+| Merge simple conflicts (word merge) | `git merge-file -p -q <ours> <base> <theirs>` over token files with one word, white-space run or other character per line | Exit 0 takes the merged words; any conflict, also touching changes, leaves the conflict open |
+| Mark resolved | the file is written, then `git add -- <path>` | The result comes from the sides taken or ignored per change and the word merge in the conflict view |
+| Take a whole side (binary, keep a file one side deleted) | `git checkout --ours\|--theirs -- <path>`, `git add -- <path>` | |
+| Delete a file one side deleted or renamed away | `git rm -q -f -- <path>` | |
+| Merge tool of a repository | `git config --get merge.guitool`, then `git config --get merge.tool` | The tool `git mergetool --gui` opens. "Resolve…" opens it when the settings choose the merge tool and one is set; otherwise the merge window |
+| Open in the merge tool | `git mergetool --gui --no-prompt -- <path>` | `--gui` prefers `merge.guitool`, as a terminal tool like vimdiff has no terminal in the app. Runs outside the index queue while the tool is open; git stages the result itself when the tool reports success |
+| Merge tools to choose from (settings) | `git mergetool --tool-help` | Read in the C locale: tools git found, marked "requires a graphical session", and user-defined ones (`mergetool.<name>.cmd`); terminal tools are not offered |
+| Choose the merge tool (settings) | `git config --global --get merge.guitool`; `git config --global merge.guitool <tool>` | Choosing GitBonsai leaves the git config as it is |
+
 ## Tags and stashes
 
 | Operation | Git command | Notes |
