@@ -26,7 +26,8 @@ final class RepositoryViewController: NSObject {
     let operationBanner: OperationBannerController
     let rebaseUndo: RebaseUndoController
     var sidebarActions: SidebarActionsController!
-    var pillMenu: PillMenuController!
+    var historyMenu: HistoryMenuController!
+    let fastForward: FastForwardController
     let staging: StagingController
     let fileActions: FileActionsController
     let commitController: CommitController
@@ -70,6 +71,7 @@ final class RepositoryViewController: NSObject {
         fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
         pullPush = PullPushController(viewModel: viewModel, prompter: commitActions.prompter)
         branchPull = BranchPullController(viewModel: viewModel, pullPush: pullPush)
+        fastForward = FastForwardController(viewModel: viewModel, prompter: commitActions.prompter)
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
         rebaseUndo = RebaseUndoController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
@@ -83,8 +85,8 @@ final class RepositoryViewController: NSObject {
         let rebase = commitActions.interactiveRebase
         inlineReword = InlineRewordController(viewModel: viewModel, prompter: commitActions.prompter, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutController
-        sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
-        pillMenu = PillMenuController(viewModel: viewModel, sidebarActions: sidebarActions, tags: tagsController)
+        sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
+        historyMenu = HistoryMenuController(viewModel: viewModel, checkout: checkoutController, commitActions: commitActions, branches: sidebarActions.branches, tags: tagsController, fastForward: fastForward)
         wire()
         layout()
         bind()

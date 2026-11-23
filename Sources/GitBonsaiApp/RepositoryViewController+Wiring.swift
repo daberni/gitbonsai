@@ -38,11 +38,8 @@ extension RepositoryViewController {
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row in self?.checkoutController.activate(row: row) }
-        history.menuItems = { [weak self] row in
-            guard let self else { return [] }
-            return commitActions.menuItems(forRow: row, leadingWith: checkoutController.menuItems(forRow: row))
-        }
-        history.pillMenuItems = { [weak self] row, ref in self?.pillMenu.menuItems(forRow: row, ref: ref) ?? [] }
+        history.menuItems = { [weak self] row in self?.historyMenu.rowMenu(forRow: row) ?? [] }
+        history.pillMenuItems = { [weak self] row, ref in self?.historyMenu.pillMenu(forRow: row, ref: ref) ?? [] }
 
         detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
         detail.onSelectFile = { [weak self] selection in self?.showDiff(selection) }
@@ -77,6 +74,7 @@ extension RepositoryViewController {
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
         commitActions.onToast = { [weak self] text in self?.toast.show(text) }
         branchPull.onToast = { [weak self] text in self?.toast.show(text) }
+        fastForward.onToast = { [weak self] text in self?.toast.show(text) }
         branchPull.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
         operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
         for prompter in [sidebarActions.prompter, fileActions.prompter, commitActions.prompter, tagsController.prompter, stashesController.prompter] {

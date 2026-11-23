@@ -74,14 +74,14 @@ final class CheckoutController: NSObject {
         perform(choice)
     }
 
-    func menuItems(forRow index: Int) -> [NSMenuItem] {
-        choices(forRow: index).map { choice in
-            let item = NSMenuItem(title: "", action: #selector(performFromMenu(_:)), keyEquivalent: "")
-            item.setTitle(choice.title)
-            item.target = self
-            item.representedObject = MenuChoice(choice)
-            return item
-        }
+    /// "Checkout Commit 1a2b3c4 (Detached HEAD)", the checkout that leads the commit section of the history menus; nil where HEAD already is that commit, detached.
+    func detachedItem(forRow index: Int) -> NSMenuItem? {
+        guard let choice = choices(forRow: index).last, case .commit = choice.target else { return nil }
+        let item = NSMenuItem(title: "", action: #selector(performFromMenu(_:)), keyEquivalent: "")
+        item.setTitle(choice.title)
+        item.target = self
+        item.representedObject = MenuChoice(choice)
+        return item
     }
 
     /// Branches from the sidebar come in here too.

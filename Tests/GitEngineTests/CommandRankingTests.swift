@@ -93,6 +93,20 @@ final class CommandRulesTests: XCTestCase {
         XCTAssertEqual(CommandRules.pull(rebasing), .operationInProgress(.rebase))
     }
 
+    func testFastForwardOnlyToADescendantOfTheBranch() {
+        // a ← b ← c on one line, d forked from a.
+        let reachableFromC: Set<String> = ["c", "b", "a"]
+        XCTAssertNil(CommandRules.fastForward(branchHead: "a", target: "c", reachableFromTarget: reachableFromC))
+        XCTAssertEqual(CommandRules.fastForward(branchHead: "c", target: "c", reachableFromTarget: reachableFromC), .upToDate)
+        XCTAssertEqual(CommandRules.fastForward(branchHead: "d", target: "c", reachableFromTarget: reachableFromC), .notFastForward)
+        XCTAssertNil(CommandRules.fastForward(clean))
+        var state = clean
+        state.operation = .merge
+        XCTAssertEqual(CommandRules.fastForward(state), .operationInProgress(.merge))
+        state.branch = nil
+        XCTAssertEqual(CommandRules.fastForward(state), .detachedHead)
+    }
+
     func testFirstPushNeedsNoUpstreamButARemoteAndACommit() {
         var state = clean
         state.upstream = nil

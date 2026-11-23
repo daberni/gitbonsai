@@ -10,9 +10,9 @@ final class SidebarActionsController {
     let newBranch: NewBranchController
 
     /// `checkout` runs a checkout from the sidebar (a branch checked out elsewhere passes its worktree); `switchWorktree` moves the tab like a double click.
-    init(viewModel: GraphViewModel, branchPull: BranchPullController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void, switchWorktree: @escaping (String) -> Void) {
+    init(viewModel: GraphViewModel, branchPull: BranchPullController, fastForward: FastForwardController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void, switchWorktree: @escaping (String) -> Void) {
         let runner = SidebarActionRunner(viewModel: viewModel, prompter: prompter)
-        branches = BranchActionsController(runner: runner, branchPull: branchPull, checkout: checkout)
+        branches = BranchActionsController(runner: runner, branchPull: branchPull, fastForward: fastForward, checkout: checkout)
         worktrees = WorktreeActionsController(runner: runner, switchWorktree: switchWorktree)
         newBranch = NewBranchController(runner: runner)
     }

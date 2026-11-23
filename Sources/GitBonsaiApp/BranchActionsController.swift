@@ -7,11 +7,13 @@ final class BranchActionsController {
     private let runner: SidebarActionRunner
     private let checkout: (CheckoutTarget, _ worktreePath: String?) -> Void
     private let branchPull: BranchPullController
+    private let fastForward: FastForwardController
     private var viewModel: GraphViewModel { runner.viewModel }
 
-    init(runner: SidebarActionRunner, branchPull: BranchPullController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void) {
+    init(runner: SidebarActionRunner, branchPull: BranchPullController, fastForward: FastForwardController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void) {
         self.runner = runner
         self.branchPull = branchPull
+        self.fastForward = fastForward
         self.checkout = checkout
     }
 
@@ -31,12 +33,13 @@ final class BranchActionsController {
         let worktree = viewModel.branchesInOtherWorktrees[ref.fullName]
         let worktreeName = worktree.map { ($0.path as NSString).lastPathComponent }
         var checkoutGroup: [NSMenuItem] = []
-        var historyGroup: [NSMenuItem] = []
+        var historyGroup = fastForward.items(to: .ref(ref))
         if let pull = branchPull.item(for: ref) { checkoutGroup.append(pull) }
         if !ref.isHead {
             let title: LocalizedStringResource = worktreeName.map { folder -> LocalizedStringResource in LocalizedStringResource("worktree.action.switchTo", defaultValue: "Switch to Worktree \(RefName.worktree(folder))", bundle: .module) } ?? LocalizedStringResource("checkout.action.branch", defaultValue: "Checkout \(RefName.branch(name))", bundle: .module)
             checkoutGroup.append(ActionMenuItem(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })
-            if let current = viewModel.currentBranch {
+            // Merging or rebasing onto a descendant would only fast-forward, which the entry above does.
+            if let current = viewModel.currentBranch, !fastForward.canFastForwardCurrent(to: ref.target) {
                 historyGroup.append(ActionMenuItem(LocalizedStringResource("branch.menu.merge", defaultValue: "Merge \(RefName.branch(name)) into \(RefName.branch(current))", bundle: .module)) { [weak self] in self?.merge(name, into: current) })
                 historyGroup.append(ActionMenuItem(LocalizedStringResource("branch.menu.rebase", defaultValue: "Rebase \(RefName.branch(current)) onto \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.rebase(current, onto: name) })
             }
@@ -48,7 +51,7 @@ final class BranchActionsController {
         if !ref.isHead, worktree == nil {
             editGroup.append(ActionMenuItem(LocalizedStringResource("branch.menu.createWorktree", defaultValue: "Create Worktree for \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.createWorktree(for: name) })
         }
-        let copyGroup: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(name) }]
+        let copyGroup = Self.copyItems(ref)
         let deleteGroup: [NSMenuItem] = ref.isHead ? [] : [ActionMenuItem(LocalizedStringResource("branch.menu.delete", defaultValue: "Delete \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.delete(name, worktree: worktree) }]
         return [checkoutGroup, historyGroup, editGroup, copyGroup, deleteGroup]
     }
@@ -61,8 +64,16 @@ final class BranchActionsController {
         checkoutGroup += followers.compactMap(branchPull.item(for:))
         return [
             checkoutGroup,
-            [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(ref.name) }],
+            fastForward.items(to: .ref(ref)),
+            Self.copyItems(ref),
             [ActionMenuItem(LocalizedStringResource("branch.menu.deleteRemote", defaultValue: "Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemote(branch, on: remote) }],
+        ]
+    }
+
+    private static func copyItems(_ ref: Ref) -> [NSMenuItem] {
+        [
+            ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(ref.name) },
+            ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { ActionRunner.copy(ref.target) },
         ]
     }
 

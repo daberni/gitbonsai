@@ -63,6 +63,10 @@ public enum CommandBlocker: Sendable, Equatable {
     case conflicts
     case operationInProgress(OperationProgress.Kind)
     case noOperation
+    /// The branch has commits the target does not have.
+    case notFastForward
+    /// The branch already contains the target.
+    case upToDate
 }
 
 /// The enabled rules of the repository commands, one function per command family. Nil means the command can run.
@@ -130,6 +134,20 @@ public enum CommandRules {
 
     public static func checkout(_ state: RepositoryCommandState) -> CommandBlocker? {
         state.operation.map { .operationInProgress($0) }
+    }
+
+    /// Fast-forwarding the current branch to some ref, before a target is chosen.
+    public static func fastForward(_ state: RepositoryCommandState) -> CommandBlocker? {
+        if state.branch == nil { return .detachedHead }
+        if let operation = state.operation { return .operationInProgress(operation) }
+        return state.headSHA == nil ? .noCommits : nil
+    }
+
+    /// Fast-forwarding a branch at `branchHead` to `target` is offered only when the branch is a strict ancestor of the target.
+    /// `reachableFromTarget` holds the commits the target's history reaches; a branch outside it has commits of its own, or the history is not loaded that far.
+    public static func fastForward(branchHead: String, target: String, reachableFromTarget: Set<String>) -> CommandBlocker? {
+        if branchHead == target { return .upToDate }
+        return reachableFromTarget.contains(branchHead) ? nil : .notFastForward
     }
 
     public static func rebaseInteractive(_ state: RepositoryCommandState) -> CommandBlocker? {

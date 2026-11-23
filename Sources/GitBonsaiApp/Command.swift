@@ -149,6 +149,8 @@ extension CommandBlocker {
         case .conflicts: LocalizedStringResource("command.blocker.conflicts", defaultValue: "Unresolved conflicts", bundle: .module)
         case .operationInProgress(let kind): LocalizedStringResource("command.blocker.operationInProgress", defaultValue: "\(kind.label) in progress", bundle: .module)
         case .noOperation: LocalizedStringResource("command.blocker.noOperation", defaultValue: "Nothing in progress", bundle: .module)
+        case .notFastForward: LocalizedStringResource("command.blocker.notFastForward", defaultValue: "Not a fast-forward", bundle: .module)
+        case .upToDate: LocalizedStringResource("command.blocker.upToDate", defaultValue: "Already up to date", bundle: .module)
         }
     }
 }

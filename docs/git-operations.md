@@ -74,6 +74,10 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Delete on the remote | `git push <remote> --delete refs/heads/<branch>` | Asks first; the full ref name keeps a remote tag of the same name out of it, and a branch already gone on the remote is deleted without error, which removes its stale remote-tracking ref. Outside the queue |
 | Merge into the current branch | `git merge --no-edit <ref>` | On failure `git rev-parse --verify --quiet MERGE_HEAD` tells a stopped merge; its conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
 | Reset the current branch | `git reset --soft\|--mixed\|--hard <commit>` | |
+| Fast-forward a branch: check | `git rev-parse --verify <ref>^{commit}`, `git merge-base --is-ancestor <target> <branch head>`, `git merge-base --is-ancestor <branch head> <target>` | Refused before anything runs when the branch already contains the target or has commits of its own. The menus offer the entry only for targets that reach the branch in the loaded history; place from `git worktree list --porcelain` as for a branch pull |
+| Fast-forward the current branch | `git merge --ff-only <ref>` | Remote branch as `refs/remotes/<remote>/<branch>` |
+| Fast-forward a branch checked out nowhere | `git fetch --no-write-fetch-head . <ref>:refs/heads/<b>`; a remote branch with `git fetch --no-write-fetch-head <remote> refs/heads/<branch>:refs/heads/<b>` | Moves only the ref; git refuses anything but a fast-forward (`[rejected] … (non-fast-forward)`). Commits taken with `git rev-list --count <old>..<new>` |
+| Fast-forward a branch checked out in another worktree | `git -C <worktree> merge --ff-only <sha>` | Through that worktree's own index queue |
 
 ## History rewriting
 

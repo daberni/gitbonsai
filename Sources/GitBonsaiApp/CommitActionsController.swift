@@ -1,8 +1,8 @@
 import AppKit
 import GitEngine
 
-/// The context menu of a commit in the history beyond checking out, and running its actions with the questions they raise.
-/// Checkouts stay with `CheckoutController`; their entries lead the menu.
+/// The commit section of the history menus beyond checking out, and running its actions with the questions they raise.
+/// Checkouts stay with `CheckoutController`; `HistoryMenuController` puts the sections together.
 @MainActor
 final class CommitActionsController {
     let prompter = ActionPrompter()
@@ -23,12 +23,9 @@ final class CommitActionsController {
         interactiveRebase = InteractiveRebaseController(viewModel: viewModel, prompter: prompter)
     }
 
-    /// The whole menu of a row: `checkoutItems` as the first group, the commit's actions in groups after them. Stashes and the working directory get only the checkout items.
-    func menuItems(forRow index: Int, leadingWith checkoutItems: [NSMenuItem]) -> [NSMenuItem] {
-        guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .commit || viewModel.kinds[index] == .merge else { return checkoutItems }
-        let commit = viewModel.commits[index]
-        let groups = [checkoutItems, createItems(commit), historyItems(commit), interactiveRebase.menuItems(for: commit), copyItems(commit), tagItems(commit)].filter { !$0.isEmpty }
-        return groups.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
+    /// The commit section of the history menus, after its checkout: create, move the current branch here (`moveHere` adds the fast-forward entries), rewrite, copy, tag.
+    func groups(for commit: Commit, moveHere: [NSMenuItem]) -> [[NSMenuItem]] {
+        [createItems(commit), historyItems(commit, moveHere: moveHere), interactiveRebase.menuItems(for: commit), copyItems(commit), tagItems(commit)]
     }
 
     // MARK: Menu
@@ -41,14 +38,15 @@ final class CommitActionsController {
     }
 
     /// Entries that move the current branch are left out in detached HEAD, and where git would have nothing to do.
-    private func historyItems(_ commit: Commit) -> [NSMenuItem] {
+    private func historyItems(_ commit: Commit, moveHere: [NSMenuItem]) -> [NSMenuItem] {
         var items: [NSMenuItem] = []
-        guard let branch = viewModel.currentBranch else { return items }
+        guard let branch = viewModel.currentBranch else { return moveHere }
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
         if !inBranch {
             items.append(ActionMenuItem(LocalizedStringResource("commit.menu.cherryPick", defaultValue: "Cherry-Pick onto \(RefName.branch(branch))", bundle: .module)) { [weak self] in self?.cherryPick(commit) })
         }
+        items += moveHere
         items += rebaseOnto.items(branch: branch, commit: commit)
         if !isHead {
             let reset = NSMenuItem(title: "", action: nil, keyEquivalent: "")

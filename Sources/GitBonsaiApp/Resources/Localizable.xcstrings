@@ -239,6 +239,80 @@
         }
       }
     },
+    "branch.fastForward.diverged" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ hat Commits, die %2$@ nicht hat. Stattdessen mergen oder rebasen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ has commits that %2$@ does not have. Merge or rebase instead."
+          }
+        }
+      }
+    },
+    "branch.fastForward.done" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ um %2$lld Commit auf %3$@ vorgespult"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ um %2$lld Commits auf %3$@ vorgespult"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Fast-forwarded %1$@ by %2$lld commit to %3$@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Fast-forwarded %1$@ by %2$lld commits to %3$@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "branch.fastForward.upToDate" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ enthält %2$@ bereits."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ already contains %2$@."
+          }
+        }
+      }
+    },
     "branch.menu.changeUpstream" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -303,6 +377,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Delete %1$@ from %2$@…"
+          }
+        }
+      }
+    },
+    "branch.menu.fastForwardOther" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anderen Branch auf %@ vorspulen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Fast-Forward other Branch to %@"
           }
         }
       }
@@ -2054,6 +2145,23 @@
         }
       }
     },
+    "command.blocker.notFastForward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Vorspulen möglich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not a fast-forward"
+          }
+        }
+      }
+    },
     "command.blocker.nothingStaged" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -2118,6 +2226,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%@ in progress"
+          }
+        }
+      }
+    },
+    "command.blocker.upToDate" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bereits aktuell"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Already up to date"
           }
         }
       }
@@ -2476,6 +2601,40 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Edit Commit Message"
+          }
+        }
+      }
+    },
+    "command.fastForward.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "vorspulen, aktualisieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "fast-forward, ff-only, merge, update"
+          }
+        }
+      }
+    },
+    "command.fastForward.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf Branch vorspulen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Fast-Forward to Branch…"
           }
         }
       }
@@ -3824,6 +3983,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Create Worktree…"
+          }
+        }
+      }
+    },
+    "commit.menu.fastForward" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ auf diesen Commit vorspulen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Fast-Forward %@ to this Commit"
           }
         }
       }
@@ -6002,6 +6178,23 @@
         }
       }
     },
+    "failure.fastForward.failed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ nicht vorgespult"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ not fast-forwarded"
+          }
+        }
+      }
+    },
     "failure.fetch.failed" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -8011,23 +8204,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Reset columns"
-          }
-        }
-      }
-    },
-    "history.pill.createBranch" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch hier anlegen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Create Branch here…"
           }
         }
       }
@@ -11063,40 +11239,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Rebase %@ onto this Commit (ambiguous base)…"
-          }
-        }
-      }
-    },
-    "rebase.onto.fastForward" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf %@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %1$@ onto %2$@ (fast-forward)"
-          }
-        }
-      }
-    },
-    "rebase.onto.fastForwardHere" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf diesen Commit"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %@ onto this Commit (fast-forward)"
           }
         }
       }

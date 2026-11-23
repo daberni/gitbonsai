@@ -22,7 +22,9 @@ final class RebaseOntoController {
 
     // MARK: Menu
 
+    /// Nothing on a descendant of HEAD: the rebase would only fast-forward, which the menu's Fast-Forward entry offers.
     func items(branch: String, commit: Commit) -> [NSMenuItem] {
+        if let head = viewModel.headSHA, head != commit.id, viewModel.history.reachable(from: commit.id).contains(head) { return [] }
         let place = placeName(of: commit)
         let name = RefName.branch(branch)
         let interactiveTitle: LocalizedStringResource = if let place { LocalizedStringResource("rebase.onto.interactive", defaultValue: "Rebase \(name) interactively onto \(place.marked)…", bundle: .module) } else { LocalizedStringResource("rebase.onto.interactiveHere", defaultValue: "Rebase \(name) interactively onto this Commit…", bundle: .module) }
@@ -86,10 +88,6 @@ final class RebaseOntoController {
     static func title(branch: String, place: RefString?, detection: RebaseBaseDetection) -> RefString {
         let name = RefName.branch(branch)
         switch detection {
-        // Without own commits the rebase only fast-forwards; a count of none would read odd.
-        case .plain(let moving) where moving == 0:
-            guard let place else { return RefString(LocalizedStringResource("rebase.onto.fastForwardHere", defaultValue: "Rebase \(name) onto this Commit (fast-forward)", bundle: .module)) }
-            return RefString(LocalizedStringResource("rebase.onto.fastForward", defaultValue: "Rebase \(name) onto \(place.marked) (fast-forward)", bundle: .module))
         case .plain(let moving):
             return title(branch: branch, place: place, notes: [commits(moving)])
         case .tie:

@@ -110,6 +110,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.checkout),
             .command(.switchWorktree),
             .separator,
+            .command(.fastForward),
             .command(.rebaseInteractive),
             .family("operation."),
         ]),

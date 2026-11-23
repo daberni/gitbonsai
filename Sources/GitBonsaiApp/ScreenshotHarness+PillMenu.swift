@@ -6,6 +6,7 @@ extension ScreenshotHarness {
     /// `GITBONSAI_PILL_MENU=<step>,…` right-clicks with real events, one step a second, and prints the menu the view under the pointer gives for them (without opening it on screen):
     /// `pill:<row>:<n>` the middle of the n-th pill of a row (0 is the rightmost), `corner:<row>:<n>` the top left corner of its frame just outside the capsule, `counter:<row>` the "+n" counter,
     /// `row:<row>` the commit text, `overlay:<n>` the n-th pill of the expanded labels. `GITBONSAI_PILL_MENU_PICK=<title>` chooses an entry from the last menu printed.
+    /// With `GITBONSAI_MENU_SHOT=<png>` the last step's menu opens on screen for a moment and is rendered.
     static func drivePillMenus(_ history: HistoryViewController) {
         guard let steps = environment["GITBONSAI_PILL_MENU"]?.split(separator: ",").map(String.init) else { return }
         let table = history.tableView
@@ -57,6 +58,7 @@ extension ScreenshotHarness {
                 lastMenu = menu ?? lastMenu
                 let expanded = history.refOverlay.shownRow.map { "row \($0) expanded" } ?? "collapsed"
                 FileHandle.standardError.write(Data("pill menu \(step) on \(what) via \(source): \(menu.map(describe) ?? "no menu"); labels \(expanded)\n".utf8))
+                if offset == steps.count - 1, let shot = environment["GITBONSAI_MENU_SHOT"], let menu, let view { showAndCapture(menu, with: event, for: view, to: shot) }
             }
         }
         if let pick = environment["GITBONSAI_PILL_MENU_PICK"] {
@@ -66,5 +68,20 @@ extension ScreenshotHarness {
                 choose(pick, in: lastMenu)
             }
         }
+    }
+
+    /// Opens the menu as the right-click would and renders it from inside its tracking loop, then closes it.
+    private static func showAndCapture(_ menu: NSMenu, with event: NSEvent, for view: NSView, to path: String) {
+        // The timer fires on the main run loop; the menu only crosses into its closure.
+        nonisolated(unsafe) let tracked = menu
+        let capture = Timer(timeInterval: 0.4, repeats: false) { _ in
+            MainActor.assumeIsolated {
+                captureMenuWindow(to: path)
+                tracked.cancelTracking()
+            }
+        }
+        RunLoop.current.add(capture, forMode: .eventTracking)
+        RunLoop.current.add(capture, forMode: .common)
+        NSMenu.popUpContextMenu(menu, with: event, for: view)
     }
 }

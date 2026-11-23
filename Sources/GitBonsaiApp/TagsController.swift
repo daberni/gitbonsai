@@ -106,9 +106,10 @@ final class TagsController {
     }
 
     /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history.
-    func localTagGroups(_ name: String, commit: String) -> [[NSMenuItem]] {
+    /// `checkout` false leaves the checkout to a menu that offers the commit's own.
+    func localTagGroups(_ name: String, commit: String, checkout: Bool = true) -> [[NSMenuItem]] {
         [
-            [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }],
+            checkout ? [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] : [],
             remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } },
             [ActionMenuItem(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
                 ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
