@@ -172,7 +172,7 @@ final class DetailView: NSView {
 
     // MARK: Working directory
 
-    /// Shown again for a changed status, the panel stays and the file list is replaced once its line counts are known, in one step.
+    /// The file list appears with its line counts; shown again for a changed status, the panel stays and the list is replaced once the new counts are known, in one step.
     func showWorkingDirectory(status: RepositoryStatus, repository: Repository) {
         let isUpdate = isShowingWorkingDirectory && fileList != nil
         let list: FileListView
@@ -204,16 +204,31 @@ final class DetailView: NSView {
             }
             return result
         }
-        if !isUpdate { list.show(sections(unstagedStats: [:], stagedStats: [:])) }
         loadTask?.cancel()
         loadTask = Task {
-            async let unstagedStats = repository.workingStats(staged: false)
-            async let stagedStats = repository.workingStats(staged: true)
-            let counted = ((try? await unstagedStats) ?? [:], (try? await stagedStats) ?? [:])
+            let counting = Task {
+                async let unstagedStats = repository.workingStats(staged: false)
+                async let stagedStats = repository.workingStats(staged: true)
+                return ((try? await unstagedStats) ?? [:], (try? await stagedStats) ?? [:])
+            }
+            // Names and counts appear together; only when counting takes longer do the names show first, so a huge change set is not left blank.
+            let namesFirst: Task<Void, Never>? = isUpdate ? nil : Task {
+                try? await Task.sleep(for: Self.countWait)
+                guard !Task.isCancelled else { return }
+                list.show(sections(unstagedStats: [:], stagedStats: [:]))
+            }
+            let counted = await withTaskCancellationHandler { await counting.value } onCancel: {
+                counting.cancel()
+                namesFirst?.cancel()
+            }
+            namesFirst?.cancel()
             guard !Task.isCancelled else { return }
             list.show(sections(unstagedStats: counted.0, stagedStats: counted.1))
         }
     }
+
+    /// How long a newly shown file list waits for its line counts before it shows the names alone.
+    private static let countWait = Duration.milliseconds(150)
 
     func makeFileList() -> FileListView {
         let list = FileListView()
