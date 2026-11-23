@@ -52,6 +52,8 @@ final class GraphViewModel {
     private(set) var lastFetchFailure: String?
     /// A fetch started or ended, also one started by the auto fetch.
     var onFetchActivityChanged: (() -> Void)?
+    /// The fetch, pull or push running in this tab.
+    let remoteActivity = RemoteActivity()
     var statusLine = StatusLine(summary: String(localized: "history.status.loading", defaultValue: "Loading…", bundle: .module))
     var statusText: String { statusLine.text }
     var isLoading = false
@@ -178,7 +180,12 @@ final class GraphViewModel {
 
     /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.
     /// New remote commits only enter the history through the log, so the fetch ends with an in-place refresh, which reads it when a ref points at a commit that is not loaded. A failed fetch may still have moved some refs.
-    func fetch(_ variant: FetchVariant) async -> Error? {
+    /// A `background` fetch, such as the automatic one, only shows in the fetch state, not on the Fetch button. A cancelled fetch is no failure and returns nil.
+    func fetch(_ variant: FetchVariant, background: Bool = false) async -> Error? {
+        await remoteActivity.run(.fetch, background: background) { [self] in await performFetch(variant) }
+    }
+
+    private func performFetch(_ variant: FetchVariant) async -> Error? {
         setNote("\(variant.commandLine) …")
         isFetching = true
         defer { isFetching = false }
@@ -189,6 +196,9 @@ final class GraphViewModel {
             await loadLastFetch()
             await refresh(note: "\(variant.commandLine) \(elapsed(since: start))")
             return nil
+        } catch is CancellationError {
+            await refreshAfterCancel(variant.commandLine)
+            return nil
         } catch {
             await loadLastFetch()
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
@@ -196,5 +206,11 @@ final class GraphViewModel {
             await refresh(note: String(localized: "history.status.failedAfter", defaultValue: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"))
             return error
         }
+    }
+
+    /// Refreshes after the user cancelled a remote operation, which may have moved refs already. The refresh runs outside the cancelled task, whose git calls would stop at once.
+    func refreshAfterCancel(_ commandLine: String, focus: Focus = .keepSelection) async {
+        let note = String(localized: "history.status.cancelled", defaultValue: "\(commandLine) cancelled", bundle: .module, comment: "Status line: git command the user cancelled")
+        await Task { @MainActor in await refresh(note: note, focus: focus) }.value
     }
 }

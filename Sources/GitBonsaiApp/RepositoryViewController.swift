@@ -102,7 +102,7 @@ final class RepositoryViewController: NSObject {
         layout()
         bind()
         viewModel.load()
-        autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak self] in self?.view.window != nil })
+        autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes, background: true) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak self] in self?.view.window != nil })
         reconciler = TabReconciler(name: viewModel.repositoryName, refresh: { [weak self] in
             self?.workingDirectoryShownDuringReconcile = false
             return await self?.viewModel.reconcile() ?? .loading
@@ -164,7 +164,7 @@ final class RepositoryViewController: NSObject {
         let repository = viewModel.repository
         let hasRemote = await (try? repository.remotes())?.isEmpty == false
         let operation = await repository.operationInProgress()
-        return AutoFetchPolicy.Situation(hasRemote: hasRemote, operationInProgress: operation != nil, fetchRunning: viewModel.isFetching)
+        return AutoFetchPolicy.Situation(hasRemote: hasRemote, operationInProgress: operation != nil, fetchRunning: viewModel.remoteActivity.running != nil)
     }
 
     /// The tab closed or its window did: file events stop.

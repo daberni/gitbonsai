@@ -122,6 +122,10 @@ final class PullPushController {
     /// Pulls and refreshes the tab; true when the pull went through. Local changes come along through `--autostash`: when they conflict on the way back, the working directory shows the conflicts, and the status line and a toast say so, without a sheet.
     @discardableResult
     func performPull(_ variant: PullVariant) async -> Bool {
+        await viewModel.remoteActivity.run(.pull) { [self] in await pullAndRefresh(variant) }
+    }
+
+    private func pullAndRefresh(_ variant: PullVariant) async -> Bool {
         let repository = viewModel.repository
         let upstreamName = upstream?.name ?? String(localized: "pull.diverged.upstreamName", defaultValue: "Upstream", bundle: .module, comment: "Stands for the upstream branch when its name is unknown.")
         do {
@@ -129,6 +133,8 @@ final class PullPushController {
             await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""), focus: .followHead)
             if result.localChangesConflicted { prompter.onToast?(RefString(LocalizedStringResource("pull.toast.doneWithConflicts", defaultValue: "Pull done, local changes brought back with conflicts, stash “autostash” stays", bundle: .module)), prompter.onShowConflicts.map { show in ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { show() } }) }
             return true
+        } catch is CancellationError {
+            await viewModel.refreshAfterCancel(variant.commandLine, focus: .followHead)
         } catch let error as GitError where error.isDivergedPull {
             await viewModel.refresh(note: nil, focus: .followHead)
             await offerRebase(after: error, upstream: upstreamName)
@@ -237,14 +243,20 @@ final class PullPushController {
     private func run(_ variant: PushVariant, failure: LocalizedStringResource, handle: @escaping (GitError) async -> Bool) {
         let repository = viewModel.repository
         Task {
-            do {
-                try await repository.push(variant)
-                await viewModel.refresh(note: variant.commandLine)
-            } catch {
-                await viewModel.refresh(note: nil)
-                if let gitError = error as? GitError, await handle(gitError) { return }
-                prompter.report(error, title: failure)
-            }
+            await viewModel.remoteActivity.run(.push) { [self] in await pushAndRefresh(variant, repository: repository, failure: failure, handle: handle) }
+        }
+    }
+
+    private func pushAndRefresh(_ variant: PushVariant, repository: Repository, failure: LocalizedStringResource, handle: @escaping (GitError) async -> Bool) async {
+        do {
+            try await repository.push(variant)
+            await viewModel.refresh(note: variant.commandLine)
+        } catch is CancellationError {
+            await viewModel.refreshAfterCancel(variant.commandLine)
+        } catch {
+            await viewModel.refresh(note: nil)
+            if let gitError = error as? GitError, await handle(gitError) { return }
+            prompter.report(error, title: failure)
         }
     }
 }

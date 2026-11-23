@@ -22,6 +22,11 @@ extension RepositoryViewController {
             showFetchState()
         }
         viewModel.onFetchActivityChanged = { [weak self] in self?.showFetchState() }
+        viewModel.remoteActivity.onChange = { [weak self] in
+            guard let self else { return }
+            toolbar.showRemoteActivity(viewModel.remoteActivity.running)
+        }
+        toolbar.onCancelRemote = { [weak self] in self?.viewModel.remoteActivity.cancel() }
         history.connect(searchField: toolbar.searchField)
 
         sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }

@@ -9778,6 +9778,24 @@
         }
       }
     },
+    "history.status.cancelled" : {
+      "comment" : "Status line: git command the user cancelled",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ abgebrochen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ cancelled"
+          }
+        }
+      }
+    },
     "history.status.failedAfter" : {
       "comment" : "Status line: git command, duration, git's error",
       "extractionState" : "extracted_with_value",
@@ -16361,6 +16379,24 @@
         }
       }
     },
+    "toolbar.fetch.cancel" : {
+      "comment" : "Menu item of the running Fetch button.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cancel Fetch"
+          }
+        }
+      }
+    },
     "toolbar.fetch.failed" : {
       "comment" : "The toolbar's fetch status after the remote name when the last fetch failed.",
       "extractionState" : "extracted_with_value",
@@ -16579,6 +16615,24 @@
         }
       }
     },
+    "toolbar.pull.cancel" : {
+      "comment" : "Menu item of the running Pull button.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cancel Pull"
+          }
+        }
+      }
+    },
     "toolbar.pull.title" : {
       "comment" : "Toolbar button.",
       "extractionState" : "extracted_with_value",
@@ -16637,6 +16691,24 @@
         }
       }
     },
+    "toolbar.push.cancel" : {
+      "comment" : "Menu item of the running Push button.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push abbrechen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cancel Push"
+          }
+        }
+      }
+    },
     "toolbar.push.noUpstreamToolTip" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -16668,6 +16740,60 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Push"
+          }
+        }
+      }
+    },
+    "toolbar.remote.fetchRunning" : {
+      "comment" : "Tooltip of the toolbar's remote buttons while a fetch runs.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch läuft"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Fetch is running"
+          }
+        }
+      }
+    },
+    "toolbar.remote.pullRunning" : {
+      "comment" : "Tooltip of the toolbar's remote buttons while a pull runs.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull läuft"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pull is running"
+          }
+        }
+      }
+    },
+    "toolbar.remote.pushRunning" : {
+      "comment" : "Tooltip of the toolbar's remote buttons while a push runs.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push läuft"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Push is running"
           }
         }
       }

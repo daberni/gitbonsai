@@ -9,7 +9,9 @@ final class RepositoryToolbar: BarView {
     var onBranch: (() -> Void)? { didSet { branch.isEnabled = onBranch != nil } }
     var onPop: (() -> Void)? { didSet { pop.isEnabled = onPop != nil } }
     /// The variants in the fetch button's menu, the first enabled one its default; without them the button only runs `onFetch`.
-    var fetchMenu: (() -> NSMenu)? { didSet { fetchButton.toolTip = fetchMenu == nil ? nil : String(localized: "toolbar.fetch.toolTip", defaultValue: "Fetch all remotes; more options behind the arrow", bundle: .module) } }
+    var fetchMenu: (() -> NSMenu)? { didSet { applyRemoteState() } }
+    /// Cancels the running fetch, pull or push; the running button offers it.
+    var onCancelRemote: (() -> Void)?
     /// The menus of Pull and Push, the first enabled entry each button's default; the buttons start disabled until `showUpstream` enables them.
     var pullMenu: (() -> NSMenu)?
     var pushMenu: (() -> NSMenu)?
@@ -30,6 +32,12 @@ final class RepositoryToolbar: BarView {
     /// Turns beside the fetch state while a fetch runs.
     private let fetchSpinner = NSProgressIndicator()
     private var showsSpinner = false
+    /// What `showUpstream` last set, combined with the running operation in `applyRemoteState`.
+    private var canPull = false
+    private var canPush = false
+    private var pullToolTip: String?
+    private var pushToolTip: String?
+    private var activity: RemoteActivity.Running?
     let searchField = CommitSearchField()
 
     init() {
@@ -55,6 +63,9 @@ final class RepositoryToolbar: BarView {
         actions.translatesAutoresizingMaskIntoConstraints = false
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
+        for (button, kind) in [(fetchButton, RemoteActivity.Kind.fetch), (pull, .pull), (push, .push)] {
+            button.runningMenu = { [weak self] in self?.cancelMenu(kind) ?? NSMenu() }
+        }
 
         for view in [fetchLabel, fetchSpinner, actions, searchField, behindBadge, aheadBadge] { addSubview(view) }
         for (badge, button) in [(behindBadge, pull), (aheadBadge, push)] {
@@ -95,17 +106,69 @@ final class RepositoryToolbar: BarView {
     /// Enables Pull and Push and badges them with the commits each would move; without counts (no upstream, or never fetched) the badges stay hidden.
     /// `lacksUpstream` marks a branch that could be pushed but has no upstream yet.
     func showUpstream(canPull: Bool, canPush: Bool, upstream: Upstream?, lacksUpstream: Bool) {
-        pull.isEnabled = canPull
-        push.isEnabled = canPush
+        self.canPull = canPull
+        self.canPush = canPush
         behindBadge.show(upstream?.behind.map(CornerBadge.Content.count))
-        pull.toolTip = upstream.flatMap { up in up.behind.map { Self.behind($0, up.name) } }
+        pullToolTip = upstream.flatMap { up in up.behind.map { Self.behind($0, up.name) } }
         if lacksUpstream {
             aheadBadge.show(.symbol("exclamationmark"), tone: .danger)
-            push.toolTip = String(localized: "toolbar.push.noUpstreamToolTip", defaultValue: "No upstream: the first push creates the branch on the remote and sets it as upstream.", bundle: .module)
+            pushToolTip = String(localized: "toolbar.push.noUpstreamToolTip", defaultValue: "No upstream: the first push creates the branch on the remote and sets it as upstream.", bundle: .module)
         } else {
             aheadBadge.show(upstream?.ahead.map(CornerBadge.Content.count))
-            push.toolTip = upstream.flatMap { up in up.ahead.map { Self.ahead($0, up.name) } }
+            pushToolTip = upstream.flatMap { up in up.ahead.map { Self.ahead($0, up.name) } }
         }
+        applyRemoteState()
+    }
+
+    /// Shows the running fetch, pull or push on its button; a background one, such as the automatic fetch, shows only in the fetch state, so the buttons do not flicker.
+    func showRemoteActivity(_ running: RemoteActivity.Running?) {
+        activity = running?.isBackground == true ? nil : running
+        applyRemoteState()
+    }
+
+    /// While an operation runs its button spins and offers Cancel, and the other remote buttons wait with a tooltip naming it.
+    private func applyRemoteState() {
+        let fetchToolTip = fetchMenu == nil ? nil : String(localized: "toolbar.fetch.toolTip", defaultValue: "Fetch all remotes; more options behind the arrow", bundle: .module)
+        let states: [(MenuButton, RemoteActivity.Kind, Bool, String?)] = [
+            (fetchButton, .fetch, true, fetchToolTip),
+            (pull, .pull, canPull, pullToolTip),
+            (push, .push, canPush, pushToolTip),
+        ]
+        for (button, kind, available, toolTip) in states {
+            guard let activity else {
+                button.isRunning = false
+                button.isEnabled = available
+                button.toolTip = toolTip
+                continue
+            }
+            button.isRunning = activity.kind == kind
+            button.isEnabled = activity.kind == kind
+            button.toolTip = Self.runningToolTip(activity.kind)
+        }
+    }
+
+    private static func runningToolTip(_ kind: RemoteActivity.Kind) -> String {
+        switch kind {
+        case .fetch: String(localized: "toolbar.remote.fetchRunning", defaultValue: "Fetch is running", bundle: .module, comment: "Tooltip of the toolbar's remote buttons while a fetch runs.")
+        case .pull: String(localized: "toolbar.remote.pullRunning", defaultValue: "Pull is running", bundle: .module, comment: "Tooltip of the toolbar's remote buttons while a pull runs.")
+        case .push: String(localized: "toolbar.remote.pushRunning", defaultValue: "Push is running", bundle: .module, comment: "Tooltip of the toolbar's remote buttons while a push runs.")
+        }
+    }
+
+    private func cancelMenu(_ kind: RemoteActivity.Kind) -> NSMenu {
+        let title = switch kind {
+        case .fetch: LocalizedStringResource("toolbar.fetch.cancel", defaultValue: "Cancel Fetch", bundle: .module, comment: "Menu item of the running Fetch button.")
+        case .pull: LocalizedStringResource("toolbar.pull.cancel", defaultValue: "Cancel Pull", bundle: .module, comment: "Menu item of the running Pull button.")
+        case .push: LocalizedStringResource("toolbar.push.cancel", defaultValue: "Cancel Push", bundle: .module, comment: "Menu item of the running Push button.")
+        }
+        let menu = NSMenu()
+        menu.addItem(ActionMenuItem(title) { [weak self] in self?.onCancelRemote?() })
+        return menu
+    }
+
+    /// The remote buttons as shown, for harness output: enabled, running and tooltip of each.
+    var remoteButtonsText: String {
+        [fetchButton, pull, push].map { "\($0.title): \($0.isEnabled ? "enabled" : "disabled")\($0.isRunning ? " [running]" : "") · tooltip \($0.toolTip ?? "-")" }.joined(separator: "\n")
     }
 
     private static func behind(_ count: Int, _ upstream: String) -> String {
@@ -178,119 +241,5 @@ final class RepositoryToolbar: BarView {
         let menu = NSMenu()
         menu.addItem(ActionMenuItem(LocalizedStringResource("toolbar.fetch.title", defaultValue: "Fetch", bundle: .module, comment: "Menu item that fetches the only remote.")) { [weak self] in self?.onFetch?() })
         return menu
-    }
-}
-
-/// A toolbar action with several variants, split in two like a macOS split button: the main part runs the default variant, the chevron behind a divider opens all variants below the button.
-/// The default is the menu's first enabled entry, so the menus list it first. The chevron part adds a fixed width, so the button never changes size with the menu's contents.
-final class MenuButton: NSButton, NSMenuDelegate {
-    private let entries: () -> NSMenu
-    private let divider = DividerLine()
-    private let chevron = NSImageView()
-
-    init(_ title: LocalizedStringResource, _ symbol: String, enabled: Bool, entries: @escaping () -> NSMenu) {
-        self.entries = entries
-        super.init(frame: .zero)
-        cell = SplitCell()
-        self.title = title.text
-        image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        imagePosition = .imageLeading
-        bezelStyle = .rounded
-        controlSize = .large
-        target = self
-        action = #selector(runDefault(_:))
-        isEnabled = enabled
-
-        chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: String(localized: "toolbar.menu.options", defaultValue: "Options", bundle: .module, comment: "The chevron part of a toolbar split button."))
-        chevron.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Toolbar.chevronSize, weight: .semibold)
-        chevron.contentTintColor = Theme.inkMuted
-        for view in [divider, chevron] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        NSLayoutConstraint.activate([
-            divider.widthAnchor.constraint(equalToConstant: Theme.Stroke.hairline),
-            divider.heightAnchor.constraint(equalToConstant: Theme.Toolbar.dividerHeight),
-            divider.centerYAnchor.constraint(equalTo: centerYAnchor),
-            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Toolbar.menuPart),
-            chevron.centerXAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Toolbar.menuPart / 2),
-            chevron.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
-        updateParts()
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    override var isEnabled: Bool { didSet { updateParts() } }
-
-    override var intrinsicContentSize: NSSize {
-        var size = super.intrinsicContentSize
-        size.width += Theme.Toolbar.menuPart
-        return size
-    }
-
-    /// Disabled, divider and chevron fade like the title.
-    private func updateParts() {
-        let alpha = isEnabled ? 1 : Theme.Toolbar.disabledAlpha
-        divider.alphaValue = alpha
-        chevron.alphaValue = alpha
-    }
-
-    /// A press on the chevron part opens the variants; anywhere else the button tracks the click as usual and runs the default.
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        guard isEnabled, point.x >= bounds.maxX - Theme.Toolbar.menuPart else {
-            super.mouseDown(with: event)
-            return
-        }
-        // Built anew for every opening, since branch, upstream and remotes change between clicks. The button shows pressed while the menu is open and lets go the moment it closes:
-        // `popUp` returns only after the chosen entry's action has run, so waiting for it would keep the button pressed through that action.
-        let menu = entries()
-        menu.delegate = self
-        setPressed(true)
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + Theme.Space.xs), in: self)
-        setPressed(false)
-    }
-
-    func menuDidClose(_ menu: NSMenu) {
-        setPressed(false)
-    }
-
-    /// Draws the change at once instead of with the window's next update, which waits for the menu's tracking to unwind.
-    private func setPressed(_ pressed: Bool) {
-        guard isHighlighted != pressed else { return }
-        isHighlighted = pressed
-        displayIfNeeded()
-    }
-
-    /// Divider and chevron are drawing only; every press belongs to the button.
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        super.hitTest(point) == nil ? nil : self
-    }
-
-    @objc private func runDefault(_ sender: Any?) {
-        let menu = entries()
-        guard let index = menu.items.firstIndex(where: { $0.isEnabled && !$0.isSeparatorItem && $0.action != nil }) else { return }
-        menu.performActionForItem(at: index)
-    }
-}
-
-/// Lays out image and title in the main part only, left of the chevron part.
-private final class SplitCell: NSButtonCell {
-    override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
-        var main = cellFrame
-        main.size.width -= Theme.Toolbar.menuPart
-        super.drawInterior(withFrame: main, in: controlView)
-    }
-}
-
-/// The divider between the main part and the chevron part of a split button.
-private final class DividerLine: NSView {
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = Theme.inkFaint.cgColor
-        }
     }
 }

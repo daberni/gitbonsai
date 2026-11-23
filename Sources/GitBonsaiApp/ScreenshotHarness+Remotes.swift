@@ -116,7 +116,7 @@ extension ScreenshotHarness {
         }
     }
 
-    private static func toolbarButton(_ title: String, on tab: RepositoryViewController) -> MenuButton? {
+    static func toolbarButton(_ title: String, on tab: RepositoryViewController) -> MenuButton? {
         guard let window = tab.toolbar.window, let button = views(of: MenuButton.self, in: window).first(where: { $0.title == title && $0.isDescendant(of: tab.toolbar) }) else {
             FileHandle.standardError.write(Data("no toolbar button \(title)\n".utf8))
             return nil
@@ -148,7 +148,7 @@ extension ScreenshotHarness {
     }
 
     /// A window that is not key swallows the first click on a button, so the press goes to the view under the point directly; its tracking loop finds the queued release.
-    private static func press(_ button: NSView, at local: NSPoint) {
+    static func press(_ button: NSView, at local: NSPoint) {
         guard let window = button.window else { return }
         let point = button.convert(local, to: nil)
         guard let target = window.contentView?.superview?.hitTest(point), let down = mouseEvent(.leftMouseDown, at: point, in: window) else { return }

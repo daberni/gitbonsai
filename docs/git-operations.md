@@ -159,8 +159,8 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Add a remote | `git check-ref-format refs/remotes/<name>/test` while typing the name, then `git remote add -- <name> <url>`; with "Fetch after adding" `git fetch --no-prune <name>` | From the sidebar's "Add Remote…". A remote without fetched branches still gets its sidebar header, from `git remote` |
 | Edit a remote | `git remote rename -- <old> <new>` and/or `git remote set-url -- <name> <url>` | Only what changed; the URL is read with `git config -z --get-regexp ^remote\..*\.url$`. A rename moves its remote branches and the upstream of local branches |
 | Remove a remote | `git remote remove -- <name>` | Asks first; its remote branches go, local branches that tracked it lose their upstream |
-| Fetch all | `git fetch --all --prune` | Every fetch ends with the in-place refresh, so fetched commits enter the history |
-| Automatic fetch | `git fetch --all --prune` | Visible tab only, on activation and periodically (`AutoFetchPolicy`). Reads `git remote` and `git rev-parse --git-path` for an operation in progress first and skips without a remote or during a rebase, merge, cherry-pick or revert |
+| Fetch all | `git fetch --all --prune` | Every fetch ends with the in-place refresh, so fetched commits enter the history. While a fetch, pull or push runs, its toolbar button offers Cancel, which terminates git and its helpers and refreshes |
+| Automatic fetch | `git fetch --all --prune` | Visible tab only, on activation and periodically (`AutoFetchPolicy`), and never while a fetch, pull or push runs. Reads `git remote` and `git rev-parse --git-path` for an operation in progress first and skips without a remote or during a rebase, merge, cherry-pick or revert |
 | Fetch one remote | `git fetch --prune\|--no-prune <remote>` | |
 | Fetch tags | `git fetch --all --tags` | |
 | Upstream and ahead/behind | `git config --get branch.<b>.remote`, `git config --get branch.<b>.merge`, `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | Counts next to Pull and Push |

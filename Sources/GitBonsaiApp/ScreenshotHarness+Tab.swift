@@ -21,6 +21,7 @@ extension ScreenshotHarness {
         scrollSidebar(tab.sidebar)
         openCommitMenu(on: tab)
         runRemotesAndRebase(on: tab)
+        driveRemoteActivity(on: tab)
         driveStashesAndTags(on: tab)
         openSidebarMenu(on: tab)
         openAddRemote(on: tab)

@@ -88,6 +88,7 @@ Remotes and rebase:
 - `GITBONSAI_EDIT_AMEND=<subject>` at an edit stop clicks "Amend Commit…" in the banner, types the subject into the commit form, clicks Amend and then Continue; `GITBONSAI_REBASE_UNDO=1` clicks "Undo" in the status line.
 - `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>`, `GITBONSAI_PUSH=<title>` or `GITBONSAI_STASH=<title>` clicks the chevron of that toolbar split button with a real click, prints its menu (an empty title stops there), chooses the entry and prints the status line, the banner, the ahead/behind counts and the button frames afterwards; the first-push and upstream sheets take `GITBONSAI_FORM`.
 - `GITBONSAI_TOOLBAR_DEFAULT=Fetch|Pull|Push|Stash` clicks the main part of that split button with a real click, which runs the first enabled entry of its menu, and prints the status line, the banner and the ahead/behind counts afterwards.
+- `GITBONSAI_REMOTE_STEPS=<step>;…` drives the toolbar while a fetch, pull or push runs, one step every half second: `click:Fetch|Pull|Push` clicks the main part with a real click and prints the menu it opens, `cancel:<button>` opens the running button's menu and chooses Cancel, `print` prints the remote buttons (enabled, `[running]`, tooltip), the fetch state and the status line, `shot:<png>` renders the window, `wait:<seconds>`. A slow remote comes from `remote.origin.uploadpack` or `remote.origin.receivepack` set to a script that sleeps and then runs `git-upload-pack` or `git-receive-pack`.
 
 Sidebar:
 
