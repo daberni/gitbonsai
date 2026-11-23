@@ -12,6 +12,8 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
     let subject: TextInput
     private let bodyBox = FieldBox()
     let body = PlainTextView()
+    /// Past the maximum height the body scrolls inside its box.
+    private let bodyScroll = NSScrollView()
     private var bodyHeight: NSLayoutConstraint!
     let saveButton = PrimaryButton(title: String(localized: "commit.editor.save", defaultValue: "Save", bundle: .module, comment: "Saves an edited commit message"))
     let cancelButton = SecondaryButton(title: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
@@ -105,20 +107,25 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
         body.textContainer?.lineFragmentPadding = 0
         body.textContainerInset = NSSize(width: Theme.TextField.inset.width - Theme.Control.focusWidth, height: Theme.TextField.inset.height)
         body.textContainer?.widthTracksTextView = true
-        body.isVerticallyResizable = false
+        body.isVerticallyResizable = true
         body.isHorizontallyResizable = false
+        body.autoresizingMask = [.width]
         body.focusRingType = .none
         body.delegate = self
         body.onFocusChange = { [weak self] focused in self?.bodyBox.isFocused = focused }
-        body.translatesAutoresizingMaskIntoConstraints = false
-        bodyBox.addSubview(body)
+        bodyScroll.documentView = body
+        bodyScroll.drawsBackground = false
+        bodyScroll.hasVerticalScroller = true
+        bodyScroll.autohidesScrollers = true
+        bodyScroll.translatesAutoresizingMaskIntoConstraints = false
+        bodyBox.addSubview(bodyScroll)
         let inset = Theme.Control.focusWidth
         bodyHeight = bodyBox.heightAnchor.constraint(equalToConstant: M.bodyMinimumHeight)
         NSLayoutConstraint.activate([
-            body.topAnchor.constraint(equalTo: bodyBox.topAnchor, constant: inset),
-            body.leadingAnchor.constraint(equalTo: bodyBox.leadingAnchor, constant: inset),
-            body.trailingAnchor.constraint(equalTo: bodyBox.trailingAnchor, constant: -inset),
-            body.bottomAnchor.constraint(equalTo: bodyBox.bottomAnchor, constant: -inset),
+            bodyScroll.topAnchor.constraint(equalTo: bodyBox.topAnchor, constant: inset),
+            bodyScroll.leadingAnchor.constraint(equalTo: bodyBox.leadingAnchor, constant: inset),
+            bodyScroll.trailingAnchor.constraint(equalTo: bodyBox.trailingAnchor, constant: -inset),
+            bodyScroll.bottomAnchor.constraint(equalTo: bodyBox.bottomAnchor, constant: -inset),
             bodyHeight,
         ])
     }
@@ -148,17 +155,18 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
         note.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
-    /// The body grows with its text; the width it wraps at follows the panel.
+    /// The body grows with its text up to its maximum; the width it wraps at follows the panel.
     override func layout() {
         super.layout()
         fitBody()
     }
 
     private func fitBody() {
+        body.frame.size.width = bodyScroll.contentSize.width
         guard let manager = body.layoutManager, let container = body.textContainer else { return }
         manager.ensureLayout(for: container)
         let text = manager.usedRect(for: container).height + 2 * body.textContainerInset.height + 2 * Theme.Control.focusWidth
-        let height = max(M.bodyMinimumHeight, ceil(text))
+        let height = min(max(M.bodyMinimumHeight, ceil(text)), M.bodyMaximumHeight)
         if bodyHeight.constant != height { bodyHeight.constant = height }
     }
 

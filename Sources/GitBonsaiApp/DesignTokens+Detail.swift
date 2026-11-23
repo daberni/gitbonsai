@@ -54,8 +54,9 @@ extension Theme {
     /// A commit's message edited in place in the detail panel, in the commit form's style.
     enum MessageEditor {
         static let spacing = Space.s
-        /// The body starts at the commit form's height and grows with its text.
+        /// The body starts at the commit form's height and grows with its text up to the maximum, then scrolls; the detail panel shows a message body at most this tall too.
         static let bodyMinimumHeight = CommitForm.bodyHeight
+        static let bodyMaximumHeight: CGFloat = 160
         static let counterWidth = CommitForm.counterWidth
         /// The pencil at the right of the panel's title, and the point size of its symbol.
         static let pencil = Icon.small

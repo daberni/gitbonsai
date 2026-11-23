@@ -28,7 +28,7 @@ extension DetailView {
         var messageViews: [NSView] = [subject]
         let body = commit.body.trimmingCharacters(in: .whitespacesAndNewlines)
         if !body.isEmpty {
-            let bodyLabel = label(body, font: Theme.body, color: Theme.inkMuted, wraps: true)
+            let bodyLabel = MessageBodyView(body)
             add(bodyLabel)
             messageViews.append(bodyLabel)
         }
