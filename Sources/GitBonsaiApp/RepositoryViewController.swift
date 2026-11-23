@@ -24,7 +24,7 @@ final class RepositoryViewController: NSObject {
     let pullPush: PullPushController
     let branchPull: BranchPullController
     let operationBanner: OperationBannerController
-    let rebaseUndo: RebaseUndoController
+    let undo: UndoController
     var sidebarActions: SidebarActionsController!
     var historyMenu: HistoryMenuController!
     let fastForward: FastForwardController
@@ -82,7 +82,7 @@ final class RepositoryViewController: NSObject {
         branchPull = BranchPullController(viewModel: viewModel, pullPush: pullPush)
         fastForward = FastForwardController(viewModel: viewModel, prompter: commitActions.prompter)
         operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
-        rebaseUndo = RebaseUndoController(viewModel: viewModel, prompter: commitActions.prompter)
+        undo = UndoController(viewModel: viewModel, prompter: commitActions.prompter)
         staging = StagingController(viewModel: viewModel)
         fileActions = FileActionsController(viewModel: viewModel, staging: staging)
         commitController = CommitController(viewModel: viewModel)
@@ -216,7 +216,7 @@ final class RepositoryViewController: NSObject {
             fetchController.refreshRemotes()
             pullPush.refresh()
             operationBanner.update()
-            rebaseUndo.update()
+            undo.update()
         }
         selectHeadIfLoaded()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)

@@ -102,7 +102,7 @@ final class StashesController {
 
     /// Asks for a message and whether untracked files go along, then stashes.
     func stashWithMessage() {
-        let form = ActionForm(title: LocalizedStringResource("stash.action.stashChanges", defaultValue: "Stash changes", bundle: .module), info: LocalizedStringResource("stash.form.info", defaultValue: "All changes in the working directory go into a new stash.", bundle: .module), confirm: LocalizedStringResource("stash.form.confirm", defaultValue: "Stash", bundle: .module, comment: "Button that stashes the changes."))
+        let form = ActionForm(title: LocalizedStringResource("stash.action.stashChanges", defaultValue: "Stash changes", bundle: .module), confirm: LocalizedStringResource("stash.form.confirm", defaultValue: "Stash", bundle: .module, comment: "Button that stashes the changes."))
         form.addField(key: "message", label: LocalizedStringResource("stash.form.message", defaultValue: "Message (optional)", bundle: .module), placeholder: String(localized: "stash.form.messagePlaceholder", defaultValue: "WIP", bundle: .module, comment: "Placeholder of a stash message: work in progress."), required: false)
         form.addCheckbox(LocalizedStringResource("stash.form.includeUntracked", defaultValue: "Include untracked files", bundle: .module), checked: true)
         Task {
@@ -180,14 +180,14 @@ final class StashesController {
     func drop(_ id: String) {
         guard let stash = stash(id) else { return }
         Task {
-            guard await runner.confirm(LocalizedStringResource("stash.drop.title", defaultValue: "Drop \(RefName.stash(stash.selector))?", bundle: .module), info: LocalizedStringResource("stash.drop.info", defaultValue: "“\(stash.text)” is deleted. The changes in it are lost afterwards.", bundle: .module), button: LocalizedStringResource("stash.drop.confirm", defaultValue: "Drop", bundle: .module, comment: "Button that deletes a stash.")) else { return }
+            guard await runner.confirm(LocalizedStringResource("stash.drop.title", defaultValue: "Drop Stash?", bundle: .module), names: RefString(marked: RefName.stash(stash.selector) + "\n" + stash.text), button: LocalizedStringResource("stash.drop.confirm", defaultValue: "Drop", bundle: .module, comment: "Button that deletes a stash.")) else { return }
             runner.run(failure: LocalizedStringResource("failure.stash.notDeleted", defaultValue: "Stash not deleted", bundle: .module), note: "git stash drop \(stash.selector)") { try await $0.dropStash(stash) }
         }
     }
 
     func createBranch(_ id: String) {
         guard let stash = stash(id) else { return }
-        let form = ActionForm(title: LocalizedStringResource("stash.createBranch.title", defaultValue: "Create Branch from \(RefName.stash(stash.selector))", bundle: .module), info: LocalizedStringResource("stash.createBranch.info", defaultValue: "The branch starts at the commit the stash was made on. The stash is applied there and deleted afterwards.", bundle: .module), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("stash.createBranch.title", defaultValue: "Create Branch from \(RefName.stash(stash.selector))", bundle: .module), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
         form.addField(key: "name", label: LocalizedStringResource("common.name", defaultValue: "Name", bundle: .module, comment: "Label of a branch name field."), placeholder: "feature/…")
         Task {
             guard let values = await prompter.ask(form), let name = values.value("name") else { return }

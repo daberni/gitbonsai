@@ -128,7 +128,6 @@ final class OperationBannerController {
             if action == .abort {
                 let alert = NSAlert()
                 alert.messageText = String(localized: "operation.abort.title", defaultValue: "Abort \(label)?", bundle: .module, comment: "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.")
-                alert.informativeText = String(localized: "operation.abort.info", defaultValue: "Branch, index and working directory return to where they were before the \(label). Conflicts already resolved are lost.", bundle: .module, comment: "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.")
                 alert.addButton(withTitle: String(localized: "operation.abort.confirm", defaultValue: "Abort \(label)", bundle: .module, comment: "Button; the argument is git's operation: Rebase, Cherry-pick, Revert or Merge."))
                 alert.addButton(withTitle: String(localized: "operation.abort.keepResolving", defaultValue: "Keep resolving", bundle: .module))
                 alert.buttons.first?.hasDestructiveAction = true

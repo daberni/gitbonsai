@@ -159,11 +159,11 @@ final class FileActionsController {
                 if try await repository.hasLocalChanges(at: paths) {
                     let alert = NSAlert()
                     alert.alertStyle = .warning
+                    let names = RefString(marked: paths.map(RefName.path).joined(separator: "\n") + "\n← " + RefName.commit(revision))
                     if paths.count == 1 {
-                        let path = paths[0]
-                        alert.setText(LocalizedStringResource("files.restore.title", defaultValue: "Restore \(RefName.path((path as NSString).lastPathComponent)) from \(RefName.commit(revision))?", bundle: .module), info: LocalizedStringResource("files.restore.info", defaultValue: "The local changes to \(RefName.path(path)) will be overwritten. This can’t be undone. Staged changes stay in the index.", bundle: .module))
+                        alert.setConfirmation(LocalizedStringResource("files.restore.title", defaultValue: "Restore File?", bundle: .module), names: names)
                     } else {
-                        alert.setText(LocalizedStringResource("files.restoreSeveral.title", defaultValue: "Restore \(paths.count) files from \(RefName.commit(commit.id))?", bundle: .module), info: LocalizedStringResource("files.restoreSeveral.info", defaultValue: "Their local changes will be overwritten. This can’t be undone. Staged changes stay in the index.", bundle: .module))
+                        alert.setConfirmation(LocalizedStringResource("files.restoreSeveral.title", defaultValue: "Restore Files?", bundle: .module), names: names)
                     }
                     Self.addButtons(to: alert, confirm: LocalizedStringResource("files.restore.confirm", defaultValue: "Restore", bundle: .module))
                     guard await prompter.confirm(alert) else { return }
@@ -198,11 +198,11 @@ final class FileActionsController {
         Task {
             let alert = NSAlert()
             alert.alertStyle = .warning
-            if let selection = selections.first, selections.count == 1 {
-                let info: LocalizedStringResource = selection.source == .untracked ? LocalizedStringResource("files.trash.infoUntracked", defaultValue: "\(RefName.path(selection.path)) is removed from the working directory and goes to the Trash.", bundle: .module) : LocalizedStringResource("files.trash.info", defaultValue: "\(RefName.path(selection.path)) is removed from the working directory and goes to the Trash. Git then shows it as deleted.", bundle: .module)
-                alert.setText(LocalizedStringResource("files.trash.title", defaultValue: "Move \(RefName.path(selection.name)) to the Trash?", bundle: .module), info: info)
+            let names = RefString(marked: selections.map { RefName.path($0.path) }.joined(separator: "\n"))
+            if selections.count == 1 {
+                alert.setConfirmation(LocalizedStringResource("files.trash.title", defaultValue: "Move File to the Trash?", bundle: .module), names: names)
             } else {
-                alert.setText(LocalizedStringResource("files.trashSeveral.title", defaultValue: "Move \(selections.count) files to the Trash?", bundle: .module), info: LocalizedStringResource("files.trashSeveral.info", defaultValue: "They are removed from the working directory and go to the Trash.", bundle: .module))
+                alert.setConfirmation(LocalizedStringResource("files.trashSeveral.title", defaultValue: "Move Files to the Trash?", bundle: .module), names: names)
             }
             Self.addButtons(to: alert, confirm: LocalizedStringResource("files.trash.confirm", defaultValue: "Move to Trash", bundle: .module))
             guard await prompter.confirm(alert) else { return }

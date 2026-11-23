@@ -45,7 +45,7 @@ final class WorktreeActionsController {
     }
 
     private func lock(_ path: String) {
-        let form = ActionForm(title: LocalizedStringResource("worktree.lock.title", defaultValue: "Lock \(RefName.worktree((path as NSString).lastPathComponent))", bundle: .module), info: LocalizedStringResource("worktree.lock.info", defaultValue: "A locked worktree is not pruned, moved or removed, for example when it lives on a drive that is not always connected.", bundle: .module), confirm: LocalizedStringResource("worktree.lock.confirm", defaultValue: "Lock", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("worktree.lock.title", defaultValue: "Lock \(RefName.worktree((path as NSString).lastPathComponent))", bundle: .module), confirm: LocalizedStringResource("worktree.lock.confirm", defaultValue: "Lock", bundle: .module))
         form.addField(key: "reason", label: LocalizedStringResource("worktree.lock.reason", defaultValue: "Reason (optional)", bundle: .module), required: false)
         Task {
             guard let values = await runner.prompter.ask(form) else { return }
@@ -61,8 +61,7 @@ final class WorktreeActionsController {
     /// Asks first, with the choice to delete the worktree's branch as well; the branch goes only once the worktree is gone.
     private func remove(_ worktree: Worktree) {
         let folder = (worktree.path as NSString).lastPathComponent
-        let shownPath = (worktree.path as NSString).abbreviatingWithTildeInPath
-        let form = ActionForm(title: LocalizedStringResource("worktree.remove.title", defaultValue: "Remove Worktree \(RefName.worktree(folder))?", bundle: .module), info: LocalizedStringResource("worktree.remove.info", defaultValue: "The folder \(RefName.path(shownPath)) will be deleted. Commits stay in the repository.", bundle: .module), confirm: LocalizedStringResource("worktree.remove.confirm", defaultValue: "Remove", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("worktree.remove.title", defaultValue: "Remove Worktree?", bundle: .module), names: RefString(marked: RefName.worktree(folder)), confirm: LocalizedStringResource("worktree.remove.confirm", defaultValue: "Remove", bundle: .module))
         if let branch = worktree.branchName { form.addCheckbox(LocalizedStringResource("worktree.remove.deleteBranch", defaultValue: "Also delete branch \(RefName.branch(branch))", bundle: .module), checked: false) }
         form.alert.buttons.first?.hasDestructiveAction = true
         Task {

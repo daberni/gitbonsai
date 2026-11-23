@@ -39,22 +39,7 @@ final class StagingController {
             }
             return
         }
-        // The changed lines, not the context around them: added lines by their new number, removed ones by their old.
-        let changed = hunk.lines.compactMap { line -> Int? in
-            switch line.kind {
-            case .added: line.newNumber
-            case .removed: line.oldNumber
-            case .context: nil
-            }
-        }
-        let first = changed.min() ?? hunk.newStart
-        let last = changed.max() ?? first
-        let text: LocalizedStringResource = if first == last {
-            LocalizedStringResource("files.discardHunk.infoLine", defaultValue: "The changes in line \(first) of \(RefName.path(file.path)) are lost. This cannot be undone.", bundle: .module)
-        } else {
-            LocalizedStringResource("files.discardHunk.infoLines", defaultValue: "The changes in lines \(first)–\(last) of \(RefName.path(file.path)) are lost. This cannot be undone.", bundle: .module)
-        }
-        confirm(title: LocalizedStringResource("files.discardHunk.title", defaultValue: "Discard hunk?", bundle: .module), text: text) { [weak self] in
+        confirm(title: LocalizedStringResource("files.discardHunk.title", defaultValue: "Discard Hunk?", bundle: .module), names: RefString(marked: RefName.path(file.path))) { [weak self] in
             self?.run(failure: Self.discardFailure) { try await $0.discard(hunk, of: file) }
         }
     }
@@ -73,14 +58,13 @@ final class StagingController {
         case (0, 0):
             return
         case (1, 0):
-            let path = tracked[0]
-            confirm(title: LocalizedStringResource("files.discard.title", defaultValue: "Discard changes to \(RefName.path((path as NSString).lastPathComponent))?", bundle: .module), text: LocalizedStringResource("files.discard.info", defaultValue: "All unstaged changes to \(RefName.path(path)) are lost. Staged changes stay. This cannot be undone.", bundle: .module), then: perform)
+            confirm(title: LocalizedStringResource("files.discard.title", defaultValue: "Discard Changes?", bundle: .module), names: RefString(marked: RefName.path(tracked[0])), then: perform)
         case (0, 1):
             confirmDeletion(of: untracked[0], then: perform)
         default:
-            let count = tracked.count + untracked.count
-            let text: LocalizedStringResource = untracked.isEmpty ? LocalizedStringResource("files.discardSeveral.info", defaultValue: "Their unstaged changes are lost. Staged changes stay. This cannot be undone.", bundle: .module) : LocalizedStringResource("files.discardSeveral.infoUntracked", defaultValue: "Unstaged changes are lost and \(untracked.count) untracked files are deleted. Staged changes stay. This cannot be undone.", bundle: .module)
-            confirm(title: LocalizedStringResource("files.discardSeveral.title", defaultValue: "Discard changes to \(count) files?", bundle: .module), text: text, then: perform)
+            let names = RefString(marked: (tracked + untracked).map(RefName.path).joined(separator: "\n"))
+            let text: LocalizedStringResource? = untracked.isEmpty ? nil : LocalizedStringResource("files.discardSeveral.infoUntracked", defaultValue: "\(untracked.count) untracked files are deleted.", bundle: .module)
+            confirm(title: LocalizedStringResource("files.discardSeveral.title", defaultValue: "Discard Changes to several Files?", bundle: .module), names: names, text: text, then: perform)
         }
     }
 
@@ -88,16 +72,15 @@ final class StagingController {
 
     /// Git has never seen an untracked file, so the sheet says plainly that it is gone for good.
     private func confirmDeletion(of path: String, then perform: @escaping () -> Void) {
-        let name = (path as NSString).lastPathComponent
-        confirm(title: LocalizedStringResource("files.deleteUntracked.title", defaultValue: "Delete \(RefName.path(name))?", bundle: .module), text: LocalizedStringResource("files.deleteUntracked.info", defaultValue: "The untracked file \(RefName.path(path)) is deleted. Git does not know it, so it cannot be restored.", bundle: .module), then: perform)
+        confirm(title: LocalizedStringResource("files.deleteUntracked.title", defaultValue: "Delete untracked File?", bundle: .module), names: RefString(marked: RefName.path(path)), then: perform)
     }
 
     /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard, and Esc cancels too.
-    private func confirm(title: LocalizedStringResource, text: LocalizedStringResource, then perform: @escaping () -> Void) {
+    private func confirm(title: LocalizedStringResource, names: RefString, text: LocalizedStringResource? = nil, then perform: @escaping () -> Void) {
         guard let window = window?() else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.setText(title, info: text)
+        alert.setConfirmation(title, names: names, info: text)
         let discard = alert.addButton(withTitle: String(localized: "common.discard", defaultValue: "Discard", bundle: .module))
         discard.hasDestructiveAction = true
         discard.keyEquivalent = ""

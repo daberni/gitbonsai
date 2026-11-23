@@ -60,7 +60,7 @@ final class RemoteActionsController {
 
     func remove(_ remote: String) {
         Task {
-            guard await runner.confirm(LocalizedStringResource("sidebar.remote.remove.title", defaultValue: "Remove Remote \(RefName.remote(remote))?", bundle: .module), info: LocalizedStringResource("sidebar.remote.remove.info", defaultValue: "Its remote branches disappear from the history and local branches that track it lose their upstream. Nothing changes on the remote itself.", bundle: .module), button: LocalizedStringResource("sidebar.remote.remove.confirm", defaultValue: "Remove", bundle: .module, comment: "Button that removes the remote."), destructive: true, style: .warning) else { return }
+            guard await runner.confirm(LocalizedStringResource("sidebar.remote.remove.title", defaultValue: "Remove Remote?", bundle: .module), names: RefString(marked: RefName.remote(remote)), button: LocalizedStringResource("sidebar.remote.remove.confirm", defaultValue: "Remove", bundle: .module, comment: "Button that removes the remote."), destructive: true, style: .warning) else { return }
             await runner.run(failure: LocalizedStringResource("failure.remote.notRemoved", defaultValue: "Remote not removed", bundle: .module), note: "git remote remove") { try await $0.removeRemote(remote) }
         }
     }

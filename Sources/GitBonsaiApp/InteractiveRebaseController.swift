@@ -131,7 +131,7 @@ final class InteractiveRebaseController {
                 self.sheet = nil
                 guard let plan else { return }
                 if plan.dropsEverything {
-                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all commits?", bundle: .module), info: LocalizedStringResource("rebase.dropAll.info", defaultValue: "\(RefName.branch(branch)) will be reset to \(RefName.commit(model.targetCommit.id)) “\(model.targetCommit.subject)”. Undo from the status line.", bundle: .module), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
+                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all Commits?", bundle: .module), names: RefString(marked: RefName.branch(branch) + " → " + RefName.commit(model.targetCommit.id) + " " + model.targetCommit.subject), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
                     guard confirmed else { return }
                 }
                 let hint = CommitActionsController.publishedHint(model.published, upstream: upstream)
@@ -210,7 +210,8 @@ final class InteractiveRebaseController {
                 // Only dropping asks: it takes the commit's changes out of the branch. Moving is undone from the status line.
                 if step == .drop {
                     let alert = NSAlert()
-                    alert.setText(RefString(LocalizedStringResource("rebase.drop.title", defaultValue: "Drop \(RefName.commit(commit.id)) “\(commit.subject)”?", bundle: .module)), info: Self.rewriteNote(plan, branch: branch, hint: hint))
+                    alert.alertStyle = .warning
+                    alert.setConfirmation(LocalizedStringResource("rebase.drop.title", defaultValue: "Drop Commit?", bundle: .module), names: RefString(marked: RefName.commit(commit.id) + " " + commit.subject), info: hint ?? RefString(verbatim: ""))
                     alert.addButton(withTitle: String(localized: "rebase.drop.confirm", defaultValue: "Drop Commit", bundle: .module))
                     alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
                     alert.buttons.first?.hasDestructiveAction = true
@@ -227,13 +228,6 @@ final class InteractiveRebaseController {
                 report(error, title: LocalizedStringResource("failure.rebase.notPossible", defaultValue: "Rebase not possible", bundle: .module))
             }
         }
-    }
-
-    /// "Rewrites 3 commits of main. Undo from the status line." and the hint about published commits, each its own paragraph.
-    private static func rewriteNote(_ plan: RebasePlan, branch: String, hint: RefString?) -> RefString {
-        let count = plan.steps.count
-        let note = RefString(LocalizedStringResource("rebase.move.note", defaultValue: "Rewrites \(count) commits of \(RefName.branch(branch)). Undo from the status line.", bundle: .module))
-        return RefString(marked: ([note] + [hint].compactMap { $0 }).map(\.marked).joined(separator: "\n\n"))
     }
 
     private func publishedHint(_ plan: RebasePlan) async -> RefString? {

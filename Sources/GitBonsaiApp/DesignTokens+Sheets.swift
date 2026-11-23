@@ -75,6 +75,20 @@ extension Theme {
         static let buttonGap = Space.s
     }
 
+    /// The body of a confirmation: the names it acts on as full pills, then one sentence; also the rows of the "Delete everywhere" sheet.
+    enum Confirmation {
+        static let width: CGFloat = 300
+        static let wideWidth: CGFloat = 420
+        /// Between the line of names and the sentence, and between groups of the delete sheet.
+        static let spacing = Space.m
+        /// Between pills on one line, and between wrapped lines.
+        static let pillGap = Space.xs
+        /// Above and below a pill's text.
+        static let pillInset: CGFloat = 2
+        static let rowSpacing = Space.s
+        static let shaWidth: CGFloat = 64
+    }
+
     /// The note at the bottom of the history pane that fades out by itself.
     enum Toast {
         static let height: CGFloat = 34

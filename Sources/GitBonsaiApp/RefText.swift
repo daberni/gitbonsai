@@ -108,14 +108,14 @@ enum RefText {
         return NSAttributedString(attachment: attachment)
     }
 
-    private static func textFont(_ kind: RefKind, like font: NSFont) -> NSFont {
+    static func textFont(_ kind: RefKind, like font: NSFont) -> NSFont {
         switch kind {
         case .commit, .path: NSFont.monospacedSystemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
         default: NSFont.systemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
         }
     }
 
-    private static func color(_ kind: RefKind) -> NSColor {
+    static func color(_ kind: RefKind) -> NSColor {
         switch kind {
         case .branch: Theme.moss
         case .remoteBranch, .remote: Theme.sky
@@ -145,7 +145,7 @@ enum RefText {
         }
     }
 
-    private static func drawGlyph(_ kind: RefKind, in rect: CGRect, context: CGContext) {
+    static func drawGlyph(_ kind: RefKind, in rect: CGRect, context: CGContext) {
         let glyph: Glyph? = switch kind {
         case .branch: .laptop
         case .remoteBranch, .remote: .cloud

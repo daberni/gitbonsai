@@ -91,7 +91,6 @@ final class CommitController {
             guard await viewModel.repository.headIsPushed() else { run(amend: true); return }
             let alert = NSAlert()
             alert.messageText = String(localized: "commit.amendPushed.title", defaultValue: "Requires a force push", bundle: .module)
-            alert.informativeText = String(localized: "commit.amendPushed.info", defaultValue: "The last commit is already in the upstream. After the amend, the local and the remote branch differ, and a push only works with force.", bundle: .module)
             alert.addButton(withTitle: String(localized: "commit.amendPushed.confirm", defaultValue: "Amend anyway", bundle: .module))
             alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
             present(alert) { [weak self] response in

@@ -2,6 +2,7 @@ import AppKit
 
 private nonisolated(unsafe) var messageKey: UInt8 = 0
 private nonisolated(unsafe) var infoKey: UInt8 = 0
+private nonisolated(unsafe) var bodyKey: UInt8 = 0
 
 private final class RefStringBox {
     let string: RefString
@@ -20,6 +21,29 @@ extension NSAlert {
 
     func setText(_ message: LocalizedStringResource, info: LocalizedStringResource) {
         setText(RefString(message), info: RefString(info))
+    }
+
+    /// A confirmation: a short title without names, the names it acts on as full pills on a line of their own, then the sentence with the consequence.
+    /// `names` holds only names and separators such as "→"; a line break in it starts a new line.
+    func setConfirmation(_ title: LocalizedStringResource, names: RefString, info: RefString) {
+        messageText = RefString(title).plain
+        setBody(ConfirmationBody(names: names, info: info), plain: RefString(marked: [names.marked, info.marked].filter { !$0.isEmpty }.joined(separator: "\n")))
+    }
+
+    /// Puts a body of its own below the title in place of the informative text; `plain` is what it says, for `plainBody`.
+    func setBody(_ body: NSView, plain: RefString) {
+        informativeText = ""
+        accessoryView = body
+        objc_setAssociatedObject(self, &bodyKey, RefStringBox(plain), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    func setConfirmation(_ title: LocalizedStringResource, names: RefString, info: LocalizedStringResource? = nil) {
+        setConfirmation(title, names: names, info: info.map(RefString.init) ?? RefString(verbatim: ""))
+    }
+
+    /// The text below the title as a person reads it: the informative text, or the names and sentence of a confirmation; for VoiceOver checks and the harness.
+    var plainBody: String {
+        (objc_getAssociatedObject(self, &bodyKey) as? RefStringBox)?.string.plain ?? RefText.plain(informativeText)
     }
 
     /// Lays the alert out and replaces the plain title and message in its labels with the pill versions; called right before it is shown or rendered.

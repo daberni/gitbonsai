@@ -167,21 +167,21 @@ final class TagsController {
 
     func deleteLocally(_ name: String) {
         Task {
-            guard await confirm(LocalizedStringResource("tag.delete.title", defaultValue: "Delete tag \(RefName.tag(name))?", bundle: .module), info: LocalizedStringResource("tag.delete.info", defaultValue: "The tag is deleted in this repository. The commit and tags on remotes stay.", bundle: .module), button: LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module)) else { return }
+            guard await confirm(LocalizedStringResource("tag.delete.title", defaultValue: "Delete Tag?", bundle: .module), names: RefString(marked: RefName.tag(name)), button: LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module)) else { return }
             runner.run(failure: LocalizedStringResource("failure.tag.notDeleted", defaultValue: "Tag not deleted", bundle: .module), note: "git tag --delete \(name)") { try await $0.deleteTag(name) }
         }
     }
 
     func deleteRemotely(_ name: String, on remote: String) {
         Task {
-            guard await confirm(LocalizedStringResource("tag.deleteRemote.title", defaultValue: "Delete tag \(RefName.tag(name)) on \(RefName.remote(remote))?", bundle: .module), info: LocalizedStringResource("tag.deleteRemote.info", defaultValue: "The tag disappears for everyone who fetches from \(RefName.remote(remote)). The local tag stays.", bundle: .module), button: LocalizedStringResource("tag.deleteRemote.confirm", defaultValue: "Delete on \(remote)", bundle: .module)) else { return }
+            guard await confirm(LocalizedStringResource("tag.deleteRemote.title", defaultValue: "Delete Tag on Remote?", bundle: .module), names: RefString(marked: RefName.tag(name) + " " + RefName.remote(remote)), button: LocalizedStringResource("tag.deleteRemote.confirm", defaultValue: "Delete on \(remote)", bundle: .module)) else { return }
             runner.run(failure: LocalizedStringResource("failure.tag.notDeletedOnRemote", defaultValue: "Tag not deleted on \(RefName.remote(remote))", bundle: .module), note: "git push \(remote) --delete refs/tags/\(name)") { try await $0.deleteRemoteTag(name, on: remote) }
         }
     }
 
     /// The list stays open behind the question and shows the outcome in place.
-    private func confirm(_ title: LocalizedStringResource, info: LocalizedStringResource, button: LocalizedStringResource) async -> Bool {
+    private func confirm(_ title: LocalizedStringResource, names: RefString, button: LocalizedStringResource) async -> Bool {
         let runner = runner
-        return await popover.stayingOpen { await runner.confirm(title, info: info, button: button) }
+        return await popover.stayingOpen { await runner.confirm(title, names: names, button: button) }
     }
 }

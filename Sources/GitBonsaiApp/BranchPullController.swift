@@ -82,25 +82,25 @@ final class BranchPullController {
     /// A branch checked out in another worktree is pulled there, so the tab moves to that worktree instead.
     private func offerWayOut(branch: String, upstream: String, ahead: Int, behind: Int, place: BranchPullPlace) async {
         let alert = NSAlert()
-        let title = RefString(LocalizedStringResource("branch.diverged.title", defaultValue: "\(RefName.branch(branch)) and \(RefName.remoteBranch(upstream)) have diverged", bundle: .module))
-        let local = Self.newCommits(ahead)
-        let remote = Self.newCommits(behind)
+        let title = LocalizedStringResource("branch.diverged.title", defaultValue: "Branch and Upstream have diverged", bundle: .module)
+        let names = RefString(marked: RefName.branch(branch) + " ↔ " + RefName.remoteBranch(upstream))
+        let counts = RefString(LocalizedStringResource("branch.pull.divergedInfo", defaultValue: "Local has \(Self.newCommits(ahead)), the upstream \(Self.newCommits(behind)).", bundle: .module))
         let cancel = String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module)
         if case .worktree(let path) = place {
             let folder = (path as NSString).lastPathComponent
-            alert.setText(title, info: RefString(LocalizedStringResource("branch.pull.divergedInWorktree", defaultValue: "Local has \(local), \(RefName.remoteBranch(upstream)) has \(remote). A fast-forward is not possible; nothing was changed. \(RefName.branch(branch)) is checked out in the worktree \(RefName.worktree(folder)); it can be pulled there with merge or rebase.", bundle: .module)))
+            alert.setConfirmation(title, names: names, info: RefString(LocalizedStringResource("branch.pull.divergedInWorktree", defaultValue: "Pull in its worktree \(RefName.worktree(folder)).", bundle: .module)))
             alert.addButton(withTitle: String(localized: "worktree.action.switchTo", defaultValue: "Switch to Worktree \(folder)", bundle: .module))
             alert.addButton(withTitle: cancel)
             if await prompter.confirm(alert) { onSwitchWorktree?(path) }
             return
         }
-        alert.setText(title, info: RefString(LocalizedStringResource("branch.pull.divergedInfo", defaultValue: "Local has \(local), \(RefName.remoteBranch(upstream)) has \(remote). A fast-forward is not possible; nothing was changed. Checkout and Pull offers merge and rebase; resetting drops the local commits.", bundle: .module)))
+        alert.setConfirmation(title, names: names, info: counts)
         alert.addButton(withTitle: String(localized: "branch.pull.checkoutAndPull", defaultValue: "Checkout and Pull…", bundle: .module))
-        alert.addButton(withTitle: String(localized: "branch.pull.resetTo", defaultValue: "Reset to \(upstream)…", bundle: .module))
+        alert.addButton(withTitle: String(localized: "branch.pull.resetTo", defaultValue: "Reset to \(upstream)", bundle: .module))
         alert.addButton(withTitle: cancel)
         switch await prompter.choose(alert) {
         case .alertFirstButtonReturn: await checkoutAndPull(branch)
-        case .alertSecondButtonReturn: await reset(branch, to: upstream, losing: ahead)
+        case .alertSecondButtonReturn: await reset(branch, to: upstream)
         default: break
         }
     }
@@ -118,19 +118,12 @@ final class BranchPullController {
         }
     }
 
-    /// Asks again with the number of commits that would be lost; the reset refuses if the branch moved meanwhile.
-    private func reset(_ branch: String, to upstream: String, losing ahead: Int) async {
+    /// Runs without asking again: the status line offers Undo, which brings the local commits back. The reset refuses if the branch moved meanwhile.
+    private func reset(_ branch: String, to upstream: String) async {
         let repository = viewModel.repository
         guard let head = try? await repository.branchHead(branch) else { return }
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.setText(LocalizedStringResource("branch.reset.title", defaultValue: "Reset \(RefName.branch(branch)) to \(RefName.remoteBranch(upstream))?", bundle: .module), info: LocalizedStringResource("branch.reset.info", defaultValue: "\(ahead) local commits will be lost; the reflog keeps them for a while.", bundle: .module))
-        alert.addButton(withTitle: String(localized: "common.reset", defaultValue: "Reset", bundle: .module, comment: "Button that resets a branch."))
-        alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
-        alert.buttons.first?.hasDestructiveAction = true
-        guard await prompter.confirm(alert) else { return }
         do {
-            try await repository.resetBranchToUpstream(branch, expecting: head)
+            try await viewModel.recordingUndo(.branch(branch), operation: "git update-ref refs/heads/\(branch)") { try await repository.resetBranchToUpstream(branch, expecting: head) }
             let done = String(localized: "branch.reset.done", defaultValue: "\(branch) reset to \(upstream)", bundle: .module)
             await viewModel.refresh(note: done + " · git update-ref refs/heads/\(branch)")
             onToast?(RefString(LocalizedStringResource("branch.reset.done", defaultValue: "\(RefName.branch(branch)) reset to \(RefName.remoteBranch(upstream))", bundle: .module)))

@@ -1,23 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "branch.createWorktree.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Branch wird in einem eigenen Ordner ausgecheckt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The branch is checked out in a folder of its own."
-          }
-        }
-      }
-    },
     "branch.createWorktree.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -35,36 +18,54 @@
         }
       }
     },
-    "branch.delete.info" : {
+    "branch.deleteBranches.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der lokale Branch wird gelöscht. Ein gleichnamiger Branch auf dem Remote bleibt."
+            "value" : "Branches löschen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The local branch is deleted. A branch of the same name on the remote stays."
+            "value" : "Delete Branches"
           }
         }
       }
     },
-    "branch.delete.title" : {
+    "branch.deleteBranches.unmerged" : {
+      "comment" : "Badge of a ref whose commits are on no other branch.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ löschen?"
+            "value" : "nicht gemergt"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete %@?"
+            "value" : "unmerged"
+          }
+        }
+      }
+    },
+    "branch.deleteBranches.unmergedToolTip" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hat Commits, die kein anderer Branch und kein Tag enthält"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Has commits that no other branch or tag contains"
           }
         }
       }
@@ -86,36 +87,19 @@
         }
       }
     },
-    "branch.deleteRemote.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Branch wird auf dem Remote gelöscht, für alle, die damit arbeiten. Lokale Branches bleiben."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The branch is deleted on the remote, for everyone who works with it. Local branches stay."
-          }
-        }
-      }
-    },
     "branch.deleteRemote.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ auf %@ löschen?"
+            "value" : "Remote-Branch löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete %1$@ from %2$@?"
+            "value" : "Delete Remote Branch?"
           }
         }
       }
@@ -137,36 +121,19 @@
         }
       }
     },
-    "branch.deleteUnmerged.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@\n\nDie Commits, die nur auf diesem Branch liegen, sind danach nur noch über das Reflog erreichbar."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@\n\nCommits that are only on this branch can then only be reached through the reflog."
-          }
-        }
-      }
-    },
     "branch.deleteUnmerged.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ ist nicht vollständig gemergt"
+            "value" : "Nicht gemergten Branch löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%@ is not fully merged"
+            "value" : "Delete unmerged Branch?"
           }
         }
       }
@@ -188,36 +155,19 @@
         }
       }
     },
-    "branch.deleteWithWorktree.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ ist im Worktree %@ ausgecheckt und lässt sich nur zusammen mit ihm löschen. Der Ordner %@ wird entfernt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ is checked out in the worktree %2$@ and can only be deleted together with it. The folder %3$@ will be removed."
-          }
-        }
-      }
-    },
     "branch.deleteWithWorktree.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ und Worktree %@ löschen?"
+            "value" : "Branch und Worktree löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete %1$@ and Worktree %2$@?"
+            "value" : "Delete Branch and Worktree?"
           }
         }
       }
@@ -228,13 +178,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ und %@ sind auseinandergelaufen"
+            "value" : "Branch und Upstream sind auseinandergelaufen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@ and %2$@ have diverged"
+            "value" : "Branch and Upstream have diverged"
           }
         }
       }
@@ -353,13 +303,30 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ löschen …"
+            "value" : "%@ löschen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete %@…"
+            "value" : "Delete %@"
+          }
+        }
+      }
+    },
+    "branch.menu.deleteBranches" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branches löschen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete Branches…"
           }
         }
       }
@@ -662,13 +629,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Branch wird in einem eigenen Ordner ausgecheckt. Der aktuelle Ordner bleibt unverändert."
+            "value" : "Der Branch bekommt einen eigenen Ordner; dieser bleibt, wie er ist."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The branch is checked out in a folder of its own. The current folder stays unchanged."
+            "value" : "The branch gets a folder of its own; this one stays as it is."
           }
         }
       }
@@ -711,16 +678,16 @@
     "branch.pull.divergedInWorktree" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lokal %@, auf %@ %@. Ein Fast-Forward ist nicht möglich; geändert wurde nichts. %@ ist im Worktree %@ ausgecheckt; dort lässt es sich mit Merge oder Rebase pullen."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Local has %1$@, %2$@ has %3$@. A fast-forward is not possible; nothing was changed. %4$@ is checked out in the worktree %5$@; it can be pulled there with merge or rebase."
+            "value" : "Pull in its worktree %@."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Worktree %@ pullen."
           }
         }
       }
@@ -731,13 +698,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lokal %@, auf %@ %@. Ein Fast-Forward ist nicht möglich; geändert wurde nichts. Auschecken und pullen bietet Merge und Rebase; Zurücksetzen verwirft die lokalen Commits."
+            "value" : "Lokal %1$@, im Upstream %2$@."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Local has %1$@, %2$@ has %3$@. A fast-forward is not possible; nothing was changed. Checkout and Pull offers merge and rebase; resetting drops the local commits."
+            "value" : "Local has %1$@, the upstream %2$@."
           }
         }
       }
@@ -909,13 +876,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Auf %@ zurücksetzen …"
+            "value" : "Auf %@ zurücksetzen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Reset to %@…"
+            "value" : "Reset to %@"
           }
         }
       }
@@ -994,120 +961,6 @@
         }
       }
     },
-    "branch.rebase.alreadyOnRemote" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Ein Commit, der dabei neu geschrieben wird, ist schon in %2$@. Danach lässt sich %3$@ nur noch mit Force-Push hochladen."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%1$lld Commits, die dabei neu geschrieben werden, sind schon in %2$@. Danach lässt sich %3$@ nur noch mit Force-Push hochladen."
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld commit that this rewrites is already on %@. Afterwards %@ can only be pushed with a force push."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld commits that this rewrites are already on %@. Afterwards %@ can only be pushed with a force push."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "branch.rebase.alreadyOnUpstream" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Ein Commit, der dabei neu geschrieben wird, ist schon in dem Upstream. Danach lässt sich %2$@ nur noch mit Force-Push hochladen."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%1$lld Commits, die dabei neu geschrieben werden, sind schon in dem Upstream. Danach lässt sich %2$@ nur noch mit Force-Push hochladen."
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld commit that this rewrites is already on the upstream. Afterwards %@ can only be pushed with a force push."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld commits that this rewrites are already on the upstream. Afterwards %@ can only be pushed with a force push."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "branch.rebase.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebasen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase Branch"
-          }
-        }
-      }
-    },
-    "branch.rebase.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ auf %@ rebasen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %1$@ onto %2$@?"
-          }
-        }
-      }
-    },
     "branch.rename.confirm" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -1121,23 +974,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Rename"
-          }
-        }
-      }
-    },
-    "branch.rename.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upstream und Worktree folgen dem neuen Namen. Auf dem Remote bleibt der alte Name."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The upstream and the worktree follow the new name. The remote keeps the old name."
           }
         }
       }
@@ -1193,93 +1029,19 @@
         }
       }
     },
-    "branch.reset.info" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Ein lokaler Commit geht verloren; das Reflog behält ihn noch eine Weile."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld lokale Commits gehen verloren; das Reflog behält sie noch eine Weile."
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld local commit will be lost; the reflog keeps it for a while."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld local commits will be lost; the reflog keeps them for a while."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "branch.reset.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ auf %@ zurücksetzen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Reset %1$@ to %2$@?"
-          }
-        }
-      }
-    },
-    "branch.upstream.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Remote-Branch, mit dem %@ verglichen wird und von dem Pull holt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The remote branch that %@ is compared with and that Pull fetches from."
-          }
-        }
-      }
-    },
     "branch.upstream.infoCurrent" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zurzeit %@. Leer lassen entfernt den Upstream."
+            "value" : "Leer lassen, um den Upstream zu entfernen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Currently %@. Leave empty to remove the upstream."
+            "value" : "Leave empty to remove the upstream."
           }
         }
       }
@@ -1512,13 +1274,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Konflikte stehen im Arbeitsverzeichnis. Die Änderungen bleiben im Stash „%@“; nach dem Lösen kann er gelöscht werden."
+            "value" : "Im Arbeitsverzeichnis lösen. Der Stash „%@“ behält die Änderungen, bis er gelöscht wird."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The conflicts are in the working directory. The changes stay in the stash “%@”; once they are resolved, it can be deleted."
+            "value" : "Resolve them in the working directory. The stash “%@” keeps the changes until it is dropped."
           }
         }
       }
@@ -1529,13 +1291,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Konflikte stehen im Arbeitsverzeichnis. Die Änderungen bleiben im Stash „%@“; nach dem Lösen kann er gelöscht werden.\n\n%@"
+            "value" : "Im Arbeitsverzeichnis lösen. Der Stash „%1$@“ behält die Änderungen, bis er gelöscht wird.\n\n%2$@"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The conflicts are in the working directory. The changes stay in the stash “%1$@”; once they are resolved, it can be deleted.\n\n%2$@"
+            "value" : "Resolve them in the working directory. The stash “%1$@” keeps the changes until it is dropped.\n\n%2$@"
           }
         }
       }
@@ -1565,13 +1327,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%@ lässt sich nicht vorspulen. Beim Zurücksetzen auf %@ geht ein lokaler Commit verloren; das Reflog behält ihn noch eine Weile."
+                  "value" : "Zurücksetzen verwirft %lld lokalen Commit."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%@ lässt sich nicht vorspulen. Beim Zurücksetzen auf %@ gehen %lld lokale Commits verloren; das Reflog behält sie noch eine Weile."
+                  "value" : "Zurücksetzen verwirft %lld lokale Commits."
                 }
               }
             }
@@ -1583,13 +1345,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%@ cannot be fast-forwarded. Resetting it to %@ drops %lld local commit; the reflog keeps it for a while."
+                  "value" : "Resetting drops %lld local commit."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%@ cannot be fast-forwarded. Resetting it to %@ drops %lld local commits; the reflog keeps them for a while."
+                  "value" : "Resetting drops %lld local commits."
                 }
               }
             }
@@ -3642,23 +3404,6 @@
         }
       }
     },
-    "commit.amendPushed.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der letzte Commit ist schon im Upstream. Nach dem Amend unterscheiden sich lokaler und entfernter Branch, und ein Push geht nur noch mit Force."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The last commit is already in the upstream. After the amend, the local and the remote branch differ, and a push only works with force."
-          }
-        }
-      }
-    },
     "commit.amendPushed.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -3784,13 +3529,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Worktree bekommt einen eigenen Ordner. Ohne Branch-Namen steht er auf dem Commit (Detached HEAD)."
+            "value" : "Ohne Branch-Namen bleibt er detached."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The worktree gets its own folder. Without a branch name it stays on the commit (detached HEAD)."
+            "value" : "Without a branch name it stays detached."
           }
         }
       }
@@ -4227,36 +3972,19 @@
         }
       }
     },
-    "commit.reset.loss" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nicht committete Änderungen an versionierten Dateien gehen verloren."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Uncommitted changes to tracked files will be lost."
-          }
-        }
-      }
-    },
     "commit.reset.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ auf %@ zurücksetzen (%@)?"
+            "value" : "Branch zurücksetzen und Änderungen verwerfen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Reset %1$@ to %2$@ (%3$@)?"
+            "value" : "Reset Branch and discard Changes?"
           }
         }
       }
@@ -6664,16 +6392,16 @@
       "comment" : "Notice above the text diff of an image tracked with Git LFS",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Git LFS pointer: the image itself is stored on the LFS server"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Git-LFS-Zeiger: Das Bild selbst liegt auf dem LFS-Server"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Git LFS pointer: the image itself is stored on the LFS server"
           }
         }
       }
@@ -6682,16 +6410,16 @@
       "comment" : "Button that loads images too large to load on their own",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Load large Images"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Große Bilder laden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Load large Images"
           }
         }
       }
@@ -6700,16 +6428,16 @@
       "comment" : "Image diff mode: the new image over the old with adjustable opacity",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Onion skin"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Überblenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Onion skin"
           }
         }
       }
@@ -6718,16 +6446,16 @@
       "comment" : "Image diff mode: old and new image next to each other",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Side by side"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nebeneinander"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Side by side"
           }
         }
       }
@@ -6736,16 +6464,16 @@
       "comment" : "Image diff mode: a draggable line shows the old image on one side and the new on the other",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Swipe"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wischen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swipe"
           }
         }
       }
@@ -6754,15 +6482,15 @@
       "comment" : "Image diff mode for SVG: the source as a text diff",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Text"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "Text"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
             "value" : "Text"
           }
         }
@@ -6771,16 +6499,16 @@
     "diff.image.modeToolTip" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Compare the images side by side, with a swipe line or faded over each other"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bilder nebeneinander, mit Wischlinie oder übereinander geblendet vergleichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Compare the images side by side, with a swipe line or faded over each other"
           }
         }
       }
@@ -6789,16 +6517,16 @@
       "comment" : "Label above the new side of an image diff",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "New"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Neu"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New"
           }
         }
       }
@@ -6807,16 +6535,16 @@
       "comment" : "Label above the old side of an image diff",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Old"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Old"
           }
         }
       }
@@ -6825,16 +6553,16 @@
       "comment" : "Tooltip of the onion skin slider",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Opacity of the new image"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Deckkraft des neuen Bildes"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Opacity of the new image"
           }
         }
       }
@@ -6843,15 +6571,15 @@
       "comment" : "Size of a bitmap image, width × height in pixels",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ × %2$@ px"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "%1$@ × %2$@ px"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
             "value" : "%1$@ × %2$@ px"
           }
         }
@@ -6861,15 +6589,15 @@
       "comment" : "Size of a vector image, width × height in points",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ × %2$@ pt"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "%1$@ × %2$@ pt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
             "value" : "%1$@ × %2$@ pt"
           }
         }
@@ -6879,16 +6607,16 @@
       "comment" : "Caption of an image too large to load on its own, e.g. 48 MB, not loaded",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@, not loaded"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, nicht geladen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@, not loaded"
           }
         }
       }
@@ -6896,16 +6624,16 @@
     "diff.image.unreadable" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Cannot show this image"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dieses Bild kann nicht angezeigt werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cannot show this image"
           }
         }
       }
@@ -7238,6 +6966,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Stash changes and try again"
+          }
+        }
+      }
+    },
+    "failure.branch.notAllDeleted" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht alle Branches gelöscht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not all Branches deleted"
           }
         }
       }
@@ -7876,13 +7621,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Anmeldung beim Server fehlgeschlagen. GitBonsai fragt nicht nach Passwörtern: Zugangsdaten im Credential-Helper speichern oder den SSH-Schlüssel im SSH-Agent laden."
+            "value" : "Anmeldung fehlgeschlagen. Zugangsdaten im Credential-Helper speichern oder den SSH-Schlüssel zum SSH-Agent hinzufügen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Signing in to the server failed. GitBonsai does not ask for passwords: store the credentials in the credential helper or load the SSH key into the SSH agent."
+            "value" : "Sign-in failed. Store the credentials in the credential helper or add the SSH key to the SSH agent."
           }
         }
       }
@@ -8097,13 +7842,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Server ist nicht erreichbar. Netzwerkverbindung und Remote-Adresse prüfen."
+            "value" : "Der Server ist nicht erreichbar; Netzwerk und Remote-URL prüfen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The server cannot be reached. Check the network connection and the remote address."
+            "value" : "The server cannot be reached; check the network and the remote URL."
           }
         }
       }
@@ -8189,23 +7934,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Rebase not possible"
-          }
-        }
-      }
-    },
-    "failure.rebase.notUndone" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase nicht rückgängig gemacht"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase not undone"
           }
         }
       }
@@ -8602,6 +8330,23 @@
         }
       }
     },
+    "failure.undo.failed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht rückgängig gemacht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not undone"
+          }
+        }
+      }
+    },
     "failure.upstream.notSet" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -8772,36 +8517,19 @@
         }
       }
     },
-    "files.deleteUntracked.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die ungetrackte Datei %@ wird gelöscht. Git kennt sie nicht, sie lässt sich nicht wiederherstellen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The untracked file %@ is deleted. Git does not know it, so it cannot be restored."
-          }
-        }
-      }
-    },
     "files.deleteUntracked.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ löschen?"
+            "value" : "Ungetrackte Datei löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete %@?"
+            "value" : "Delete untracked File?"
           }
         }
       }
@@ -8840,36 +8568,19 @@
         }
       }
     },
-    "files.discard.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle nicht gestagten Änderungen an %@ gehen verloren. Gestagte Änderungen bleiben. Das lässt sich nicht rückgängig machen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "All unstaged changes to %@ are lost. Staged changes stay. This cannot be undone."
-          }
-        }
-      }
-    },
     "files.discard.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Änderungen an %@ verwerfen?"
+            "value" : "Änderungen verwerfen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Discard changes to %@?"
+            "value" : "Discard Changes?"
           }
         }
       }
@@ -8882,13 +8593,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Die nicht gestagten Änderungen an einer Datei gehen verloren. Gestagte Änderungen und neue Dateien bleiben."
+                  "value" : "Nicht gestagte Änderungen an %lld Datei werden verworfen."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Die nicht gestagten Änderungen an %lld Dateien gehen verloren. Gestagte Änderungen und neue Dateien bleiben."
+                  "value" : "Nicht gestagte Änderungen an %lld Dateien werden verworfen."
                 }
               }
             }
@@ -8900,13 +8611,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "The unstaged changes to one file are lost. Staged changes and new files stay."
+                  "value" : "Unstaged changes to %lld file are lost."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "The unstaged changes to %lld files are lost. Staged changes and new files stay."
+                  "value" : "Unstaged changes to %lld files are lost."
                 }
               }
             }
@@ -8926,41 +8637,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Discard all changes?"
-          }
-        }
-      }
-    },
-    "files.discardHunk.infoLine" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Änderungen in Zeile %lld von %@ gehen verloren. Das lässt sich nicht rückgängig machen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The changes in line %1$lld of %2$@ are lost. This cannot be undone."
-          }
-        }
-      }
-    },
-    "files.discardHunk.infoLines" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Änderungen in Zeilen %lld–%lld von %@ gehen verloren. Das lässt sich nicht rückgängig machen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The changes in lines %1$lld–%2$lld of %3$@ are lost. This cannot be undone."
+            "value" : "Discard all Changes?"
           }
         }
       }
@@ -8977,23 +8654,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Discard hunk?"
-          }
-        }
-      }
-    },
-    "files.discardSeveral.info" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ihre nicht gestagten Änderungen gehen verloren. Gestagte Änderungen bleiben. Das kann nicht rückgängig gemacht werden."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Their unstaged changes are lost. Staged changes stay. This cannot be undone."
+            "value" : "Discard Hunk?"
           }
         }
       }
@@ -9006,13 +8667,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Nicht gestagte Änderungen gehen verloren und %lld nicht versionierte Datei wird gelöscht. Gestagte Änderungen bleiben. Das kann nicht rückgängig gemacht werden."
+                  "value" : "%lld ungetrackte Datei wird gelöscht."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Nicht gestagte Änderungen gehen verloren und %lld nicht versionierte Dateien werden gelöscht. Gestagte Änderungen bleiben. Das kann nicht rückgängig gemacht werden."
+                  "value" : "%lld ungetrackte Dateien werden gelöscht."
                 }
               }
             }
@@ -9024,13 +8685,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Unstaged changes are lost and %lld untracked file is deleted. Staged changes stay. This cannot be undone."
+                  "value" : "%lld untracked file is deleted."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Unstaged changes are lost and %lld untracked files are deleted. Staged changes stay. This cannot be undone."
+                  "value" : "%lld untracked files are deleted."
                 }
               }
             }
@@ -9041,39 +8702,15 @@
     "files.discardSeveral.title" : {
       "localizations" : {
         "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Änderungen an %lld Datei verwerfen?"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Änderungen an %lld Dateien verwerfen?"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Änderungen an mehreren Dateien verwerfen?"
           }
         },
         "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Discard changes to %lld file?"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Discard changes to %lld files?"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard Changes to several Files?"
           }
         }
       }
@@ -9412,52 +9049,19 @@
         }
       }
     },
-    "files.restore.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die lokalen Änderungen an %@ werden überschrieben. Das lässt sich nicht rückgängig machen. Gestagte Änderungen bleiben im Index."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The local changes to %@ will be overwritten. This can’t be undone. Staged changes stay in the index."
-          }
-        }
-      }
-    },
     "files.restore.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ aus %@ wiederherstellen?"
+            "value" : "Datei wiederherstellen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Restore %1$@ from %2$@?"
-          }
-        }
-      }
-    },
-    "files.restoreSeveral.info" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ihre lokalen Änderungen werden überschrieben. Das kann nicht rückgängig gemacht werden. Gestagte Änderungen bleiben im Index."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Their local changes will be overwritten. This can’t be undone. Staged changes stay in the index."
+            "value" : "Restore File?"
           }
         }
       }
@@ -9465,39 +9069,15 @@
     "files.restoreSeveral.title" : {
       "localizations" : {
         "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%1$lld Datei aus %2$@ wiederherstellen?"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%1$lld Dateien aus %2$@ wiederherstellen?"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien wiederherstellen?"
           }
         },
         "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Restore %1$lld file from %2$@?"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Restore %1$lld files from %2$@?"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Files?"
           }
         }
       }
@@ -9699,69 +9279,19 @@
         }
       }
     },
-    "files.trash.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ wird aus dem Arbeitsverzeichnis entfernt und landet im Papierkorb. Git zeigt sie danach als gelöscht."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ is removed from the working directory and goes to the Trash. Git then shows it as deleted."
-          }
-        }
-      }
-    },
-    "files.trash.infoUntracked" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ wird aus dem Arbeitsverzeichnis entfernt und landet im Papierkorb."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ is removed from the working directory and goes to the Trash."
-          }
-        }
-      }
-    },
     "files.trash.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ in den Papierkorb legen?"
+            "value" : "Datei in den Papierkorb legen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Move %@ to the Trash?"
-          }
-        }
-      }
-    },
-    "files.trashSeveral.info" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sie werden aus dem Arbeitsverzeichnis entfernt und landen im Papierkorb."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "They are removed from the working directory and go to the Trash."
+            "value" : "Move File to the Trash?"
           }
         }
       }
@@ -9769,39 +9299,15 @@
     "files.trashSeveral.title" : {
       "localizations" : {
         "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld Datei in den Papierkorb legen?"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld Dateien in den Papierkorb legen?"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateien in den Papierkorb legen?"
           }
         },
         "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Move %lld file to the Trash?"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Move %lld files to the Trash?"
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Files to the Trash?"
           }
         }
       }
@@ -10275,6 +9781,42 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "view %@"
+          }
+        }
+      }
+    },
+    "history.undo.button" : {
+      "comment" : "Status line button that undoes the last local operation.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rückgängig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Undo"
+          }
+        }
+      }
+    },
+    "history.undo.toolTip" : {
+      "comment" : "Tooltip of the status line's Undo; the arguments are git commands.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macht %1$@ rückgängig (%2$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Undoes %1$@ (%2$@)"
           }
         }
       }
@@ -10758,24 +10300,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Abort %@"
-          }
-        }
-      }
-    },
-    "operation.abort.info" : {
-      "comment" : "The argument is git's operation: Rebase, Cherry-pick, Revert or Merge.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch, Index und Arbeitsverzeichnis kommen auf den Stand vor dem %@. Bereits gelöste Konflikte gehen verloren."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Branch, index and working directory return to where they were before the %@. Conflicts already resolved are lost."
           }
         }
       }
@@ -11302,36 +10826,19 @@
         }
       }
     },
-    "pull.diverged.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein Fast-Forward ist nicht möglich. Rebase setzt die lokalen Commits auf %@, Merge führt beide Seiten mit einem Merge-Commit zusammen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "A fast-forward is not possible. Rebase puts the local commits on top of %@, merge joins both sides with a merge commit."
-          }
-        }
-      }
-    },
     "pull.diverged.infoCounts" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lokal %lld, auf %@ %lld neue Commits: Ein Fast-Forward ist nicht möglich. Rebase setzt die lokalen Commits auf %@, Merge führt beide Seiten mit einem Merge-Commit zusammen."
+            "value" : "Lokale Commits: %1$lld, neu auf %2$@: %3$lld."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Local commits: %1$lld, new commits on %2$@: %3$lld. A fast-forward is not possible. Rebase puts the local commits on top of %4$@, merge joins both sides with a merge commit."
+            "value" : "Local commits: %1$lld, new on %2$@: %3$lld."
           }
         }
       }
@@ -11613,23 +11120,6 @@
         }
       }
     },
-    "pull.setUpstream.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ hat keinen Upstream. Der gewählte Remote-Branch wird zum Upstream, danach wird von ihm gepullt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ has no upstream. The chosen remote branch becomes its upstream, then it is pulled from."
-          }
-        }
-      }
-    },
     "pull.setUpstream.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -11705,13 +11195,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ hat sich seit dem letzten Fetch bewegt. Erst fetchen und prüfen, was dort neu ist."
+            "value" : "%@ hat sich seit dem letzten Fetch bewegt; erst fetchen und ansehen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%@ has moved since the last fetch. Fetch first and check what is new there."
+            "value" : "%@ moved since the last fetch; fetch and look at it first."
           }
         }
       }
@@ -11824,13 +11314,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ enthält Commits, die in %@ fehlen. Pullen holt sie zuerst; --force-with-lease überschreibt sie, solange sich %@ seit dem letzten Fetch nicht bewegt hat."
+            "value" : "%1$@ hat Commits, die %2$@ fehlen. Erst pullen oder mit --force-with-lease überschreiben."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@ has commits that %2$@ lacks. Pulling brings them in first; --force-with-lease overwrites them as long as %3$@ has not moved since the last fetch."
+            "value" : "%1$@ has commits that %2$@ lacks. Pull them first, or overwrite them with --force-with-lease."
           }
         }
       }
@@ -11848,23 +11338,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Push Branch"
-          }
-        }
-      }
-    },
-    "push.setUpstream.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Branch kommt auf das gewählte Remote und wird dort zum Upstream (git push -u)."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The branch goes to the chosen remote and becomes its upstream there (git push -u)."
           }
         }
       }
@@ -12607,13 +12080,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ „%@“ verwerfen?"
+            "value" : "Commit verwerfen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Drop %1$@ “%2$@”?"
+            "value" : "Drop Commit?"
           }
         }
       }
@@ -12635,23 +12108,6 @@
         }
       }
     },
-    "rebase.dropAll.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ wird auf %@ „%@“ zurückgesetzt. Rückgängig über die Statuszeile."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ will be reset to %2$@ “%3$@”. Undo from the status line."
-          }
-        }
-      }
-    },
     "rebase.dropAll.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -12664,7 +12120,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Drop all commits?"
+            "value" : "Drop all Commits?"
           }
         }
       }
@@ -12888,46 +12344,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "move down"
-          }
-        }
-      }
-    },
-    "rebase.move.note" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Schreibt %lld Commit von %@ neu. Rückgängig über die Statuszeile."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Schreibt %lld Commits von %@ neu. Rückgängig über die Statuszeile."
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Rewrites %lld commit of %@. Undo from the status line."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Rewrites %lld commits of %@. Undo from the status line."
-                }
-              }
-            }
           }
         }
       }
@@ -13987,92 +13403,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "rebase.undo.button" : {
-      "comment" : "Status line button that asks to undo the last rebase.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rückgängig"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Undo…"
-          }
-        }
-      }
-    },
-    "rebase.undo.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rückgängig machen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Undo Rebase"
-          }
-        }
-      }
-    },
-    "rebase.undo.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ kommt zurück auf %@, den Stand vor dem Rebase (git reset --keep ORIG_HEAD). Lokale Änderungen bleiben."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ goes back to %2$@, where it was before the rebase (git reset --keep ORIG_HEAD). Local changes stay."
-          }
-        }
-      }
-    },
-    "rebase.undo.infoWithBranches" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ kommt zurück auf %@, den Stand vor dem Rebase (git reset --keep ORIG_HEAD). Lokale Änderungen bleiben.\n\nMitgezogene Branches gehen ebenfalls zurück: %@."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ goes back to %2$@, where it was before the rebase (git reset --keep ORIG_HEAD). Local changes stay.\n\nBranches moved along go back as well: %3$@."
-          }
-        }
-      }
-    },
-    "rebase.undo.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase rückgängig machen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Undo Rebase?"
           }
         }
       }
@@ -15353,36 +14683,19 @@
         }
       }
     },
-    "sidebar.remote.remove.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seine Remote-Branches verschwinden aus der Historie, und lokale Branches, die ihm folgen, verlieren ihren Upstream. Auf dem Remote selbst ändert sich nichts."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Its remote branches disappear from the history and local branches that track it lose their upstream. Nothing changes on the remote itself."
-          }
-        }
-      }
-    },
     "sidebar.remote.remove.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remote %@ entfernen?"
+            "value" : "Remote entfernen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Remove Remote %@?"
+            "value" : "Remove Remote?"
           }
         }
       }
@@ -15666,23 +14979,6 @@
         }
       }
     },
-    "stash.createBranch.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Branch beginnt beim Commit, auf dem der Stash entstand. Der Stash wird dort angewendet und danach gelöscht."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The branch starts at the commit the stash was made on. The stash is applied there and deleted afterwards."
-          }
-        }
-      }
-    },
     "stash.createBranch.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -15718,36 +15014,19 @@
         }
       }
     },
-    "stash.drop.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "„%@“ wird gelöscht. Die Änderungen darin sind danach verloren."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "“%@” is deleted. The changes in it are lost afterwards."
-          }
-        }
-      }
-    },
     "stash.drop.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ droppen?"
+            "value" : "Stash löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Drop %@?"
+            "value" : "Drop Stash?"
           }
         }
       }
@@ -15783,23 +15062,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Include untracked files"
-          }
-        }
-      }
-    },
-    "stash.form.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle Änderungen im Working Directory kommen in einen neuen Stash."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "All changes in the working directory go into a new stash."
           }
         }
       }
@@ -16271,36 +15533,19 @@
         }
       }
     },
-    "tag.delete.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Tag wird in diesem Repository gelöscht. Der Commit und Tags auf Remotes bleiben."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The tag is deleted in this repository. The commit and tags on remotes stay."
-          }
-        }
-      }
-    },
     "tag.delete.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tag %@ löschen?"
+            "value" : "Tag löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete tag %@?"
+            "value" : "Delete Tag?"
           }
         }
       }
@@ -16322,36 +15567,19 @@
         }
       }
     },
-    "tag.deleteRemote.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Tag verschwindet für alle, die von %@ holen. Der lokale Tag bleibt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The tag disappears for everyone who fetches from %@. The local tag stays."
-          }
-        }
-      }
-    },
     "tag.deleteRemote.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tag %@ auf %@ löschen?"
+            "value" : "Tag auf dem Remote löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete tag %1$@ on %2$@?"
+            "value" : "Delete Tag on Remote?"
           }
         }
       }
@@ -17639,23 +16867,6 @@
         }
       }
     },
-    "worktree.lock.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein gesperrter Worktree wird nicht aufgeräumt, verschoben oder entfernt, etwa wenn er auf einem Laufwerk liegt, das nicht immer angeschlossen ist."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "A locked worktree is not pruned, moved or removed, for example when it lives on a drive that is not always connected."
-          }
-        }
-      }
-    },
     "worktree.lock.reason" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -17897,36 +17108,19 @@
         }
       }
     },
-    "worktree.remove.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Ordner %@ wird gelöscht. Commits bleiben im Repository."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "The folder %@ will be deleted. Commits stay in the repository."
-          }
-        }
-      }
-    },
     "worktree.remove.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Worktree %@ entfernen?"
+            "value" : "Worktree entfernen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Remove Worktree %@?"
+            "value" : "Remove Worktree?"
           }
         }
       }
@@ -17948,36 +17142,19 @@
         }
       }
     },
-    "worktree.removeDirty.info" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@\n\nDie Änderungen und nicht versionierten Dateien in diesem Ordner gehen verloren."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@\n\nThe changes and untracked files in this folder will be lost."
-          }
-        }
-      }
-    },
     "worktree.removeDirty.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ hat nicht committete Änderungen"
+            "value" : "Worktree mit Änderungen entfernen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%@ has uncommitted changes"
+            "value" : "Remove Worktree with Changes?"
           }
         }
       }

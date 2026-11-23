@@ -41,6 +41,8 @@ final class GraphViewModel {
     /// The folder of the repository's main worktree, whichever worktree the tab shows.
     let repositoryName: String
     var lastFetch: Date?
+    /// The last local operation the status line's Undo can take back.
+    var undoOffer: UndoOffer?
     private(set) var isFetching = false {
         didSet { if isFetching != oldValue { onFetchActivityChanged?() } }
     }
@@ -146,7 +148,8 @@ final class GraphViewModel {
         setNote(String(localized: "history.status.switching", defaultValue: "Switching…", bundle: .module, comment: "Status line while checking out"))
         let start = ContinuousClock.now
         do {
-            try await repository.checkout(target, stashMessage: target.stashMessage)
+            let repository = repository
+            try await recordingUndo(target.undoScope, operation: "git switch") { try await repository.checkout(target, stashMessage: target.stashMessage) }
             await refresh(note: "git switch \(elapsed(since: start))", focus: .current)
             return .done
         } catch let conflict as CarriedChangesConflict {

@@ -8,7 +8,7 @@ final class CommitActionsController {
     let prompter = ActionPrompter()
     let interactiveRebase: InteractiveRebaseController
     private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
-        self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, operation)
+        self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, undo: .head, operation)
     }
     private let viewModel: GraphViewModel
     /// Says what a rebase or cherry-pick left out, in a toast.
@@ -84,7 +84,7 @@ final class CommitActionsController {
     // MARK: Actions
 
     private func createWorktree(from commit: Commit) {
-        let form = ActionForm(title: LocalizedStringResource("commit.createWorktree.title", defaultValue: "Create Worktree from \(RefName.commit(commit.id))", bundle: .module), info: LocalizedStringResource("commit.createWorktree.info", defaultValue: "The worktree gets its own folder. Without a branch name it stays on the commit (detached HEAD).", bundle: .module), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("commit.createWorktree.title", defaultValue: "Create Worktree from \(RefName.commit(commit.id))", bundle: .module), info: LocalizedStringResource("commit.createWorktree.info", defaultValue: "Without a branch name it stays detached.", bundle: .module), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
         form.addFolderField(key: "path", label: LocalizedStringResource("common.folder", defaultValue: "Folder", bundle: .module), value: defaultWorktreePath(for: commit))
         form.addField(key: "branch", label: LocalizedStringResource("commit.createWorktree.branch", defaultValue: "New branch (optional)", bundle: .module), required: false)
         Task {
@@ -107,29 +107,28 @@ final class CommitActionsController {
     }
 
     private func cherryPick(_ commit: Commit) {
-        run(failure: LocalizedStringResource("failure.cherryPick.failed", defaultValue: "Cherry-pick failed", bundle: .module), conflict: LocalizedStringResource("failure.cherryPick.conflicts", defaultValue: "Cherry-pick stopped on conflicts", bundle: .module), note: "git cherry-pick") { try await $0.cherryPick(commit) }
+        run(failure: LocalizedStringResource("failure.cherryPick.failed", defaultValue: "Cherry-pick failed", bundle: .module), conflict: LocalizedStringResource("failure.cherryPick.conflicts", defaultValue: "Cherry-pick stopped on conflicts", bundle: .module), note: "git cherry-pick", undo: .head) { try await $0.cherryPick(commit) }
     }
 
     private func revert(_ commit: Commit) {
-        run(failure: LocalizedStringResource("failure.revert.failed", defaultValue: "Revert failed", bundle: .module), conflict: LocalizedStringResource("failure.revert.conflicts", defaultValue: "Revert stopped on conflicts", bundle: .module), note: "git revert") { try await $0.revert(commit) }
+        run(failure: LocalizedStringResource("failure.revert.failed", defaultValue: "Revert failed", bundle: .module), conflict: LocalizedStringResource("failure.revert.conflicts", defaultValue: "Revert stopped on conflicts", bundle: .module), note: "git revert", undo: .head) { try await $0.revert(commit) }
     }
 
     private func reset(_ branch: String, to commit: Commit, mode: ResetMode) {
         Task {
             let hint = await publishedHint(rewrittenBy: commit.id)
-            // Only a hard reset asks: it throws away uncommitted work. Published commits only get the hint.
-            if mode == .hard {
+            // Only a hard reset over uncommitted changes asks: those are lost for good. Everything else can be undone; published commits only get the hint.
+            let trackedChanges = viewModel.status?.entries.contains { !$0.isUntracked && ($0.isStaged || $0.worktreeState != .unmodified) } ?? true
+            if mode == .hard, trackedChanges {
                 let alert = NSAlert()
-                let loss = RefString(LocalizedStringResource("commit.reset.loss", defaultValue: "Uncommitted changes to tracked files will be lost.", bundle: .module))
-                // The hint is a sentence of its own and goes into a paragraph of its own.
-                let info = hint.map { RefString(marked: loss.marked + "\n\n" + $0.marked) } ?? loss
-                alert.setText(RefString(LocalizedStringResource("commit.reset.title", defaultValue: "Reset \(RefName.branch(branch)) to \(RefName.commit(commit.id)) (\(mode.rawValue))?", bundle: .module)), info: info)
+                alert.alertStyle = .warning
+                alert.setConfirmation(LocalizedStringResource("commit.reset.title", defaultValue: "Reset Branch and discard Changes?", bundle: .module), names: RefString(marked: RefName.branch(branch) + " → " + RefName.commit(commit.id)), info: hint ?? RefString(verbatim: ""))
                 alert.addButton(withTitle: String(localized: "common.reset", defaultValue: "Reset", bundle: .module, comment: "Button that resets a branch."))
                 alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
                 alert.buttons.first?.hasDestructiveAction = true
                 guard await prompter.confirm(alert) else { return }
             }
-            run(failure: LocalizedStringResource("failure.reset.failed", defaultValue: "Reset failed", bundle: .module), note: Self.note("git reset --\(mode.rawValue)", hint)) { try await $0.resetCurrentBranch(to: commit.id, mode: mode) }
+            run(failure: LocalizedStringResource("failure.reset.failed", defaultValue: "Reset failed", bundle: .module), note: Self.note("git reset --\(mode.rawValue)", hint), undo: .reset(mode)) { try await $0.resetCurrentBranch(to: commit.id, mode: mode) }
         }
     }
 
@@ -160,8 +159,8 @@ final class CommitActionsController {
     // MARK: Running
 
     /// Runs one git write and refreshes the tab, also after a failure: a stopped cherry-pick, revert or rebase has changed the repository.
-    private func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
-        runOperation(failure: failure, conflict: conflict, note: note, endsRebase: false) { repository in
+    private func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, undo: UndoScope? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+        runOperation(failure: failure, conflict: conflict, note: note, endsRebase: false, undo: undo) { repository in
             try await operation(repository)
             return nil
         }
@@ -169,11 +168,12 @@ final class CommitActionsController {
 
     /// Runs a rebase, cherry-pick or revert. Commits it left out as already applied show in a toast; a stop on conflicts is left to the banner, other failures are reported.
     /// A rebase that finished at once ends like one finished through the banner.
-    private func runOperation(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
+    /// `undo` names what the operation may move, so the status line can offer to undo it.
+    private func runOperation(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, endsRebase: Bool, undo: UndoScope?, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
         let repository = viewModel.repository
         Task {
             do {
-                let report = try await operation(repository)
+                let report = try await viewModel.recordingUndo(undo, operation: note) { try await operation(repository) }
                 await viewModel.refresh(note: note)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 if endsRebase { onRebaseEnded?() }
@@ -182,19 +182,19 @@ final class CommitActionsController {
                 await viewModel.refresh(note: nil)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
-                let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, endsRebase: endsRebase, operation)] : []
+                let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, endsRebase: endsRebase, undo: undo, operation)] : []
                 await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, unlessStoppedIn: repository)
             }
         }
     }
 
     /// Runs the operation again with the local changes set aside and brought back afterwards; see `Repository.withLocalChangesStashed`.
-    private func stashAndRetry(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, endsRebase: Bool, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
+    private func stashAndRetry(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, endsRebase: Bool, undo: UndoScope?, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
         let message = String(localized: "stash.message.before", defaultValue: "GitBonsai: before \(note)", bundle: .module, comment: "Message of the stash that carries local changes past a command; the argument is the git command.")
         let prompter = prompter
         let carried = String(localized: "stash.message.carriedAlong", defaultValue: "\(note) · local changes carried along in a stash", bundle: .module, comment: "Status line after a command ran with the local changes stashed around it; the argument is the git command.")
         return FailureAction(title: LocalizedStringResource("failure.action.stashAndRetry", defaultValue: "Stash changes and try again", bundle: .module)) { [weak self] in
-            self?.runOperation(failure: failure, conflict: conflict, note: carried, endsRebase: endsRebase) { repository in
+            self?.runOperation(failure: failure, conflict: conflict, note: carried, endsRebase: endsRebase, undo: undo) { repository in
                 var report: OperationReport?
                 let conflicted = try await repository.withLocalChangesStashed(message: message) { report = try await operation(repository) }
                 if conflicted { await prompter.reportConflictingReturn(of: message) }

@@ -25,7 +25,7 @@ extension StagingController: CommandProvider {
         prompter.window = window
         let runner = ActionRunner(viewModel: viewModel, prompter: prompter)
         Task { [weak self] in
-            guard await runner.confirm(LocalizedStringResource("files.discardAll.title", defaultValue: "Discard all changes?", bundle: .module), info: LocalizedStringResource("files.discardAll.info", defaultValue: "The unstaged changes to \(paths.count) files are lost. Staged changes and new files stay.", bundle: .module), button: LocalizedStringResource("common.discard", defaultValue: "Discard", bundle: .module)) else { return }
+            guard await runner.confirm(LocalizedStringResource("files.discardAll.title", defaultValue: "Discard all Changes?", bundle: .module), info: LocalizedStringResource("files.discardAll.info", defaultValue: "Unstaged changes to \(paths.count) files are lost.", bundle: .module), button: LocalizedStringResource("common.discard", defaultValue: "Discard", bundle: .module)) else { return }
             runner.run(failure: LocalizedStringResource("failure.files.notDiscarded", defaultValue: "Changes not discarded", bundle: .module), note: "git restore --worktree -- …", then: { self?.onChange?() }) { repository in
                 try await repository.discardUnstagedChanges(paths)
             }

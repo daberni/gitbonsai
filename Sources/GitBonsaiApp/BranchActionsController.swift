@@ -52,7 +52,11 @@ final class BranchActionsController {
             editGroup.append(ActionMenuItem(LocalizedStringResource("branch.menu.createWorktree", defaultValue: "Create Worktree for \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.createWorktree(for: name) })
         }
         let copyGroup = Self.copyItems(ref)
-        let deleteGroup: [NSMenuItem] = ref.isHead ? [] : [ActionMenuItem(LocalizedStringResource("branch.menu.delete", defaultValue: "Delete \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.delete(name, worktree: worktree) }]
+        var deleteGroup: [NSMenuItem] = []
+        if !ref.isHead {
+            deleteGroup.append(ActionMenuItem(LocalizedStringResource("branch.menu.delete", defaultValue: "Delete \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.delete(name, worktree: worktree) })
+            if worktree == nil, hasRemoteCounterpart(ref) { deleteGroup.append(deleteEverywhereItem(name)) }
+        }
         return [checkoutGroup, historyGroup, editGroup, copyGroup, deleteGroup]
     }
 
@@ -70,6 +74,18 @@ final class BranchActionsController {
         ]
     }
 
+    /// A remote has a branch of that name, or the branch tracks one.
+    private func hasRemoteCounterpart(_ ref: Ref) -> Bool {
+        ref.upstream != nil || viewModel.refs.contains { candidate in
+            guard case .remoteBranch(let remote) = candidate.kind else { return false }
+            return candidate.name == "\(remote)/\(ref.name)"
+        }
+    }
+
+    func deleteEverywhereItem(_ name: String) -> NSMenuItem {
+        ActionMenuItem(LocalizedStringResource("branch.menu.deleteBranches", defaultValue: "Delete Branches…", bundle: .module)) { [weak self] in self?.deleteEverywhere(name) }
+    }
+
     private static func copyItems(_ ref: Ref) -> [NSMenuItem] {
         [
             ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(ref.name) },
@@ -80,26 +96,16 @@ final class BranchActionsController {
     // MARK: Actions
 
     private func merge(_ name: String, into current: String) {
-        Task { await runner.run(failure: LocalizedStringResource("failure.merge.failed", defaultValue: "Merge failed", bundle: .module), conflict: LocalizedStringResource("failure.merge.conflicts", defaultValue: "Merge stopped on conflicts", bundle: .module), note: "git merge") { try await $0.merge(name) } }
+        Task { await runner.run(failure: LocalizedStringResource("failure.merge.failed", defaultValue: "Merge failed", bundle: .module), conflict: LocalizedStringResource("failure.merge.conflicts", defaultValue: "Merge stopped on conflicts", bundle: .module), note: "git merge", undo: .head) { try await $0.merge(name) } }
     }
 
+    /// Runs without asking, also when commits are already published: the status line offers Undo, and a later push says what it needs.
     private func rebase(_ current: String, onto name: String) {
-        Task {
-            let published = await viewModel.repository.publishedCommitCount(rewrittenBy: name)
-            if published > 0 {
-                let info: LocalizedStringResource = if let upstream = viewModel.status?.branch.upstream {
-                    LocalizedStringResource("branch.rebase.alreadyOnRemote", defaultValue: "\(published) commits that this rewrites are already on \(RefName.remoteBranch(upstream)). Afterwards \(RefName.branch(current)) can only be pushed with a force push.", bundle: .module)
-                } else {
-                    LocalizedStringResource("branch.rebase.alreadyOnUpstream", defaultValue: "\(published) commits that this rewrites are already on the upstream. Afterwards \(RefName.branch(current)) can only be pushed with a force push.", bundle: .module)
-                }
-                guard await runner.confirm(LocalizedStringResource("branch.rebase.title", defaultValue: "Rebase \(RefName.branch(current)) onto \(RefName.branch(name))?", bundle: .module), info: info, button: LocalizedStringResource("branch.rebase.confirm", defaultValue: "Rebase Branch", bundle: .module)) else { return }
-            }
-            await runner.run(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: "git rebase") { try await $0.rebaseCurrentBranch(onto: name) }
-        }
+        Task { await runner.run(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: "git rebase", undo: .head) { try await $0.rebaseCurrentBranch(onto: name) } }
     }
 
     private func rename(_ name: String) {
-        let form = ActionForm(title: LocalizedStringResource("branch.rename.title", defaultValue: "Rename \(RefName.branch(name))", bundle: .module), info: LocalizedStringResource("branch.rename.info", defaultValue: "The upstream and the worktree follow the new name. The remote keeps the old name.", bundle: .module), confirm: LocalizedStringResource("branch.rename.confirm", defaultValue: "Rename", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("branch.rename.title", defaultValue: "Rename \(RefName.branch(name))", bundle: .module), confirm: LocalizedStringResource("branch.rename.confirm", defaultValue: "Rename", bundle: .module))
         form.addField(key: "name", label: LocalizedStringResource("branch.rename.newName", defaultValue: "New name", bundle: .module), value: name)
         Task {
             guard let values = await runner.prompter.ask(form), let newName = values.value("name"), newName != name else { return }
@@ -113,7 +119,8 @@ final class BranchActionsController {
             guard case .remoteBranch = candidate.kind, !candidate.name.hasSuffix("/HEAD") else { return nil }
             return candidate.name
         }.sorted()
-        let info: LocalizedStringResource = ref.upstream.map { upstream -> LocalizedStringResource in LocalizedStringResource("branch.upstream.infoCurrent", defaultValue: "Currently \(RefName.remoteBranch(upstream)). Leave empty to remove the upstream.", bundle: .module) } ?? LocalizedStringResource("branch.upstream.info", defaultValue: "The remote branch that \(RefName.branch(name)) is compared with and that Pull fetches from.", bundle: .module)
+        // Clearing the field is how this form removes the upstream; nothing else says so.
+        let info: LocalizedStringResource? = ref.upstream == nil ? nil : LocalizedStringResource("branch.upstream.infoCurrent", defaultValue: "Leave empty to remove the upstream.", bundle: .module)
         let form = ActionForm(title: LocalizedStringResource("branch.upstream.title", defaultValue: "Upstream of \(RefName.branch(name))", bundle: .module), info: info, confirm: LocalizedStringResource("common.apply", defaultValue: "Apply", bundle: .module))
         let suggested = ref.upstream ?? remoteBranches.first { $0.hasSuffix("/" + name) } ?? ""
         form.addComboField(key: "upstream", label: LocalizedStringResource("branch.upstream.remoteBranch", defaultValue: "Remote branch", bundle: .module), value: suggested, suggestions: remoteBranches, required: ref.upstream == nil)
@@ -126,7 +133,7 @@ final class BranchActionsController {
     }
 
     private func createWorktree(for name: String) {
-        let form = ActionForm(title: LocalizedStringResource("branch.createWorktree.title", defaultValue: "Create Worktree for \(RefName.branch(name))", bundle: .module), info: LocalizedStringResource("branch.createWorktree.info", defaultValue: "The branch is checked out in a folder of its own.", bundle: .module), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("branch.createWorktree.title", defaultValue: "Create Worktree for \(RefName.branch(name))", bundle: .module), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
         form.addFolderField(key: "path", label: LocalizedStringResource("common.folder", defaultValue: "Folder", bundle: .module), value: runner.defaultWorktreePath(suffix: name))
         Task {
             guard let values = await runner.prompter.ask(form), let folder = values.value("path") else { return }
@@ -135,16 +142,13 @@ final class BranchActionsController {
         }
     }
 
-    /// A branch checked out in another worktree can only go together with that worktree.
+    /// A branch checked out in another worktree can only go together with that worktree, which is asked for. A merged branch goes without asking and can be undone; an unmerged one asks first.
     private func delete(_ name: String, worktree: Worktree?) {
         Task {
             if let worktree {
                 let folder = (worktree.path as NSString).lastPathComponent
-                let shownPath = (worktree.path as NSString).abbreviatingWithTildeInPath
-                guard await runner.confirm(LocalizedStringResource("branch.deleteWithWorktree.title", defaultValue: "Delete \(RefName.branch(name)) and Worktree \(RefName.worktree(folder))?", bundle: .module), info: LocalizedStringResource("branch.deleteWithWorktree.info", defaultValue: "\(RefName.branch(name)) is checked out in the worktree \(RefName.worktree(folder)) and can only be deleted together with it. The folder \(RefName.path(shownPath)) will be removed.", bundle: .module), button: LocalizedStringResource("branch.deleteWithWorktree.confirm", defaultValue: "Delete Worktree and Branch", bundle: .module), destructive: true) else { return }
+                guard await runner.confirm(LocalizedStringResource("branch.deleteWithWorktree.title", defaultValue: "Delete Branch and Worktree?", bundle: .module), names: RefString(marked: RefName.branch(name) + " " + RefName.worktree(folder)), button: LocalizedStringResource("branch.deleteWithWorktree.confirm", defaultValue: "Delete Worktree and Branch", bundle: .module), destructive: true) else { return }
                 guard await runner.removeWorktree(at: worktree.path) else { return }
-            } else {
-                guard await runner.confirm(LocalizedStringResource("branch.delete.title", defaultValue: "Delete \(RefName.branch(name))?", bundle: .module), info: LocalizedStringResource("branch.delete.info", defaultValue: "The local branch is deleted. A branch of the same name on the remote stays.", bundle: .module), button: LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module), destructive: true) else { return }
             }
             await runner.deleteBranch(name)
         }
@@ -152,8 +156,23 @@ final class BranchActionsController {
 
     private func deleteRemote(_ branch: String, on remote: String) {
         Task {
-            guard await runner.confirm(LocalizedStringResource("branch.deleteRemote.title", defaultValue: "Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))?", bundle: .module), info: LocalizedStringResource("branch.deleteRemote.info", defaultValue: "The branch is deleted on the remote, for everyone who works with it. Local branches stay.", bundle: .module), button: LocalizedStringResource("branch.deleteRemote.confirm", defaultValue: "Delete on Remote", bundle: .module), destructive: true) else { return }
+            guard await runner.confirm(LocalizedStringResource("branch.deleteRemote.title", defaultValue: "Delete Remote Branch?", bundle: .module), names: RefString(marked: RefName.remoteBranch("\(remote)/\(branch)")), button: LocalizedStringResource("branch.deleteRemote.confirm", defaultValue: "Delete on Remote", bundle: .module), destructive: true) else { return }
             await runner.run(failure: LocalizedStringResource("failure.branch.remoteNotDeleted", defaultValue: "Remote branch not deleted", bundle: .module), note: "git push --delete") { try await $0.deleteRemoteBranch(branch, on: remote) }
+        }
+    }
+
+    /// The local branch and its counterparts on every remote, after a sheet that lists each with its commit and whether it holds commits found nowhere else.
+    func deleteEverywhere(_ name: String) {
+        Task {
+            let deletion: BranchDeletion
+            do {
+                deletion = try await viewModel.repository.branchDeletion(of: name)
+            } catch {
+                return runner.prompter.report(error, title: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module))
+            }
+            guard let targets = await DeleteEverywhereSheet.ask(deletion, prompter: runner.prompter), !targets.isEmpty else { return }
+            let note = targets.map(\.commandLine).joined(separator: " && ")
+            await runner.run(failure: LocalizedStringResource("failure.branch.notAllDeleted", defaultValue: "Not all Branches deleted", bundle: .module), note: note) { try await $0.delete(targets) }
         }
     }
 }

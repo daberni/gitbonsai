@@ -28,8 +28,8 @@ extension RepositoryViewController {
         statusLabel.textColor = Theme.inkMuted
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         statusBar.addSubview(statusLabel)
-        rebaseUndo.button.translatesAutoresizingMaskIntoConstraints = false
-        statusBar.addSubview(rebaseUndo.button)
+        undo.button.translatesAutoresizingMaskIntoConstraints = false
+        statusBar.addSubview(undo.button)
 
         for subview in [toolbar, split, statusBar] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
@@ -50,9 +50,9 @@ extension RepositoryViewController {
             statusBar.heightAnchor.constraint(equalToConstant: Theme.Window.statusBar),
             statusLabel.leadingAnchor.constraint(equalTo: statusBar.leadingAnchor, constant: Theme.Space.m),
             statusLabel.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
-            rebaseUndo.button.leadingAnchor.constraint(greaterThanOrEqualTo: statusLabel.trailingAnchor, constant: Theme.Space.s),
-            rebaseUndo.button.trailingAnchor.constraint(equalTo: statusBar.trailingAnchor, constant: -Theme.Space.m),
-            rebaseUndo.button.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
+            undo.button.leadingAnchor.constraint(greaterThanOrEqualTo: statusLabel.trailingAnchor, constant: Theme.Space.s),
+            undo.button.trailingAnchor.constraint(equalTo: statusBar.trailingAnchor, constant: -Theme.Space.m),
+            undo.button.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
         ])
         toast.install(in: view, above: historyPane)
     }

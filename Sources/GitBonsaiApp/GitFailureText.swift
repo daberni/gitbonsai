@@ -19,8 +19,8 @@ enum GitFailureText {
         case let .localChangesInTheWay(paths): resource = LocalizedStringResource("failure.reason.localChangesPaths", defaultValue: "Local changes would be overwritten: \(listed(paths)).", bundle: .module)
         case .uncommittedChanges: resource = LocalizedStringResource("failure.reason.uncommittedChanges", defaultValue: "Uncommitted changes are in the way; commit or stash them first.", bundle: .module)
         case .emptyStep: resource = LocalizedStringResource("failure.reason.emptyStep", defaultValue: "The step is empty; there is nothing to commit.", bundle: .module)
-        case .unreachable: resource = LocalizedStringResource("failure.reason.unreachable", defaultValue: "The server cannot be reached. Check the network connection and the remote address.", bundle: .module)
-        case .authenticationFailed: resource = LocalizedStringResource("failure.reason.authenticationFailed", defaultValue: "Signing in to the server failed. GitBonsai does not ask for passwords: store the credentials in the credential helper or load the SSH key into the SSH agent.", bundle: .module)
+        case .unreachable: resource = LocalizedStringResource("failure.reason.unreachable", defaultValue: "The server cannot be reached; check the network and the remote URL.", bundle: .module)
+        case .authenticationFailed: resource = LocalizedStringResource("failure.reason.authenticationFailed", defaultValue: "Sign-in failed. Store the credentials in the credential helper or add the SSH key to the SSH agent.", bundle: .module)
         case let .message(text) where text.isEmpty: resource = LocalizedStringResource("failure.reason.exitCode", defaultValue: "git reports an error (exit code \(Int(gitError.exitCode))).", bundle: .module)
         case let .message(text): return RefString(verbatim: text.prefix(1).uppercased() + text.dropFirst())
         }

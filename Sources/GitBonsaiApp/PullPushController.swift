@@ -149,9 +149,9 @@ final class PullPushController {
     private func offerRebase(after error: GitError, upstream: String) async {
         let fresh: Upstream? = if let branch { await viewModel.repository.upstream(of: branch) } else { nil }
         let summary: LocalizedStringResource = if let ahead = fresh?.ahead, let behind = fresh?.behind {
-            LocalizedStringResource("pull.diverged.infoCounts", defaultValue: "Local commits: \(ahead), new commits on \(RefName.remoteBranch(upstream)): \(behind). A fast-forward is not possible. Rebase puts the local commits on top of \(RefName.remoteBranch(upstream)), merge joins both sides with a merge commit.", bundle: .module)
+            LocalizedStringResource("pull.diverged.infoCounts", defaultValue: "Local commits: \(ahead), new on \(RefName.remoteBranch(upstream)): \(behind).", bundle: .module)
         } else {
-            LocalizedStringResource("pull.diverged.info", defaultValue: "A fast-forward is not possible. Rebase puts the local commits on top of \(RefName.remoteBranch(upstream)), merge joins both sides with a merge commit.", bundle: .module)
+            .verbatim(RefString(verbatim: ""))
         }
         prompter.showSheet(title: LocalizedStringResource("pull.diverged.title", defaultValue: "Branches have diverged", bundle: .module), summary: summary, details: GitFailureText.details(of: error), actions: [
             FailureAction(title: LocalizedStringResource("pull.diverged.rebase", defaultValue: "Pull using rebase", bundle: .module)) { [weak self] in self?.pull(PullVariant(mode: .rebase)) },
@@ -164,7 +164,7 @@ final class PullPushController {
         guard let branch else { return }
         let candidates = remoteBranches()
         let preferred = candidates.first { $0 == "origin/\(branch)" } ?? candidates.first { $0.hasSuffix("/\(branch)") } ?? candidates.first ?? ""
-        let form = ActionForm(title: LocalizedStringResource("pull.setUpstream.title", defaultValue: "Set Upstream for \(RefName.branch(branch))", bundle: .module), info: LocalizedStringResource("pull.setUpstream.info", defaultValue: "\(RefName.branch(branch)) has no upstream. The chosen remote branch becomes its upstream, then it is pulled from.", bundle: .module), confirm: LocalizedStringResource("pull.setUpstream.confirm", defaultValue: "Set and Pull", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("pull.setUpstream.title", defaultValue: "Set Upstream for \(RefName.branch(branch))", bundle: .module), confirm: LocalizedStringResource("pull.setUpstream.confirm", defaultValue: "Set and Pull", bundle: .module))
         form.addComboField(key: "upstream", label: LocalizedStringResource("pull.setUpstream.field", defaultValue: "Upstream", bundle: .module, comment: "Field label: the upstream branch."), value: preferred, suggestions: candidates)
         Task {
             guard let values = await prompter.ask(form), let upstream = values.value("upstream") else { return }
@@ -201,7 +201,7 @@ final class PullPushController {
                 })
             }
             actions.append(FailureAction(title: LocalizedStringResource("push.rejected.force", defaultValue: "Overwrite with --force-with-lease", bundle: .module), isDestructive: true) { [weak self] in self?.forcePush(force, upstream: upstream) })
-            prompter.report(error, title: LocalizedStringResource("failure.push.rejected", defaultValue: "Push rejected", bundle: .module), summary: LocalizedStringResource("push.rejected.summary", defaultValue: "\(RefName.remoteBranch(upstream)) has commits that \(RefName.branch(branch)) lacks. Pulling brings them in first; --force-with-lease overwrites them as long as \(RefName.remoteBranch(upstream)) has not moved since the last fetch.", bundle: .module), actions: actions)
+            prompter.report(error, title: LocalizedStringResource("failure.push.rejected", defaultValue: "Push rejected", bundle: .module), summary: LocalizedStringResource("push.rejected.summary", defaultValue: "\(RefName.remoteBranch(upstream)) has commits that \(RefName.branch(branch)) lacks. Pull them first, or overwrite them with --force-with-lease.", bundle: .module), actions: actions)
             return true
         }
     }
@@ -209,7 +209,7 @@ final class PullPushController {
     private func forcePush(_ variant: PushVariant, upstream: String) {
         run(variant, failure: LocalizedStringResource("failure.push.forceFailed", defaultValue: "Force push failed", bundle: .module)) { [weak self] error in
             guard error.isStaleLease else { return false }
-            self?.prompter.report(error, title: LocalizedStringResource("failure.push.forceRejected", defaultValue: "Force push rejected", bundle: .module), summary: LocalizedStringResource("push.forceRejected.summary", defaultValue: "\(RefName.remoteBranch(upstream)) has moved since the last fetch. Fetch first and check what is new there.", bundle: .module))
+            self?.prompter.report(error, title: LocalizedStringResource("failure.push.forceRejected", defaultValue: "Force push rejected", bundle: .module), summary: LocalizedStringResource("push.forceRejected.summary", defaultValue: "\(RefName.remoteBranch(upstream)) moved since the last fetch; fetch and look at it first.", bundle: .module))
             return true
         }
     }
@@ -217,7 +217,7 @@ final class PullPushController {
     /// The sheet of the first push: the remote (origin when there is one) and the branch's name there; the push sets the upstream.
     func firstPush() {
         guard let branch, !remotes.isEmpty else { return }
-        let form = ActionForm(title: LocalizedStringResource("push.setUpstream.title", defaultValue: "Push \(RefName.branch(branch))", bundle: .module), info: LocalizedStringResource("push.setUpstream.info", defaultValue: "The branch goes to the chosen remote and becomes its upstream there (git push -u).", bundle: .module), confirm: LocalizedStringResource("push.setUpstream.confirm", defaultValue: "Push Branch", bundle: .module))
+        let form = ActionForm(title: LocalizedStringResource("push.setUpstream.title", defaultValue: "Push \(RefName.branch(branch))", bundle: .module), confirm: LocalizedStringResource("push.setUpstream.confirm", defaultValue: "Push Branch", bundle: .module))
         form.addChoice(key: "remote", label: LocalizedStringResource("push.setUpstream.remote", defaultValue: "Remote", bundle: .module, comment: "Field label: the remote to push to."), options: remotes.map { ($0, .verbatim($0)) }, selected: remotes.contains("origin") ? "origin" : remotes[0])
         form.addField(key: "name", label: LocalizedStringResource("push.setUpstream.remoteName", defaultValue: "Branch on the remote", bundle: .module), value: branch)
         Task {

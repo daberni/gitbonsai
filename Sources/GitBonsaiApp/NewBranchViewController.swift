@@ -23,7 +23,7 @@ final class NewBranchViewController: NSViewController {
     let cancelButton = SecondaryButton(title: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
     let nameMessage = NSTextField(wrappingLabelWithString: "")
     let pathMessage = NSTextField(wrappingLabelWithString: "")
-    private let worktreeHint = NSTextField(wrappingLabelWithString: String(localized: "branch.new.worktreeInfo", defaultValue: "The branch is checked out in a folder of its own. The current folder stays unchanged.", bundle: .module))
+    private let worktreeHint = NSTextField(wrappingLabelWithString: String(localized: "branch.new.worktreeInfo", defaultValue: "The branch gets a folder of its own; this one stays as it is.", bundle: .module))
     private var pathGroup: NSView!
 
     var onFinish: ((NewBranchRequest?) -> Void)?

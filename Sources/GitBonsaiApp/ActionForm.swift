@@ -25,15 +25,20 @@ final class ActionForm: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
     private var choices: [(key: String, popup: NSPopUpButton, values: [String])] = []
     private var messageView: NSTextView?
 
-    init(title: LocalizedStringResource, info: LocalizedStringResource, confirm: LocalizedStringResource) {
+    /// With `names`, the title stays short and the names show as full pills above `info`, as in a confirmation.
+    init(title: LocalizedStringResource, names: RefString? = nil, info: LocalizedStringResource? = nil, confirm: LocalizedStringResource) {
         super.init()
-        alert.setText(title, info: info)
+        if names == nil { alert.setText(RefString(title), info: info.map(RefString.init) ?? RefString(verbatim: "")) }
         alert.addButton(withTitle: confirm.text)
         alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = Theme.ActionSheet.rowSpacing
         alert.accessoryView = stack
+        if let names {
+            alert.messageText = RefString(title).plain
+            stack.addArrangedSubview(ConfirmationBody(names: names, info: info.map(RefString.init) ?? RefString(verbatim: "")))
+        }
     }
 
     /// `placeholder` is example input such as `feature/…`, shown as it is.

@@ -64,7 +64,7 @@ final class FailureSheet {
         sentence.isSelectable = true
         sentence.preferredMaxLayoutWidth = contentWidth
 
-        var rows: [NSView] = [header, sentence]
+        var rows: [NSView] = summary.isEmpty ? [header] : [header, sentence]
         if let details { rows.append(details) }
         rows.append(buttonRow(contentWidth: contentWidth))
         let stack = NSStackView(views: rows)

@@ -109,7 +109,7 @@ final class CheckoutController: NSObject {
         let alert = NSAlert()
         let branch = RefName.branch(offer.branch)
         let upstream = RefName.remoteBranch(offer.upstream)
-        alert.setText(LocalizedStringResource("branch.diverged.title", defaultValue: "\(branch) and \(upstream) have diverged", bundle: .module), info: LocalizedStringResource("checkout.diverged.info", defaultValue: "\(branch) cannot be fast-forwarded. Resetting it to \(upstream) drops \(offer.lostCommits) local commits; the reflog keeps them for a while.", bundle: .module))
+        alert.setConfirmation(LocalizedStringResource("branch.diverged.title", defaultValue: "Branch and Upstream have diverged", bundle: .module), names: RefString(marked: branch + " ↔ " + upstream), info: LocalizedStringResource("checkout.diverged.info", defaultValue: "Resetting drops \(offer.lostCommits) local commits.", bundle: .module))
         // Buttons take plain text only, so the name stands bare there.
         alert.addButton(withTitle: String(localized: "checkout.diverged.resetTo", defaultValue: "Reset to \(offer.upstream)", bundle: .module))
         if !offer.isCurrent { alert.addButton(withTitle: String(localized: "checkout.diverged.justCheckout", defaultValue: "Just Checkout", bundle: .module)) }
@@ -139,9 +139,9 @@ final class CheckoutController: NSObject {
                 alert.alertStyle = .warning
                 let stash = conflict.stashMessage
                 let info: LocalizedStringResource = if conflict.conflictedPaths.isEmpty {
-                    LocalizedStringResource("checkout.conflict.info", defaultValue: "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted.", bundle: .module)
+                    LocalizedStringResource("checkout.conflict.info", defaultValue: "Resolve them in the working directory. The stash “\(stash)” keeps the changes until it is dropped.", bundle: .module)
                 } else {
-                    LocalizedStringResource("checkout.conflict.infoWithDetails", defaultValue: "The conflicts are in the working directory. The changes stay in the stash “\(stash)”; once they are resolved, it can be deleted.\n\n\(RefName.paths(conflict.conflictedPaths, separator: "\n"))", bundle: .module)
+                    LocalizedStringResource("checkout.conflict.infoWithDetails", defaultValue: "Resolve them in the working directory. The stash “\(stash)” keeps the changes until it is dropped.\n\n\(RefName.paths(conflict.conflictedPaths, separator: "\n"))", bundle: .module)
                 }
                 alert.setText(LocalizedStringResource("checkout.conflict.title", defaultValue: "Switched, but the carried-over changes conflict", bundle: .module), info: info)
                 present(alert) { _ in }

@@ -364,7 +364,7 @@ extension ScreenshotHarness {
     static func answer(_ alert: NSAlert) -> Bool {
         alert.layout()
         render(alert)
-        FileHandle.standardError.write(Data("asked \(RefText.plain(alert.messageText)): \(RefText.plain(alert.informativeText))\n".utf8))
+        FileHandle.standardError.write(Data("asked \(RefText.plain(alert.messageText)): \(alert.plainBody)\n".utf8))
         return environment["GITBONSAI_CONFIRM"] == "1"
     }
 
@@ -372,7 +372,7 @@ extension ScreenshotHarness {
     static func answerReset(_ alert: NSAlert) -> NSApplication.ModalResponse {
         alert.layout()
         render(alert)
-        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.informativeText) [\(alert.buttons.map(\.title).joined(separator: " | "))]\n".utf8))
+        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.plainBody) [\(alert.buttons.map(\.title).joined(separator: " | "))]\n".utf8))
         let wanted = ["reset": 0, "checkout": 1][environment["GITBONSAI_RESET_ANSWER"] ?? ""]
         guard let wanted, wanted < alert.buttons.count - 1 else { return .cancel }
         return NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertFirstButtonReturn.rawValue + wanted)

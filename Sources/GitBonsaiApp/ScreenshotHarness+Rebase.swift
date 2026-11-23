@@ -109,7 +109,7 @@ extension ScreenshotHarness {
         }
         if environment["GITBONSAI_REBASE_UNDO"] == "1" {
             after(0.8) {
-                let button = tab.rebaseUndo.button
+                let button = tab.undo.button
                 log("undo \(button.isHidden ? "hidden" : "shown: \(button.toolTip ?? "")")")
                 guard !button.isHidden else { return }
                 press(button)
@@ -235,7 +235,7 @@ extension ScreenshotHarness {
         } else {
             log("editor: closed")
         }
-        log("status: \(model.statusText); undo \(tab.rebaseUndo.button.isHidden ? "hidden" : "shown")")
+        log("status: \(model.statusText); undo \(tab.undo.button.isHidden ? "hidden" : "shown")")
     }
 
     private static func amendAtEditStop(on tab: RepositoryViewController, subject: String) {
@@ -258,7 +258,7 @@ extension ScreenshotHarness {
                     press(banner.continueButton)
                     after(1.5) {
                         log("banner after continue: \(banner.isHidden ? "hidden" : banner.text)")
-                        log("status: \(tab.viewModel.statusText); undo \(tab.rebaseUndo.button.isHidden ? "hidden" : "shown")")
+                        log("status: \(tab.viewModel.statusText); undo \(tab.undo.button.isHidden ? "hidden" : "shown")")
                     }
                 }
             }

@@ -239,7 +239,7 @@ extension ScreenshotHarness {
     static func answerChoice(_ alert: NSAlert) -> NSApplication.ModalResponse {
         alert.layout()
         render(alert)
-        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.informativeText) [\(alert.buttons.map(\.title).joined(separator: " | "))]\n".utf8))
+        FileHandle.standardError.write(Data("asked \(alert.messageText): \(alert.plainBody) [\(alert.buttons.map(\.title).joined(separator: " | "))]\n".utf8))
         guard let wanted = environment["GITBONSAI_CHOICE"], let index = alert.buttons.firstIndex(where: { $0.title.hasPrefix(wanted) }) else { return .cancel }
         FileHandle.standardError.write(Data("chose \(alert.buttons[index].title)\n".utf8))
         return NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.alertFirstButtonReturn.rawValue + index)

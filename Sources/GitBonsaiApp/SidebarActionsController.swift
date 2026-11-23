@@ -49,24 +49,23 @@ final class SidebarActionRunner {
     }
 
     @discardableResult
-    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, report: Bool = true, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
-        await actions.perform(failure: failure, conflict: conflict, note: note, report: report, operation)
+    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, report: Bool = true, undo: UndoScope? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
+        await actions.perform(failure: failure, conflict: conflict, note: note, report: report, undo: undo, operation)
     }
 
-    func confirm(_ title: LocalizedStringResource, info: LocalizedStringResource, button: LocalizedStringResource, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
-        await actions.confirm(title, info: info, button: button, destructive: destructive, style: style)
+    func confirm(_ title: LocalizedStringResource, names: RefString? = nil, info: LocalizedStringResource? = nil, button: LocalizedStringResource, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
+        await actions.confirm(title, names: names, info: info, button: button, destructive: destructive, style: style)
     }
 
-    /// Deletes a local branch; when git refuses it as unmerged, shows git's message and offers to delete it anyway.
+    /// Deletes a local branch without asking, undoable from the status line; when git refuses it as unmerged, asks before deleting it anyway.
     func deleteBranch(_ name: String) async {
-        guard let error = await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -d", report: false, { try await $0.deleteBranch(name, force: false) }) else { return }
+        guard let error = await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -d", report: false, undo: .branch(name), { try await $0.deleteBranch(name, force: false) }) else { return }
         guard error.isUnmergedBranch else {
             prompter.report(error, title: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module))
             return
         }
-        let message = Self.gitMessage(error)
-        guard await confirm(LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "\(RefName.branch(name)) is not fully merged", bundle: .module), info: LocalizedStringResource("branch.deleteUnmerged.info", defaultValue: "\(message)\n\nCommits that are only on this branch can then only be reached through the reflog.", bundle: .module), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module), destructive: true, style: .warning) else { return }
-        await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -D") { try await $0.deleteBranch(name, force: true) }
+        guard await confirm(LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "Delete unmerged Branch?", bundle: .module), names: RefString(marked: RefName.branch(name)), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module), destructive: true, style: .warning) else { return }
+        await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -D", undo: .branch(name)) { try await $0.deleteBranch(name, force: true) }
     }
 
     /// Removes a worktree; when git refuses it for modified or untracked files, shows git's message and offers to remove it anyway. True when it is gone.
@@ -77,14 +76,8 @@ final class SidebarActionRunner {
             return false
         }
         let name = (path as NSString).lastPathComponent
-        let message = Self.gitMessage(error)
-        guard await confirm(LocalizedStringResource("worktree.removeDirty.title", defaultValue: "\(RefName.worktree(name)) has uncommitted changes", bundle: .module), info: LocalizedStringResource("worktree.removeDirty.info", defaultValue: "\(message)\n\nThe changes and untracked files in this folder will be lost.", bundle: .module), button: LocalizedStringResource("worktree.removeDirty.confirm", defaultValue: "Remove anyway", bundle: .module), destructive: true, style: .warning) else { return false }
+        guard await confirm(LocalizedStringResource("worktree.removeDirty.title", defaultValue: "Remove Worktree with Changes?", bundle: .module), names: RefString(marked: RefName.worktree(name)), button: LocalizedStringResource("worktree.removeDirty.confirm", defaultValue: "Remove anyway", bundle: .module), destructive: true, style: .warning) else { return false }
         return await run(failure: LocalizedStringResource("failure.worktree.notRemoved", defaultValue: "Worktree not removed", bundle: .module), note: "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true) } == nil
-    }
-
-    /// git's own words, without the hint lines that suggest commands.
-    static func gitMessage(_ error: GitError) -> String {
-        error.stderr.split(separator: "\n").filter { !$0.hasPrefix("hint:") }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Next to the main worktree, named after the repository and `suffix`.

@@ -246,7 +246,7 @@ extension ScreenshotHarness {
         let environment = environment
         after(0.5) {
             let sheet = alert.window
-            FileHandle.standardError.write(Data("discard sheet: \(alert.messageText) — \(alert.informativeText)\n".utf8))
+            FileHandle.standardError.write(Data("discard sheet: \(alert.messageText) — \(alert.plainBody)\n".utf8))
             switch environment["GITBONSAI_DISCARD_ANSWER"] {
             case "confirm", "cancel":
                 let button = alert.buttons[environment["GITBONSAI_DISCARD_ANSWER"] == "confirm" ? 0 : 1]
