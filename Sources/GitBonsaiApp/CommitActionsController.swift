@@ -167,12 +167,12 @@ final class CommitActionsController {
         Task {
             do {
                 let report = try await viewModel.recordingUndo(undo, operation: note) { try await operation(repository) }
-                await viewModel.refresh(note: note)
+                await viewModel.refresh(note: note, focus: .followHead)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 if endsRebase { onRebaseEnded?() }
             } catch {
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
-                await viewModel.refresh(note: nil)
+                await viewModel.refresh(note: nil, focus: .followHead)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
                 let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, endsRebase: endsRebase, undo: undo, operation)] : []

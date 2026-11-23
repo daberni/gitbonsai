@@ -121,9 +121,9 @@ final class UndoController {
         let failure = LocalizedStringResource("failure.undo.failed", defaultValue: "Not undone", bundle: .module)
         switch pending {
         case .point(let offer):
-            runner.run(failure: failure, note: offer.point.commandLine) { try await $0.undo(offer.point) }
+            runner.run(failure: failure, note: offer.point.commandLine, focus: .followHead) { try await $0.undo(offer.point) }
         case .rebase(let undo):
-            runner.run(failure: failure, note: "git reset --keep ORIG_HEAD") { try await $0.undoRebase(undo) }
+            runner.run(failure: failure, note: "git reset --keep ORIG_HEAD", focus: .followHead) { try await $0.undoRebase(undo) }
         }
     }
 }

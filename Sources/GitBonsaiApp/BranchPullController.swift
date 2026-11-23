@@ -37,7 +37,7 @@ final class BranchPullController {
                 pullPush.pull(PullVariant(mode: pullPush.defaultMode))
                 return
             } catch {
-                await viewModel.refresh(note: nil)
+                await viewModel.refresh(note: nil, focus: .followHead)
                 prompter.report(error, title: LocalizedStringResource("failure.branch.notPulled", defaultValue: "\(RefName.branch(branch)) not pulled", bundle: .module))
                 return
             }
@@ -46,7 +46,7 @@ final class BranchPullController {
             switch result.outcome {
             case .fastForwarded(let commits):
                 let summary = Self.fastForwarded(branch, by: commits, to: upstream, place: result.place, conflicted: result.localChangesConflicted)
-                await viewModel.refresh(note: summary.plain + " · " + result.commandLine)
+                await viewModel.refresh(note: summary.plain + " · " + result.commandLine, focus: .followHead)
                 onToast?(summary)
             case .upToDate(let ahead):
                 let summary: RefString = if ahead > 0 {
@@ -125,10 +125,10 @@ final class BranchPullController {
         do {
             try await viewModel.recordingUndo(.branch(branch), operation: "git update-ref refs/heads/\(branch)") { try await repository.resetBranchToUpstream(branch, expecting: head) }
             let done = String(localized: "branch.reset.done", defaultValue: "\(branch) reset to \(upstream)", bundle: .module)
-            await viewModel.refresh(note: done + " · git update-ref refs/heads/\(branch)")
+            await viewModel.refresh(note: done + " · git update-ref refs/heads/\(branch)", focus: .followHead)
             onToast?(RefString(LocalizedStringResource("branch.reset.done", defaultValue: "\(RefName.branch(branch)) reset to \(RefName.remoteBranch(upstream))", bundle: .module)))
         } catch {
-            await viewModel.refresh(note: nil)
+            await viewModel.refresh(note: nil, focus: .followHead)
             prompter.report(error, title: LocalizedStringResource("failure.branch.notReset", defaultValue: "\(RefName.branch(branch)) not reset", bundle: .module))
         }
     }

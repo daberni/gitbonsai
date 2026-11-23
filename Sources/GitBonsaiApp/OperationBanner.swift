@@ -146,12 +146,12 @@ final class OperationBannerController {
                 }
                 isRunning = false
                 // Continuing a step that the resolution left empty skips it; the toast says so.
-                await viewModel.refresh(note: report?.skippedEmptyStep == true ? "git \(kind.command) --skip" : command)
+                await viewModel.refresh(note: report?.skippedEmptyStep == true ? "git \(kind.command) --skip" : command, focus: .followHead)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
             } catch {
                 isRunning = false
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
-                await viewModel.refresh(note: nil)
+                await viewModel.refresh(note: nil, focus: .followHead)
                 if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
                 await prompter.report(error, title: LocalizedStringResource("failure.operation.failed", defaultValue: "\(command) failed", bundle: .module), unlessStoppedIn: repository)
             }

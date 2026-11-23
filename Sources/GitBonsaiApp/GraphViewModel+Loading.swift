@@ -68,11 +68,12 @@ extension GraphViewModel {
     /// So nothing is read from the log as long as every tip is loaded: commits no tip reaches anymore leave, and the rest are laid out again when HEAD or the commits changed. A new tip, such as a new commit or stash, reads the whole log into rows of their own.
     /// The new rows replace the shown ones in one step at the end, and the table hears only the difference, so it never shows an empty or half-built history.
     /// The history keeps its selection unless `focus` asks for another row. The status line's note stays as it is.
-    private func update(focus: Focus = .keepSelection) async {
+    private func update(focus requested: Focus = .keepSelection) async {
         guard !isLoading else {
-            reload(focus: focus)
+            reload(focus: requested == .followHead ? .current : requested)
             return
         }
+        let headBefore = headSHA
         let start = ContinuousClock.now
         inPlaceRefreshes += 1
         defer { inPlaceRefreshes -= 1 }
@@ -152,6 +153,7 @@ extension GraphViewModel {
         maxLaneCount = laneCount
         if historyMoved { computeReachability() }
         readRevision += 1
+        let focus: Focus = requested == .followHead ? (head == headBefore ? .keepSelection : .current) : requested
         onRowsRebuilt?(rowDiff(layoutDiff, from: shown, to: next), focus)
         onMetadataChanged?()
         setSummary(loadedSummary + " · " + String(localized: "history.status.view", defaultValue: "view \(elapsed(since: start))", bundle: .module, comment: "Status line: how long updating the history view took, e.g. view 3 ms"))

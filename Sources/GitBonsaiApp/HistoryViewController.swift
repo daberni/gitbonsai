@@ -35,6 +35,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     var rewrittenCommits: [String: String] = [:]
     /// A reload asked to select HEAD once it finished.
     var headAfterReload = false
+    /// A reload asked to bring the current row into view once it finished, since the action moved HEAD.
+    var currentAfterReload = false
     let search: HistorySearchController
     private(set) weak var searchField: CommitSearchField?
 
@@ -151,6 +153,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         select(row: row, scroll: false)
         guard scrollToHead, let head = viewModel.headSHA, let headRow = viewModel.rowIndex(of: head) else { return }
         scrollWithContext(to: headRow)
+        // The working directory row sits at the top, possibly far above HEAD; the selection always ends up on screen.
+        if row != headRow { tableView.scrollRowToVisible(row) }
     }
 
     /// Esc closes expanded labels; otherwise, without an active search, it goes back to where the work is: the working directory row when it has changes, else HEAD.
@@ -253,7 +257,10 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         selectedID = viewModel.commits.indices.contains(selectedRow) ? viewModel.commits[selectedRow].id : nil
         otherSelectedIDs = selectedRows.filter { $0 != selectedRow && viewModel.commits.indices.contains($0) }.map { viewModel.commits[$0].id }
         // A choice made while a reload runs replaces what the reload would have restored.
-        if selectedRow >= 0 { focusAfterReload = nil }
+        if selectedRow >= 0 {
+            focusAfterReload = nil
+            currentAfterReload = false
+        }
         if !isExtendingRange { multiSelection.anchor = selectedRow >= 0 ? selectedRow : nil }
         let changed = previous.symmetricDifference(selectedRows).filteredIndexSet { $0 < viewModel.rows.count }
         tableView.reloadData(forRowIndexes: changed, columnIndexes: IndexSet(integer: 0))

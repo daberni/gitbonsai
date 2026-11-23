@@ -17,6 +17,8 @@ final class GraphViewModel {
         case current
         /// The action brought changes back onto HEAD, such as a pop: HEAD is selected and brought into view, even with uncommitted changes on top.
         case head
+        /// The action may have moved HEAD, such as a reset, pull, rebase or undo: `current` when HEAD is on another commit afterwards, else `keepSelection`.
+        case followHead
     }
 
     static let wipID = HistoryRows.wipID

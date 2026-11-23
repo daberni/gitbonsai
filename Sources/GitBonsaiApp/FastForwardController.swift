@@ -67,10 +67,10 @@ final class FastForwardController {
             do {
                 let result = try await repository.fastForwardCurrentBranch(to: revision)
                 let summary = RefString(LocalizedStringResource("branch.fastForward.done", defaultValue: "Fast-forwarded \(RefName.branch(branch)) by \(result.commits) commits to \(targetName.marked)", bundle: .module))
-                await viewModel.refresh(note: summary.plain + " · " + result.commandLine)
+                await viewModel.refresh(note: summary.plain + " · " + result.commandLine, focus: .followHead)
                 onToast?(summary)
             } catch let error as FastForwardError {
-                await viewModel.refresh(note: nil)
+                await viewModel.refresh(note: nil, focus: .followHead)
                 let reason: LocalizedStringResource? = switch error {
                 case .notFastForward: LocalizedStringResource("branch.fastForward.diverged", defaultValue: "\(RefName.branch(branch)) has commits that \(targetName.marked) does not have. Merge or rebase instead.", bundle: .module)
                 case .upToDate: LocalizedStringResource("branch.fastForward.upToDate", defaultValue: "\(RefName.branch(branch)) already contains \(targetName.marked).", bundle: .module)
@@ -78,7 +78,7 @@ final class FastForwardController {
                 }
                 prompter.report(error, title: Self.failure(branch), summary: reason)
             } catch {
-                await viewModel.refresh(note: nil)
+                await viewModel.refresh(note: nil, focus: .followHead)
                 prompter.report(error, title: Self.failure(branch))
             }
         }

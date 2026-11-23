@@ -127,14 +127,14 @@ final class PullPushController {
         let upstreamName = upstream?.name ?? String(localized: "pull.diverged.upstreamName", defaultValue: "Upstream", bundle: .module, comment: "Stands for the upstream branch when its name is unknown.")
         do {
             let result = try await repository.pull(variant)
-            await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""))
+            await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""), focus: .followHead)
             if result.localChangesConflicted { prompter.onToast?(RefString(LocalizedStringResource("pull.toast.doneWithConflicts", defaultValue: "Pull done, local changes brought back with conflicts, stash “autostash” stays", bundle: .module)), prompter.onShowConflicts.map { show in ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { show() } }) }
             return true
         } catch let error as GitError where error.isDivergedPull {
-            await viewModel.refresh(note: nil)
+            await viewModel.refresh(note: nil, focus: .followHead)
             await offerRebase(after: error, upstream: upstreamName)
         } catch {
-            await viewModel.refresh(note: nil)
+            await viewModel.refresh(note: nil, focus: .followHead)
             let stopped = (error as? GitError)?.stoppedOnConflict == true
             await prompter.report(error, title: stopped ? LocalizedStringResource("failure.pull.conflicts", defaultValue: "Pull stopped on conflicts", bundle: .module) : LocalizedStringResource("failure.pull.failed", defaultValue: "Pull failed", bundle: .module), unlessStoppedIn: repository)
         }
@@ -208,8 +208,10 @@ final class PullPushController {
 
     private func forcePush(_ variant: PushVariant, upstream: String) {
         run(variant, failure: LocalizedStringResource("failure.push.forceFailed", defaultValue: "Force push failed", bundle: .module)) { [weak self] error in
-            guard error.isStaleLease else { return false }
-            self?.prompter.report(error, title: LocalizedStringResource("failure.push.forceRejected", defaultValue: "Force push rejected", bundle: .module), summary: LocalizedStringResource("push.forceRejected.summary", defaultValue: "\(RefName.remoteBranch(upstream)) moved since the last fetch; fetch and look at it first.", bundle: .module))
+            guard let self, error.isStaleLease else { return false }
+            // The history shows what is new on the remote, so nothing is overwritten unseen; the status line names the fetch.
+            if case .branch(_, let remote, _, _, _) = variant { _ = await viewModel.fetch(.remote(remote, prune: false)) }
+            prompter.report(error, title: LocalizedStringResource("failure.push.forceRejected", defaultValue: "Force push rejected", bundle: .module), summary: LocalizedStringResource("push.forceRejected.summary", defaultValue: "\(RefName.remoteBranch(upstream)) has new commits. They are fetched and shown in the history.", bundle: .module))
             return true
         }
     }

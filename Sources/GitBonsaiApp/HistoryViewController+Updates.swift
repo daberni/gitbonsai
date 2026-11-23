@@ -16,6 +16,7 @@ extension HistoryViewController {
     /// A reload that a later refresh restarted keeps the anchor of the first one, since nothing was selected in between.
     func rowsReset(focus: GraphViewModel.Focus) {
         headAfterReload = focus == .head
+        currentAfterReload = focus == .current || focus == .followHead
         if focus != .keepSelection {
             focusAfterReload = nil
         } else if let anchor = anchor() {
@@ -76,7 +77,9 @@ extension HistoryViewController {
             headAfterReload = false
             if selectHead() { return }
         }
-        if !restore(anchor) { selectCurrentRow(scrollToHead: anchor != nil) }
+        let follow = currentAfterReload
+        currentAfterReload = false
+        if !restore(anchor) { selectCurrentRow(scrollToHead: anchor != nil || follow) }
     }
 
     // MARK: Keeping the selection

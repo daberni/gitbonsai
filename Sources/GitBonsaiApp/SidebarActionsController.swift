@@ -49,8 +49,8 @@ final class SidebarActionRunner {
     }
 
     @discardableResult
-    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, report: Bool = true, undo: UndoScope? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
-        await actions.perform(failure: failure, conflict: conflict, note: note, report: report, undo: undo, operation)
+    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, report: Bool = true, undo: UndoScope? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
+        await actions.perform(failure: failure, conflict: conflict, note: note, focus: focus, report: report, undo: undo, operation)
     }
 
     func confirm(_ title: LocalizedStringResource, names: RefString? = nil, info: LocalizedStringResource? = nil, button: LocalizedStringResource, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {

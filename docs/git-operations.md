@@ -171,5 +171,5 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Diverged branch: reset to the upstream | `git rev-parse --verify <b>@{upstream}^{commit}`, `git update-ref -m "reset: moving to <b>@{upstream}" refs/heads/<b> <upstream sha> <old sha>` | Only for a branch checked out nowhere, chosen in the question about the diverged branch; Undo brings the local commits back. The old value guards against a branch that moved meanwhile |
 | Push to the upstream | `git push <remote> refs/heads/<b>:refs/heads/<upstream branch>` | |
 | First push | `git push -u <remote> refs/heads/<b>:refs/heads/<name>` | Sets the upstream |
-| Push after a non-fast-forward rejection | `git push --force-with-lease <remote> refs/heads/<b>:refs/heads/<upstream branch>` | Only after a confirmation; never `--force` |
+| Push after a non-fast-forward rejection | `git push --force-with-lease <remote> refs/heads/<b>:refs/heads/<upstream branch>` | Only after a confirmation; never `--force`. When the lease is stale, `git fetch --no-prune <remote>` follows, so the history shows the remote's new commits |
 | Push tags | `git push <remote> --tags` | |

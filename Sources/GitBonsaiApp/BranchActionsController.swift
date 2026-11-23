@@ -100,12 +100,12 @@ final class BranchActionsController {
     // MARK: Actions
 
     private func merge(_ name: String, into current: String) {
-        Task { await runner.run(failure: LocalizedStringResource("failure.merge.failed", defaultValue: "Merge failed", bundle: .module), conflict: LocalizedStringResource("failure.merge.conflicts", defaultValue: "Merge stopped on conflicts", bundle: .module), note: "git merge", undo: .head) { try await $0.merge(name) } }
+        Task { await runner.run(failure: LocalizedStringResource("failure.merge.failed", defaultValue: "Merge failed", bundle: .module), conflict: LocalizedStringResource("failure.merge.conflicts", defaultValue: "Merge stopped on conflicts", bundle: .module), note: "git merge", focus: .followHead, undo: .head) { try await $0.merge(name) } }
     }
 
     /// Runs without asking, also when commits are already published: the status line offers Undo, and a later push says what it needs.
     private func rebase(_ current: String, onto name: String) {
-        Task { await runner.run(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: "git rebase", undo: .head) { try await $0.rebaseCurrentBranch(onto: name) } }
+        Task { await runner.run(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: "git rebase", focus: .followHead, undo: .head) { try await $0.rebaseCurrentBranch(onto: name) } }
     }
 
     private func rename(_ name: String) {

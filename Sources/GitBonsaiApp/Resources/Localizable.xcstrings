@@ -11161,13 +11161,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ hat sich seit dem letzten Fetch bewegt; erst fetchen und ansehen."
+            "value" : "%@ hat neue Commits. Sie wurden gefetcht und stehen in der Historie."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%@ moved since the last fetch; fetch and look at it first."
+            "value" : "%@ has new commits. They are fetched and shown in the history."
           }
         }
       }

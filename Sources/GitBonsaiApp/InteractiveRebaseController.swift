@@ -242,7 +242,7 @@ final class InteractiveRebaseController {
         Task {
             do {
                 let outcome = try await repository.startInteractiveRebase(plan)
-                await viewModel.refresh(note: note)
+                await viewModel.refresh(note: note, focus: .followHead)
                 switch outcome {
                 case .finished:
                     onEnded?()
@@ -253,7 +253,7 @@ final class InteractiveRebaseController {
                     }
                 }
             } catch {
-                await viewModel.refresh(note: nil)
+                await viewModel.refresh(note: nil, focus: .followHead)
                 report(error, title: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module))
             }
         }
