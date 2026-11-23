@@ -60,14 +60,18 @@ struct HistoryRows {
         rows = newRows
     }
 
-    /// Puts the working directory row on top when HEAD is loaded. Returns whether it is there afterwards.
+    /// Puts the working directory row on top when HEAD is loaded, or right away when HEAD is a branch without commits (`head` nil). Returns whether it is there afterwards.
     @discardableResult
-    mutating func insertWorkingDirectoryRow(head: String) -> Bool {
+    mutating func insertWorkingDirectoryRow(head: String?) -> Bool {
         guard workingDirectory == nil else { return true }
-        guard let index = commitIndexByID[head], index < rows.count else { return false }
-        workingDirectory = WorkingDirectoryRow.insert(id: Self.wipID, into: &rows, headIndex: index)
+        if let head {
+            guard let index = commitIndexByID[head], index < rows.count else { return false }
+            workingDirectory = WorkingDirectoryRow.insert(id: Self.wipID, into: &rows, headIndex: index)
+        } else {
+            workingDirectory = WorkingDirectoryRow.insertOnUnbornHead(id: Self.wipID, into: &rows)
+        }
         let now = Date()
-        commits.insert(Commit(id: Self.wipID, parents: [head], authorName: "", authorEmail: "", authorDate: now, committerName: "", committerEmail: "", committerDate: now, subject: "", body: ""), at: 0)
+        commits.insert(Commit(id: Self.wipID, parents: head.map { [$0] } ?? [], authorName: "", authorEmail: "", authorDate: now, committerName: "", committerEmail: "", committerDate: now, subject: "", body: ""), at: 0)
         kinds.insert(.wip, at: 0)
         return true
     }

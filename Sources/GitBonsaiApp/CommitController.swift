@@ -13,7 +13,10 @@ final class CommitController {
     /// The text typed before amend was switched on, put back when it is switched off again.
     private var draft: (subject: String, body: String)?
     private var amendedMessage = ""
+    /// From the first ⌘⏎ until the refresh after it, including the check whether HEAD is pushed and its alert, so a second press never commits twice.
     private var isCommitting = false
+    /// Counts amend switches, so the last message that arrives after amend was switched off again, or on anew, is dropped.
+    private var amendToggles = 0
 
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
@@ -39,14 +42,13 @@ final class CommitController {
     }
 
     /// Commit needs a subject and something staged; amend needs a subject and either staged changes or a changed message.
+    private var canCommit: Bool {
+        guard !isCommitting, !form.subjectText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return form.isAmend ? stagedCount > 0 || message != amendedMessage : stagedCount > 0
+    }
+
     private func updateButton() {
-        let hasSubject = !form.subjectText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let canCommit: Bool = if form.isAmend {
-            hasSubject && (stagedCount > 0 || message != amendedMessage)
-        } else {
-            hasSubject && stagedCount > 0
-        }
-        form.show(signing: signing, canCommit: canCommit && !isCommitting, buttonTitle: form.isAmend ? LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit.") : LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
+        form.show(signing: signing, canCommit: canCommit, buttonTitle: form.isAmend ? LocalizedStringResource("commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Button that amends the last commit.") : LocalizedStringResource("commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
     }
 
     /// Ticks amend and loads the last message, for an edit stop of an interactive rebase.
@@ -57,11 +59,14 @@ final class CommitController {
     }
 
     private func amendChanged(_ on: Bool) {
+        amendToggles += 1
+        let toggle = amendToggles
         if on {
             draft = (form.subjectText, form.bodyText)
             Task { [weak self] in
                 guard let self else { return }
                 let last = await viewModel.repository.lastCommitMessage() ?? ""
+                guard toggle == amendToggles else { return }
                 amendedMessage = last
                 let parts = last.components(separatedBy: "\n")
                 form.subjectText = parts.first ?? ""
@@ -77,7 +82,10 @@ final class CommitController {
     }
 
     private func commit() {
+        guard canCommit else { return }
         guard form.isAmend else { run(amend: false); return }
+        isCommitting = true
+        updateButton()
         Task { [weak self] in
             guard let self else { return }
             guard await viewModel.repository.headIsPushed() else { run(amend: true); return }
@@ -87,7 +95,13 @@ final class CommitController {
             alert.addButton(withTitle: String(localized: "commit.amendPushed.confirm", defaultValue: "Amend anyway", bundle: .module))
             alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
             present(alert) { [weak self] response in
-                if response == .alertFirstButtonReturn { self?.run(amend: true) }
+                guard let self else { return }
+                if response == .alertFirstButtonReturn {
+                    run(amend: true)
+                } else {
+                    isCommitting = false
+                    updateButton()
+                }
             }
         }
     }
@@ -125,6 +139,8 @@ final class CommitController {
     private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
         guard ScreenshotHarness.outputPath == nil, let window = window?() else {
             FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
+            // Without a sheet nobody confirms: the same as cancelling.
+            completion(.cancel)
             return
         }
         alert.beginSheetModal(for: window) { response in completion(response) }

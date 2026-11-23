@@ -29,8 +29,10 @@ final class InlineRewordController {
     var isEditing: Bool { editor?.window != nil }
 
     /// Turns the header of the shown commit into the editor; refused with a beep where the commit menu disables the entry.
+    /// An editor the panel dropped on navigation leaves its state behind; a new one starts without it.
     func begin(_ commit: Commit) {
         guard !isEditing, let detail, access(commit) == .allowed else { return NSSound.beep() }
+        resetState()
         let message = commit.body.isEmpty ? commit.subject : "\(commit.subject)\n\n\(commit.body)"
         let editor = CommitMessageEditor(message: message)
         editor.onSave = { [weak self] in self?.save() }
@@ -91,7 +93,8 @@ final class InlineRewordController {
         let note = CommitActionsController.note(command, hint)
         editor.isSaving = true
         let repository = viewModel.repository
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             do {
                 switch try await repository.reword(plan, message: message) {
                 case let .rewritten(sha):
@@ -104,7 +107,7 @@ final class InlineRewordController {
                         prompter.report(GitError(arguments: ["rebase"], exitCode: 1, stderr: output), title: LocalizedStringResource("failure.rebase.execStopped", defaultValue: "“\(command)” failed, rebase stopped", bundle: .module))
                     }
                 }
-                finish()
+                finish(editor)
             } catch {
                 // Nothing was rewritten: the editor stays with the text for another try.
                 editor.isSaving = false
@@ -115,10 +118,17 @@ final class InlineRewordController {
         }
     }
 
-    private func finish() {
+    /// A save that outlived its editor, because the user moved on and began editing another commit, leaves the newer editor's state alone.
+    private func finish(_ saved: CommitMessageEditor) {
+        guard saved === editor else { return }
+        resetState()
+        onClosed?()
+    }
+
+    private func resetState() {
         editor = nil
         commit = nil
         plan = nil
-        onClosed?()
+        hint = nil
     }
 }

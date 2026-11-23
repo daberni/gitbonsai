@@ -1,7 +1,7 @@
 import Foundation
 import GitEngine
 
-struct WorktreeInfo: Sendable, Identifiable {
+struct WorktreeInfo: Sendable, Hashable, Identifiable {
     var id: String { worktree.path }
     let worktree: Worktree
     /// Nil when the worktree folder is missing or its status could not be read.

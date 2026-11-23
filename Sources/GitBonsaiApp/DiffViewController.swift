@@ -35,12 +35,14 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     var hunkStarts: [Int] = []
     var rows: [Row] = []
     var loadTask: Task<Void, Never>?
+    /// The read under way and what it does once it is in.
+    var pending: PendingLoad?
 
     init(staging: StagingController, repository: @escaping () -> Repository) {
         self.staging = staging
         self.repository = repository
         super.init()
-        header.onBack = { [weak self] in self?.onClose?() }
+        header.onClose = { [weak self] in self?.onClose?() }
         header.onModeChange = { [weak self] in self?.switchMode(to: $0) }
         header.onOptionsChange = { [weak self] in self?.changeOptions(to: $0) }
         header.onPrevious = { [weak self] in self?.jumpToHunk(forward: false) }
@@ -135,9 +137,10 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     private var clipView: NSClipView? { table.enclosingScrollView?.contentView }
 
     /// Where a hunk starts goes to the top of the view, unless that would show empty space below the last line: then the last line sits at the bottom.
-    func scrollToTop(row: Int) {
+    func scrollToTop(row: Int, resettingSideways: Bool = false) {
         guard let scroll = table.enclosingScrollView else { return }
-        scroll.contentView.scroll(to: NSPoint(x: scroll.contentView.bounds.minX, y: offset(ofRow: row)))
+        let x = resettingSideways ? 0 : scroll.contentView.bounds.minX
+        scroll.contentView.scroll(to: NSPoint(x: x, y: offset(ofRow: row)))
         scroll.reflectScrolledClipView(scroll.contentView)
     }
 
@@ -210,6 +213,32 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             return view
         }
     }
+}
+
+/// A diff being read for a file, and what happens once it is in.
+struct PendingLoad {
+    enum Scroll: Comparable {
+        /// The same file read again stays where it is.
+        case keep
+        /// To the top, or in the "Whole file" mode to the first change; `sideways` also back to the left edge, for another file.
+        case start(sideways: Bool)
+
+        /// The stronger reset wins when two loads merge.
+        private var strength: Int {
+            switch self {
+            case .keep: 0
+            case .start(let sideways): sideways ? 2 : 1
+            }
+        }
+
+        static func < (lhs: Scroll, rhs: Scroll) -> Bool { lhs.strength < rhs.strength }
+    }
+
+    let selection: FileSelection
+    let scroll: Scroll
+    /// Only a reload closes the diff once the file has no changes left; a new file shows "No changes" instead.
+    let closesWhenGone: Bool
+    let ready: [() -> Void]
 }
 
 /// A line's place on both sides of the comparison; nil on the side it does not exist.

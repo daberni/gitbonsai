@@ -6,7 +6,7 @@ import GitEngine
 public struct WorkingDirectoryRow: Sendable {
     /// The lane of the strand between this row and HEAD.
     public let lane: Lane
-    /// HEAD's row once this row is on top.
+    /// HEAD's row once this row is on top; 0 on an unborn branch, where no strand leaves the row.
     public let headRow: Int
     /// The rows from the top down to HEAD as the layout produced them.
     private let rowsAboveHead: [GraphRow]
@@ -24,6 +24,12 @@ public struct WorkingDirectoryRow: Sendable {
         let down = GraphEdge(fromLane: lane, toLane: lane, kind: .straight, color: head.color)
         rows.insert(GraphRow(commitID: id, lane: lane, color: head.color, isMerge: false, edges: [down], laneCount: lane + 1), at: 0)
         return WorkingDirectoryRow(lane: lane, headRow: headIndex + 1, rowsAboveHead: original)
+    }
+
+    /// Puts a row with `id` on top of `rows` while HEAD names a branch without commits: the row stands alone, without a strand, above whatever other branches show.
+    public static func insertOnUnbornHead(id: String, into rows: inout [GraphRow]) -> WorkingDirectoryRow {
+        rows.insert(GraphRow(commitID: id, lane: 0, color: 0, isMerge: false, edges: [], laneCount: 1), at: 0)
+        return WorkingDirectoryRow(lane: 0, headRow: 0, rowsAboveHead: [])
     }
 
     /// Takes the row off `rows` again and gives the rows above HEAD back their own edges.

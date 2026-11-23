@@ -7,7 +7,7 @@ import GraphLayout
 /// It coordinates the parts: `LogLoader` streams the history into `HistoryRows`, `RefLoader` and `WorktreeLoader` read the rest.
 @MainActor
 final class GraphViewModel {
-    enum RowKind { case commit, merge, stash, wip }
+    enum RowKind: Sendable { case commit, merge, stash, wip }
 
     /// Which row the history shows once a refresh rebuilt its rows.
     enum Focus {
@@ -25,12 +25,19 @@ final class GraphViewModel {
     var commits: [Commit] { history.commits }
     var rows: [GraphRow] { history.rows }
     var kinds: [RowKind] { history.kinds }
-    var refs: [Ref] = [] { didSet { sidebarChanges += 1 } }
+    // Only real changes count, so a reconcile that read the same state leaves the sidebar alone.
+    var refs: [Ref] = [] { didSet { if refs != oldValue { sidebarChanges += 1 } } }
     var refsByCommit: [String: [Ref]] = [:]
-    var stashes: [Stash] = [] { didSet { sidebarChanges += 1 } }
+    var stashes: [Stash] = [] { didSet { if stashes != oldValue { sidebarChanges += 1 } } }
     var stashesByCommit: [String: Stash] = [:]
-    var worktrees: [WorktreeInfo] = [] { didSet { sidebarChanges += 1 } }
-    var status: RepositoryStatus? { didSet { sidebarChanges += 1 } }
+    var worktrees: [WorktreeInfo] = [] {
+        didSet {
+            guard worktrees != oldValue else { return }
+            sidebarChanges += 1
+            updateBranchesInOtherWorktrees()
+        }
+    }
+    var status: RepositoryStatus? { didSet { if status != oldValue { sidebarChanges += 1 } } }
     /// The folder of the repository's main worktree, whichever worktree the tab shows.
     let repositoryName: String
     var lastFetch: Date?
@@ -56,13 +63,13 @@ final class GraphViewModel {
     /// The commit the current layout keeps the leftmost lane for.
     var layoutHead: String?
     var loadTask: Task<Void, Never>?
-    /// While a refresh gathers its parts, the single redraw at its end replaces the per-part ones.
-    var isRefreshing = false
     var loadDuration = ""
     /// Counted live, because a refresh can drop commits and lay them out again.
     var loadedSummary: String { [String(localized: "common.commitCount", defaultValue: "\(history.commitCount) commits", bundle: .module), String(localized: "history.status.lanes", defaultValue: "\(maxLaneCount) lanes", bundle: .module, comment: "Status line: lanes of the commit graph"), String(localized: "history.status.stashes", defaultValue: "\(stashes.count) stashes", bundle: .module), String(localized: "history.status.loadedIn", defaultValue: "loaded in \(loadDuration)", bundle: .module, comment: "Status line: how long reading the history took, e.g. 26 ms")].joined(separator: " · ") }
     var reachableFromHead: Set<String> = []
     private var sidebarChanges = 0
+    /// Counts the loads and refreshes that read the whole repository; what depends on more than the view model's state, such as remotes, upstream or a running operation, is read again only when it changes.
+    var readRevision = 0
     var hasSidebarContent = false
     var inPlaceRefreshes = 0
     /// Counts the in-place refreshes started and the newest one applied, so that one which read the repository earlier never replaces the rows of a later one.
@@ -89,14 +96,16 @@ final class GraphViewModel {
     var headSHA: String? { status?.branch.headSHA }
     var currentBranch: String? { status?.branch.branch }
 
-    /// Full ref names of branches checked out in a worktree other than this window's.
-    var branchesInOtherWorktrees: [String: Worktree] {
+    /// Full ref names of branches checked out in a worktree other than this window's. Kept, since every history row asks while it draws and resolving paths costs file system calls.
+    private(set) var branchesInOtherWorktrees: [String: Worktree] = [:]
+
+    private func updateBranchesInOtherWorktrees() {
         var result: [String: Worktree] = [:]
         for info in worktrees {
             guard let branch = info.worktree.branch, !isCurrent(info.worktree) else { continue }
             result[branch] = info.worktree
         }
-        return result
+        branchesInOtherWorktrees = result
     }
 
     enum CheckoutOutcome {
@@ -117,6 +126,12 @@ final class GraphViewModel {
 
     func isReachableFromHead(_ commitID: String) -> Bool {
         reachableFromHead.isEmpty || reachableFromHead.contains(commitID)
+    }
+
+    /// The tab closed: a log still streaming and a refresh under way stop.
+    func close() {
+        loadTask?.cancel()
+        loadGeneration += 1
     }
 
     // MARK: Actions
@@ -144,6 +159,7 @@ final class GraphViewModel {
     /// Shows another worktree of the same repository in place.
     func switchWorktree(to path: String) {
         repository = Repository(path: path, gitPath: repository.runner.gitPath)
+        updateBranchesInOtherWorktrees()
         Task { await refresh(note: nil, focus: .current) }
     }
 

@@ -4,20 +4,26 @@ import GraphLayout
 
 /// Streams `git log` and lays every commit out as it arrives, handing the rows over in batches so the table inserts a few hundred at a time.
 ///
-/// The first batch is handed over immediately, later ones after 500 commits or 100 ms.
-@MainActor
-struct LogLoader {
-    enum Outcome {
+/// Reading and laying out run off the main actor; only the batches reach it. The first batch is handed over immediately, later ones after 500 commits or 100 ms.
+struct LogLoader: Sendable {
+    enum Outcome: Sendable {
         case finished
         case cancelled
         case failed(Error)
+
+        var isFinished: Bool { if case .finished = self { true } else { false } }
     }
 
-    struct Batch {
+    struct Batch: Sendable {
         let commits: [Commit]
         let rows: [GraphRow]
         let kinds: [GraphViewModel.RowKind]
         let maxLaneCount: Int
+    }
+
+    private enum Event: Sendable {
+        case batch(Batch, isProgress: Bool)
+        case end(Outcome)
     }
 
     let repository: Repository
@@ -26,7 +32,31 @@ struct LogLoader {
     let head: String?
 
     /// `onBatch` receives every batch; `onProgress` follows the batches handed over while the log is still streaming.
+    @MainActor
     func stream(onBatch: (Batch) -> Void, onProgress: () -> Void) async -> Outcome {
+        let (events, continuation) = AsyncStream.makeStream(of: Event.self)
+        let producer = Task.detached { [self] in
+            continuation.yield(.end(await produce(into: continuation)))
+            continuation.finish()
+        }
+        return await withTaskCancellationHandler {
+            for await event in events {
+                if Task.isCancelled { break }
+                switch event {
+                case .batch(let batch, let isProgress):
+                    onBatch(batch)
+                    if isProgress { onProgress() }
+                case .end(let outcome):
+                    return Task.isCancelled ? .cancelled : outcome
+                }
+            }
+            return .cancelled
+        } onCancel: {
+            producer.cancel()
+        }
+    }
+
+    private func produce(into continuation: AsyncStream<Event>.Continuation) async -> Outcome {
         var layout = GraphLayout(pinned: head)
         var hiddenCommitIDs: Set<String> = []
         var pending: [Commit] = []
@@ -34,13 +64,13 @@ struct LogLoader {
         var pendingKinds: [GraphViewModel.RowKind] = []
         var lastFlush = ContinuousClock.now
         var flushedFirst = false
-        func flush() {
+        func flush(isProgress: Bool) {
             guard !pending.isEmpty else { return }
             let batch = Batch(commits: pending, rows: pendingRows, kinds: pendingKinds, maxLaneCount: max(layout.maxLaneCount, 1))
             pending.removeAll(keepingCapacity: true)
             pendingRows.removeAll(keepingCapacity: true)
             pendingKinds.removeAll(keepingCapacity: true)
-            onBatch(batch)
+            continuation.yield(.batch(batch, isProgress: isProgress))
         }
         do {
             var options = LogOptions()
@@ -55,19 +85,18 @@ struct LogLoader {
                 pending.append(commit)
                 pendingKinds.append(isStash ? .stash : commit.isMerge ? .merge : .commit)
                 if !flushedFirst || pending.count >= 500 || lastFlush.duration(to: .now) > .milliseconds(100) {
-                    flush()
+                    flush(isProgress: true)
                     flushedFirst = true
                     lastFlush = .now
-                    onProgress()
                 }
             }
             if Task.isCancelled { return .cancelled }
-            flush()
+            flush(isProgress: false)
             return .finished
         } catch is CancellationError {
             return .cancelled
         } catch {
-            flush()
+            flush(isProgress: false)
             return .failed(error)
         }
     }

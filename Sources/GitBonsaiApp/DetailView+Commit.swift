@@ -16,7 +16,8 @@ extension DetailView {
         let subject = SubjectLabel(wrappingLabelWithString: commit.subject)
         subject.font = Theme.title
         subject.textColor = Theme.ink
-        subject.isSelectable = false
+        // Selectable and copyable like the body below it.
+        subject.isSelectable = true
         subject.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         if access == .allowed {
             subject.onDoubleClick = { [weak self] in self?.onEditMessage?() }
@@ -170,9 +171,30 @@ extension DetailView {
     }
 }
 
-/// The subject of the shown commit; a double click asks to edit the message.
+/// The subject of the shown commit, selectable like the body; a double click asks to edit the message.
+/// Once a click made the field selectable, later clicks go to the window's field editor, so the double click is caught before it reaches it.
 private final class SubjectLabel: NSTextField {
-    var onDoubleClick: (() -> Void)?
+    var onDoubleClick: (() -> Void)? {
+        didSet { updateMonitor() }
+    }
+    private var monitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateMonitor()
+    }
+
+    private func updateMonitor() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        guard window != nil, onDoubleClick != nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self, event.clickCount == 2, event.window === window, let onDoubleClick else { return event }
+            guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return event }
+            onDoubleClick()
+            return nil
+        }
+    }
 
     override func mouseDown(with event: NSEvent) {
         guard event.clickCount == 2, let onDoubleClick else { return super.mouseDown(with: event) }

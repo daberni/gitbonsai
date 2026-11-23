@@ -6,64 +6,69 @@ extension DiffViewController {
     // MARK: Loading
 
     /// Reads the file's diff and only then replaces what is shown, so the previous diff never flashes up. `ready` runs once the new one is in place.
+    /// Another file starts at the top left; the same file again keeps its place.
     func show(_ selection: FileSelection, ready: (() -> Void)? = nil) {
-        let isNewFile = selection != self.selection
-        loadTask?.cancel()
-        let repository = self.repository()
-        let mode = mode
-        loadTask = Task { [weak self] in
-            let (diff, full, encoding) = await Self.read(selection, mode: mode, from: repository)
-            guard let self, !Task.isCancelled else { return }
-            self.selection = selection
-            apply(diff, full: full, encoding: encoding, scrollToTop: isNewFile)
-            ready?()
-        }
+        let isNewFile = selection != (pending?.selection ?? self.selection)
+        load(selection, scroll: isNewFile ? .start(sideways: true) : .keep, closesWhenGone: false, ready: ready)
     }
 
     /// The history moved on: a diff still loading must not appear, and a later reload has nothing to read again.
     func close() {
         loadTask?.cancel()
+        pending = nil
         selection = nil
     }
 
-    /// After the index changed: the same file, read again. Once it has no changes left on the side shown, the diff closes.
+    /// After the index changed: the same file, read again. Once it has no changes left on the side shown, the diff closes; a read that failed keeps what is shown.
     func reload() {
-        guard let selection else { return }
-        let repository = self.repository()
-        loadTask?.cancel()
-        let mode = mode
-        loadTask = Task { [weak self] in
-            let (diff, full, encoding) = await Self.read(selection, mode: mode, from: repository)
-            guard let self, !Task.isCancelled else { return }
-            guard diff != nil else {
-                onClose?()
-                return
-            }
-            apply(diff, full: full, encoding: encoding, scrollToTop: false)
-        }
-    }
-
-    /// The diff, and in the "Whole file" mode also the whole file; both are read before either is shown. A binary file is checked for UTF-16 text.
-    private static func read(_ selection: FileSelection, mode: DiffMode, from repository: Repository) async -> (FileDiff?, FileDiff?, WideTextEncoding?) {
-        async let diff = try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
-        async let full = mode == .file ? try? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil
-        let (readDiff, readFull) = await (diff, full)
-        guard let readDiff, readDiff.isBinary else { return (readDiff, readFull, nil) }
-        return (readDiff, readFull, await repository.wideTextEncoding(of: readDiff, in: selection.source))
+        guard let selection = pending?.selection ?? selection else { return }
+        load(selection, scroll: .keep, closesWhenGone: true)
     }
 
     /// The new mode holds for this file right away and for every file after it.
     func switchMode(to newMode: DiffMode) {
-        guard newMode != mode, let selection else { return }
+        guard newMode != mode, let selection = pending?.selection ?? selection else { return }
         mode = newMode
         DiffMode.remembered = newMode
+        load(selection, scroll: .start(sideways: false), closesWhenGone: false)
+    }
+
+    /// Every read goes through here. A load that replaces one still pending keeps what that one promised: its scroll reset, its `ready` and that it shows the file even without changes.
+    private func load(_ selection: FileSelection, scroll: PendingLoad.Scroll, closesWhenGone: Bool, ready: (() -> Void)? = nil) {
         loadTask?.cancel()
+        let previous = pending?.selection == selection ? pending : nil
+        let load = PendingLoad(selection: selection, scroll: max(scroll, previous?.scroll ?? .keep), closesWhenGone: previous.map { $0.closesWhenGone && closesWhenGone } ?? closesWhenGone, ready: (previous?.ready ?? []) + (ready.map { [$0] } ?? []))
+        pending = load
         let repository = self.repository()
+        let mode = mode
         loadTask = Task { [weak self] in
-            let (diff, full, encoding) = await Self.read(selection, mode: newMode, from: repository)
+            let read = try? await Self.read(selection, mode: mode, from: repository)
             guard let self, !Task.isCancelled else { return }
-            apply(diff, full: full, encoding: encoding, scrollToTop: true)
+            pending = nil
+            if load.closesWhenGone {
+                // A failed read, such as a lock held for a moment, says nothing about the file; only a diff that is gone closes the view.
+                guard let read else { return }
+                guard read.diff != nil else { onClose?(); return }
+            }
+            self.selection = selection
+            apply(read?.diff, full: read?.full, encoding: read?.encoding, scrolling: load.scroll)
+            load.ready.forEach { $0() }
         }
+    }
+
+    private struct Read {
+        let diff: FileDiff?
+        let full: FileDiff?
+        let encoding: WideTextEncoding?
+    }
+
+    /// The diff, and in the "Whole file" mode also the whole file; both are read before either is shown. A binary file is checked for UTF-16 text.
+    private static func read(_ selection: FileSelection, mode: DiffMode, from repository: Repository) async throws -> Read {
+        async let diff = repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
+        async let full = mode == .file ? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil
+        let (readDiff, readFull) = try await (diff, full)
+        guard let readDiff, readDiff.isBinary else { return Read(diff: readDiff, full: readFull, encoding: nil) }
+        return Read(diff: readDiff, full: readFull, encoding: await repository.wideTextEncoding(of: readDiff, in: selection.source))
     }
 
     /// Options change how the lines are drawn, not what was read.
@@ -75,7 +80,7 @@ extension DiffViewController {
         table.reloadData()
     }
 
-    private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, scrollToTop: Bool) {
+    private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, scrolling: PendingLoad.Scroll) {
         guard let selection else { return }
         self.diff = diff
         fileLines = full?.hunks.flatMap(\.lines) ?? []
@@ -103,7 +108,7 @@ extension DiffViewController {
         column.minWidth = contentWidth()
         table.reloadData()
         // The whole file opens where its first change is.
-        if scrollToTop { self.scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0) }
+        if case .start(let sideways) = scrolling { scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0, resettingSideways: sideways) }
     }
 
     /// What to say instead of lines, or nil when the diff has lines to show. A rename or mode change without content change says so rather than "no changes".

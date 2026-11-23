@@ -56,6 +56,9 @@ final class RepositoryViewController: NSObject {
     let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
+    private var shownReadRevision: Int?
+    /// The working directory panel was shown afresh during the reconcile under way, so its end need not read it again.
+    private var workingDirectoryShownDuringReconcile = false
     private var autoFetch: AutoFetchScheduler?
     private var reconciler: TabReconciler?
     private let commonDirectory: String
@@ -92,7 +95,10 @@ final class RepositoryViewController: NSObject {
         bind()
         viewModel.load()
         autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak self] in self?.view.window != nil })
-        reconciler = TabReconciler(name: viewModel.repositoryName, refresh: { [weak self] in await self?.viewModel.reconcile() ?? .loading }, isVisible: { [weak self] in self?.view.window != nil })
+        reconciler = TabReconciler(name: viewModel.repositoryName, refresh: { [weak self] in
+            self?.workingDirectoryShownDuringReconcile = false
+            return await self?.viewModel.reconcile() ?? .loading
+        }, isVisible: { [weak self] in self?.view.window != nil })
         reconciler?.onReconciled = { [weak self] in self?.reconciled() }
         reconciler?.watch(root: location.root, commonDirectory: location.commonDirectory, gitPath: viewModel.repository.runner.gitPath)
     }
@@ -103,17 +109,21 @@ final class RepositoryViewController: NSObject {
         autoFetch?.becameVisible()
     }
 
-    /// An open diff stays while its file still has changes there and, for a commit, while the commit is still in the history.
+    /// An open diff stays while its file still has changes there and, for a commit, while the commit is still in the history. A comparison of two revisions never changes, so it is not read again.
     private func reconciled() {
         if let file = detail.selectedFile {
-            if case .commit(let commit) = file.source {
+            switch file.source {
+            case .commit(let commit):
                 if viewModel.rowIndex(of: commit.id) == nil { showGraph() }
-            } else {
+            case .revisions:
+                break
+            case .unstaged, .staged, .untracked:
                 diff.reload()
             }
         }
-        // Editing an already changed file keeps its status line, so the working directory's line counts are read again.
-        refreshWorkingDirectoryCounts()
+        // Editing an already changed file keeps its status line, so the working directory's line counts are read again, unless a changed status just did.
+        if !workingDirectoryShownDuringReconcile { refreshWorkingDirectoryCounts() }
+        workingDirectoryShownDuringReconcile = false
         AvatarStore.shared.remotesMayHaveChanged(in: viewModel.repository)
     }
 
@@ -133,6 +143,7 @@ final class RepositoryViewController: NSObject {
     /// The tab closed or its window did: file events stop.
     func closed() {
         reconciler?.stopWatching()
+        viewModel.close()
     }
 
     func switchWorktree(to path: String) {
@@ -168,12 +179,17 @@ final class RepositoryViewController: NSObject {
         // The working directory lists follow every change of the status, for instance after staging.
         if let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)
+            workingDirectoryShownDuringReconcile = true
         }
         showFetchState()
-        fetchController.refreshRemotes()
-        pullPush.refresh()
-        operationBanner.update()
-        rebaseUndo.update()
+        // Worktree counters and the parts of a first load arrive on their own; git is asked about remotes, upstream and operations once per read of the repository.
+        if viewModel.readRevision != shownReadRevision {
+            shownReadRevision = viewModel.readRevision
+            fetchController.refreshRemotes()
+            pullPush.refresh()
+            operationBanner.update()
+            rebaseUndo.update()
+        }
         selectHeadIfLoaded()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
         toolbar.stashMenu = hasChanges ? { [weak self] in self?.stashesController.stashMenu() ?? NSMenu() } : nil

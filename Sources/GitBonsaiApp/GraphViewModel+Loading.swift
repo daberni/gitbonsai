@@ -34,6 +34,7 @@ extension GraphViewModel {
             if Task.isCancelled { return }
             computeReachability()
             isLoading = false
+            readRevision += 1
             onMetadataChanged?()
             publishStatus()
         }
@@ -78,35 +79,39 @@ extension GraphViewModel {
         startedRefreshes += 1
         let ticket = startedRefreshes
         let generation = loadGeneration
-        isRefreshing = true
-        async let newStatus = try? repository.status()
-        async let stashesTask: Void = loadStashes()
-        async let refsTask: Void = loadRefs()
-        async let worktreesTask: Void = loadWorktreeList()
-        status = await newStatus
-        _ = await (stashesTask, refsTask, worktreesTask)
-        isRefreshing = false
+        let repository = repository
+        let knownWorktrees = worktrees
+        // Everything is read into locals and applied together after the ticket check, so a refresh that read the repository earlier never overwrites a later one's state.
+        async let statusRead = try? repository.status()
+        async let stashesRead = RefLoader.stashes(of: repository)
+        async let refsRead = Result { try await RefLoader.refs(of: repository) }
+        async let worktreesRead = WorktreeLoader.list(of: repository, keeping: knownWorktrees)
+        let (readStatus, readStashes, readRefs, readWorktrees) = await (statusRead, stashesRead, refsRead, worktreesRead)
+        // A status that could not be read keeps the last one rather than dropping the working directory row and HEAD's lane.
+        let newStatus = readStatus ?? status
+        let (newStashes, newStashesByCommit) = readStashes ?? (stashes, stashesByCommit)
+        let (newRefs, newRefsByCommit) = (try? readRefs.get()) ?? (refs, refsByCommit)
         var next = history
         next.removeWorkingDirectoryRow()
         var laneCount = maxLaneCount
-        let head = headSHA
+        let head = newStatus?.branch.headSHA
         // A new commit, stash or a worktree HEAD that no branch contains is not loaded and needs the log.
-        let tips = HistoryRefresh.tips(refs: refs, head: head, stashCommits: stashesByCommit.keys)
+        let tips = HistoryRefresh.tips(refs: newRefs, head: head, stashCommits: newStashesByCommit.keys)
         // With the same starting points and HEAD, the loaded commits, their layout and what HEAD reaches stay as they are; on a large history the walks cost hundreds of milliseconds.
         let historyMoved = tips != checkedTips || head != layoutHead
         if historyMoved {
             let loaded = next.commits
             switch await Task.detached(operation: { HistoryRefresh.plan(loaded: loaded, tips: tips) }).value {
             case .reload:
-                guard let streamed = await readHistory(head: head) else { return }
+                guard let streamed = await readHistory(head: head, stashesByCommit: newStashesByCommit) else { return }
                 (next, laneCount) = streamed
             case .keep(let dropping):
                 if !dropping.isEmpty {
                     next.remove(dropping)
                     // The rest can move in git's topological order once commits left it, so git names the order again; without it the whole log is read.
-                    if let order = try? await repository.historyOrder(stashCommits: stashesByCommit.keys.sorted()) {
+                    if let order = try? await repository.historyOrder(stashCommits: newStashesByCommit.keys.sorted()) {
                         next.reorder(as: order)
-                    } else if let streamed = await readHistory(head: head) {
+                    } else if let streamed = await readHistory(head: head, stashesByCommit: newStashesByCommit) {
                         (next, laneCount) = streamed
                     } else {
                         return
@@ -114,25 +119,40 @@ extension GraphViewModel {
                 }
                 // HEAD's strand owns the leftmost lane, so a HEAD on another commit means another layout of the same commits.
                 if head != layoutHead || !dropping.isEmpty {
-                    let result = await LogLoader.relayout(next.commits, head: head, stashesByCommit: stashesByCommit)
+                    let result = await LogLoader.relayout(next.commits, head: head, stashesByCommit: newStashesByCommit)
                     next.replaceRows(result.rows)
                     laneCount = result.maxLaneCount
                 }
             }
         }
+        insertWipRow(into: &next, status: newStatus)
+        // Comparing every row is linear in the history; it runs off the main actor against the rows shown when it started.
+        let shownRows = history.rows
+        let nextRows = next.rows
+        let appliedBefore = appliedRefresh
+        var layoutDiff = await Task.detached { HistoryRowDiff.between(shownRows, nextRows) }.value
         // A reload, or a refresh that started later and finished first, owns the history now.
         guard generation == loadGeneration, ticket > appliedRefresh else { return }
+        // An earlier refresh applied while the rows were compared: compare against what it showed.
+        if appliedRefresh != appliedBefore { layoutDiff = HistoryRowDiff.between(history.rows, nextRows) }
         appliedRefresh = ticket
+        status = newStatus
+        (stashes, stashesByCommit) = (newStashes, newStashesByCommit)
+        (refs, refsByCommit) = (newRefs, newRefsByCommit)
+        if let readWorktrees { worktrees = readWorktrees }
+        if case .failure(let error) = readRefs {
+            setSummary(String(localized: "history.status.refsFailed", defaultValue: "Reading refs failed: \(String(describing: error))", bundle: .module))
+        }
         if historyMoved {
             checkedTips = tips
             layoutHead = head
         }
-        insertWipRow(into: &next)
         let shown = history
         history = next
         maxLaneCount = laneCount
         if historyMoved { computeReachability() }
-        onRowsRebuilt?(rowDiff(from: shown, to: next), focus)
+        readRevision += 1
+        onRowsRebuilt?(rowDiff(layoutDiff, from: shown, to: next), focus)
         onMetadataChanged?()
         setSummary(loadedSummary + " · " + String(localized: "history.status.view", defaultValue: "view \(elapsed(since: start))", bundle: .module, comment: "Status line: how long updating the history view took, e.g. view 3 ms"))
         // The other worktrees' change counters are slow to gather and nothing waits for them.
@@ -140,7 +160,7 @@ extension GraphViewModel {
     }
 
     /// Reads the whole log into rows of their own while the table keeps showing the current ones. Nil when the log could not be read to its end.
-    private func readHistory(head: String?) async -> (HistoryRows, Int)? {
+    private func readHistory(head: String?, stashesByCommit: [String: Stash]) async -> (HistoryRows, Int)? {
         let start = ContinuousClock.now
         let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: head)
         var read = HistoryRows()
@@ -162,8 +182,8 @@ extension GraphViewModel {
     }
 
     /// Besides the rows the layout changed, the working directory row shows the new status and stash rows their new position in the stash list.
-    private func rowDiff(from shown: HistoryRows, to next: HistoryRows) -> HistoryRowDiff? {
-        guard var diff = HistoryRowDiff.between(shown.rows, next.rows) else { return nil }
+    private func rowDiff(_ layoutDiff: HistoryRowDiff?, from shown: HistoryRows, to next: HistoryRows) -> HistoryRowDiff? {
+        guard var diff = layoutDiff else { return nil }
         let redrawn = (shown.wipRow == nil ? [] : [Self.wipID]) + stashesByCommit.keys
         for id in redrawn {
             guard let row = next.rowIndex(of: id), !diff.inserted.contains(row) else { continue }
@@ -179,14 +199,13 @@ extension GraphViewModel {
             let range = history.append(batch.commits, rows: batch.rows, kinds: batch.kinds)
             maxLaneCount = batch.maxLaneCount
             onRowsAppended?(range)
-            if history.wipRow == nil {
-                insertWipRow(into: &history)
-                // HEAD arrived in this batch: the new first row shifts every row that is already on screen.
-                if history.wipRow != nil { onRowsShifted?() }
-            }
+            // HEAD arrived in this batch: the new first row shifts every row that is already on screen.
+            if history.wipRow == nil, insertWipRow(into: &history, status: status) { onRowsShifted?() }
         }, onProgress: {
             setSummary(String(localized: "common.commitCount", defaultValue: "\(commits.count) commits", bundle: .module) + " · " + elapsed(since: start))
         })
+        // Without any commit no batch arrived to put the working directory row on.
+        if history.wipRow == nil, outcome.isFinished, insertWipRow(into: &history, status: status) { onRowsShifted?() }
         switch outcome {
         case .finished:
             loadDuration = elapsed(since: start)
@@ -198,10 +217,11 @@ extension GraphViewModel {
         }
     }
 
-    /// Uncommitted changes always show as the first row.
-    private func insertWipRow(into rows: inout HistoryRows) {
-        guard !(status?.entries.isEmpty ?? true), let head = headSHA else { return }
-        rows.insertWorkingDirectoryRow(head: head)
+    /// Uncommitted changes always show as the first row, also on a branch that has no commit yet.
+    @discardableResult
+    private func insertWipRow(into rows: inout HistoryRows, status: RepositoryStatus?) -> Bool {
+        guard let status, !status.entries.isEmpty else { return false }
+        return rows.insertWorkingDirectoryRow(head: status.branch.headSHA)
     }
 
     private func computeReachability() {
@@ -212,7 +232,7 @@ extension GraphViewModel {
     private func loadRefs() async {
         do {
             (refs, refsByCommit) = try await RefLoader.refs(of: repository)
-            if !isRefreshing { onMetadataChanged?() }
+            onMetadataChanged?()
         } catch {
             setSummary(String(localized: "history.status.refsFailed", defaultValue: "Reading refs failed: \(String(describing: error))", bundle: .module))
         }
@@ -245,7 +265,7 @@ extension GraphViewModel {
     private func loadWorktreeList() async {
         guard let list = await WorktreeLoader.list(of: repository, keeping: worktrees) else { return }
         worktrees = list
-        if !isRefreshing { onMetadataChanged?() }
+        onMetadataChanged?()
     }
 
     private func loadWorktreeStatuses() async {

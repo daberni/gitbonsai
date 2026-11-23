@@ -49,7 +49,10 @@ extension RepositoryViewController: CommandProvider {
     /// Selects the working directory so the commit form shows, and puts the cursor into its subject; amend ticks the box and loads the last message.
     func showCommitForm(amend: Bool) {
         if let row = viewModel.currentRow { history.select(row: row, scroll: true) }
-        if amend { commitController.beginAmend() }
+        if amend {
+            commitController.beginAmend()
+            rightColumn.showsBar = showsCommitForm(at: singleSelectedRow)
+        }
         commitController.form.focusSubject()
     }
 

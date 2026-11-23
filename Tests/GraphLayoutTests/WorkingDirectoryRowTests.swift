@@ -55,4 +55,19 @@ final class WorkingDirectoryRowTests: XCTestCase {
             XCTAssertEqual(rows, original, "head \(head)")
         }
     }
+
+    /// An empty repository, or an orphan branch next to others, has uncommitted changes but no HEAD commit to lead to.
+    func testUnbornHeadGetsARowWithoutStrandAndRemovesCleanly() {
+        for original in [[], rows(pinned: nil)] {
+            var rows = original
+            let wip = WorkingDirectoryRow.insertOnUnbornHead(id: "WIP", into: &rows)
+            XCTAssertEqual(rows.count, original.count + 1)
+            XCTAssertEqual(rows[0].commitID, "WIP")
+            XCTAssertEqual(rows[0].edges, [])
+            XCTAssertEqual(wip.headRow, 0)
+            XCTAssertEqual(Array(rows.dropFirst()), original)
+            wip.remove(from: &rows)
+            XCTAssertEqual(rows, original)
+        }
+    }
 }
