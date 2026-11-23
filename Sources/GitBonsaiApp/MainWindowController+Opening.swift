@@ -5,10 +5,10 @@ import GitEngine
 extension MainWindowController {
     // MARK: Opening
 
-    /// Opens the launch arguments, or else the tabs of the last session, or else an empty tab.
-    func openInitialTabs(arguments: [String]) {
-        let paths = arguments.isEmpty ? store.openTabs : arguments
-        let active = arguments.isEmpty ? store.activeTab : 0
+    /// Opens the launch arguments, or else the tabs of the last session, or else an empty tab; `folders` opened from Finder at launch join the session and the last one becomes active.
+    func openInitialTabs(arguments: [String], folders: [String] = []) {
+        let paths = (arguments.isEmpty ? store.openTabs : arguments) + folders
+        let active = folders.isEmpty ? (arguments.isEmpty ? store.activeTab : 0) : paths.count - 1
         Task {
             let failed = await open(paths, activate: active)
             if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab() }
@@ -18,7 +18,7 @@ extension MainWindowController {
             showWindow(nil)
             // The capture renders the views itself, so the window can stay behind everything else.
             if ScreenshotHarness.runsInBackground { window?.orderBack(nil) }
-            if !arguments.isEmpty { reportNotARepository(failed) }
+            reportNotARepository(failed.filter { arguments.contains($0) || folders.contains($0) })
             didFinishInitialOpen = true
             captureIfRequested()
         }

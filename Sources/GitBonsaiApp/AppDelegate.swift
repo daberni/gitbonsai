@@ -4,6 +4,8 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var windowController: MainWindowController?
     private var mainMenu: MainMenu?
+    /// Folders from Finder or `open -a` that arrive before the window exists; launch opens them after the saved session.
+    private var pendingFolders: [String] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if !ScreenshotHarness.runsInBackground { NSApp.activate(ignoringOtherApps: true) }
@@ -21,8 +23,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             controller.window?.alphaValue = 0
             controller.window?.ignoresMouseEvents = true
         }
-        controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()))
+        controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()), folders: pendingFolders)
+        pendingFolders = []
         ScreenshotHarness.openSettingsIfAsked()
+    }
+
+    /// Folders dropped on the Dock icon, opened from Finder or with `open -a GitBonsai <folder>`; a folder outside any repository gets the same alert as the Open panel.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let paths = urls.filter(\.isFileURL).map(\.path)
+        guard !paths.isEmpty else { return }
+        guard let windowController else {
+            // AppKit also hands over the launch arguments as files to open; those already open as arguments.
+            let arguments = Set(CommandLine.arguments.dropFirst().map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+            return pendingFolders.append(contentsOf: paths.filter { !arguments.contains(URL(fileURLWithPath: $0).standardizedFileURL.path) })
+        }
+        windowController.open(paths: paths, activate: paths.count - 1)
+        windowController.showWindow(nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
