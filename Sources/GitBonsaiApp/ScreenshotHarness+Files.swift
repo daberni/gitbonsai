@@ -28,6 +28,7 @@ extension ScreenshotHarness {
             after(0.3) { tab.diff.runHunkAction(hunk) }
         }
         driveDiffHeader(on: tab)
+        driveImageDiff(on: tab)
         pickDiffOption(on: tab)
         scrollDiffThenOpenFile(on: tab)
         if environment["GITBONSAI_PRINT_DIFF_HEADER"] == "1" {

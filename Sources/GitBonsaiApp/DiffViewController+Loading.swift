@@ -9,6 +9,7 @@ extension DiffViewController {
     /// Another file starts at the top left; the same file again keeps its place.
     func show(_ selection: FileSelection, ready: (() -> Void)? = nil) {
         let isNewFile = selection != (pending?.selection ?? self.selection)
+        if isNewFile { loadsLargeImages = false }
         load(selection, scroll: isNewFile ? .start(sideways: true) : .keep, closesWhenGone: false, ready: ready)
     }
 
@@ -34,15 +35,16 @@ extension DiffViewController {
     }
 
     /// Every read goes through here. A load that replaces one still pending keeps what that one promised: its scroll reset, its `ready` and that it shows the file even without changes.
-    private func load(_ selection: FileSelection, scroll: PendingLoad.Scroll, closesWhenGone: Bool, ready: (() -> Void)? = nil) {
+    func load(_ selection: FileSelection, scroll: PendingLoad.Scroll, closesWhenGone: Bool, ready: (() -> Void)? = nil) {
         loadTask?.cancel()
         let previous = pending?.selection == selection ? pending : nil
         let load = PendingLoad(selection: selection, scroll: max(scroll, previous?.scroll ?? .keep), closesWhenGone: previous.map { $0.closesWhenGone && closesWhenGone } ?? closesWhenGone, ready: (previous?.ready ?? []) + (ready.map { [$0] } ?? []))
         pending = load
         let repository = self.repository()
         let mode = mode
+        let loadsLargeImages = loadsLargeImages
         loadTask = Task { [weak self] in
-            let read = try? await Self.read(selection, mode: mode, from: repository)
+            let read = try? await Self.read(selection, mode: mode, loadingLargeImages: loadsLargeImages, from: repository)
             guard let self, !Task.isCancelled else { return }
             pending = nil
             if load.closesWhenGone {
@@ -51,6 +53,7 @@ extension DiffViewController {
                 guard read.diff != nil else { onClose?(); return }
             }
             self.selection = selection
+            images = read?.images
             apply(read?.diff, full: read?.full, encoding: read?.encoding, scrolling: load.scroll)
             load.ready.forEach { $0() }
         }
@@ -60,15 +63,20 @@ extension DiffViewController {
         let diff: FileDiff?
         let full: FileDiff?
         let encoding: WideTextEncoding?
+        let images: ImageDiffContent?
     }
 
     /// The diff, and in the "Whole file" mode also the whole file; both are read before either is shown. A binary file is checked for UTF-16 text.
-    private static func read(_ selection: FileSelection, mode: DiffMode, from repository: Repository) async throws -> Read {
+    /// A changed image also reads both of its sides.
+    private static func read(_ selection: FileSelection, mode: DiffMode, loadingLargeImages: Bool, from repository: Repository) async throws -> Read {
         async let diff = repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source)
         async let full = mode == .file ? repository.diff(of: selection.path, originalPath: selection.originalPath, in: selection.source, fullFile: true) : nil
         let (readDiff, readFull) = try await (diff, full)
-        guard let readDiff, readDiff.isBinary else { return Read(diff: readDiff, full: readFull, encoding: nil) }
-        return Read(diff: readDiff, full: readFull, encoding: await repository.wideTextEncoding(of: readDiff, in: selection.source))
+        guard let readDiff else { return Read(diff: nil, full: readFull, encoding: nil, images: nil) }
+        let images = await ImageDiffLoader.load(readDiff, path: selection.path, source: selection.source, from: repository, loadingLarge: loadingLargeImages)
+        if case .images = images { return Read(diff: readDiff, full: readFull, encoding: nil, images: images) }
+        guard readDiff.isBinary else { return Read(diff: readDiff, full: readFull, encoding: nil, images: images) }
+        return Read(diff: readDiff, full: readFull, encoding: await repository.wideTextEncoding(of: readDiff, in: selection.source), images: images)
     }
 
     /// Options change how the lines are drawn, not what was read.
@@ -86,12 +94,14 @@ extension DiffViewController {
         fileLines = full?.hunks.flatMap(\.lines) ?? []
         header.show(selection, diff: diff, mode: mode, options: style.options)
         style.prepare(diff: diff, fileLines: fileLines)
-        rows = style.notice.map { [.notice($0)] } ?? []
+        rows = imageNotice.map { [.notice($0)] } ?? []
+        rows += style.notice.map { [.notice($0)] } ?? []
         hunkStarts = []
-        let empty = Self.emptyContent(for: diff, encoding: encoding)
+        let showsImages = applyImages()
+        let empty = showsImages ? nil : Self.emptyContent(for: diff, encoding: encoding)
         if let empty { emptyState.show(empty) }
         emptyState.isHidden = empty == nil
-        scroll.isHidden = empty != nil
+        scroll.isHidden = empty != nil || showsImages
         if let diff, empty == nil, mode == .file, !fileLines.isEmpty {
             let firstLineRow = rows.count
             rows += fileLines.indices.map { .fileLine($0) }

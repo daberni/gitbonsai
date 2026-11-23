@@ -88,4 +88,23 @@ extension Theme {
         /// A notice above the lines, such as a line ending conversion.
         static let noticeHeight: CGFloat = 26
     }
+
+    /// The image diff in the history pane: changed images side by side, under a swipe line or faded over each other.
+    enum ImageDiff {
+        static let padding = Space.xl
+        static let columnGap = Space.xl
+        /// Between a side's label, its image and its caption.
+        static let gap = Space.s
+        /// Squares of the checkerboard behind transparent pixels, drawn in `surface2` and `hairline`.
+        static let checker: CGFloat = 8
+        static let handleWidth = Stroke.strand
+        static let knob = Icon.regular
+        static let sliderWidth: CGFloat = 240
+        /// The new image starts half faded in over the old one.
+        static let initialOpacity: Double = 0.5
+        /// Where the swipe line starts, as a share of the image width.
+        static let initialSwipe: CGFloat = 0.5
+        /// Height of the box in place of an image that is not shown, as a share of its width.
+        static let placeholderAspect: CGFloat = 0.6
+    }
 }

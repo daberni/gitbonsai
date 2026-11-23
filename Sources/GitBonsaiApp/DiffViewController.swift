@@ -25,6 +25,13 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     let scroll = NSScrollView()
     /// Takes the place of the lines when there are none to show: binary files, pure renames, mode changes, no changes.
     let emptyState = EmptyStateView()
+    /// Takes the place of the lines for a changed image.
+    let imageView = ImageDiffView()
+    /// Both sides of a changed image, or nil for any other file.
+    var images: ImageDiffContent?
+    var imageMode = ImageDiffMode.remembered
+    /// Images over the automatic limit load once asked for, for the file shown.
+    var loadsLargeImages = false
     let column = NSTableColumn(identifier: .init("diff"))
     var diff: FileDiff?
     var mode = DiffMode.remembered
@@ -48,6 +55,8 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         header.onPrevious = { [weak self] in self?.jumpToHunk(forward: false) }
         header.onNext = { [weak self] in self?.jumpToHunk(forward: true) }
         header.onFileAction = { [weak self] in self?.runFileAction() }
+        header.onImageModeChange = { [weak self] in self?.switchImageMode(to: $0) }
+        imageView.onLoadLarge = { [weak self] in self?.loadLargeImages() }
         configureTable()
         layout()
     }
@@ -76,7 +85,8 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled(_:)), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         emptyState.isHidden = true
-        for subview in [header, scroll, emptyState] as [NSView] {
+        imageView.isHidden = true
+        for subview in [header, scroll, emptyState, imageView] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
@@ -93,6 +103,10 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             emptyState.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             emptyState.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             emptyState.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            imageView.topAnchor.constraint(equalTo: header.bottomAnchor),
+            imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            imageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
 

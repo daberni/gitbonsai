@@ -9,12 +9,16 @@ final class DiffHeaderView: BarView {
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onFileAction: (() -> Void)?
+    var onImageModeChange: ((ImageDiffMode) -> Void)?
 
     private let indicator = NSTextField(labelWithString: "")
     private let title = NSTextField(labelWithString: "")
     private let badge = BadgeView()
     private let stat = NSTextField(labelWithString: "")
     let modes = NSSegmentedControl(labels: DiffMode.allCases.map(\.title), trackingMode: .selectOne, target: nil, action: nil)
+    /// Takes the place of `modes` for a changed image.
+    let imageModes = NSSegmentedControl(labels: [], trackingMode: .selectOne, target: nil, action: nil)
+    private(set) var offeredImageModes: [ImageDiffMode] = []
     /// Options of how a diff is shown; word diff and ignoring whitespace are to join "Show invisible characters" here.
     let optionsButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let invisiblesItem = NSMenuItem(title: String(localized: "diff.options.invisibles", defaultValue: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), action: nil, keyEquivalent: "")
@@ -44,6 +48,10 @@ final class DiffHeaderView: BarView {
         modes.target = self
         modes.action = #selector(changeMode(_:))
         modes.toolTip = String(localized: "diff.toolbar.modeToolTip", defaultValue: "Show only the changes or the whole file", bundle: .module)
+        imageModes.target = self
+        imageModes.action = #selector(changeImageMode(_:))
+        imageModes.toolTip = String(localized: "diff.image.modeToolTip", defaultValue: "Compare the images side by side, with a swipe line or faded over each other", bundle: .module)
+        imageModes.isHidden = true
         configureOptions()
         let closeSymbol = NSImage.SymbolConfiguration(pointSize: Theme.Icon.small, weight: .medium)
         close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: String(localized: "diff.toolbar.close", defaultValue: "Close", bundle: .module))?.withSymbolConfiguration(closeSymbol)
@@ -59,7 +67,7 @@ final class DiffHeaderView: BarView {
         let leading = NSStackView(views: [indicator, title, badge, stat])
         leading.spacing = Theme.Space.m
         leading.setCustomSpacing(Theme.Space.s, after: indicator)
-        let trailing = NSStackView(views: [modes, optionsButton, previous, next, fileAction, close])
+        let trailing = NSStackView(views: [modes, imageModes, optionsButton, previous, next, fileAction, close])
         trailing.spacing = Theme.Space.s
         trailing.setCustomSpacing(Theme.Space.m, after: optionsButton)
         trailing.setCustomSpacing(Theme.Space.m, after: fileAction)
@@ -127,6 +135,25 @@ final class DiffHeaderView: BarView {
         fileAction.title = selection.isUnstageable ? String(localized: "diff.toolbar.unstageFile", defaultValue: "Unstage file", bundle: .module) : String(localized: "diff.toolbar.stageFile", defaultValue: "Stage file", bundle: .module)
     }
 
+    /// For a changed image the image modes replace "Diff | Whole file", except in the text mode; outside it there are no hunks to step through. Nil puts the diff modes back.
+    func showImageModes(_ mode: ImageDiffMode?, offered: [ImageDiffMode]) {
+        offeredImageModes = offered
+        imageModes.isHidden = mode == nil || offered.count < 2
+        guard let mode else { return }
+        imageModes.segmentCount = offered.count
+        for (index, offeredMode) in offered.enumerated() {
+            imageModes.setLabel(offeredMode.title, forSegment: index)
+            imageModes.setWidth(0, forSegment: index)
+        }
+        imageModes.selectedSegment = offered.firstIndex(of: mode) ?? 0
+        // The text of an SVG keeps "Diff | Whole file" and the options beside the image toggle.
+        guard mode != .text else { return }
+        modes.isHidden = true
+        optionsButton.isHidden = true
+        previous.isHidden = true
+        next.isHidden = true
+    }
+
     /// The change letter, the path as shown and its tooltip; harness checks print them.
     var summary: String {
         "\(indicator.isHidden ? "-" : indicator.stringValue) \(title.stringValue) | \(title.toolTip ?? "")"
@@ -136,6 +163,10 @@ final class DiffHeaderView: BarView {
     @objc private func changeMode(_ sender: Any?) {
         guard DiffMode.allCases.indices.contains(modes.selectedSegment) else { return }
         onModeChange?(DiffMode.allCases[modes.selectedSegment])
+    }
+    @objc private func changeImageMode(_ sender: Any?) {
+        guard offeredImageModes.indices.contains(imageModes.selectedSegment) else { return }
+        onImageModeChange?(offeredImageModes[imageModes.selectedSegment])
     }
     @objc private func toggleInvisibles(_ sender: Any?) {
         options.showsInvisibles.toggle()

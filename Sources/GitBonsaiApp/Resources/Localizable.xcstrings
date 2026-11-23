@@ -6660,6 +6660,256 @@
         }
       }
     },
+    "diff.image.lfsPointer" : {
+      "comment" : "Notice above the text diff of an image tracked with Git LFS",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Git LFS pointer: the image itself is stored on the LFS server"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Git-LFS-Zeiger: Das Bild selbst liegt auf dem LFS-Server"
+          }
+        }
+      }
+    },
+    "diff.image.loadLarge" : {
+      "comment" : "Button that loads images too large to load on their own",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Load large Images"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Große Bilder laden"
+          }
+        }
+      }
+    },
+    "diff.image.mode.onionSkin" : {
+      "comment" : "Image diff mode: the new image over the old with adjustable opacity",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Onion skin"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Überblenden"
+          }
+        }
+      }
+    },
+    "diff.image.mode.sideBySide" : {
+      "comment" : "Image diff mode: old and new image next to each other",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Side by side"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nebeneinander"
+          }
+        }
+      }
+    },
+    "diff.image.mode.swipe" : {
+      "comment" : "Image diff mode: a draggable line shows the old image on one side and the new on the other",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Swipe"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wischen"
+          }
+        }
+      }
+    },
+    "diff.image.mode.text" : {
+      "comment" : "Image diff mode for SVG: the source as a text diff",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Text"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        }
+      }
+    },
+    "diff.image.modeToolTip" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Compare the images side by side, with a swipe line or faded over each other"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bilder nebeneinander, mit Wischlinie oder übereinander geblendet vergleichen"
+          }
+        }
+      }
+    },
+    "diff.image.new" : {
+      "comment" : "Label above the new side of an image diff",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neu"
+          }
+        }
+      }
+    },
+    "diff.image.old" : {
+      "comment" : "Label above the old side of an image diff",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Old"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alt"
+          }
+        }
+      }
+    },
+    "diff.image.opacity" : {
+      "comment" : "Tooltip of the onion skin slider",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Opacity of the new image"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deckkraft des neuen Bildes"
+          }
+        }
+      }
+    },
+    "diff.image.pixels" : {
+      "comment" : "Size of a bitmap image, width × height in pixels",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ × %2$@ px"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ × %2$@ px"
+          }
+        }
+      }
+    },
+    "diff.image.points" : {
+      "comment" : "Size of a vector image, width × height in points",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ × %2$@ pt"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ × %2$@ pt"
+          }
+        }
+      }
+    },
+    "diff.image.tooLarge" : {
+      "comment" : "Caption of an image too large to load on its own, e.g. 48 MB, not loaded",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@, not loaded"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, nicht geladen"
+          }
+        }
+      }
+    },
+    "diff.image.unreadable" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cannot show this image"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Bild kann nicht angezeigt werden"
+          }
+        }
+      }
+    },
     "diff.lineEndings" : {
       "comment" : "Notice above a diff in which every line only changed its line ending, e.g. Line endings: LF → CRLF",
       "extractionState" : "extracted_with_value",
