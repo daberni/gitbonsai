@@ -1,6 +1,7 @@
+import GitEngine
 import SwiftUI
 
-/// General: the color scheme, the folders the empty tab suggests repositories from, and the interface language, applied on the next launch.
+/// General: the color scheme, the folders the empty tab suggests repositories from, the order of the history, and the interface language, applied on the next launch.
 struct GeneralSettingsPane: View {
     @Environment(SettingsModel.self) private var model
 
@@ -8,6 +9,18 @@ struct GeneralSettingsPane: View {
         @Bindable var model = model
         AppearanceSettingsSection()
         SettingsFolderList()
+        Section {
+            Picker(selection: $model.historyOrder) {
+                ForEach(HistoryOrder.allCases, id: \.self) { order in
+                    Text(order.title).tag(order)
+                }
+            } label: {
+                Text(LocalizedStringResource("settings.general.historyOrder.label", defaultValue: "History order", bundle: .module, comment: "Settings label of how the history sorts commits across branches."))
+            }
+            .accessibilityIdentifier("settings.general.historyOrder")
+        } footer: {
+            SettingsCaption(LocalizedStringResource("settings.general.historyOrder.caption", defaultValue: "Every order lists a commit above its parents.", bundle: .module))
+        }
         Section {
             Picker(selection: $model.language) {
                 ForEach(AppLanguage.Choice.allCases, id: \.self) { language in

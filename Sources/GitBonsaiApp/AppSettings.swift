@@ -115,6 +115,12 @@ enum AppSettings {
         }
     }
 
+    /// How the history sorts commits across branches; open tabs read the history again when it changes.
+    static var historyOrder: HistoryOrder {
+        get { defaults.string(forKey: "historyOrder").flatMap(HistoryOrder.init) ?? .date }
+        set { store(newValue == .date ? nil : newValue.rawValue, forKey: "historyOrder") }
+    }
+
     /// Plain initials, or pictures from the remote host and optionally Gravatar; by default pictures from the remote host only. Harness runs show initials unless `GITBONSAI_AVATARS` asks for pictures.
     static var avatarMode: AvatarMode {
         get {
@@ -139,6 +145,7 @@ enum AppSettings {
         NSApp.appearance = appearance.nsAppearance
         GitRunner.preferredGitPath = gitPath
         ScreenshotHarness.applyAvatarSwitches()
+        ScreenshotHarness.applyHistoryOrderSwitch()
     }
 
     private static func store(_ value: Any?, forKey key: String) {

@@ -1,5 +1,6 @@
 import AppKit
 import Avatars
+import GitEngine
 import Observation
 
 /// `AppSettings` for the SwiftUI settings panes. Every property reads and writes the stored preference itself; `revision` follows `AppSettings.didChange`,
@@ -39,6 +40,11 @@ final class SettingsModel {
     var language: AppLanguage.Choice {
         get { read { AppSettings.language } }
         set { AppSettings.language = newValue }
+    }
+
+    var historyOrder: HistoryOrder {
+        get { read { AppSettings.historyOrder } }
+        set { AppSettings.historyOrder = newValue }
     }
 
     var fetchOnActivation: Bool {

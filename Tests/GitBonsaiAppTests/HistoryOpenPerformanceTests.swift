@@ -1,11 +1,12 @@
 import XCTest
 import GitEngine
+import GraphLayout
 @testable import GitBonsaiApp
 
 /// From opening a repository to its first 300 history rows laid out, on a 100k-commit repository built by `scripts/make-synthetic-repo.sh`.
 @MainActor
 final class HistoryOpenPerformanceTests: XCTestCase {
-    private static var repositoryURL: URL?
+    nonisolated(unsafe) private static var repositoryURL: URL?
 
     private func syntheticRepository() throws -> URL {
         if let url = Self.repositoryURL { return url }
@@ -28,8 +29,8 @@ final class HistoryOpenPerformanceTests: XCTestCase {
     }
 
     /// Time until the history holds `count` commits, measured like a tab opening the repository.
-    private func timeToFirstRows(_ count: Int, in url: URL) async -> Duration {
-        let model = GraphViewModel(location: RepositoryLocation(root: url.path, commonDirectory: url.appendingPathComponent(".git").path))
+    private func timeToFirstRows(_ count: Int, in url: URL, order: HistoryOrder) async -> Duration {
+        let model = GraphViewModel(location: RepositoryLocation(root: url.path, commonDirectory: url.appendingPathComponent(".git").path), historyOrder: order)
         let start = ContinuousClock.now
         let elapsed: Duration = await withCheckedContinuation { continuation in
             var resumed = false
@@ -44,16 +45,40 @@ final class HistoryOpenPerformanceTests: XCTestCase {
         return elapsed
     }
 
+    /// The budget holds for every order once the commit-graph exists; without it git walks the whole history first, which is only reported.
     func testPerformanceFirstThreeHundredCommitsOnScreen() async throws {
         let url = try syntheticRepository()
-        let withoutGraph = await timeToFirstRows(300, in: url)
-        print("100,000 commits without commit-graph, first 300 rows on screen: \(withoutGraph)")
+        for order in HistoryOrder.allCases {
+            let withoutGraph = await timeToFirstRows(300, in: url, order: order)
+            print("100,000 commits without commit-graph, \(order), first 300 rows on screen: \(withoutGraph)")
+        }
         let repository = Repository(path: url.path)
         let wrote = await repository.writeCommitGraphIfMissing()
         XCTAssertTrue(wrote)
-        _ = await timeToFirstRows(300, in: url)
-        let elapsed = await timeToFirstRows(300, in: url)
-        print("100,000 commits with commit-graph, first 300 rows on screen: \(elapsed)")
-        XCTAssertLessThan(elapsed, .milliseconds(100))
+        for order in HistoryOrder.allCases {
+            _ = await timeToFirstRows(300, in: url, order: order)
+            let elapsed = await timeToFirstRows(300, in: url, order: order)
+            print("100,000 commits with commit-graph, \(order), first 300 rows on screen: \(elapsed)")
+            XCTAssertLessThan(elapsed, .milliseconds(100), "\(order)")
+        }
+    }
+
+    /// The layout budget for the whole history, in the order git gives each choice; date orders interleave branches more than the synthetic history in `GraphLayoutTests`.
+    func testPerformanceHundredThousandCommitsLaidOutInEveryOrder() async throws {
+        let url = try syntheticRepository()
+        let repository = Repository(path: url.path)
+        for order in HistoryOrder.allCases {
+            var options = LogOptions()
+            options.order = order
+            var commits: [Commit] = []
+            for try await commit in repository.log(options) { commits.append(commit) }
+            let start = ContinuousClock.now
+            var layout = GraphLayout()
+            for commit in commits { _ = layout.append(commit) }
+            let elapsed = start.duration(to: .now)
+            print("100,000 commits, \(order), laid out in \(elapsed), \(layout.maxLaneCount) lanes")
+            XCTAssertEqual(commits.count, 100_000)
+            XCTAssertLessThan(elapsed, .seconds(2), "\(order)")
+        }
     }
 }

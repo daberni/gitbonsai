@@ -30,6 +30,7 @@ struct LogLoader: Sendable {
     let stashesByCommit: [String: Stash]
     /// The commit whose strand keeps the leftmost lane.
     let head: String?
+    let order: HistoryOrder
 
     /// `onBatch` receives every batch; `onProgress` follows the batches handed over while the log is still streaming.
     @MainActor
@@ -74,10 +75,11 @@ struct LogLoader: Sendable {
         }
         do {
             var options = LogOptions()
+            options.order = order
             options.extraArguments = stashesByCommit.keys.sorted()
             for try await commit in repository.log(options) {
                 if Task.isCancelled { return .cancelled }
-                // Index and untracked helper commits of stashes follow their stash in topological order and are skipped.
+                // Index and untracked helper commits of stashes come after their stash in every order, since they are its parents, and are skipped.
                 if hiddenCommitIDs.contains(commit.id) { continue }
                 let isStash = stashesByCommit[commit.id] != nil
                 if isStash { hiddenCommitIDs.formUnion(commit.parents.dropFirst()) }

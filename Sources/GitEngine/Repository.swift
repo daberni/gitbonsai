@@ -1,9 +1,28 @@
 import Foundation
 
+/// How the history sorts commits that do not depend on each other; every order lists a commit before its parents.
+public enum HistoryOrder: String, Sendable, Hashable, CaseIterable {
+    /// Newest commit date first across branches (`--date-order`).
+    case date
+    /// Newest author date first across branches (`--author-date-order`); differs from `date` after rebases, amends and cherry-picks.
+    case authorDate
+    /// Each line of development kept together (`--topo-order`).
+    case branchesTogether
+
+    var argument: String {
+        switch self {
+        case .date: "--date-order"
+        case .authorDate: "--author-date-order"
+        case .branchesTogether: "--topo-order"
+        }
+    }
+}
+
 public struct LogOptions: Sendable, Hashable {
     /// The history is branches, remote branches, tags and this worktree's HEAD.
     /// Other namespaces stay out: tools keep snapshots and backups under their own refs (`refs/codex/…`), and other worktrees' HEADs are theirs.
     public var limit: Int? = nil
+    public var order: HistoryOrder = .date
     /// Passed through verbatim after the options and before `--`. For `-S`, `-G`, `--since`, revision ranges.
     public var extraArguments: [String] = []
 
@@ -22,7 +41,7 @@ public struct LogOptions: Sendable, Hashable {
     }
 
     private func selection(includingHead: Bool) -> [String] {
-        var args = ["--topo-order"] + Self.historyRefs + (includingHead ? ["HEAD"] : [])
+        var args = [order.argument] + Self.historyRefs + (includingHead ? ["HEAD"] : [])
         if let limit { args.append("-n\(limit)") }
         args.append(contentsOf: extraArguments)
         return args
@@ -71,7 +90,7 @@ public final class Repository: Sendable {
         return RepositoryLocation(root: String(lines[0]), commonDirectory: String(lines[1]))
     }
 
-    /// Streams commits in the order git emits them (topological by default, children before parents).
+    /// Streams commits in the order git emits them for `options.order`, always children before parents.
     /// A repository without any commits yields an empty stream instead of git's "does not have any commits" error.
     public func log(_ options: LogOptions = LogOptions()) -> AsyncThrowingStream<Commit, Error> {
         let runner = runner
@@ -155,8 +174,9 @@ public final class Repository: Sendable {
     }
 
     /// The IDs of the history in the order the history's `git log` lists them, for the stash commits it adds. Cheaper than the log: no message is read.
-    public func historyOrder(stashCommits: [String]) async throws -> [String] {
+    public func historyOrder(_ order: HistoryOrder, stashCommits: [String]) async throws -> [String] {
         var options = LogOptions()
+        options.order = order
         options.extraArguments = stashCommits
         let result = try await runner.run(options.revListArguments(includingHead: await revisionExists("HEAD")))
         return result.stdoutString.split(separator: "\n").map(String.init)

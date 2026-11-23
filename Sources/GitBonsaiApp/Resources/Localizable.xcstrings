@@ -9634,6 +9634,24 @@
         }
       }
     },
+    "history.columns.order" : {
+      "comment" : "Column menu header above the history orders.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reihenfolge"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Order"
+          }
+        }
+      }
+    },
     "history.columns.reset" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -9647,6 +9665,60 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Reset columns"
+          }
+        }
+      }
+    },
+    "history.order.authorDate" : {
+      "comment" : "History order: newest author date first across branches.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autordatum"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Author date"
+          }
+        }
+      }
+    },
+    "history.order.branchesTogether" : {
+      "comment" : "History order: each branch's commits kept in one run.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branches zusammen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Branches together"
+          }
+        }
+      }
+    },
+    "history.order.date" : {
+      "comment" : "History order: newest commit date first across branches.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datum"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Date"
           }
         }
       }
@@ -14300,6 +14372,41 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Remove folder"
+          }
+        }
+      }
+    },
+    "settings.general.historyOrder.caption" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jede Reihenfolge zeigt einen Commit über seinen Eltern."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Every order lists a commit above its parents."
+          }
+        }
+      }
+    },
+    "settings.general.historyOrder.label" : {
+      "comment" : "Settings label of how the history sorts commits across branches.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reihenfolge der History"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "History order"
           }
         }
       }

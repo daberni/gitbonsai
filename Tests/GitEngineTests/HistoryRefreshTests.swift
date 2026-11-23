@@ -15,8 +15,9 @@ final class HistoryRefreshTests: XCTestCase {
     }
 
     /// The history as the app loads it: the log over all history refs plus the stash commits, without the stashes' index and untracked helper commits.
-    private func loadHistory() async throws -> [Commit] {
+    private func loadHistory(_ order: HistoryOrder = .date) async throws -> [Commit] {
         var options = LogOptions()
+        options.order = order
         let stashes = try await repo.repository.stashes().map(\.commitID)
         options.extraArguments = stashes
         let commits = try await repo.repository.collectLog(options)
@@ -32,7 +33,7 @@ final class HistoryRefreshTests: XCTestCase {
         return HistoryRefresh.plan(loaded: loaded, tips: HistoryRefresh.tips(refs: refs, head: head, stashCommits: stashes))
     }
 
-    /// Main A–B–M with branch x off A and branch d off B, d dated before x. With d, B waits for d and git lists M X D B A; without it git lists M B X A.
+    /// Main A–B–M with branch x off A and branch d off B, d dated before x. In branches-together order, with d, B waits for d and git lists M X D B A; without it git lists M B X A.
     /// Keeping the loaded order after d left showed X above B, unlike git.
     func testCommitsThatLeaveCanMoveTheOthersInGitsOrder() async throws {
         let a = try repo.commit("A", date: "2024-01-01T12:00:00+0000")
@@ -43,18 +44,18 @@ final class HistoryRefreshTests: XCTestCase {
         try repo.git("switch", "-q", "-c", "d", b)
         let d = try repo.commit("D", date: "2024-01-04T12:00:00+0000")
         try repo.git("switch", "-q", "main")
-        let loaded = try await loadHistory()
+        let loaded = try await loadHistory(.branchesTogether)
         XCTAssertEqual(loaded.map(\.subject), ["M", "X", "D", "B", "A"])
 
         try repo.git("branch", "-q", "-D", "d")
         let plan = try await plan(after: loaded)
         XCTAssertEqual(plan, .keep(dropping: [d]))
         let kept = loaded.filter { $0.id != d }
-        let fresh = try await loadHistory()
+        let fresh = try await loadHistory(.branchesTogether)
         XCTAssertEqual(fresh.map(\.subject), ["M", "B", "X", "A"])
         XCTAssertNotEqual(kept.map(\.id), fresh.map(\.id), "the kept order is no longer git's")
 
-        let order = try await repo.repository.historyOrder(stashCommits: [])
+        let order = try await repo.repository.historyOrder(.branchesTogether, stashCommits: [])
         let reordered = HistoryRefresh.positions(of: kept.map(\.id), as: order).map { kept[$0] }
         XCTAssertEqual(reordered.map(\.id), fresh.map(\.id))
         XCTAssertEqual(reordered.firstIndex { $0.id == b }, 1)

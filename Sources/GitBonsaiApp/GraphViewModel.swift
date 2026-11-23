@@ -91,6 +91,9 @@ final class GraphViewModel {
     var loadGeneration = 0
     /// The history starting points the loaded commits were last checked against; nil until a refresh checked them after a load.
     var checkedTips: Set<String>?
+    /// The order the loaded history is in; a different choice in the settings reads it again.
+    private(set) var historyOrder: HistoryOrder
+    private let observers = NotificationObservers()
     /// Whether this tab already asked git to write a missing commit-graph file.
     var hasCheckedCommitGraph = false
 
@@ -102,9 +105,17 @@ final class GraphViewModel {
     /// The row that stands for where the working tree is: its uncommitted changes if there are any, otherwise HEAD.
     var currentRow: Int? { history.wipRow ?? headSHA.flatMap { rowIndex(of: $0) } }
 
-    init(location: RepositoryLocation) {
+    init(location: RepositoryLocation, historyOrder: HistoryOrder = AppSettings.historyOrder) {
         repository = Repository(path: location.root)
+        self.historyOrder = historyOrder
         repositoryName = location.name
+        observers.observe(AppSettings.didChange) { [weak self] in self?.followHistoryOrder() }
+    }
+
+    private func followHistoryOrder() {
+        guard AppSettings.historyOrder != historyOrder else { return }
+        historyOrder = AppSettings.historyOrder
+        reload()
     }
 
     var headSHA: String? { status?.branch.headSHA }

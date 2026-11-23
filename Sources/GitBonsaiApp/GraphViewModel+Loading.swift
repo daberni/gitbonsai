@@ -115,8 +115,8 @@ extension GraphViewModel {
             case .keep(let dropping):
                 if !dropping.isEmpty {
                     next.remove(dropping)
-                    // The rest can move in git's topological order once commits left it, so git names the order again; without it the whole log is read.
-                    if let order = try? await repository.historyOrder(stashCommits: newStashesByCommit.keys.sorted()) {
+                    // The rest can move in git's order once commits left it, so git names the order again; without it the whole log is read.
+                    if let order = try? await repository.historyOrder(historyOrder, stashCommits: newStashesByCommit.keys.sorted()) {
                         next.reorder(as: order)
                     } else if let streamed = await readHistory(head: head, stashesByCommit: newStashesByCommit) {
                         (next, laneCount) = streamed
@@ -170,7 +170,7 @@ extension GraphViewModel {
     /// Reads the whole log into rows of their own while the table keeps showing the current ones. Nil when the log could not be read to its end.
     private func readHistory(head: String?, stashesByCommit: [String: Stash]) async -> (HistoryRows, Int)? {
         let start = ContinuousClock.now
-        let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: head)
+        let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: head, order: historyOrder)
         var read = HistoryRows()
         var laneCount = 1
         let outcome = await loader.stream(onBatch: { batch in
@@ -202,7 +202,7 @@ extension GraphViewModel {
 
     private func streamLog() async {
         let start = ContinuousClock.now
-        let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: layoutHead)
+        let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: layoutHead, order: historyOrder)
         let outcome = await loader.stream(onBatch: { batch in
             let range = history.append(batch.commits, rows: batch.rows, kinds: batch.kinds)
             maxLaneCount = batch.maxLaneCount

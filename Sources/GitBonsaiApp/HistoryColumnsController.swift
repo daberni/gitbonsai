@@ -1,4 +1,5 @@
 import AppKit
+import GitEngine
 
 /// Owns the column layout of the history: widths, visibility, the automatic graph width and the sideways graph scroll.
 /// It keeps the header, the table and the hover guide in step and remembers the user's choice.
@@ -107,6 +108,15 @@ final class HistoryColumnsController: NSObject {
         automatic.state = chosenGraphWidth == nil ? .on : .off
         menu.addItem(automatic)
         menu.addItem(.separator())
+        menu.addItem(.sectionHeader(title: String(localized: "history.columns.order", defaultValue: "Order", bundle: .module, comment: "Column menu header above the history orders.")))
+        for order in HistoryOrder.allCases {
+            let item = NSMenuItem(title: String(localized: order.title), action: #selector(chooseOrder(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = order.rawValue
+            item.state = AppSettings.historyOrder == order ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
         let reset = NSMenuItem(title: String(localized: "history.columns.reset", defaultValue: "Reset columns", bundle: .module), action: #selector(resetColumns(_:)), keyEquivalent: "")
         reset.target = self
         menu.addItem(reset)
@@ -119,6 +129,11 @@ final class HistoryColumnsController: NSObject {
         if updated.hidden.remove(column) == nil { updated.hidden.insert(column) }
         apply(updated)
         save()
+    }
+
+    @objc private func chooseOrder(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let order = HistoryOrder(rawValue: raw) else { return }
+        AppSettings.historyOrder = order
     }
 
     @objc private func toggleAutomaticGraphWidth(_ sender: Any?) {
