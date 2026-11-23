@@ -37,6 +37,12 @@ extension GraphViewModel {
             readRevision += 1
             onMetadataChanged?()
             publishStatus()
+            // Once per tab and after the first load, so it never competes with it; the next load streams from the graph.
+            if !hasCheckedCommitGraph {
+                hasCheckedCommitGraph = true
+                let repository = repository
+                Task.detached(priority: .background) { await repository.writeCommitGraphIfMissing() }
+            }
         }
     }
 

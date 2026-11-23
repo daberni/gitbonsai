@@ -89,6 +89,8 @@ final class GraphViewModel {
     var loadGeneration = 0
     /// The history starting points the loaded commits were last checked against; nil until a refresh checked them after a load.
     var checkedTips: Set<String>?
+    /// Whether this tab already asked git to write a missing commit-graph file.
+    var hasCheckedCommitGraph = false
 
     /// Changes whenever something the sidebar shows changed. Nil until the first load knows the refs, the worktrees and their counters, so the sidebar is built once with all of them.
     var sidebarRevision: Int? { hasSidebarContent ? sidebarChanges : nil }

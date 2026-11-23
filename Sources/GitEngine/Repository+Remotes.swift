@@ -152,7 +152,7 @@ extension Repository {
         _ = try await runner.runWithoutIndex(variant.arguments)
     }
 
-    private func configValue(_ key: String, type: String? = nil) async -> String? {
+    func configValue(_ key: String, type: String? = nil) async -> String? {
         let arguments = ["config"] + (type.map { ["--type=\($0)"] } ?? []) + ["--get", key]
         guard let result = try? await runner.run(arguments) else { return nil }
         let value = result.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
