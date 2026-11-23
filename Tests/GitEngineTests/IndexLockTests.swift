@@ -54,10 +54,11 @@ final class CancellationTests: XCTestCase {
     }
 
     /// A pre-commit hook that records its shell's PID and then waits; the commit hangs until it is stopped.
-    private func installHangingHook() throws -> URL {
+    /// The PID file appears complete through a rename, so a reader never sees it empty. `waits` is the shell code that holds the hook.
+    private func installHangingHook(waits: String = "sleep 30") throws -> URL {
         let pidFile = fixture.url.appendingPathComponent(".git/hook.pid")
         let hook = fixture.url.appendingPathComponent(".git/hooks/pre-commit")
-        try "#!/bin/sh\necho $$ > \"\(pidFile.path)\"\nsleep 30\n".write(to: hook, atomically: true, encoding: .utf8)
+        try "#!/bin/sh\necho $$ > \"\(pidFile.path).tmp\" && mv \"\(pidFile.path).tmp\" \"\(pidFile.path)\"\n\(waits)\n".write(to: hook, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
         return pidFile
     }
@@ -83,7 +84,29 @@ final class CancellationTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(started), 5)
         XCTAssertThrowsError(try result.get()) { XCTAssertTrue($0 is CancellationError, "\($0)") }
         // The hook's shell was in git's process group; a stopped git must not leave it running.
-        XCTAssertEqual(kill(hookPID, 0), -1)
+        try await assertEnded(hookPID)
+    }
+
+    /// A helper that ignores SIGTERM keeps git's stderr open after git itself exited; it must be killed rather than waited for.
+    func testCancellingStopsAHelperThatIgnoresTermination() async throws {
+        let pidFile = try installHangingHook(waits: "trap '' TERM\nsleep 30")
+        let runner = fixture.repository.runner
+        let commit = Task { try await runner.runWrite(["commit", "--allow-empty", "-q", "-m", "hangs"]) }
+        try await waitForFile(pidFile)
+        let hookPID = pid_t(try String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines))!
+        let started = Date()
+        commit.cancel()
+        let result = await commit.result
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+        XCTAssertThrowsError(try result.get()) { XCTAssertTrue($0 is CancellationError, "\($0)") }
+        try await assertEnded(hookPID)
+    }
+
+    /// A stopped process stays visible to `kill(pid, 0)` until launchd reaps the orphan, which can lag behind on a busy machine.
+    private func assertEnded(_ pid: pid_t, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let deadline = Date().addingTimeInterval(5)
+        while kill(pid, 0) == 0, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(kill(pid, 0), -1, "process \(pid) is still running", file: file, line: line)
     }
 
     func testACallerCancelledWhileQueuedLeavesAtOnceAndItsCommandNeverRuns() async throws {

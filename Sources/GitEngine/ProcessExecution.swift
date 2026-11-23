@@ -18,6 +18,8 @@ final class ProcessExecution: @unchecked Sendable {
     private let lock = NSLock()
     private var pid: pid_t?
     private var reaped = false
+    /// stdout and stderr not yet at end of file; a helper of git that outlives it keeps them open.
+    private var openPipes = 2
     private var terminated = false
 
     /// How long a stopped git gets to clean up its lock files before the group is killed.
@@ -50,17 +52,24 @@ final class ProcessExecution: @unchecked Sendable {
     }
 
     /// Stops git and everything it started: SIGTERM first, which lets git remove its lock files, and SIGKILL for a group still running after `killDelay`.
+    /// The group counts as running while git is unreaped or a member still holds its pipes, such as a helper that ignores SIGTERM or was forked as the signal went out; that member also keeps the group ID from being reused.
     func terminate() {
         let group: pid_t? = lock.withLock {
             terminated = true
-            return reaped ? nil : pid
+            return groupRunning ? pid : nil
         }
         guard let group else { return }
         kill(-group, SIGTERM)
         DispatchQueue.global().asyncAfter(deadline: .now() + Self.killDelay) { [self] in
-            let running = lock.withLock { !reaped }
-            if running { kill(-group, SIGKILL) }
+            if lock.withLock({ groupRunning }) { kill(-group, SIGKILL) }
         }
+    }
+
+    /// Call with `lock` held.
+    private var groupRunning: Bool { !reaped || openPipes > 0 }
+
+    private func pipeClosed() {
+        lock.withLock { openPipes -= 1 }
     }
 
     /// `onStderr` sees stderr as it arrives, for progress; stderr is collected for the outcome either way.
@@ -100,11 +109,13 @@ final class ProcessExecution: @unchecked Sendable {
         group.enter()
         DispatchQueue.global(qos: .userInitiated).async {
             Self.drain(output.read, onStdout)
+            self.pipeClosed()
             group.leave()
         }
         group.enter()
         DispatchQueue.global(qos: .userInitiated).async {
             Self.drain(errors.read, onStderr)
+            self.pipeClosed()
             group.leave()
         }
         let payload = stdin

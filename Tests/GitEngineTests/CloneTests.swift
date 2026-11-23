@@ -75,19 +75,22 @@ final class CloneTests: XCTestCase {
     }
 
     func testCancellingStopsGitAndRemovesTheFolder() async throws {
-        // A git that serves the clone through an upload-pack which waits, so the clone is still running when it is cancelled.
-        let slowUploadPack = base.appendingPathComponent("slow-upload-pack")
-        try "#!/bin/sh\nsleep 30\nexec git-upload-pack \"$@\"\n".write(to: slowUploadPack, atomically: true, encoding: .utf8)
-        let slowGit = base.appendingPathComponent("slow-git")
-        try "#!/bin/sh\nexec git -c remote.origin.uploadpack=\(slowUploadPack.path) \"$@\"\n".write(to: slowGit, atomically: true, encoding: .utf8)
-        for script in [slowUploadPack, slowGit] { try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path) }
+        // The clone is served by an upload-pack that records its pid and then blocks on a FIFO nobody writes, so git is still running when the cancellation arrives, however fast the machine. `git clone` ignores `remote.origin.uploadpack` from `-c`; only `--upload-pack` reaches the transport.
+        let started = base.appendingPathComponent("upload-pack.pid")
+        let gate = base.appendingPathComponent("gate")
+        XCTAssertEqual(mkfifo(gate.path, 0o600), 0)
+        let blockingUploadPack = base.appendingPathComponent("blocking-upload-pack")
+        try "#!/bin/sh\necho $$ > '\(started.path).tmp' && mv '\(started.path).tmp' '\(started.path)'\nexec cat '\(gate.path)'\n".write(to: blockingUploadPack, atomically: true, encoding: .utf8)
+        let blockingGit = base.appendingPathComponent("blocking-git")
+        try "#!/bin/sh\nfor argument; do shift; set -- \"$@\" \"$argument\"; [ \"$argument\" = clone ] && set -- \"$@\" '--upload-pack=\(blockingUploadPack.path)'; done\nexec git \"$@\"\n".write(to: blockingGit, atomically: true, encoding: .utf8)
+        for script in [blockingUploadPack, blockingGit] { try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path) }
         let target = destination("cancelled")
         let url = sourceURL!
 
-        let clone = Task { try await Repository.clone(url: url, to: target, gitPath: slowGit.path) }
+        let clone = Task { try await Repository.clone(url: url, to: target, gitPath: blockingGit.path) }
         let deadline = Date().addingTimeInterval(10)
-        while !FileManager.default.fileExists(atPath: target), Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
-        XCTAssertTrue(FileManager.default.fileExists(atPath: target), "git had not started the clone")
+        while !FileManager.default.fileExists(atPath: started.path), Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        let uploadPack = try XCTUnwrap(pid_t(String(contentsOf: started, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)), "git never reached the upload-pack")
         let cancelledAt = Date()
         clone.cancel()
         let result = await clone.result
@@ -95,6 +98,10 @@ final class CloneTests: XCTestCase {
         XCTAssertThrowsError(try result.get())
         XCTAssertLessThan(Date().timeIntervalSince(cancelledAt), 5)
         XCTAssertFalse(FileManager.default.fileExists(atPath: target))
+        // The upload-pack is in git's process group; once orphaned it is reaped by launchd, which may lag a moment.
+        let reapDeadline = Date().addingTimeInterval(5)
+        while kill(uploadPack, 0) == 0, Date() < reapDeadline { try await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertNotEqual(kill(uploadPack, 0), 0, "the upload-pack git started survived the cancellation")
     }
 
     func testBadURLFailsWithoutLeavingAFolder() async throws {
