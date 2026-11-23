@@ -1,16 +1,15 @@
 import AppKit
 import GitEngine
 
-/// The bar above a file diff: the way back to the graph (also the close button and Esc), the change kind and the file (both paths for a rename), its counts, the choice between diff and whole file, hunk navigation and the file-wide action.
+/// The bar above a file diff: the change kind and the file (both paths for a rename), its counts, the choice between diff and whole file, hunk navigation, the file-wide action and the close button (also Esc), which brings the graph back.
 final class DiffHeaderView: BarView {
-    var onBack: (() -> Void)?
+    var onClose: (() -> Void)?
     var onModeChange: ((DiffMode) -> Void)?
     var onOptionsChange: ((DiffOptions) -> Void)?
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onFileAction: (() -> Void)?
 
-    private let back = NSButton()
     private let indicator = NSTextField(labelWithString: "")
     private let title = NSTextField(labelWithString: "")
     private let badge = BadgeView()
@@ -27,13 +26,6 @@ final class DiffHeaderView: BarView {
 
     init() {
         super.init(edge: .bottom)
-        back.title = String(localized: "diff.toolbar.back", defaultValue: "Graph", bundle: .module, comment: "Button back from a diff to the history graph")
-        back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: nil)
-        back.imagePosition = .imageLeading
-        back.bezelStyle = .rounded
-        back.target = self
-        back.action = #selector(goBack(_:))
-        back.keyEquivalent = "\u{1b}"
         // One line at a constant height: the folder gives way from the front before the file name, like in the file lists; for a rename the old part goes before the new one.
         title.usesSingleLineMode = true
         title.maximumNumberOfLines = 1
@@ -58,12 +50,13 @@ final class DiffHeaderView: BarView {
         close.bezelStyle = .rounded
         close.toolTip = String(localized: "diff.toolbar.closeToolTip", defaultValue: "Close (Esc)", bundle: .module)
         close.target = self
-        close.action = #selector(goBack(_:))
+        close.action = #selector(closeDiff(_:))
+        close.keyEquivalent = "\u{1b}"
         fileAction.bezelStyle = .rounded
         fileAction.target = self
         fileAction.action = #selector(runFileAction(_:))
 
-        let leading = NSStackView(views: [back, indicator, title, badge, stat])
+        let leading = NSStackView(views: [indicator, title, badge, stat])
         leading.spacing = Theme.Space.m
         leading.setCustomSpacing(Theme.Space.s, after: indicator)
         let trailing = NSStackView(views: [modes, optionsButton, previous, next, fileAction, close])
@@ -139,7 +132,7 @@ final class DiffHeaderView: BarView {
         "\(indicator.isHidden ? "-" : indicator.stringValue) \(title.stringValue) | \(title.toolTip ?? "")"
     }
 
-    @objc private func goBack(_ sender: Any?) { onBack?() }
+    @objc private func closeDiff(_ sender: Any?) { onClose?() }
     @objc private func changeMode(_ sender: Any?) {
         guard DiffMode.allCases.indices.contains(modes.selectedSegment) else { return }
         onModeChange?(DiffMode.allCases[modes.selectedSegment])

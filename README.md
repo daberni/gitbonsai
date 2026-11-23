@@ -126,12 +126,14 @@ Files, diffs and commits:
 - `GITBONSAI_OPEN_ORIGINAL=<path>` passes the path before a rename or copy with `GITBONSAI_OPEN_FILE`, as the file lists do; `GITBONSAI_PRINT_DIFF_HEADER=1` prints the header's change letter, path and tooltip.
 - `GITBONSAI_CLICK_DIFF_MODE=diff|file` clicks that half of the "Diff | File" toggle in the open diff with a real click and prints the numbers of the top and bottom line.
 - `GITBONSAI_DIFF_NEXT=<n>` clicks the ↓ of the hunk navigation n times and prints the top line after each jump.
+- `GITBONSAI_DIFF_SCROLL_THEN_FILE=<x>,<y>,<n>` scrolls the open diff to that offset, clicks the n-th file of the detail panel with a real click and prints the offset and top line before and after.
 - `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the close button of the open diff with a real click and prints whether the diff is still shown.
 - `GITBONSAI_DIFF_MODE=diff|file|remembered` starts the diff in that mode; harness runs otherwise start in "Diff", and `remembered` reads the choice an earlier harness run with the same `GITBONSAI_DEFAULTS` stored.
 - `GITBONSAI_DIFF_INVISIBLES=1|0|remembered` starts the diff with or without invisible characters; harness runs otherwise start without them.
 - `GITBONSAI_DIFF_OPTION=<title>` prints the diff options menu with each entry's state, chooses that entry without opening the menu and prints it again.
 - File rows are counted from 0 in every switch that takes `<n>` for a file. `GITBONSAI_CLICK_FILE=<n>` clicks file n in the detail panel with real mouse events and prints which diff opened.
 - `GITBONSAI_FILE_KEYS=down,down,up` then presses arrow keys through the window and prints the first responder, the history row and the opened diff after each.
+- `GITBONSAI_SELECT_SUBJECT=1` drags across the commit subject in the detail panel with real mouse events and prints the selection.
 - `GITBONSAI_COMMIT_SUBJECT`, `GITBONSAI_COMMIT_BODY` (with `\n`), `GITBONSAI_AMEND=1` and `GITBONSAI_COMMIT_RUN=1` fill the commit form, tick amend and click the commit button.
 - `GITBONSAI_CLICK_HUNK_DISCARD=<n>` clicks "Discard Hunk" of hunk n in the open diff, `GITBONSAI_HOVER_FILE=<n>` moves the mouse onto the n-th file row and `GITBONSAI_CLICK_FILE_DISCARD=<n>` clicks its discard button; the confirmation sheet is answered with `GITBONSAI_DISCARD_ANSWER=confirm|cancel` by a real click, or, without an answer, written to `GITBONSAI_SHEET_SCREENSHOT=<path>`.
 - `GITBONSAI_FILE_MENU=<n>` prints the context menu of the n-th file row (⌥ alternates marked) without opening it on screen, and `GITBONSAI_FILE_MENU_PICK=<title>` chooses an entry.

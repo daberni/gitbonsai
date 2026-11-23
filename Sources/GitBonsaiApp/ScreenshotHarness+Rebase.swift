@@ -147,11 +147,15 @@ extension ScreenshotHarness {
         case "dblclick":
             guard let label = detail?.subjectLabel else { log("no subject label"); break }
             let point = label.convert(NSPoint(x: Theme.Space.s, y: label.bounds.midY), to: nil)
+            // The selectable subject tracks the mouse until its release, so each release waits in the queue before the press.
             for count in 1...2 {
-                for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                    guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1) else { continue }
-                    if type == .leftMouseDown { Self.press(event, in: window) } else { window.sendEvent(event) }
+                func event(_ type: NSEvent.EventType) -> NSEvent? {
+                    NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1)
                 }
+                if let up = event(.leftMouseUp) { NSApp.postEvent(up, atStart: false) }
+                // The second press goes through the event queue like a real one, where the subject catches it before the field editor of the first.
+                guard let down = event(.leftMouseDown) else { continue }
+                if count == 1 { Self.press(down, in: window) } else { NSApp.postEvent(down, atStart: true) }
             }
         case "pencil":
             guard let button = detail?.editMessageButton else { log("no pencil"); break }

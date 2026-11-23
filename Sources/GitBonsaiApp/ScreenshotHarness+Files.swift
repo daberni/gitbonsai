@@ -29,8 +29,34 @@ extension ScreenshotHarness {
         }
         driveDiffHeader(on: tab)
         pickDiffOption(on: tab)
+        scrollDiffThenOpenFile(on: tab)
         if environment["GITBONSAI_PRINT_DIFF_HEADER"] == "1" {
             after(0.6) { FileHandle.standardError.write(Data("diff header: \(tab.diff.header.summary)\n".utf8)) }
+        }
+    }
+
+    /// `GITBONSAI_DIFF_SCROLL_THEN_FILE=<x>,<y>,<n>` scrolls the open diff to that offset, then clicks the n-th file in the detail panel with a real click; the offset is printed after each step.
+    static func scrollDiffThenOpenFile(on tab: RepositoryViewController) {
+        let parts = environment["GITBONSAI_DIFF_SCROLL_THEN_FILE"]?.split(separator: ",").compactMap { Double($0) } ?? []
+        guard parts.count == 3 else { return }
+        func report(_ step: String) {
+            let origin = tab.diff.scroll.contentView.bounds.origin
+            FileHandle.standardError.write(Data("\(step): \(tab.diff.selection?.path ?? "no diff") at x \(Int(origin.x)), y \(Int(origin.y)), top line \(tab.diff.topLineNumbers)\n".utf8))
+        }
+        after(0.6) {
+            let clip = tab.diff.scroll.contentView
+            clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: CGPoint(x: parts[0], y: parts[1]), size: clip.bounds.size)).origin)
+            tab.diff.scroll.reflectScrolledClipView(clip)
+            report("scrolled")
+            guard let window = tab.view.window else { return }
+            let rows = views(of: FileRowView.self, in: window)
+            guard rows.indices.contains(Int(parts[2])) else {
+                FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
+                return
+            }
+            let row = rows[Int(parts[2])]
+            click(in: window, at: row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil))
+            after(0.6) { report("opened another file") }
         }
     }
 
@@ -248,6 +274,7 @@ extension ScreenshotHarness {
         let environment = environment
         let copyMode = environment["GITBONSAI_CLICK_COMMIT_COPY"]
         let parent = environment["GITBONSAI_CLICK_PARENT"].flatMap(Int.init)
+        selectSubject(on: tab)
         guard copyMode != nil || parent != nil else { return }
         pasteboard.clearContents()
         after(0.4) {
@@ -279,6 +306,31 @@ extension ScreenshotHarness {
     }
 
     /// The copy button, its image, every view of its line and the detail panel's header, in window coordinates, after a layout pass; they must not move while the checkmark shows.
+    /// `GITBONSAI_SELECT_SUBJECT=1` drags across the commit subject in the detail panel with real mouse events and prints the selection.
+    static func selectSubject(on tab: RepositoryViewController) {
+        guard environment["GITBONSAI_SELECT_SUBJECT"] == "1" else { return }
+        after(0.4) {
+            guard let window = tab.view.window, let subject = views(of: DetailView.self, in: window).first?.subjectLabel else { return }
+            let start = subject.convert(CGPoint(x: subject.bounds.minX + 1, y: subject.bounds.midY), to: nil)
+            let end = subject.convert(CGPoint(x: subject.bounds.maxX - 1, y: subject.bounds.midY), to: nil)
+            let windowNumber = window.windowNumber
+            func event(_ type: NSEvent.EventType, at point: CGPoint) -> NSEvent? {
+                NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+            }
+            // The press runs the selection's tracking loop, which takes the queued drag and release.
+            for (type, point) in [(NSEvent.EventType.leftMouseDragged, end), (.leftMouseUp, end)] {
+                if let queued = event(type, at: point) { NSApp.postEvent(queued, atStart: false) }
+            }
+            if let down = event(.leftMouseDown, at: start) { press(down, in: window) }
+            after(0.3) {
+                let editor = window.firstResponder as? NSTextView
+                let selected = editor.map { ($0.string as NSString).substring(with: $0.selectedRange()) } ?? "nothing"
+                // ⌘C would copy into the general pasteboard, which a harness run never touches; the selection is what it copies.
+                FileHandle.standardError.write(Data("subject selection: \(selected), first responder \(editor.map { "\(type(of: $0))" } ?? "none")\n".utf8))
+            }
+        }
+    }
+
     private static func printCopyFrames(_ button: NSButton, in detail: DetailView, when: String) {
         detail.window?.layoutIfNeeded()
         func frame(_ view: NSView) -> String {

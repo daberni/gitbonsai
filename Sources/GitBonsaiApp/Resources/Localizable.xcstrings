@@ -5749,24 +5749,6 @@
         }
       }
     },
-    "diff.toolbar.back" : {
-      "comment" : "Button back from a diff to the history graph",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Graph"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Graph"
-          }
-        }
-      }
-    },
     "diff.toolbar.close" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
