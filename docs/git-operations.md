@@ -149,6 +149,9 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | List remotes | `git remote` | For the Tags list when it opens, and after every refresh while it is closed so that tag pills in the history offer push and remote delete per remote |
 | Time of the last fetch | `git rev-parse --git-common-dir`, then the modification date of its `FETCH_HEAD` | Shown on the Fetch button; a repository never fetched has no date |
+| Add a remote | `git check-ref-format refs/remotes/<name>/test` while typing the name, then `git remote add -- <name> <url>`; with "Fetch after adding" `git fetch --no-prune <name>` | From the sidebar's "Add Remote…". A remote without fetched branches still gets its sidebar header, from `git remote` |
+| Edit a remote | `git remote rename -- <old> <new>` and/or `git remote set-url -- <name> <url>` | Only what changed; the URL is read with `git config -z --get-regexp ^remote\..*\.url$`. A rename moves its remote branches and the upstream of local branches |
+| Remove a remote | `git remote remove -- <name>` | Asks first; its remote branches go, local branches that tracked it lose their upstream |
 | Fetch all | `git fetch --all --prune` | Every fetch ends with the in-place refresh, so fetched commits enter the history |
 | Automatic fetch | `git fetch --all --prune` | Visible tab only, on activation and periodically (`AutoFetchPolicy`). Reads `git remote` and `git rev-parse --git-path` for an operation in progress first and skips without a remote or during a rebase, merge, cherry-pick or revert |
 | Fetch one remote | `git fetch --prune\|--no-prune <remote>` | |

@@ -22,6 +22,7 @@ extension ScreenshotHarness {
         runRemotesAndRebase(on: tab)
         driveStashesAndTags(on: tab)
         openSidebarMenu(on: tab)
+        openAddRemote(on: tab)
         printStatusLine(of: tab)
         driveRebase(on: tab)
         navigate(on: tab)

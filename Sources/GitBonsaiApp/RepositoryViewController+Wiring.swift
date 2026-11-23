@@ -8,7 +8,12 @@ extension RepositoryViewController {
     func wire() {
         toolbar.onFetch = { [weak self] in self?.fetchController.fetch(.allRemotes) }
         toolbar.fetchMenu = { [weak self] in self?.fetchController.menu() ?? NSMenu() }
-        fetchController.onRemotesChanged = { [weak self] in self?.showFetchState() }
+        fetchController.onRemotesChanged = { [weak self] in
+            guard let self else { return }
+            showFetchState()
+            sidebar.remotes = fetchController.remotes
+            sidebar.reload(from: viewModel)
+        }
         toolbar.pullMenu = { [weak self] in self?.pullPush.pullMenu() ?? NSMenu() }
         toolbar.pushMenu = { [weak self] in self?.pullPush.pushMenu() ?? NSMenu() }
         pullPush.onChange = { [weak self] in
@@ -35,6 +40,7 @@ extension RepositoryViewController {
         stashesController.onShowDiff = { [weak self] stash in self?.showStash(stash) }
         sidebar.menuItems = { [weak self] subject in self?.sidebarActions.menuItems(for: subject) ?? [] }
         sidebar.onNewBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        sidebar.onAddRemote = { [weak self] in self?.sidebarActions.remotes.showAdd() }
         toolbar.onBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
         sidebarActions.prompter.window = { [weak self] in self?.view.window }
 

@@ -5122,7 +5122,6 @@
       }
     },
     "conflict.command.keywords" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5140,7 +5139,6 @@
     },
     "conflict.command.mergeTool" : {
       "comment" : "Command that opens the conflicted file in git's merge tool; the argument is git's name of the tool",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5158,7 +5156,6 @@
     },
     "conflict.command.window" : {
       "comment" : "Command that opens the conflicted file in the app's merge window",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5551,7 +5548,6 @@
     },
     "conflict.resolve.mergeToolToolTip" : {
       "comment" : "Tooltip of Resolve… when it opens the merge tool chosen in the settings; the argument is git's name of the tool",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5569,7 +5565,6 @@
     },
     "conflict.resolve.title" : {
       "comment" : "Button that opens the conflicted file in the merge window or in the merge tool chosen in the settings",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5587,7 +5582,6 @@
     },
     "conflict.resolve.windowToolTip" : {
       "comment" : "Tooltip of Resolve… when it opens the app's merge window",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7858,6 +7852,57 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Rebase not undone"
+          }
+        }
+      }
+    },
+    "failure.remote.notAdded" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remote not added"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote nicht hinzugefügt"
+          }
+        }
+      }
+    },
+    "failure.remote.notChanged" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remote not changed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote nicht geändert"
+          }
+        }
+      }
+    },
+    "failure.remote.notRemoved" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remote not removed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote nicht entfernt"
           }
         }
       }
@@ -13477,6 +13522,215 @@
         }
       }
     },
+    "sidebar.remote.add.title" : {
+      "comment" : "Title of the sheet that adds a remote.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Add Remote"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote hinzufügen"
+          }
+        }
+      }
+    },
+    "sidebar.remote.edit.title" : {
+      "comment" : "Title of the sheet that renames a remote or changes its URL.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Edit Remote"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote bearbeiten"
+          }
+        }
+      }
+    },
+    "sidebar.remote.form.exists" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "A remote %@ already exists."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es gibt schon ein Remote %@."
+          }
+        }
+      }
+    },
+    "sidebar.remote.form.fetchAfterAdding" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Fetch after adding"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nach dem Hinzufügen fetchen"
+          }
+        }
+      }
+    },
+    "sidebar.remote.form.invalidName" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not a valid remote name. Spaces, ~ ^ : ? * [ \\ and “..” are not allowed."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein gültiger Remote-Name. Leerzeichen, ~ ^ : ? * [ \\ und „..“ sind nicht erlaubt."
+          }
+        }
+      }
+    },
+    "sidebar.remote.form.save" : {
+      "comment" : "Button that saves a remote's new name and URL.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Save"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichern"
+          }
+        }
+      }
+    },
+    "sidebar.remote.form.url" : {
+      "comment" : "Caption of the field with the remote's address.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "URL"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        }
+      }
+    },
+    "sidebar.remote.menu.edit" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Edit Remote…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote bearbeiten…"
+          }
+        }
+      }
+    },
+    "sidebar.remote.menu.remove" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove Remote…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote entfernen…"
+          }
+        }
+      }
+    },
+    "sidebar.remote.remove.confirm" : {
+      "comment" : "Button that removes the remote.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entfernen"
+          }
+        }
+      }
+    },
+    "sidebar.remote.remove.info" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Its remote branches disappear from the history and local branches that track it lose their upstream. Nothing changes on the remote itself."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seine Remote-Branches verschwinden aus der Historie, und lokale Branches, die ihm folgen, verlieren ihren Upstream. Auf dem Remote selbst ändert sich nichts."
+          }
+        }
+      }
+    },
+    "sidebar.remote.remove.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove Remote %@?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote %@ entfernen?"
+          }
+        }
+      }
+    },
     "repository.open.message" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -14215,7 +14469,6 @@
       }
     },
     "settings.git.mergeTool.caption" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14233,7 +14486,6 @@
     },
     "settings.git.mergeTool.gitBonsai" : {
       "comment" : "Choice of the merge tool setting: the app's own merge window.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14251,7 +14503,6 @@
     },
     "settings.git.mergeTool.label" : {
       "comment" : "Label of the merge tool setting.",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {

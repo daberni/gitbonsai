@@ -16,6 +16,9 @@ final class SidebarView: NSView {
     var onOpenPanel: ((SidebarPanel, NSRect) -> Void)?
     /// The plus on the Local header.
     var onNewBranch: (() -> Void)?
+    var onAddRemote: (() -> Void)?
+    /// The configured remotes, so that one without fetched branches still shows.
+    var remotes: [String] = []
     /// The entries of a row's context menu.
     var menuItems: ((SidebarMenuSubject) -> [NSMenuItem])?
 
@@ -64,7 +67,7 @@ final class SidebarView: NSView {
 
     func reload(from model: GraphViewModel) {
         self.model = model
-        items = outline.items(from: model)
+        items = outline.items(from: model, remotes: remotes)
         layoutItems()
     }
 
@@ -129,7 +132,9 @@ final class SidebarView: NSView {
             }
         case .row(let row):
             guard let target = row.target else { break }
-            if event.clickCount == 2, let checkout = row.checkout {
+            if target == SidebarItem.addRemoteTarget {
+                onAddRemote?()
+            } else if event.clickCount == 2, let checkout = row.checkout {
                 onCheckout?(checkout, row.linkedWorktree)
             } else if let panel = SidebarPanel(target: target) {
                 onOpenPanel?(panel, frames[index])

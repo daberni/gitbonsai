@@ -114,7 +114,7 @@ extension ScreenshotHarness {
         var outline = SidebarOutline()
         var y = Theme.Space.s
         var anchor: CGRect?
-        for item in outline.items(from: tab.viewModel) {
+        for item in outline.items(from: tab.viewModel, remotes: sidebar.remotes) {
             let height: CGFloat
             switch item {
             case .header: y += Theme.Space.xs; height = M.headerHeight

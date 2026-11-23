@@ -24,9 +24,14 @@ enum SidebarItem {
         switch self {
         case .worktree(let info, let isCurrent): .worktree(info, isCurrent: isCurrent)
         case .row(let row): row.ref.map(SidebarMenuSubject.branch)
-        default: nil
+        case .header(let key, _, _, _, _): key.hasPrefix(Self.remotePrefix) ? .remote(String(key.dropFirst(Self.remotePrefix.count))) : nil
         }
     }
+
+    /// Section keys of remotes start with this, followed by the remote's name.
+    static let remotePrefix = "remote:"
+    /// The target of the "Add Remote…" row.
+    static let addRemoteTarget = "action:addRemote"
 }
 
 /// A line of the sidebar other than a header or worktree: a branch, a folder of branches, or an entry that opens something.
@@ -59,12 +64,15 @@ struct SidebarRow {
 enum SidebarMenuSubject {
     case branch(Ref)
     case worktree(WorktreeInfo, isCurrent: Bool)
+    /// A remote's header.
+    case remote(String)
 
-    /// How the harness names a subject: `branch:<name>` for local and remote branches (`branch:origin/main`), `worktree:<folder>`.
+    /// How the harness names a subject: `branch:<name>` for local and remote branches (`branch:origin/main`), `worktree:<folder>`, `remote:<name>`.
     var harnessName: String {
         switch self {
         case .branch(let ref): "branch:" + ref.name
         case .worktree(let info, _): "worktree:" + (info.worktree.path as NSString).lastPathComponent
+        case .remote(let name): "remote:" + name
         }
     }
 }
@@ -88,7 +96,8 @@ struct SidebarOutline {
         collapsed.remove(key)
     }
 
-    mutating func items(from model: GraphViewModel) -> [SidebarItem] {
+    /// `remotes` are the configured remotes; one without fetched branches still gets its header.
+    mutating func items(from model: GraphViewModel, remotes configured: [String]) -> [SidebarItem] {
         var result: [SidebarItem] = []
         let otherWorktrees = model.branchesInOtherWorktrees
 
@@ -146,17 +155,17 @@ struct SidebarOutline {
             branches(locals, display: { $0.name }, section: "local")
         }
 
-        var remotes: [String: [Ref]] = [:]
+        var remotes = Dictionary(uniqueKeysWithValues: configured.map { ($0, [Ref]()) })
         for ref in model.refs {
             if case .remoteBranch(let remote) = ref.kind, !ref.name.hasSuffix("/HEAD") { remotes[remote, default: []].append(ref) }
         }
         for (index, remote) in remotes.keys.sorted(by: { $0 == "origin" ? true : $1 == "origin" ? false : $0 < $1 }).enumerated() {
             let refs = remotes[remote]!
-            if section("remote:" + remote, title: remote, count: refs.count, icon: .cloud, startCollapsed: index > 0 || refs.count > Self.expandedRemoteLimit) {
-                branches(refs, display: { String($0.name.dropFirst(remote.count + 1)) }, section: "remote:" + remote)
+            if section(SidebarItem.remotePrefix + remote, title: remote, count: refs.count, icon: .cloud, startCollapsed: index > 0 || refs.count > Self.expandedRemoteLimit) {
+                branches(refs, display: { String($0.name.dropFirst(remote.count + 1)) }, section: SidebarItem.remotePrefix + remote)
             }
         }
-        result.append(.row(SidebarRow(text: String(localized: "sidebar.row.addRemote", defaultValue: "Add Remote…", bundle: .module), expander: .plus, ghost: true)))
+        result.append(.row(SidebarRow(text: String(localized: "sidebar.row.addRemote", defaultValue: "Add Remote…", bundle: .module), expander: .plus, ghost: true, target: SidebarItem.addRemoteTarget)))
 
         return result
     }

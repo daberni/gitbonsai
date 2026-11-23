@@ -8,6 +8,7 @@ final class SidebarActionsController {
     let branches: BranchActionsController
     let worktrees: WorktreeActionsController
     let newBranch: NewBranchController
+    let remotes: RemoteActionsController
 
     /// `checkout` runs a checkout from the sidebar (a branch checked out elsewhere passes its worktree); `switchWorktree` moves the tab like a double click.
     init(viewModel: GraphViewModel, branchPull: BranchPullController, fastForward: FastForwardController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void, switchWorktree: @escaping (String) -> Void) {
@@ -15,12 +16,14 @@ final class SidebarActionsController {
         branches = BranchActionsController(runner: runner, branchPull: branchPull, fastForward: fastForward, checkout: checkout)
         worktrees = WorktreeActionsController(runner: runner, switchWorktree: switchWorktree)
         newBranch = NewBranchController(runner: runner)
+        remotes = RemoteActionsController(runner: runner)
     }
 
     func menuItems(for subject: SidebarMenuSubject) -> [NSMenuItem] {
         let groups = switch subject {
         case .branch(let ref): branches.menuGroups(for: ref)
         case .worktree(let info, let isCurrent): worktrees.menuGroups(for: info, isCurrent: isCurrent)
+        case .remote(let name): remotes.menuGroups(for: name)
         }
         return groups.joinedWithSeparators
     }

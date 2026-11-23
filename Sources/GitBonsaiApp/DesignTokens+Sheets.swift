@@ -65,6 +65,14 @@ extension Theme {
         static let buttonGap = Space.s
     }
 
+    /// The sheet that adds a remote or edits its name and URL.
+    enum RemoteForm {
+        static let width: CGFloat = 460
+        static let padding = Space.xl
+        static let groupSpacing = Space.l
+        static let buttonGap = Space.s
+    }
+
     /// The note at the bottom of the history pane that fades out by itself.
     enum Toast {
         static let height: CGFloat = 34
