@@ -97,8 +97,9 @@ public final class Repository: Sendable {
         }
     }
 
+    /// Branches, remote branches, tags of commits and the stash. Tools keep snapshots under their own namespaces (`refs/codex/…`, `refs/jj/…`); those are no labels.
     public func refs() async throws -> [Ref] {
-        let result = try await runner.run(["for-each-ref", RefsParser.formatArgument])
+        let result = try await runner.run(["for-each-ref", RefsParser.formatArgument, "refs/heads", "refs/remotes", "refs/tags", "refs/stash"])
         return try RefsParser.parse(result.stdout)
     }
 

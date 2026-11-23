@@ -112,4 +112,28 @@ final class StatusTests: XCTestCase {
         XCTAssertEqual(status.branch.ahead, 2)
         XCTAssertEqual(status.branch.behind, 1)
     }
+
+    /// A submodule with a new commit and a dirty working tree shows as one submodule entry, not as its files.
+    func testSubmoduleWithNewCommitAndLocalChanges() async throws {
+        let library = try FixtureRepo(name: "status-library")
+        defer { library.remove() }
+        try library.commit("library")
+        let fixture = try FixtureRepo(name: "status-super")
+        defer { fixture.remove() }
+        try fixture.commit("base")
+        try fixture.git("submodule", "add", "-q", library.path, "modules/library")
+        try fixture.git("commit", "-q", "-m", "Add library")
+        let submodule = FixtureRepo(existing: fixture.url.appendingPathComponent("modules/library"))
+        try submodule.git("config", "user.name", "Fixture")
+        try submodule.git("config", "user.email", "fixture@example.com")
+        try submodule.commit("moved on", file: "file.txt", contents: "new\n")
+        try submodule.write("file.txt", "dirty\n")
+
+        let status = try await fixture.repository.status()
+        XCTAssertEqual(status.entries.map(\.path), ["modules/library"])
+        let entry = try XCTUnwrap(status.entries.first)
+        XCTAssertTrue(entry.isSubmodule)
+        XCTAssertEqual(entry.worktreeState, .modified)
+        XCTAssertEqual(entry.indexState, .unmodified)
+    }
 }

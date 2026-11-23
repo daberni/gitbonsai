@@ -32,7 +32,7 @@ extension Repository {
 
     /// The commit as a mail-formatted patch that `git am` applies. Merge commits have no patch of their own and yield empty data.
     public func patch(of commit: String) async throws -> Data {
-        try await runner.run(["format-patch", "-1", "--stdout", commit]).stdout
+        try await runner.run(["format-patch", "-1", "--stdout"] + Self.patchPrefixes + [commit]).stdout
     }
 
     private static func mainlineArguments(for commit: Commit) -> [String] {

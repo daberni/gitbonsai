@@ -43,20 +43,21 @@ public struct DiffHunk: Sendable, Hashable {
     /// The function or section git prints after the `@@` range, may be empty.
     public let section: String
     public let lines: [DiffLine]
-    /// The hunk exactly as git printed it, header line included; patches are built from these.
-    let rawLines: [String]
+    /// The `@@ … @@` line.
+    public let header: String
+    /// The hunk's bytes exactly as git printed them, header line included; patches are built from these.
+    let rawPatch: Data
 
-    public init(oldStart: Int, oldCount: Int, newStart: Int, newCount: Int, section: String, lines: [DiffLine], rawLines: [String]) {
+    public init(oldStart: Int, oldCount: Int, newStart: Int, newCount: Int, section: String, lines: [DiffLine], header: String, rawPatch: Data) {
         self.oldStart = oldStart
         self.oldCount = oldCount
         self.newStart = newStart
         self.newCount = newCount
         self.section = section
         self.lines = lines
-        self.rawLines = rawLines
+        self.header = header
+        self.rawPatch = rawPatch
     }
-
-    public var header: String { rawLines.first ?? "" }
 }
 
 /// The unified diff of one file.
@@ -75,10 +76,10 @@ public struct FileDiff: Sendable, Hashable {
     public let oldMode: String?
     public let newMode: String?
     public let hunks: [DiffHunk]
-    /// Everything before the first hunk (`diff --git`, modes, `---`, `+++`), needed to apply a single hunk.
-    let headerLines: [String]
+    /// The bytes before the first hunk (`diff --git`, modes, `---`, `+++`), needed to apply a single hunk.
+    let rawHeader: Data
 
-    public init(path: String, oldPath: String?, isCopy: Bool = false, similarity: Int? = nil, isNew: Bool, isDeleted: Bool, isBinary: Bool, oldMode: String? = nil, newMode: String? = nil, hunks: [DiffHunk], headerLines: [String]) {
+    public init(path: String, oldPath: String?, isCopy: Bool = false, similarity: Int? = nil, isNew: Bool, isDeleted: Bool, isBinary: Bool, oldMode: String? = nil, newMode: String? = nil, hunks: [DiffHunk], rawHeader: Data) {
         self.path = path
         self.oldPath = oldPath
         self.isCopy = isCopy
@@ -89,7 +90,7 @@ public struct FileDiff: Sendable, Hashable {
         self.oldMode = oldMode
         self.newMode = newMode
         self.hunks = hunks
-        self.headerLines = headerLines
+        self.rawHeader = rawHeader
     }
 
     /// What happened to the file, in the terms of `--name-status`.
@@ -112,6 +113,6 @@ public struct FileDiff: Sendable, Hashable {
 
     /// A patch that contains only `hunk`, ready for `git apply`.
     func patch(for hunk: DiffHunk) -> Data {
-        Data((headerLines + hunk.rawLines).map { $0 + "\n" }.joined().utf8)
+        rawHeader + hunk.rawPatch
     }
 }

@@ -15,7 +15,9 @@ public enum DiffSource: Sendable, Hashable {
 }
 
 extension Repository {
-    private static let diffOptions = ["-p", "--no-color", "--no-ext-diff", "-M"]
+    /// The `a/` and `b/` prefixes the parser and `git apply -p1` expect, whatever `diff.noprefix` or `diff.mnemonicPrefix` configure.
+    static let patchPrefixes = ["--src-prefix=a/", "--dst-prefix=b/"]
+    private static let diffOptions = ["-p", "--no-color", "--no-ext-diff", "-M"] + patchPrefixes
 
     /// The diff of one file, or nil when the file has no changes in that source.
     /// For a renamed or copied file pass `originalPath` too; limited to the new path alone git would show it as entirely new.

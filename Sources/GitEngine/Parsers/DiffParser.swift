@@ -4,8 +4,10 @@ import Foundation
 enum DiffParser {
     static func parse(_ data: Data) -> [FileDiff] {
         // Split on the newline byte before decoding: a CR stays at the end of its line instead of forming one character with the LF.
-        var lines = data.split(separator: 0x0A, omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
-        if lines.last == "" { lines.removeLast() }
+        // The raw bytes stay alongside: a patch for `git apply` must carry the file's own bytes, which decoding would replace where they are not UTF-8.
+        var raw = data.split(separator: 0x0A, omittingEmptySubsequences: false)
+        if raw.last?.isEmpty == true { raw.removeLast() }
+        let lines = raw.map { String(decoding: $0, as: UTF8.self) }
         var files: [FileDiff] = []
         var index = 0
         while index < lines.count {
@@ -13,12 +15,22 @@ enum DiffParser {
             let start = index
             index += 1
             while index < lines.count, !lines[index].hasPrefix("diff --git ") { index += 1 }
-            files.append(parseFile(lines[start..<index]))
+            files.append(parseFile(lines[start..<index], raw: raw[start..<index]))
         }
         return files
     }
 
-    private static func parseFile(_ lines: ArraySlice<String>) -> FileDiff {
+    /// The lines joined with a newline after each, as git printed them.
+    private static func joined(_ raw: ArraySlice<Data>) -> Data {
+        var data = Data()
+        for line in raw {
+            data.append(line)
+            data.append(0x0A)
+        }
+        return data
+    }
+
+    private static func parseFile(_ lines: ArraySlice<String>, raw: ArraySlice<Data>) -> FileDiff {
         var header: [String] = []
         var hunks: [DiffHunk] = []
         var oldPath: String?
@@ -49,19 +61,21 @@ enum DiffParser {
             else if line.hasPrefix("--- ") { oldPath = path(after: "--- ", in: line, prefix: "a/") }
             else if line.hasPrefix("+++ ") { newPath = path(after: "+++ ", in: line, prefix: "b/") }
         }
+        let headerEnd = rest.startIndex
         while let line = rest.first, line.hasPrefix("@@") {
+            let start = rest.startIndex
             var body: [String] = [line]
             rest = rest.dropFirst()
             while let next = rest.first, !next.hasPrefix("@@") {
                 body.append(next)
                 rest = rest.dropFirst()
             }
-            if let hunk = parseHunk(body) { hunks.append(hunk) }
+            if let hunk = parseHunk(body, raw: joined(raw[start..<rest.startIndex])) { hunks.append(hunk) }
         }
         let gitLine = header.first ?? ""
         let fallback = Self.pathFromGitLine(gitLine)
         let path = renameTo ?? newPath ?? oldPath ?? fallback
-        return FileDiff(path: path, oldPath: renameFrom, isCopy: isCopy, similarity: similarity, isNew: isNew, isDeleted: isDeleted, isBinary: isBinary, oldMode: oldMode, newMode: newMode, hunks: hunks, headerLines: header)
+        return FileDiff(path: path, oldPath: renameFrom, isCopy: isCopy, similarity: similarity, isNew: isNew, isDeleted: isDeleted, isBinary: isBinary, oldMode: oldMode, newMode: newMode, hunks: hunks, rawHeader: joined(raw[raw.startIndex..<headerEnd]))
     }
 
     /// `--- a/path` or `+++ b/path`; `/dev/null` stands for a missing side.
@@ -78,7 +92,7 @@ enum DiffParser {
         return String(line[range.upperBound...])
     }
 
-    private static func parseHunk(_ body: [String]) -> DiffHunk? {
+    private static func parseHunk(_ body: [String], raw: Data) -> DiffHunk? {
         // @@ -oldStart[,oldCount] +newStart[,newCount] @@ section
         let header = body[0]
         let parts = header.split(separator: " ", maxSplits: 4, omittingEmptySubsequences: false)
@@ -117,7 +131,7 @@ enum DiffParser {
                 newNumber += 1
             }
         }
-        return DiffHunk(oldStart: oldStart, oldCount: oldCount, newStart: newStart, newCount: newCount, section: section, lines: lines, rawLines: body)
+        return DiffHunk(oldStart: oldStart, oldCount: oldCount, newStart: newStart, newCount: newCount, section: section, lines: lines, header: header, rawPatch: raw)
     }
 
     /// `--numstat -z`: `added TAB removed TAB path NUL`, and for renames `added TAB removed TAB NUL old NUL new NUL`. Binary files show `-`.

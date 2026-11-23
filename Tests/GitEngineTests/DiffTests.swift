@@ -138,6 +138,44 @@ final class DiffTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: fixture.url.appendingPathComponent("numbers.txt"), encoding: .utf8), numbered(changing: [2: "line two", 18: "line eighteen"]), "staging never touches the working tree")
     }
 
+    /// `diff.noprefix` drops the `a/` and `b/` that `git apply -p1` strips; `diff.mnemonicPrefix` replaces them with `i/` and `w/`.
+    func testHunkStagingIgnoresTheUsersDiffPrefixes() async throws {
+        for setting in [["diff.noprefix", "true"], ["diff.mnemonicPrefix", "true"]] {
+            let fixture = try FixtureRepo()
+            defer { fixture.remove() }
+            try fixture.git(["config"] + setting)
+            try fixture.commit("base", file: "numbers.txt", contents: numbered())
+            try fixture.write("numbers.txt", numbered(changing: [2: "line two", 18: "line eighteen"]))
+            let repo = fixture.repository
+
+            let unstaged = try await XCTUnwrapAsync(await repo.diff(of: "numbers.txt", in: .unstaged))
+            XCTAssertEqual(unstaged.path, "numbers.txt", setting[0])
+            try await repo.stage(unstaged.hunks[1], of: unstaged)
+            XCTAssertEqual(try fixture.git("diff", "--cached", "--numstat"), "1\t1\tnumbers.txt", setting[0])
+        }
+    }
+
+    /// A Latin-1 file is not UTF-8; the patch must carry its bytes as they are, not their decoded replacement characters.
+    func testHunkOfANonUTF8FileStagesItsOwnBytes() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let latin1 = { (text: String) in text.data(using: .isoLatin1)! }
+        let base = (1...20).map { "Zeile \($0) \u{e4}\u{f6}\u{fc}" }.joined(separator: "\n") + "\n"
+        try latin1(base).write(to: fixture.url.appendingPathComponent("latin1.txt"))
+        try fixture.git("add", "latin1.txt")
+        try fixture.git("commit", "-q", "-m", "base")
+        let changed = base.replacingOccurrences(of: "Zeile 2 ", with: "Zeile zwei ").replacingOccurrences(of: "Zeile 18 ", with: "Zeile achtzehn \u{df} ")
+        try latin1(changed).write(to: fixture.url.appendingPathComponent("latin1.txt"))
+        let repo = fixture.repository
+
+        let unstaged = try await XCTUnwrapAsync(await repo.diff(of: "latin1.txt", in: .unstaged))
+        XCTAssertEqual(unstaged.hunks.count, 2)
+        try await repo.stage(unstaged.hunks[1], of: unstaged)
+        let staged = try await repo.runner.run(["show", ":latin1.txt"]).stdout
+        let expected = latin1(base.replacingOccurrences(of: "Zeile 18 ", with: "Zeile achtzehn \u{df} "))
+        XCTAssertEqual(staged, expected)
+    }
+
     func testUntrackedFileCanBeStagedByHunk() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }

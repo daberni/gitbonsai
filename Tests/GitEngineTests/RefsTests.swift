@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import GraphLayout
 @testable import GitEngine
 
 final class RefsTests: XCTestCase {
@@ -68,5 +69,65 @@ final class RefsTests: XCTestCase {
         XCTAssertEqual(RefsParser.parseTrack("[behind 5]").1, 5)
         XCTAssertNil(RefsParser.parseTrack("[gone]").0)
         XCTAssertNil(RefsParser.parseTrack("").1)
+    }
+}
+
+final class RefSelectionTests: XCTestCase {
+    var fixture: FixtureRepo!
+
+    override func setUpWithError() throws {
+        fixture = try FixtureRepo(name: "ref-selection")
+        try fixture.commit("one")
+    }
+
+    override func tearDown() {
+        fixture.remove()
+    }
+
+    /// Tools such as Codex or jj keep snapshots under their own namespaces; they are not branches or tags and get no pill.
+    func testToolRefsAreLeftOut() async throws {
+        try fixture.git("update-ref", "refs/codex/snapshot", "HEAD")
+        try fixture.git("update-ref", "refs/notes/commits", "HEAD")
+        try fixture.write("file.txt", "changed\n")
+        try fixture.git("stash", "push", "-q")
+
+        let names = try await fixture.repository.refs().map(\.fullName).sorted()
+        XCTAssertEqual(names, ["refs/heads/main", "refs/stash"])
+    }
+
+    /// Tags of a tree or a blob are no commits; as history tips they were never loaded and made every refresh read the whole log again.
+    func testTagsOfTreesAndBlobsAreLeftOutOfRefsTagsAndTheRefreshPlan() async throws {
+        let tree = try fixture.git("rev-parse", "HEAD^{tree}")
+        let blob = try fixture.git("rev-parse", "HEAD:file.txt")
+        try fixture.git("tag", "light-tree", tree)
+        try fixture.git("tag", "-a", "annotated-blob", "-m", "blob", blob)
+        try fixture.git("tag", "release")
+        let repository = fixture.repository
+
+        let refs = try await repository.refs()
+        XCTAssertEqual(refs.filter { $0.kind == .tag }.map(\.name), ["release"])
+        let tags = try await repository.tags()
+        XCTAssertEqual(tags.map(\.name), ["release"])
+        let commits = try await repository.collectLog()
+        let tips = HistoryRefresh.tips(refs: refs, head: commits.first?.id, stashCommits: [])
+        XCTAssertEqual(HistoryRefresh.plan(loaded: commits, tips: tips), .keep(dropping: []))
+    }
+}
+
+final class SHA256Tests: XCTestCase {
+    func testLogRefsAndStatusReadA256BitRepository() async throws {
+        let fixture = try FixtureRepo(name: "sha256", objectFormat: "sha256")
+        defer { fixture.remove() }
+        let first = try fixture.commit("one")
+        let second = try fixture.commit("two")
+        XCTAssertEqual(second.count, 64)
+        let repository = fixture.repository
+
+        let commits = try await repository.collectLog()
+        XCTAssertEqual(commits.map(\.id), [second, first])
+        XCTAssertEqual(commits.first?.parents, [first])
+        let refs = try await repository.refs()
+        XCTAssertEqual(refs.first { $0.kind == .localBranch }?.target, second)
+        XCTAssertTrue(RefCatalog.looksLikeSHA(second))
     }
 }

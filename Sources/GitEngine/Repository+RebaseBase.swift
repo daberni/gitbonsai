@@ -107,12 +107,12 @@ extension Repository {
         let line = Array(((try? await revList(["--first-parent", "--reverse", "^\(target)", branch])) ?? []).prefix(Self.squashSearchLimit))
         // The whole branch would leave nothing to move.
         let runs = line.dropLast()
-        guard !runs.isEmpty, let targetLog = try? await runner.run(["log", "-p", "--no-merges", "--no-ext-diff", "--no-textconv", "--max-count=\(Self.squashTargetLimit)", "\(mergeBase)..\(target)"]) else { return nil }
+        guard !runs.isEmpty, let targetLog = try? await runner.run(["log", "-p", "--no-merges", "--no-ext-diff", "--no-textconv"] + Self.patchPrefixes + ["--max-count=\(Self.squashTargetLimit)", "\(mergeBase)..\(target)"]) else { return nil }
         let targetIDs = await patchIDs(targetLog.stdout)
         guard !targetIDs.isEmpty else { return nil }
         var combined = Data()
         for commit in runs {
-            guard let diff = try? await runner.run(["diff", "--no-ext-diff", "--no-textconv", mergeBase, commit]) else { continue }
+            guard let diff = try? await runner.run(["diff", "--no-ext-diff", "--no-textconv"] + Self.patchPrefixes + [mergeBase, commit]) else { continue }
             combined.append(Data("commit \(commit)\n".utf8))
             combined.append(diff.stdout)
         }

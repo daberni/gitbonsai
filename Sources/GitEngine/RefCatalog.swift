@@ -112,10 +112,10 @@ public struct RefCatalog: Sendable {
         return (current + locals + remotes.flatMap(\.items) + tags).first { $0.title == text }
     }
 
-    /// Whether `query` could name a commit by its SHA, so it is worth asking git.
+    /// Whether `query` could name a commit by its SHA-1 or SHA-256, so it is worth asking git.
     public static func looksLikeSHA(_ query: String) -> Bool {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return (CommitSearch.minimumSHAPrefix...40).contains(text.utf8.count) && text.utf8.allSatisfy { ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x61 && $0 <= 0x66) }
+        return (CommitSearch.minimumSHAPrefix...64).contains(text.utf8.count) && text.utf8.allSatisfy { ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x61 && $0 <= 0x66) }
     }
 
     /// A title match highlights every occurrence; HEAD also matches "head", and every item matches a prefix of its SHA, both without highlight.

@@ -63,9 +63,9 @@ extension Repository {
         }
     }
 
-    /// Deletes `branch` on `remote` and the matching remote-tracking ref.
+    /// Deletes `branch` on `remote` and the matching remote-tracking ref. The full ref name keeps a tag of the same name on the remote out of it.
     public func deleteRemoteBranch(_ branch: String, on remote: String) async throws {
-        _ = try await runner.runWithoutIndex(["push", remote, "--delete", branch])
+        _ = try await runner.runWithoutIndex(["push", remote, "--delete", "refs/heads/\(branch)"])
     }
 }
 

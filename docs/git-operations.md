@@ -12,7 +12,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Open a folder as repository | `git rev-parse --path-format=absolute --show-toplevel --git-common-dir` | Finds the worktree root and the shared `.git` |
 | History | `git log <format> --branches --remotes --tags [HEAD]` plus the stash commits | Streamed; tool refs and other worktrees' HEADs stay out. `HEAD` only when `git rev-parse --verify --quiet HEAD` finds it, so a repository without commits loads empty |
-| Refs for labels and sidebar | `git for-each-ref <format>` | |
+| Refs for labels and sidebar | `git for-each-ref <format> refs/heads refs/remotes refs/tags refs/stash` | Tool namespaces such as `refs/codex/…` stay out; tags of trees or blobs are dropped (`%(*objecttype)`), since as history tips they would force a full reload on every refresh |
 | Working directory status | `git status --porcelain=v2 -z --branch --untracked-files=all` | |
 | Worktrees | `git worktree list --porcelain -z` | |
 | Reconcile a tab (it becomes visible, the app becomes active, its files change, after every fetch) | The in-place refresh: working directory status, `git for-each-ref`, the stash list and `git worktree list` side by side; `git log` only when a ref, HEAD or stash points at a commit that is not loaded; when commits left the history, `git rev-list --topo-order --branches --remotes --tags [HEAD]` plus the stash commits for the new order of the rest | Visible tab only, local only, never skipped; triggers that arrive together run once |
@@ -26,7 +26,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Operation | Git command | Notes |
 |---|---|---|
 | Files of a commit | `git diff --name-status -M -z <parent> <commit>`; root commit `git diff-tree -r --root --no-commit-id --name-status -M -z <commit>` | Plus `--numstat` for the counts |
-| Diff of a file in a commit | `git diff -p --no-color --no-ext-diff -M <parent> <commit> -- <paths>` | Full file view adds `--unified=<max>` |
+| Diff of a file in a commit | `git diff -p --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ <parent> <commit> -- <paths>` | Full file view adds `--unified=<max>`. The explicit prefixes override `diff.noprefix` and `diff.mnemonicPrefix`, which would break parsing and `git apply`; every `git diff -p …` below carries them |
 | Compare two selected commits | `git merge-base <older> <newer>`; files `git diff --name-status -M -z <older> <newer>` plus `--numstat`; with "since common base" `<merge base>` in place of `<older>`, the same as `<older>...<newer>` | The switch only shows when the merge base is not `<older>`, that is when the commits sit on different branches |
 | Compare a run of selected commits | Files `git diff --name-status -M -z <oldest>^ <newest>` plus `--numstat`; a root commit starts at the empty tree (`git hash-object -t tree /dev/null`) | Whether the commits follow one another on one first-parent line is read from the loaded parents, without git |
 | Compare selected commits with gaps | Files of each commit as for one commit, listed one below the other like `git show <commits>` | |
@@ -37,7 +37,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Counts in the file lists | `git diff [--cached] --numstat -M -z` | Without `--cached`: index queue |
 | Open in the external diff tool | `git difftool --no-prompt [-M <base> <commit> \| -M <base> <target> \| --cached -M] -- <paths>`; untracked `git difftool --no-prompt --no-index -- /dev/null <path>` | `<base> <target>` for a file of a comparison. Offered once `git config --get diff.tool`, `diff.guitool` or `merge.tool` names a tool |
 | Restore a file from a commit | `git restore --source=<commit> --worktree -- <path>` | `git cat-file -e <commit>:<path>`, else the same for the first parent, picks the source. Asks first when `git status --porcelain=v2 -z --untracked-files=all --ignored=matching -- <path>` shows local changes that would be overwritten |
-| Save a commit as patch | `git format-patch -1 --stdout <commit>` | |
+| Save a commit as patch | `git format-patch -1 --stdout --src-prefix=a/ --dst-prefix=b/ <commit>` | |
 
 ## Staging and committing
 
@@ -45,7 +45,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 |---|---|---|
 | Stage files | `git add -- <paths>` | |
 | Unstage files | `git restore --staged -- <paths>`; before the first commit `git rm --cached -q -- <paths>` | `git rev-parse --verify --quiet HEAD` tells whether there is a commit |
-| Stage / unstage a hunk | `git apply --cached [--reverse] --whitespace=nowarn -` | Patch of the hunk on stdin |
+| Stage / unstage a hunk | `git apply --cached [--reverse] --whitespace=nowarn -` | Patch of the hunk on stdin, built from the diff's raw bytes so files that are not UTF-8 apply |
 | Discard a hunk | `git apply --reverse --whitespace=nowarn -` | |
 | Discard file changes | `git restore --worktree -- <paths>` | Asks first. The command bar's "Discard all changes…" passes every tracked file with unstaged changes; staged changes and untracked files stay |
 | Delete untracked files | `git clean -f -q -- <paths>` | Asks first |
@@ -71,7 +71,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Rename | `git branch -m <old> <new>` | |
 | Set / unset upstream | `git branch --set-upstream-to=<upstream> <branch>` / `git branch --unset-upstream <branch>` | |
 | Delete | `git branch -d <branch>`; `-D` after asking | |
-| Delete on the remote | `git push <remote> --delete <branch>` | Asks first. Outside the queue |
+| Delete on the remote | `git push <remote> --delete refs/heads/<branch>` | Asks first; the full ref name keeps a remote tag of the same name out of it, and a branch already gone on the remote is deleted without error, which removes its stale remote-tracking ref. Outside the queue |
 | Merge into the current branch | `git merge --no-edit <ref>` | On failure `git rev-parse --verify --quiet MERGE_HEAD` tells a stopped merge; its conflicts are listed with `git diff --name-only -z --diff-filter=U` (index queue) |
 | Reset the current branch | `git reset --soft\|--mixed\|--hard <commit>` | |
 
@@ -82,7 +82,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Rebase the current branch onto a commit | `git rebase --empty=drop <commit>` | Counts published commits with `git merge-base HEAD @{upstream}` and `git rev-list --count` for a hint in the status line; no question. Commits already on the base ("skipped previously applied commit", "-- patch contents already upstream") are counted in a toast |
 | Rebase with --onto | `git rebase --empty=drop --onto <new base> <old base> <branch>` | As above. Only when the one-click rebase from a detected base cannot run as a todo list |
 | Detect the old base of a rebase | `git rev-list ^<target> <branch>`, `git for-each-ref --format=%(objectname)%00%(refname:short) refs/heads`, `git log --walk-reflogs --format=%H%x00%gD --branches`, `git rev-list --count <candidate>..<branch>` | Rule 1, stacked branch: the own commit nearest to the tip that another local branch points at or pointed at per its reflog; equally near candidates on both sides of a merge are a tie and open the sheet. Runs while the menu is open and names the result in the one-click entry; the interactive entry starts its sheet from the same result |
-| | `git merge-base <target> <branch>`, `git rev-list --first-parent --reverse ^<target> <branch>`, `git log -p --no-merges --no-ext-diff --no-textconv --max-count=500 <merge base>..<target>`, `git diff --no-ext-diff --no-textconv <merge base> <commit>`, `git patch-id --stable` (diffs on stdin) | Rule 2, squash-merged parent: the longest run of the branch's oldest commits (at most 50, never all of them) whose combined diff has the patch-id of a target commit |
+| | `git merge-base <target> <branch>`, `git rev-list --first-parent --reverse ^<target> <branch>`, `git log -p --no-merges --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/ --max-count=500 <merge base>..<target>`, `git diff --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/ <merge base> <commit>`, `git patch-id --stable` (diffs on stdin) | Rule 2, squash-merged parent: the longest run of the branch's oldest commits (at most 50, never all of them) whose combined diff has the patch-id of a target commit |
 | | `git merge-base --fork-point <target branch> <branch>` | Rule 3, rewritten target: only for a row with a local or remote branch, and only when the fork point is one of the branch's own commits. Otherwise the range starts at `git merge-base <target> HEAD` |
 | Continue / skip / abort | `git rebase\|cherry-pick\|revert\|merge --continue\|--skip\|--abort` | Continue and skip with `GIT_EDITOR=true`; a merge has no `--skip`. Continue at a conflict stop first checks `git ls-files --unmerged` and `git diff --cached --quiet HEAD`; a step resolved to exactly HEAD runs `--skip` instead. While an interactive rebase of the app runs, `git -c commit.cleanup=whitespace rebase --continue\|--skip` with its message script as `GIT_EDITOR`; abort also removes the app's session folder |
 | Operation in progress | `git rev-parse --path-format=absolute --git-path rebase-merge …` | Rebase, cherry-pick, revert or merge (`MERGE_HEAD`); banner above the history. The last line of `rebase-merge/done` and the `amend` marker tell an `edit` stop from a conflict or a failed `exec` |
@@ -100,7 +100,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 
 | Operation | Git command | Notes |
 |---|---|---|
-| List tags | `git for-each-ref --sort=-creatordate <format> refs/tags` | |
+| List tags | `git for-each-ref --sort=-creatordate <format> refs/tags` | Tags of trees or blobs are left out |
 | Create tag | `git tag <name> <commit>`; annotated `git tag -a <name> -F - <commit>` | |
 | Delete tag | `git tag --delete <name>` | |
 | Push / delete tag on a remote | `git push <remote> refs/tags/<name>` / `git push <remote> --delete refs/tags/<name>` | Delete asks first. Outside the queue |

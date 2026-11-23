@@ -41,7 +41,8 @@ public struct LogParser: Sendable {
         if let first = fields[0].first, first == 0x0A { fields[0] = fields[0].dropFirst() }
         func string(_ index: Int) -> String { String(decoding: fields[index], as: UTF8.self) }
         let id = string(0)
-        guard id.count == 40 else { return nil }
+        // SHA-1 or SHA-256 object IDs.
+        guard id.utf8.count == 40 || id.utf8.count == 64 else { return nil }
         let parents = string(1).split(separator: " ").map(String.init)
         let authorDate = Date(timeIntervalSince1970: TimeInterval(string(4)) ?? 0)
         let committerDate = Date(timeIntervalSince1970: TimeInterval(string(7)) ?? 0)

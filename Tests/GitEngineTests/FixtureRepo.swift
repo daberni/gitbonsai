@@ -7,16 +7,17 @@ final class FixtureRepo {
     let url: URL
     var path: String { url.path }
 
-    convenience init(name: String = "fixture") throws {
-        try self.init(at: FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-\(name)-\(UUID().uuidString)", isDirectory: true))
+    /// `objectFormat` `sha256` makes a repository with 64-character object IDs.
+    convenience init(name: String = "fixture", objectFormat: String = "sha1") throws {
+        try self.init(at: FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-\(name)-\(UUID().uuidString)", isDirectory: true), objectFormat: objectFormat)
     }
 
     /// A repository in a given folder, for tests that lay out several repositories in one tree.
-    init(at url: URL) throws {
+    init(at url: URL, objectFormat: String = "sha1") throws {
         TestGitEnvironment.isolate()
         self.url = url
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        try git("init", "-q", "-b", "main")
+        try git("init", "-q", "-b", "main", "--object-format=\(objectFormat)")
         try git("config", "user.name", "Fixture")
         try git("config", "user.email", "fixture@example.com")
         try git("config", "commit.gpgsign", "false")

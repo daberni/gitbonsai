@@ -161,15 +161,25 @@ final class BranchActionsTests: XCTestCase {
         XCTAssertThrowsError(try fixture.git("rev-parse", "--verify", "-q", "refs/remotes/origin/gone"))
     }
 
-    func testDeleteMissingRemoteBranchFails() async throws {
+    func testDeleteRemoteBranchLeavesATagOfTheSameNameAlone() async throws {
         let remote = try addOrigin()
         defer { remote.remove() }
+        try fixture.git("push", "-q", "origin", "main:refs/heads/release", "main:refs/tags/release")
 
-        do {
-            try await fixture.repository.deleteRemoteBranch("missing", on: "origin")
-            XCTFail("deleted a missing remote branch")
-        } catch let error as GitError {
-            XCTAssertTrue(error.stderr.contains("missing"), error.stderr)
-        }
+        try await fixture.repository.deleteRemoteBranch("release", on: "origin")
+
+        XCTAssertThrowsError(try remote.git("-C", "origin.git", "rev-parse", "--verify", "-q", "refs/heads/release"))
+        XCTAssertNoThrow(try remote.git("-C", "origin.git", "rev-parse", "--verify", "-q", "refs/tags/release"))
+    }
+
+    /// A remote branch someone else deleted still shows from its stale remote-tracking ref; deleting it succeeds (the remote only warns) and the stale ref goes.
+    func testDeletingABranchAlreadyGoneOnTheRemoteRemovesTheStaleRef() async throws {
+        let remote = try addOrigin()
+        defer { remote.remove() }
+        try fixture.git("update-ref", "refs/remotes/origin/missing", "HEAD")
+
+        try await fixture.repository.deleteRemoteBranch("missing", on: "origin")
+
+        XCTAssertThrowsError(try fixture.git("rev-parse", "--verify", "-q", "refs/remotes/origin/missing"))
     }
 }

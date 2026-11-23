@@ -66,8 +66,7 @@ final class GitRunnerTests: XCTestCase {
         async let a = runner.runWrite(["update-ref", "refs/test/a", "HEAD"])
         async let b = runner.runWrite(["update-ref", "refs/test/b", "HEAD"])
         _ = try await (a, b)
-        let refs = try await Repository(path: fixture.path).refs().filter { $0.fullName.hasPrefix("refs/test/") }
-        XCTAssertEqual(refs.count, 2)
+        XCTAssertEqual(try fixture.git("for-each-ref", "--format=%(refname)", "refs/test/").split(separator: "\n").count, 2)
     }
 
     private func withTimeout(seconds: Double, _ work: @escaping @Sendable () async -> Void) async -> Bool {

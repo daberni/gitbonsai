@@ -2,20 +2,23 @@ import Foundation
 
 /// Parses `git for-each-ref` output in the format produced by `formatArgument`.
 public enum RefsParser {
-    /// `--format=` argument: refname, objecttype, objectname, peeled objectname (`*objectname`), HEAD marker, upstream short name, upstream track (`[ahead 1, behind 2]`).
+    /// `--format=` argument: refname, objecttype, objectname, peeled objectname (`*objectname`), HEAD marker, upstream short name, upstream track (`[ahead 1, behind 2]`), peeled objecttype.
     public static var formatArgument: String {
-        let fields = ["%(refname)", "%(objecttype)", "%(objectname)", "%(*objectname)", "%(HEAD)", "%(upstream:short)", "%(upstream:track)"]
+        let fields = ["%(refname)", "%(objecttype)", "%(objectname)", "%(*objectname)", "%(HEAD)", "%(upstream:short)", "%(upstream:track)", "%(*objecttype)"]
         return "--format=" + fields.joined(separator: "%1f") + "%1e"
     }
 
     public static func parse(_ data: Data) throws -> [Ref] {
         var refs: [Ref] = []
         for fields in FieldRecords.parse(data) {
-            guard fields.count == 7 else { continue }
+            guard fields.count == 8 else { continue }
             let fullName = fields[0]
             guard !fullName.isEmpty else { continue }
             let peeled = fields[3]
             let (kind, name) = classify(fullName)
+            // A tag of a tree or a blob is in no history; as a tip it would never be found among the loaded commits and force a full reload every refresh.
+            let type = peeled.isEmpty ? fields[1] : fields[7]
+            if kind == .tag, type != "commit" { continue }
             let (ahead, behind) = parseTrack(fields[6])
             refs.append(Ref(
                 fullName: fullName,
