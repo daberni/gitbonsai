@@ -21,10 +21,10 @@ swift run GitBonsaiApp /path/to/repo
 
 ```bash
 scripts/make-app-bundle.sh
-open .build/app/GitBonsai.app
+open ".build/app/GitBonsai Dev.app"
 ```
 
-The script builds the release binary and assembles `GitBonsai.app` (bundle id `app.gitbonsai`, macOS 26.0 or later) in `.build/app`, or in the directory given as its argument. It compiles the app icon `docs/design/app-icon/AppIcon.icon` with `actool` into `Assets.car` (the layered icon macOS 26 renders in every appearance) and writes a classic `AppIcon.icns` with 16–512 pt at @1x and @2x for older surfaces, then signs the bundle ad hoc. It needs Xcode for `actool`.
+The script builds the release binary and assembles `GitBonsai Dev.app` (bundle id `app.gitbonsai.dev`, its own defaults, macOS 26.0 or later) in `.build/app`, or in the directory given as its argument; `--release` builds `GitBonsai.app` with `app.gitbonsai` instead. Signing, notarization, packaging and the GitHub workflows are in [docs/release.md](docs/release.md). It compiles the app icon `docs/design/app-icon/AppIcon.icon` with `actool` into `Assets.car` (the layered icon macOS 26 renders in every appearance) and writes a classic `AppIcon.icns` with 16–512 pt at @1x and @2x for older surfaces, then signs the bundle (ad hoc unless `GITBONSAI_SIGN_IDENTITY` is set). It needs Xcode for `actool`.
 
 ### Screenshot harness
 

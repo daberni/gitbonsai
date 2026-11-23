@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Marketing version, default: the latest v* tag, else 0.1'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      GITBONSAI_VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The build number is the commit count and the default version the latest tag, so the whole history is needed.
+          fetch-depth: 0
+      - name: Show toolchain
+        # The image's default Xcode is the newest 26.x; the bundle needs at least the macOS 26 SDK for actool's Icon Composer support.
+        run: |
+          xcodebuild -version
+
+      - name: Import signing certificate
+        id: signing
+        env:
+          CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$CERTIFICATE_P12" ]; then
+            echo "::warning::No DEVELOPER_ID_CERTIFICATE_P12 secret: the app is signed ad hoc and not notarized."
+            echo "identity=-" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(uuidgen)
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          rm "$RUNNER_TEMP/certificate.p12"
+          identity=$(security find-identity -v -p codesigning "$keychain" | awk -F'"' '/Developer ID Application/ { print $2; exit }')
+          if [ -z "$identity" ]; then echo "::error::The certificate holds no Developer ID Application identity."; exit 1; fi
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          echo "keychain=$keychain" >> "$GITHUB_OUTPUT"
+
+      - name: Build release bundle
+        env:
+          GITBONSAI_SIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+          GITBONSAI_KEYCHAIN: ${{ steps.signing.outputs.keychain }}
+        run: |
+          export GITBONSAI_VERSION="${GITBONSAI_VERSION#v}"
+          scripts/make-app-bundle.sh --release "$RUNNER_TEMP/out"
+
+      - name: Notarize and package
+        env:
+          GITBONSAI_SIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+          GITBONSAI_KEYCHAIN: ${{ steps.signing.outputs.keychain }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_API_ISSUER_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ "$GITBONSAI_SIGN_IDENTITY" = "-" ]; then
+            unset NOTARY_KEY_P8 NOTARY_APPLE_ID
+          fi
+          if [ -n "$NOTARY_KEY_P8" ]; then
+            export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"
+            echo "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH"
+          fi
+          scripts/package-release.sh "$RUNNER_TEMP/out/GitBonsai.app" "$RUNNER_TEMP/dist" | tee "$RUNNER_TEMP/package.log"
+          if [ "$GITBONSAI_SIGN_IDENTITY" = "-" ]; then
+            echo "::warning::Ad-hoc signed and not notarized: Gatekeeper blocks it until the user allows it in System Settings › Privacy & Security."
+            echo "SIGNING_NOTE=Ad-hoc signed, not notarized (no signing secrets)." >> "$GITHUB_ENV"
+          elif grep -q "not notarized" "$RUNNER_TEMP/package.log"; then
+            echo "::warning::Signed with Developer ID but not notarized: no notary secrets."
+            echo "SIGNING_NOTE=Developer ID signed, not notarized (no notary secrets)." >> "$GITHUB_ENV"
+          else
+            echo "SIGNING_NOTE=Developer ID signed and notarized." >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GitBonsai
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+
+      - name: Draft GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/dist/* --draft --verify-tag --title "GitBonsai ${GITHUB_REF_NAME#v}" --generate-notes --notes "$SIGNING_NOTE"
+
+      - name: Remove signing keychain
+        if: always() && steps.signing.outputs.keychain != ''
+        run: |
+          security delete-keychain "${{ steps.signing.outputs.keychain }}" || true
+          rm -f "$RUNNER_TEMP/notary.p8"
