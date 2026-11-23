@@ -74,4 +74,4 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
 - Task sessions do not edit the backlog; the coordinator keeps it.
 - Never let two sessions edit the same files at the same time. Shared files are the coordinator's; a task that needs a new token namespace or harness switch adds only its own block and the coordinator resolves overlaps at integration.
 - Run as many task sessions in parallel as the work allows, but each worktree builds into its own `.build`, so keep heavy checks bounded and never run two `swift test` in one checkout.
-- Nothing is pushed. There is no remote yet.
+- The repository has a private GitHub remote (`origin`). Only the coordinating session pushes, and only `main` with the user's approval; task sessions never push. There are no pull requests yet: task branches are fast-forwarded onto local `main` as described above.
