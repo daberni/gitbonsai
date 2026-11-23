@@ -12,13 +12,15 @@ concurrency:
 
 jobs:
   build-and-test:
-    # macos-26 carries Xcode 26, the first SDK that draws the macOS 26 window style the app requires (see AGENTS.md).
-    runs-on: macos-26
+    # The code needs Swift 6.4 (Xcode 27); the macos-26 image's Xcode 26 cannot compile it. See docs/release.md.
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+      - name: Select Xcode
+        # Pinned to the Xcode the code is developed with; the image's default can lag behind it.
+        run: sudo xcode-select -s /Applications/Xcode_27.2.app
       - name: Show toolchain
-        # The image's default Xcode is the newest 26.x; the bundle needs at least the macOS 26 SDK for actool's Icon Composer support.
         run: |
           xcodebuild -version
           swift --version

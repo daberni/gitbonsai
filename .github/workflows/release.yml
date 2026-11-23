@@ -14,7 +14,8 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-26
+    # The code needs Swift 6.4 (Xcode 27); the macos-26 image's Xcode 26 cannot compile it. See docs/release.md.
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
       GITBONSAI_VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
@@ -23,10 +24,13 @@ jobs:
         with:
           # The build number is the commit count and the default version the latest tag, so the whole history is needed.
           fetch-depth: 0
+      - name: Select Xcode
+        # Pinned to the Xcode the code is developed with; the image's default can lag behind it.
+        run: sudo xcode-select -s /Applications/Xcode_27.2.app
       - name: Show toolchain
-        # The image's default Xcode is the newest 26.x; the bundle needs at least the macOS 26 SDK for actool's Icon Composer support.
         run: |
           xcodebuild -version
+          swift --version
 
       - name: Import signing certificate
         id: signing
