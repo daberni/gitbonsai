@@ -19,7 +19,7 @@ extension FastForwardController: CommandProvider {
             }
             // One walk for all targets: a target that descends from HEAD reaches it.
             let blocker = CommandRules.fastForward(branchHead: head, target: ref.target, reachableFromTarget: descendants.contains(ref.target) ? [head] : [])
-            return Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(glyph), blocker: blocker) { [weak self] in self?.fastForward(current, to: .ref(ref)) }
+            return Command(id: ref.fullName, title: .verbatim(ref.name), glyph: .glyph(glyph), blocker: blocker) { [weak self] in self?.fastForward(to: .ref(ref)) }
         }
     }
 

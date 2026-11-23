@@ -1,10 +1,10 @@
 import AppKit
 import GitEngine
 
-/// The context menus of the history, built from two sections with the same entries and order wherever they show:
-/// the ref section of a pill (the sidebar's branch menu, the Tags list's tag menu) and the commit section of its row.
-/// A pill's menu is its ref section, then the commit section flat. A row's menu leads with the ref section inline when the commit has a single branch pill,
-/// or with one submenu per pill when it has several, followed by the commit section.
+/// The context menus of the history, built from a ref section and a commit section that fill the same groups (`MenuSections`), so a combined menu orders its entries by meaning:
+/// go there, integrate with the current branch, create, change, copy, remove. A pill's menu zips its ref section with the commit section.
+/// A row's menu does the same when the commit has a single branch pill; with several pills each pill becomes a submenu at the top, and the commit section follows.
+/// The commit section alone offers Copy SHA; ref sections add only Copy name.
 @MainActor
 final class HistoryMenuController {
     private let viewModel: GraphViewModel
@@ -26,25 +26,26 @@ final class HistoryMenuController {
     func rowMenu(forRow index: Int) -> [NSMenuItem] {
         guard let commit = commit(at: index) else { return [] }
         let all = pills(of: commit)
-        let subjects = all.filter { !refGroups($0.ref, commit: commit).joinedWithSeparators.isEmpty }
-        let leading: [[NSMenuItem]] = if subjects.count == 1, case .branch = subjects[0].ref {
-            refGroups(subjects[0].ref, commit: commit)
-        } else {
-            [subjects.map { submenu(titled: Self.title(of: $0.ref), refGroups($0.ref, commit: commit)) }]
+        let subjects = all.filter { !refSections($0.ref, commit: commit).groups.joinedWithSeparators.isEmpty }
+        let leading: MenuSections
+        if subjects.count == 1, case .branch = subjects[0].ref {
+            leading = refSections(subjects[0].ref, commit: commit)
+            return (leading + commitSections(commit, index: index, pills: all, subject: subjects[0].ref)).groups.joinedWithSeparators
         }
-        return (leading + commitGroups(commit, index: index, pills: all)).joinedWithSeparators
+        leading = MenuSections(refs: subjects.map { submenu(titled: Self.title(of: $0.ref), refSections($0.ref, commit: commit)) })
+        return (leading + commitSections(commit, index: index, pills: all, subject: nil)).groups.joinedWithSeparators
     }
 
     func pillMenu(forRow index: Int, ref: PillRef) -> [NSMenuItem] {
         guard let commit = commit(at: index) else { return [] }
-        return (refGroups(ref, commit: commit) + commitGroups(commit, index: index, pills: pills(of: commit))).joinedWithSeparators
+        return (refSections(ref, commit: commit) + commitSections(commit, index: index, pills: pills(of: commit), subject: ref)).groups.joinedWithSeparators
     }
 
     // MARK: Sections
 
-    /// A branch pill joins a local branch and its same-named remote branches: the local branch's menu leads, each remote branch follows as a submenu titled with its pill.
-    /// A pill with a single remote branch and no local one shows that remote branch's menu directly.
-    private func refGroups(_ ref: PillRef, commit: Commit) -> [[NSMenuItem]] {
+    /// A branch pill joins a local branch and its same-named remote branches: the local branch's entries fill the groups, each remote branch leads as a submenu titled with its pill.
+    /// A pill with a single remote branch and no local one fills the groups with that remote branch's entries.
+    private func refSections(_ ref: PillRef, commit: Commit) -> MenuSections {
         switch ref {
         case .branch(let name):
             let refs = viewModel.refsByCommit[commit.id] ?? []
@@ -53,24 +54,31 @@ final class HistoryMenuController {
                 guard case .remoteBranch(let remote) = ref.kind else { return false }
                 return ref.name == "\(remote)/\(name)"
             }
-            if local == nil, remotes.count == 1, let remote = remotes.first { return branches.menuGroups(for: remote) }
-            let submenus = remotes.map { remote in submenu(titled: RefString(marked: RefName.remoteBranch(remote.name)), branches.menuGroups(for: remote)) }
-            return (local.map(branches.menuGroups(for:)) ?? []) + [submenus]
+            if local == nil, remotes.count == 1, let remote = remotes.first { return branches.sections(for: remote, inHistory: true) }
+            let submenus = remotes.map { remote in submenu(titled: RefString(marked: RefName.remoteBranch(remote.name)), branches.sections(for: remote, inHistory: true)) }
+            return MenuSections(refs: submenus) + (local.map { branches.sections(for: $0, inHistory: true) } ?? MenuSections())
         case .tag(let name):
-            return tags.localTagGroups(name, commit: commit.id, checkout: false)
+            return tags.localTagSections(name, commit: commit.id, checkout: false)
         case .detachedHead:
             // HEAD is the commit itself; the commit section has everything it offers.
-            return []
+            return MenuSections()
         case .other(let name):
-            return [[ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(name) }]]
+            return MenuSections(copy: [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(name) }])
         }
     }
 
     /// The fast-forward to the commit itself only shows where no branch pill already offers it by name.
-    private func commitGroups(_ commit: Commit, index: Int, pills: [PillModel]) -> [[NSMenuItem]] {
+    /// Create Worktree… preselects the menu's local branch (`subject`) when it can have a worktree; otherwise it starts from the commit.
+    private func commitSections(_ commit: Commit, index: Int, pills: [PillModel], subject: PillRef?) -> MenuSections {
         let named = pills.contains { if case .branch = $0.ref { true } else { false } }
-        let moveHere = named ? [] : fastForward.items(to: .commit(commit.id))
-        return [checkout.detachedItem(forRow: index).map { [$0] } ?? []] + commitActions.groups(for: commit, moveHere: moveHere)
+        let moveHere = named ? nil : fastForward.item(to: .commit(commit.id))
+        var worktreeForBranch: (() -> Void)?
+        if case .branch(let name) = subject, let local = viewModel.refsByCommit[commit.id]?.first(where: { $0.kind == .localBranch && $0.name == name }), branches.canCreateWorktree(for: local) {
+            worktreeForBranch = { [weak branches] in branches?.createWorktree(for: name) }
+        }
+        var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch)
+        if let detached = checkout.detachedItem(forRow: index) { sections.goThere.append(detached) }
+        return sections
     }
 
     // MARK: Parts
@@ -84,11 +92,11 @@ final class HistoryMenuController {
         HistoryRowModel.pills(for: viewModel.refsByCommit[commit.id] ?? [], branchesElsewhere: viewModel.branchesInOtherWorktrees, detachedHead: viewModel.currentBranch == nil && viewModel.headSHA == commit.id)
     }
 
-    private func submenu(titled title: RefString, _ groups: [[NSMenuItem]]) -> NSMenuItem {
+    private func submenu(titled title: RefString, _ sections: MenuSections) -> NSMenuItem {
         let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         item.setTitle(title)
         let submenu = NSMenu()
-        groups.joinedWithSeparators.forEach(submenu.addItem)
+        sections.groups.joinedWithSeparators.forEach(submenu.addItem)
         item.submenu = submenu
         return item
     }

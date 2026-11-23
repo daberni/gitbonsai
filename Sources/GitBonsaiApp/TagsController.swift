@@ -105,20 +105,20 @@ final class TagsController {
             return [fetches, deletes, copy].joinedWithSeparators
         }
         let jump: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }]
-        return ([jump] + localTagGroups(name, commit: tag.commitID)).joinedWithSeparators
+        return ([jump] + localTagSections(name, commit: tag.commitID).groups).joinedWithSeparators
     }
 
     /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history.
     /// `checkout` false leaves the checkout to a menu that offers the commit's own.
-    func localTagGroups(_ name: String, commit: String, checkout: Bool = true) -> [[NSMenuItem]] {
-        [
-            checkout ? [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] : [],
-            remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } },
-            [ActionMenuItem(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
-                ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
-            },
-            [ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }],
-        ]
+    func localTagSections(_ name: String, commit: String, checkout: Bool = true) -> MenuSections {
+        var sections = MenuSections()
+        if checkout { sections.goThere = [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] }
+        sections.change = remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } }
+        sections.copy = [ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }]
+        sections.remove = [ActionMenuItem(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
+            ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
+        }
+        return sections
     }
 
     // MARK: Actions

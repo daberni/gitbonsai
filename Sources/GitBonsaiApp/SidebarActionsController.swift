@@ -21,7 +21,7 @@ final class SidebarActionsController {
 
     func menuItems(for subject: SidebarMenuSubject) -> [NSMenuItem] {
         let groups = switch subject {
-        case .branch(let ref): branches.menuGroups(for: ref)
+        case .branch(let ref): branches.sections(for: ref).groups
         case .worktree(let info, let isCurrent): worktrees.menuGroups(for: info, isCurrent: isCurrent)
         case .remote(let name): remotes.menuGroups(for: name)
         }

@@ -280,23 +280,6 @@
         }
       }
     },
-    "branch.menu.createWorktree" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Worktree für %@ anlegen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Create Worktree for %@…"
-          }
-        }
-      }
-    },
     "branch.menu.delete" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -344,23 +327,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Delete %1$@ from %2$@…"
-          }
-        }
-      }
-    },
-    "branch.menu.fastForwardOther" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anderen Branch auf %@ vorspulen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Fast-Forward other Branch to %@"
           }
         }
       }

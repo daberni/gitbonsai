@@ -23,31 +23,40 @@ final class CommitActionsController {
         interactiveRebase = InteractiveRebaseController(viewModel: viewModel, prompter: prompter)
     }
 
-    /// The commit section of the history menus, after its checkout: create, move the current branch here (`moveHere` adds the fast-forward entries), rewrite, copy, tag.
-    func groups(for commit: Commit, moveHere: [NSMenuItem]) -> [[NSMenuItem]] {
-        [createItems(commit), historyItems(commit, moveHere: moveHere), interactiveRebase.menuItems(for: commit), copyItems(commit), tagItems(commit)]
+    /// The commit section of the history menus beyond its checkout; `worktreeForBranch` replaces Create Worktree…'s own form with the branch's; `moveHere` is the fast-forward of the current branch to this commit, when a branch pill does not already offer it.
+    func sections(for commit: Commit, moveHere: NSMenuItem?, worktreeForBranch: (() -> Void)? = nil) -> MenuSections {
+        let rewrite = interactiveRebase.menuItems(for: commit)
+        var sections = MenuSections()
+        sections.integrate = integrateItems(commit, moveHere: moveHere)
+        sections.create = [
+            ActionMenuItem(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] in self?.createBranch(at: commit) },
+            ActionMenuItem(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in if let worktreeForBranch { worktreeForBranch() } else { self?.createWorktree(from: commit) } },
+            ActionMenuItem(LocalizedStringResource("commit.menu.createTag", defaultValue: "Create Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: false) },
+            ActionMenuItem(LocalizedStringResource("commit.menu.createAnnotatedTag", defaultValue: "Create annotated Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: true) },
+        ]
+        // Edit Message and Move up/down change the commit; Drop Commit removes it.
+        sections.change = Array(rewrite.dropLast())
+        sections.remove = Array(rewrite.suffix(1))
+        sections.copy = [ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { ActionRunner.copy(commit.id) }]
+        // A merge has no patch of its own; format-patch writes nothing for it.
+        if commit.parents.count <= 1 {
+            sections.copy.append(ActionMenuItem(LocalizedStringResource("commit.menu.savePatch", defaultValue: "Save Patch…", bundle: .module)) { [weak self] in self?.savePatch(commit) })
+        }
+        return sections
     }
 
     // MARK: Menu
 
-    private func createItems(_ commit: Commit) -> [NSMenuItem] {
-        [
-            ActionMenuItem(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in self?.createWorktree(from: commit) },
-            ActionMenuItem(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] in self?.createBranch(at: commit) },
-        ]
-    }
-
     /// Entries that move the current branch are left out in detached HEAD, and where git would have nothing to do.
-    private func historyItems(_ commit: Commit, moveHere: [NSMenuItem]) -> [NSMenuItem] {
-        var items: [NSMenuItem] = []
-        guard let branch = viewModel.currentBranch else { return moveHere }
+    private func integrateItems(_ commit: Commit, moveHere: NSMenuItem?) -> [NSMenuItem] {
+        var items: [NSMenuItem] = moveHere.map { [$0] } ?? []
+        guard let branch = viewModel.currentBranch else { return items }
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
+        items += rebaseOnto.items(branch: branch, commit: commit)
         if !inBranch {
             items.append(ActionMenuItem(LocalizedStringResource("commit.menu.cherryPick", defaultValue: "Cherry-Pick onto \(RefName.branch(branch))", bundle: .module)) { [weak self] in self?.cherryPick(commit) })
         }
-        items += moveHere
-        items += rebaseOnto.items(branch: branch, commit: commit)
         if !isHead {
             let reset = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             reset.setTitle(LocalizedStringResource("commit.menu.reset", defaultValue: "Reset \(RefName.branch(branch)) to here", bundle: .module))
@@ -63,22 +72,6 @@ final class CommitActionsController {
             items.append(ActionMenuItem(LocalizedStringResource("commit.menu.revert", defaultValue: "Revert Commit", bundle: .module)) { [weak self] in self?.revert(commit) })
         }
         return items
-    }
-
-    private func copyItems(_ commit: Commit) -> [NSMenuItem] {
-        var items: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { ActionRunner.copy(commit.id) }]
-        // A merge has no patch of its own; format-patch writes nothing for it.
-        if commit.parents.count <= 1 {
-            items.append(ActionMenuItem(LocalizedStringResource("commit.menu.savePatch", defaultValue: "Save Patch…", bundle: .module)) { [weak self] in self?.savePatch(commit) })
-        }
-        return items
-    }
-
-    private func tagItems(_ commit: Commit) -> [NSMenuItem] {
-        [
-            ActionMenuItem(LocalizedStringResource("commit.menu.createTag", defaultValue: "Create Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: false) },
-            ActionMenuItem(LocalizedStringResource("commit.menu.createAnnotatedTag", defaultValue: "Create annotated Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: true) },
-        ]
     }
 
     // MARK: Actions
