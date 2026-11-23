@@ -151,6 +151,18 @@ enum ExternalApps {
 
     // MARK: Opening
 
+    /// Shows the items selected in a Finder window. Harness runs print what they would reveal instead.
+    static func reveal(_ items: [URL]) {
+        if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("Finder", "reveal \(items.map(\.path).joined(separator: " "))") }
+        NSWorkspace.shared.activateFileViewerSelecting(items)
+    }
+
+    /// Opens the item with the app the system assigns to it. Harness runs print what they would open instead.
+    static func openWithDefaultApp(_ item: URL) {
+        if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("default app", "open \(item.path)") }
+        NSWorkspace.shared.open(item)
+    }
+
     /// Hands the file or folder to the app the way it supports.
     static func open(_ item: URL, in app: ExternalApp, at appURL: URL, completion: (@MainActor @Sendable (Error?) -> Void)? = nil) {
         let plan = plan(for: item, in: app, at: appURL)

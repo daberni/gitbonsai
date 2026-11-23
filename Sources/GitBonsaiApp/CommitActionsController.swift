@@ -68,7 +68,7 @@ final class CommitActionsController {
     }
 
     private func copyItems(_ commit: Commit) -> [NSMenuItem] {
-        var items: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { Self.copy(commit.id) }]
+        var items: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { ActionRunner.copy(commit.id) }]
         // A merge has no patch of its own; format-patch writes nothing for it.
         if commit.parents.count <= 1 {
             items.append(ActionMenuItem(LocalizedStringResource("commit.menu.savePatch", defaultValue: "Save Patch…", bundle: .module)) { [weak self] in self?.savePatch(commit) })
@@ -233,11 +233,6 @@ final class CommitActionsController {
         let words = commit.subject.lowercased().unicodeScalars.split { !allowed.contains($0) }.map { String(String.UnicodeScalarView($0)) }
         let slug = words.joined(separator: "-").prefix(52)
         return slug.isEmpty ? "\(commit.id.prefix(RefString.shortSHA)).patch" : "\(commit.id.prefix(RefString.shortSHA))-\(slug).patch"
-    }
-
-    private static func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 

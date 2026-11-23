@@ -48,7 +48,7 @@ final class BranchActionsController {
         if !ref.isHead, worktree == nil {
             editGroup.append(ActionMenuItem(LocalizedStringResource("branch.menu.createWorktree", defaultValue: "Create Worktree for \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.createWorktree(for: name) })
         }
-        let copyGroup: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { SidebarActionRunner.copy(name) }]
+        let copyGroup: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(name) }]
         let deleteGroup: [NSMenuItem] = ref.isHead ? [] : [ActionMenuItem(LocalizedStringResource("branch.menu.delete", defaultValue: "Delete \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.delete(name, worktree: worktree) }]
         return [checkoutGroup, historyGroup, editGroup, copyGroup, deleteGroup]
     }
@@ -61,7 +61,7 @@ final class BranchActionsController {
         checkoutGroup += followers.compactMap(branchPull.item(for:))
         return [
             checkoutGroup,
-            [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { SidebarActionRunner.copy(ref.name) }],
+            [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(ref.name) }],
             [ActionMenuItem(LocalizedStringResource("branch.menu.deleteRemote", defaultValue: "Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemote(branch, on: remote) }],
         ]
     }

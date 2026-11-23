@@ -5,6 +5,11 @@ import GitEngine
 /// (label, identifier, value) and driven with real mouse and key events at their accessibility frame, the way a person or VoiceOver reaches them.
 @MainActor
 extension ScreenshotHarness {
+    /// `GITBONSAI_LANGUAGE=en|de` runs a harness launch in that language without storing it.
+    static var language: String? {
+        isActive ? environment["GITBONSAI_LANGUAGE"] : nil
+    }
+
     /// `GITBONSAI_SETTINGS=general|apps|git|appearance|fetch|avatars` opens the settings on that section and captures the settings window instead of the main window.
     static var settingsSection: SettingsWindowController.Section? {
         environment["GITBONSAI_SETTINGS"].flatMap(SettingsWindowController.Section.init)

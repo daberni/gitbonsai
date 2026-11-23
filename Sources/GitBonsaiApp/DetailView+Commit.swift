@@ -132,8 +132,7 @@ extension DetailView {
     /// A click copies the full SHA, ⌥-click the short one; the icon turns into a checkmark for a moment as the confirmation.
     @objc private func copyCommitSHA(_ sender: NSButton) {
         let short = NSApp.currentEvent?.modifierFlags.contains(.option) == true
-        Self.pasteboard.clearContents()
-        Self.pasteboard.setString(short ? copySHA.short : copySHA.full, forType: .string)
+        ActionRunner.copy(short ? copySHA.short : copySHA.full)
         showCopyIcon(on: sender, copied: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + M.copiedFeedback) { [weak self, weak sender] in
             guard let self, let sender else { return }

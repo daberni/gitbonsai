@@ -4,6 +4,12 @@ import GitEngine
 /// Harness switches for one-time checkout and worktree switch, history set-up and the commit context menu with its sheets.
 @MainActor
 extension ScreenshotHarness {
+    /// `GITBONSAI_HIDDEN_COLUMNS=label,sha` hides those history columns in a harness run.
+    static var hiddenColumns: Set<HistoryColumns.Column>? {
+        guard isActive, let names = environment["GITBONSAI_HIDDEN_COLUMNS"] else { return nil }
+        return Set(names.split(separator: ",").compactMap { HistoryColumns.Column(rawValue: String($0)) })
+    }
+
     /// `GITBONSAI_CHECKOUT=<branch>` checks a local branch out and `GITBONSAI_SWITCH_WORKTREE=<folder or path>` switches the tab, once per run. Returns true when one ran.
     static func runOneTimeAction(on tab: RepositoryViewController) -> Bool {
         guard !didRunOneTimeAction else { return false }

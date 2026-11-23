@@ -21,9 +21,7 @@ enum AppSettings {
         }
     }
 
-    private static var defaults: UserDefaults {
-        ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
-    }
+    private static var defaults: UserDefaults { ScreenshotHarness.defaults }
 
     /// Bundle id of the editor or terminal "Open in editor" and "Open in terminal" use; nil takes the first shown one. `ExternalApps.preferred(_:)` resolves it.
     static func defaultApp(_ kind: ExternalApps.Kind) -> String? {

@@ -89,10 +89,7 @@ extension RepositoryViewController: CommandProvider {
                 ExternalApps.open(folder, in: editor.app, at: editor.url)
             },
             Self.chooseApp(.chooseEditor, kind: .editor, folder: folder, context: name, preferred: editor),
-            Command(.revealInFinder, context: name) {
-                if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("Finder", "reveal \(folder.path)") }
-                NSWorkspace.shared.activateFileViewerSelecting([folder])
-            },
+            Command(.revealInFinder, context: name) { ExternalApps.reveal([folder]) },
         ]
     }
 

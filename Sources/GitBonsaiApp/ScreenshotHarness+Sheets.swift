@@ -4,8 +4,17 @@ import AppKit
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_SHEET_KEY=escape|return` shows forms and confirmations as real sheets and presses that key on them once they are up; `GITBONSAI_FORM` fills a form first and `GITBONSAI_SHEET_FOCUS=message` puts the focus into its multi-line message.
-    /// Needs `GITBONSAI_FOREGROUND=1`: AppKit gives Return to the default button only in the key window.
-    static var keysSheets: Bool { isActive && sheetKey != nil }
+    /// Needs `GITBONSAI_FOREGROUND=1`: AppKit gives Return to the default button only in the key window, and pressing the key activates the app. A background run ignores the switch and answers as without it.
+    static var keysSheets: Bool {
+        guard isActive, sheetKey != nil else { return false }
+        if runsInBackground, !didWarnAboutSheetKey {
+            didWarnAboutSheetKey = true
+            sheetLog("GITBONSAI_SHEET_KEY needs GITBONSAI_FOREGROUND=1; ignored in this background run")
+        }
+        return !runsInBackground
+    }
+
+    private static var didWarnAboutSheetKey = false
 
     private static var sheetKey: (name: String, characters: String, keyCode: UInt16)? {
         switch environment["GITBONSAI_SHEET_KEY"] {

@@ -26,10 +26,10 @@ final class PillMenuController {
         case .detachedHead:
             return [
                 [ActionMenuItem(LocalizedStringResource("history.pill.createBranch", defaultValue: "Create Branch here…", bundle: .module)) { [weak self] in self?.sidebarActions.newBranch.show() }],
-                [ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { SidebarActionRunner.copy(commit) }],
+                [ActionMenuItem(LocalizedStringResource("common.copySHA", defaultValue: "Copy SHA", bundle: .module)) { ActionRunner.copy(commit) }],
             ].joinedWithSeparators
         case .other(let name):
-            return [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { SidebarActionRunner.copy(name) }]
+            return [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(name) }]
         }
     }
 

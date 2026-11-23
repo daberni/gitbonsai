@@ -22,7 +22,7 @@ final class WorktreeActionsController {
             switchGroup.append(ActionMenuItem(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.switchWorktree(path) })
         }
         let openGroup: [NSMenuItem] = exists ? [
-            ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) },
+            ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) },
             ActionMenuItem(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { Self.openInTerminal(path) },
         ] : []
         var manageGroup: [NSMenuItem] = []

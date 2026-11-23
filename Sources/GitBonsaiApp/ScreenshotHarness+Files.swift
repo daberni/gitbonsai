@@ -249,9 +249,7 @@ extension ScreenshotHarness {
         let copyMode = environment["GITBONSAI_CLICK_COMMIT_COPY"]
         let parent = environment["GITBONSAI_CLICK_PARENT"].flatMap(Int.init)
         guard copyMode != nil || parent != nil else { return }
-        // Clicks copy into the harness's own pasteboard, so runs leave the user's clipboard alone.
-        DetailView.pasteboard = NSPasteboard(name: NSPasteboard.Name("app.gitbonsai.harness"))
-        DetailView.pasteboard.clearContents()
+        pasteboard.clearContents()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             guard let window = tab.view.window, let detail = views(of: DetailView.self, in: window).first else { return }
             if let copyMode, let button = detail.copyButton {
@@ -259,7 +257,7 @@ extension ScreenshotHarness {
                 printCopyFrames(button, in: detail, when: "before the click")
                 click(in: window, at: button.convert(CGPoint(x: button.bounds.maxX - Theme.Space.s, y: button.bounds.midY), to: nil), flags: flags)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    let copied = DetailView.pasteboard.string(forType: .string) ?? "nothing"
+                    let copied = pasteboard.string(forType: .string) ?? "nothing"
                     FileHandle.standardError.write(Data("copy (\(copyMode)) put on the pasteboard: \(copied); icon \(button.image?.accessibilityDescription ?? "none"), tooltip \(button.toolTip ?? "none")\n".utf8))
                     printCopyFrames(button, in: detail, when: "with the checkmark")
                 }

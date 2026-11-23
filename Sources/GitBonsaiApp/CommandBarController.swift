@@ -187,9 +187,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
 final class CommandRecents {
     private static let key = "commandBarRecents"
     private static let limit = 8
-    private var defaults: UserDefaults {
-        ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") ?? .standard : .standard
-    }
+    private var defaults: UserDefaults { ScreenshotHarness.defaults }
 
     var ids: [String] { defaults.stringArray(forKey: Self.key) ?? [] }
 

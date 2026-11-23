@@ -124,9 +124,7 @@ enum ColumnStore {
 
     static func load() -> HistoryColumns {
         var columns = HistoryColumns.standard
-        if let hidden = ProcessInfo.processInfo.environment["GITBONSAI_HIDDEN_COLUMNS"] {
-            columns.hidden = Set(hidden.split(separator: ",").compactMap { HistoryColumns.Column(rawValue: String($0)) })
-        }
+        if let hidden = ScreenshotHarness.hiddenColumns { columns.hidden = hidden }
         guard let defaults else { return columns }
         func width(_ key: String) -> CGFloat? { defaults.object(forKey: key) == nil ? nil : CGFloat(defaults.double(forKey: key)) }
         columns.label = width("columnLabel") ?? columns.label

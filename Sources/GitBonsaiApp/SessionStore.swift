@@ -12,8 +12,7 @@ final class SessionStore {
 
     /// Screenshot runs keep their own state so they never disturb the tabs of a real session.
     static func standard() -> SessionStore {
-        let harnessDefaults = ScreenshotHarness.outputPath != nil ? UserDefaults(suiteName: "app.gitbonsai.harness") : nil
-        return SessionStore(defaults: harnessDefaults ?? .standard)
+        SessionStore(defaults: ScreenshotHarness.defaults)
     }
 
     /// Most recently used first; folders that no longer exist are left out.

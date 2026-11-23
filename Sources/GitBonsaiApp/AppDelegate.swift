@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if !ScreenshotHarness.runsInBackground { NSApp.activate(ignoringOtherApps: true) }
+        ScreenshotHarness.removeStaleRunFolders()
         AppSettings.apply()
         ScreenshotHarness.applyAppearance()
         ScreenshotHarness.applyRepositoryFolders()
@@ -22,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()))
         ScreenshotHarness.openSettingsIfAsked()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        ScreenshotHarness.cleanUpRun()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

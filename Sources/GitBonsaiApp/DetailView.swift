@@ -28,8 +28,6 @@ final class DetailView: NSView {
     /// Reached by the harness for real clicks.
     var copyButton: NSButton?
     var parentLinks: [NSButton] = []
-    /// Harness runs copy into a pasteboard of their own instead of the user's clipboard.
-    static var pasteboard = NSPasteboard.general
     var fileList: FileListView?
     /// The file section of the commit shown last. The next commit keeps it on screen until its own files and stats are known and replace both at once.
     var commitFiles: (commitID: String, header: NSTextField, list: FileListView)?

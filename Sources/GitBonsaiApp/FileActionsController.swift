@@ -55,18 +55,18 @@ final class FileActionsController {
         let editor = ExternalApps.editor(forRepository: viewModel.repository.path)
         let editorTitle: LocalizedStringResource = editor.map { editor -> LocalizedStringResource in LocalizedStringResource("files.menu.openIn", defaultValue: "Open in \(editor.app.name)", bundle: .module) } ?? LocalizedStringResource("command.openEditor.title", defaultValue: "Open in editor", bundle: .module)
         items.append(ActionMenuItem(editorTitle) { [weak self] in self?.openInEditor(file) })
-        items.append(ActionMenuItem(LocalizedStringResource("files.menu.openDefaultApp", defaultValue: "Open with default app", bundle: .module)) { [weak self] in self?.open(file, with: nil) })
-        items.append(ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { NSWorkspace.shared.activateFileViewerSelecting([file]) })
+        items.append(ActionMenuItem(LocalizedStringResource("files.menu.openDefaultApp", defaultValue: "Open with default app", bundle: .module)) { ExternalApps.openWithDefaultApp(file) })
+        items.append(ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([file]) })
         return items
     }
 
     /// ⌥ turns "Copy path" into "Copy full path".
     private func copyItems(_ selection: FileSelection) -> [NSMenuItem] {
-        let relative = ActionMenuItem(LocalizedStringResource("files.menu.copyPath", defaultValue: "Copy path", bundle: .module)) { Self.copy(selection.path) }
+        let relative = ActionMenuItem(LocalizedStringResource("files.menu.copyPath", defaultValue: "Copy path", bundle: .module)) { ActionRunner.copy(selection.path) }
         relative.keyEquivalentModifierMask = []
         let full = ActionMenuItem(LocalizedStringResource("files.menu.copyFullPath", defaultValue: "Copy full path", bundle: .module)) { [weak self] in
             guard let self else { return }
-            Self.copy(url(of: selection).path)
+            ActionRunner.copy(url(of: selection).path)
         }
         full.keyEquivalentModifierMask = .option
         full.isAlternate = true
@@ -99,6 +99,8 @@ final class FileActionsController {
                 _ = await prompter.confirm(alert)
                 return
             }
+            // git starts the configured program itself, so harness runs stop before it.
+            if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("diff tool", "git difftool \(selection.path)") }
             do {
                 try await repository.openDiffTool(for: selection.path, originalPath: selection.originalPath, in: selection.source)
             } catch {
@@ -107,20 +109,9 @@ final class FileActionsController {
         }
     }
 
-    private func open(_ file: URL, with app: URL?) {
-        guard let app else {
-            NSWorkspace.shared.open(file)
-            return
-        }
-        NSWorkspace.shared.open([file], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
-            guard let error else { return }
-            Task { @MainActor in self?.prompter.report(error, title: LocalizedStringResource("failure.file.notOpened", defaultValue: "Couldn’t Open File", bundle: .module)) }
-        }
-    }
-
     /// The same default editor as the command bar's "Open in editor"; without any editor the system's default app.
     private func openInEditor(_ file: URL) {
-        guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path) else { return open(file, with: nil) }
+        guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path) else { return ExternalApps.openWithDefaultApp(file) }
         ExternalApps.open(file, in: editor.app, at: editor.url) { [weak self] error in
             guard let error else { return }
             self?.prompter.report(error, title: LocalizedStringResource("failure.file.notOpened", defaultValue: "Couldn’t Open File", bundle: .module))
@@ -182,10 +173,5 @@ final class FileActionsController {
         button.hasDestructiveAction = true
         button.keyEquivalent = ""
         alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module)).keyEquivalent = "\r"
-    }
-
-    private static func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
     }
 }

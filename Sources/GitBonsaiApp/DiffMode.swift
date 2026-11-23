@@ -19,14 +19,12 @@ enum DiffMode: String, CaseIterable {
         get {
             let harnessMode = ProcessInfo.processInfo.environment["GITBONSAI_DIFF_MODE"]
             if ScreenshotHarness.isActive, harnessMode != "remembered" { return harnessMode.flatMap(DiffMode.init) ?? .diff }
-            return defaults?.string(forKey: key).flatMap(DiffMode.init) ?? .diff
+            return defaults.string(forKey: key).flatMap(DiffMode.init) ?? .diff
         }
-        set { defaults?.set(newValue.rawValue, forKey: key) }
+        set { defaults.set(newValue.rawValue, forKey: key) }
     }
 
-    @MainActor private static var defaults: UserDefaults? {
-        ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") : .standard
-    }
+    @MainActor private static var defaults: UserDefaults { ScreenshotHarness.defaults }
 }
 
 /// Choices of the diff options menu next to "Diff | Whole File"; like the mode they hold for every file and the next launch.
@@ -41,12 +39,10 @@ struct DiffOptions: Equatable {
         get {
             let harnessValue = ProcessInfo.processInfo.environment["GITBONSAI_DIFF_INVISIBLES"]
             if ScreenshotHarness.isActive, harnessValue != "remembered" { return DiffOptions(showsInvisibles: harnessValue == "1") }
-            return DiffOptions(showsInvisibles: defaults?.bool(forKey: invisiblesKey) ?? false)
+            return DiffOptions(showsInvisibles: defaults.bool(forKey: invisiblesKey))
         }
-        set { defaults?.set(newValue.showsInvisibles, forKey: invisiblesKey) }
+        set { defaults.set(newValue.showsInvisibles, forKey: invisiblesKey) }
     }
 
-    @MainActor private static var defaults: UserDefaults? {
-        ScreenshotHarness.isActive ? UserDefaults(suiteName: "app.gitbonsai.harness") : .standard
-    }
+    @MainActor private static var defaults: UserDefaults { ScreenshotHarness.defaults }
 }

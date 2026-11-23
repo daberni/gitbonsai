@@ -111,9 +111,4 @@ final class SidebarActionRunner {
         let name = suffix.replacingOccurrences(of: "/", with: "-")
         return (parent as NSString).appendingPathComponent("\(viewModel.repositoryName)-\(name)")
     }
-
-    static func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-    }
 }

@@ -7,10 +7,10 @@ extension ScreenshotHarness {
     /// `GITBONSAI_CLONE=1` opens the clone sheet once the window is up; `GITBONSAI_CLONE_CLICK=1` opens it with a real click on the empty tab's "Clone…" instead.
     static var wantsClone: Bool { environment["GITBONSAI_CLONE"] != nil && environment["GITBONSAI_CLONE_CLICK"] == nil }
 
-    /// Harness runs read a pasteboard of their own, which `GITBONSAI_CLONE_PASTE=<text>` fills, so they never read or change the user's.
+    /// The run's own pasteboard, which `GITBONSAI_CLONE_PASTE=<text>` fills first.
     static var clonePasteboard: NSPasteboard {
-        guard isActive else { return .general }
-        let board = NSPasteboard(name: NSPasteboard.Name("app.gitbonsai.harness"))
+        let board = pasteboard
+        guard isActive else { return board }
         if let text = environment["GITBONSAI_CLONE_PASTE"], board.string(forType: .string) != text {
             board.clearContents()
             board.setString(text, forType: .string)

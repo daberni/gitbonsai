@@ -109,7 +109,7 @@ extension ScreenshotHarness {
 /// Harness switches for the window frame and the panel dividers. Harness runs keep both in their own defaults, so they never move the user's window or change their panels.
 @MainActor
 extension ScreenshotHarness {
-    /// Harness runs start from the default frame and panel widths, so captures do not depend on earlier runs; `GITBONSAI_KEEP_LAYOUT=1` restores what the previous harness run saved instead.
+    /// Harness runs start from the default frame and panel widths, so captures do not depend on earlier runs; `GITBONSAI_KEEP_LAYOUT=1` with a shared `GITBONSAI_DEFAULTS` domain restores what the previous harness run saved instead.
     /// `GITBONSAI_WINDOW_FRAME=x,y,w,h[,zoomed][,fullscreen][,screen=<id>]` stores that placement as if an earlier launch had left it.
     static func prepareLayout(_ store: SessionStore) {
         guard isActive else { return }
