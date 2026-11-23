@@ -16,7 +16,7 @@ extension ScreenshotHarness {
                 guard let window = tab.view.window else { return }
                 let parts = step.split(separator: ":", maxSplits: 1).map(String.init)
                 let (name, argument) = parts.count == 2 ? (parts[0], parts[1]) : ("click", parts[0])
-                let rows = views(of: FileRowView.self, in: window)
+                let rows = fileRows(in: window)
                 @MainActor func row(_ text: String) -> FileRowView? {
                     guard let number = Int(text), rows.indices.contains(number) else {
                         selectionLog("no file row \(text) of \(rows.count)")
@@ -32,7 +32,7 @@ extension ScreenshotHarness {
                     clickWithFlags(in: window, at: center(row), flags: flags)
                 case "menu":
                     guard let row = row(argument), let event = NSEvent.mouseEvent(with: .rightMouseDown, location: center(row), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { return }
-                    menu = row.menu(for: event)
+                    menu = fileMenu(of: row, for: event)
                     let entries = menu?.items.map { item in
                         if item.isSeparatorItem { return "|" }
                         let title = item.isAlternate ? "⌥ \(item.plainTitle)" : item.plainTitle

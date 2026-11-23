@@ -4,6 +4,20 @@ import GitEngine
 /// Harness switches for diffs, the file lists, the file context menu, the commit form and discarding.
 @MainActor
 extension ScreenshotHarness {
+    /// The file rows on screen from top to bottom; the table reuses row views, so their order among the subviews says nothing.
+    static func fileRows(in window: NSWindow) -> [FileRowView] {
+        views(of: FileRowView.self, in: window)
+            .filter { !$0.isHiddenOrHasHiddenAncestor && $0.window != nil }
+            .sorted { $0.convert(CGPoint.zero, to: nil).y > $1.convert(CGPoint.zero, to: nil).y }
+    }
+
+    /// The context menu a right click on `row` opens; the file table builds it, not the row.
+    static func fileMenu(of row: FileRowView, for event: NSEvent) -> NSMenu? {
+        var view: NSView? = row
+        while let current = view, !(current is NSTableView) { view = current.superview }
+        return view?.menu(for: event)
+    }
+
     /// `GITBONSAI_OPEN_FILE=<path>` with `GITBONSAI_OPEN_SOURCE=unstaged|staged|untracked` opens a file of the working directory, or of the selected commit without a source.
     /// `GITBONSAI_PRINT_DIFF_HEADER=1` prints the change letter, the path and its tooltip once the diff is shown.
     /// `GITBONSAI_OPEN_ORIGINAL=<path>` names the path before a rename or copy, as the file lists pass it.
@@ -50,7 +64,7 @@ extension ScreenshotHarness {
             tab.diff.scroll.reflectScrolledClipView(clip)
             report("scrolled")
             guard let window = tab.view.window else { return }
-            let rows = views(of: FileRowView.self, in: window)
+            let rows = fileRows(in: window)
             guard rows.indices.contains(Int(parts[2])) else {
                 FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
                 return
@@ -141,7 +155,7 @@ extension ScreenshotHarness {
         guard let index = environment["GITBONSAI_CLICK_FILE"].flatMap(Int.init) else { return }
         after(0.4) {
             guard let window = tab.view.window else { return }
-            let rows = views(of: FileRowView.self, in: window)
+            let rows = fileRows(in: window)
             guard rows.indices.contains(index) else {
                 FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
                 return
@@ -224,7 +238,7 @@ extension ScreenshotHarness {
             }
             let rowIndex = environment["GITBONSAI_CLICK_FILE_DISCARD"].flatMap(Int.init) ?? environment["GITBONSAI_HOVER_FILE"].flatMap(Int.init)
             if let rowIndex {
-                let rows = views(of: FileRowView.self, in: window)
+                let rows = fileRows(in: window)
                 guard rows.indices.contains(rowIndex), let discardIndex = rows[rowIndex].model.actions.firstIndex(of: .discard) else {
                     FileHandle.standardError.write(Data("no discard button on file row \(rowIndex) of \(rows.count)\n".utf8))
                     return
@@ -366,7 +380,7 @@ extension ScreenshotHarness {
         after(0.4) {
             guard let window = tab.view.window else { return }
             // A commit's file list loads asynchronously; try again until the row is there.
-            let rows = views(of: FileRowView.self, in: window)
+            let rows = fileRows(in: window)
             guard rows.indices.contains(index) else {
                 if attempt < 10 { return fileMenu(on: tab, attempt: attempt + 1) }
                 FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
@@ -374,7 +388,7 @@ extension ScreenshotHarness {
             }
             let row = rows[index]
             let point = row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
-            guard let event = NSEvent.mouseEvent(with: .rightMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1), let menu = row.menu(for: event) else {
+            guard let event = NSEvent.mouseEvent(with: .rightMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1), let menu = fileMenu(of: row, for: event) else {
                 FileHandle.standardError.write(Data("file row \(index) has no menu\n".utf8))
                 return
             }

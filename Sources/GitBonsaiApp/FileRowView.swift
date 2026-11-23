@@ -3,7 +3,8 @@ import GitEngine
 
 /// One file in one line: status letter, the folder dimmed, the file name, and on the right the line counts.
 /// When space runs out the folder gives way from the front, the file name stays.
-final class FileRowView: NSView {
+/// The cell of the file table, reused for other files while scrolling; the table handles clicks, keys and menus.
+final class FileRowView: NSTableCellView {
     /// What the buttons a hovered row shows do with the whole file.
     enum Action {
         case stage, unstage, discard
@@ -31,13 +32,13 @@ final class FileRowView: NSView {
     }
 
     private typealias M = Theme.FileList
-    let model: Model
-    var isSelected = false { didSet { needsDisplay = true } }
-    /// The click's modifier keys decide how it changes the list's selection.
-    var onClick: ((NSEvent.ModifierFlags) -> Void)?
-    var onAction: ((Action) -> Void)?
-    /// Built at the moment of the right click, so it reflects the file as it is then.
-    var contextMenu: (() -> NSMenu?)?
+    var model: Model {
+        didSet {
+            toolTip = Self.toolTip(model)
+            needsDisplay = true
+        }
+    }
+    var isSelected = false { didSet { if isSelected != oldValue { needsDisplay = true } } }
     private var isHovered = false { didSet { needsDisplay = true } }
     private var hoveredAction: Action? { didSet { needsDisplay = true } }
 
@@ -54,24 +55,23 @@ final class FileRowView: NSView {
         return bounds.maxX - Theme.Space.xs - actionRect(model.actions.count - 1).minX
     }
 
-    private func action(at point: CGPoint) -> Action? {
+    func action(at point: CGPoint) -> Action? {
         model.actions.indices.first { actionRect($0).contains(point) }.map { model.actions[$0] }
     }
 
     init(model: Model) {
         self.model = model
         super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: M.rowHeight).isActive = true
-        toolTip = model.selection.originalPath.map { "\($0) → \(model.selection.path)" } ?? model.selection.path
+        toolTip = Self.toolTip(model)
+    }
+
+    private static func toolTip(_ model: Model) -> String {
+        model.selection.originalPath.map { "\($0) → \(model.selection.path)" } ?? model.selection.path
     }
 
     required init?(coder: NSCoder) { nil }
 
     override var isFlipped: Bool { true }
-
-    /// Like a Finder list, a click into an inactive window already chooses the file.
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -97,13 +97,12 @@ final class FileRowView: NSView {
         LinkCursor.set(overLink: action(at: convert(event.locationInWindow, from: nil)) != nil)
     }
 
-    override func mouseUp(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        guard bounds.contains(point) else { return }
-        if let action = action(at: point) { onAction?(action) } else { onClick?(event.modifierFlags) }
+    /// A reused cell must not show the hover of the file it showed before.
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        isHovered = false
+        hoveredAction = nil
     }
-
-    override func menu(for event: NSEvent) -> NSMenu? { contextMenu?() }
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelected || isHovered {

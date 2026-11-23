@@ -42,7 +42,7 @@ extension ScreenshotHarness {
         }
         switch parts[0] {
         case "file":
-            let rows = views(of: FileRowView.self, in: window)
+            let rows = fileRows(in: window)
             guard let index = Int(argument), rows.indices.contains(index) else { return navigationLog("only \(rows.count) file rows") }
             let row = rows[index]
             send(click: row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil), flags: [], count: 1, in: window)

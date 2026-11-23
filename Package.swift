@@ -32,6 +32,7 @@ let package = Package(
         .testTarget(name: "GraphLayoutTests", dependencies: ["GraphLayout", "GitEngine"]),
         .testTarget(name: "AvatarsTests", dependencies: ["Avatars"]),
         .testTarget(name: "LocalizationTests"),
+        .testTarget(name: "GitBonsaiAppTests", dependencies: ["GitBonsaiApp"]),
     ],
     swiftLanguageModes: [.v6]
 )

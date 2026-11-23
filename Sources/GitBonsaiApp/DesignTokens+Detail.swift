@@ -13,8 +13,6 @@ extension Theme {
         static let avatar: CGFloat = 28
         /// Between the name and the role line of a person.
         static let personLineGap: CGFloat = 1
-        /// Longest file list shown before it is cut off.
-        static let maximumFiles = 200
         /// How long the copy icon shows its checkmark.
         static let copiedFeedback: TimeInterval = 1
         /// How long a commit's file list may take before the previous one gives way to a loading note.
