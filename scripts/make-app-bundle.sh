@@ -4,7 +4,7 @@
 #   Without --release it builds "GitBonsai Dev.app" with bundle id app.gitbonsai.dev, so a bundle built for trying out never shares defaults, open tabs or settings with an installed release.
 #   --release builds GitBonsai.app with bundle id app.gitbonsai.
 # Environment:
-#   GITBONSAI_VERSION   marketing version; default: the tag on HEAD (v1.2.3 → 1.2.3), else the latest tag, else 0.1
+#   GITBONSAI_VERSION   marketing version; default: the version tag on HEAD (1.2.3), else the latest one, else 0.1; an earlier v1.2.3 tag counts only where no plain one exists
 #   GITBONSAI_BUILD     build number; default: the commit count of HEAD
 #   GITBONSAI_SIGN_IDENTITY  codesign identity ("Developer ID Application: …" or its SHA-1); signs with hardened runtime and a secure timestamp. Unset or "-" signs ad hoc.
 #   GITBONSAI_KEYCHAIN  keychain that holds the identity (CI uses a temporary one)
@@ -24,7 +24,9 @@ fi
 app="$out/$name.app"
 icon=$root/docs/design/app-icon/AppIcon.icon
 
-tag=$(git -C $root describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || git -C $root describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+latest_tag() { git -C $root describe --tags --exact-match --match $1 HEAD 2>/dev/null || git -C $root describe --tags --abbrev=0 --match $1 HEAD 2>/dev/null || true }
+tag=$(latest_tag '[0-9]*')
+[[ -n $tag ]] || tag=$(latest_tag 'v[0-9]*')
 version=${GITBONSAI_VERSION:-${${tag#v}:-0.1}}
 build=${GITBONSAI_BUILD:-$(git -C $root rev-list --count HEAD)}
 identity=${GITBONSAI_SIGN_IDENTITY:--}

@@ -11,7 +11,7 @@ The bundle id is also the defaults domain, so the dev bundle keeps its own open 
 
 Version and build number go into `Info.plist`:
 
-- `CFBundleShortVersionString`: `GITBONSAI_VERSION`, else the `v*` tag on HEAD without the `v`, else the latest `v*` tag, else `0.1`.
+- `CFBundleShortVersionString`: `GITBONSAI_VERSION`, else the version tag on HEAD (`0.2.0`, no `v` prefix), else the latest version tag, else `0.1`; an earlier `v0.1.0`-style tag counts only where no plain one exists.
 - `CFBundleVersion`: `GITBONSAI_BUILD`, else the commit count of HEAD (monotonic on `main`).
 
 ## Signing and notarization
@@ -41,7 +41,7 @@ Switching from a personal to a company account only changes these secrets; the b
 
 ## Cutting a release
 
-1. On `main`, with CI green: `git tag -a v0.2.0 -m "GitBonsai 0.2.0"` and `git push origin refs/tags/v0.2.0:refs/tags/v0.2.0`.
+1. On `main`, with CI green: `git tag -a 0.2.0 -m "GitBonsai 0.2.0"` and `git push origin refs/tags/0.2.0:refs/tags/0.2.0`.
 2. The Release workflow builds, signs, notarizes and staples, uploads `GitBonsai-0.2.0.dmg` and `.zip` as the workflow artifact `GitBonsai` and creates a **draft** GitHub release with generated notes.
 3. Check the draft (download, open, `spctl --assess --type execute -v GitBonsai.app` says "Notarized Developer ID"), edit the notes, publish.
 
