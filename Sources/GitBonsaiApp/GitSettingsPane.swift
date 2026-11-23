@@ -47,6 +47,8 @@ struct GitSettingsPane: View {
         }
         .onAppear { text = model.gitPath }
         .onChange(of: editing) { _, isEditing in if !isEditing { commit() } }
+        // Closing the window or switching panes takes the field away without a focus change.
+        .onDisappear { if text.trimmingCharacters(in: .whitespaces) != model.gitPath { commit() } }
         // Asks the git the app would run now for its version, again whenever the setting changes.
         .task(id: model.gitPath) { await checkVersion() }
         .fileImporter(isPresented: $choosing, allowedContentTypes: [.item]) { result in

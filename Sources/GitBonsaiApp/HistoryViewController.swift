@@ -8,6 +8,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     let view = NSView()
     let tableView = HistoryTableView()
     let columnsController: HistoryColumnsController
+    private let observers = NotificationObservers()
     /// The row selected last; with several selected, the others are in `selectedRows`.
     var selectedRow = -1
     /// Several rows when commits are compared (⌘-click, ⇧-click); never the working directory among them.
@@ -69,9 +70,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
             self?.updateSearchCounter()
         }
         search.selectedRow = { [weak self] in self?.selectedRow ?? -1 }
-        NotificationCenter.default.addObserver(forName: AvatarStore.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reloadVisibleRows() }
-        }
+        observers.observe(AvatarStore.didChange) { [weak self] in self?.reloadVisibleRows() }
         // Selecting through the table leaves the search field first responder, so typing goes on.
         search.onJump = { [weak self] row in self?.select(row: row, scroll: true) }
         configureTable()

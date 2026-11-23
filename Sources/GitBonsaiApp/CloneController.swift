@@ -65,8 +65,9 @@ final class CloneController {
     /// git clones only into a folder that is missing or empty; saying so before it runs spares a failure.
     private var destinationProblem: String? {
         guard !destination.isEmpty else { return nil }
-        switch SheetSupport.destination(at: destination, ignoring: [".DS_Store"]) {
-        case .missing, .emptyFolder, .unreadableFolder: return nil
+        switch FolderDestination.at(destination) {
+        case .missing, .emptyFolder: return nil
+        case .unreadableFolder: return String(localized: "clone.destination.unreadable", defaultValue: "The folder can't be read.", bundle: .module)
         case .file: return String(localized: "clone.destination.fileInTheWay", defaultValue: "A file is in the way at this path.", bundle: .module)
         case .occupiedFolder: return String(localized: "clone.destination.notEmpty", defaultValue: "The folder already exists and isn't empty.", bundle: .module)
         }

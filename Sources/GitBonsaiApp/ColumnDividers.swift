@@ -22,11 +22,48 @@ enum ColumnDividers {
     }
 }
 
+/// A view laid over others in its own window that takes the pointer from what lies below, such as the expanded ref pills over the history rows.
+/// Views outside the one asking count without the mark, such as the command bar over the whole window.
+protocol PointerOverlay: NSView {}
+
+/// Tracking areas and cursor rects react wherever their rectangle is, also under a view laid over them; hover effects ask here whether the pointer really reaches them.
+@MainActor
+enum PointerCover {
+    /// True when the front-most view at the pointer is `view` or inside it. `throughOverlays` false also counts a `PointerOverlay` inside `view` as covering it.
+    static func reaches(_ view: NSView, at locationInWindow: NSPoint, throughOverlays: Bool = false) -> Bool {
+        guard let frame = view.window?.contentView?.superview else { return true }
+        guard let hit = frame.hitTest(locationInWindow), hit.isDescendant(of: view) else { return false }
+        guard !throughOverlays else { return true }
+        var current: NSView? = hit
+        while let candidate = current, candidate !== view {
+            if candidate is PointerOverlay { return false }
+            current = candidate.superview
+        }
+        return true
+    }
+}
+
+/// The resize cursor over a column boundary, set as the pointer moves. Cursor rects would show it through anything laid over the boundary; this way an overlay keeps its own cursor.
+@MainActor
+final class DividerCursor {
+    private var isShown = false
+
+    func update(overDivider: Bool) {
+        if overDivider {
+            NSCursor.resizeLeftRight.set()
+            isShown = true
+        } else if isShown {
+            NSCursor.arrow.set()
+            isShown = false
+        }
+    }
+}
+
 /// A faint line over the whole height of a list at the column boundary under the mouse. It never takes clicks.
 /// `positions` gives the boundaries for the view's width in its own coordinates; the owner calls `refresh()` when they change.
 final class ColumnGuideView: NSView {
     var positions: (CGFloat) -> [CGFloat] = { _ in [] }
-    private var hovered: Int? { didSet { if hovered != oldValue { needsDisplay = true } } }
+    private(set) var hovered: Int? { didSet { if hovered != oldValue { needsDisplay = true } } }
 
     override var isFlipped: Bool { true }
 
@@ -43,7 +80,12 @@ final class ColumnGuideView: NSView {
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect, .enabledDuringMouseDrag], owner: self))
     }
 
+    /// The guide takes no clicks itself, so whether the pointer reaches the list is asked of the view it lies over with its siblings.
     override func mouseMoved(with event: NSEvent) {
+        guard let surface = superview, PointerCover.reaches(surface, at: event.locationInWindow) else {
+            hovered = nil
+            return
+        }
         let x = convert(event.locationInWindow, from: nil).x
         hovered = positions(bounds.width).firstIndex { abs($0 - x) <= Theme.dragThreshold }
     }

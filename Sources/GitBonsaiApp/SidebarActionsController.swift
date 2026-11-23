@@ -33,45 +33,25 @@ extension Array where Element == [NSMenuItem] {
     }
 }
 
-/// Runs the git writes of the sidebar's actions, asks the questions around them and refreshes the tab.
+/// The sidebar's questions around git writes that `ActionRunner` runs: delete or remove anyway, and where a new worktree goes.
 @MainActor
 final class SidebarActionRunner {
     let viewModel: GraphViewModel
     let prompter: ActionPrompter
+    private var actions: ActionRunner { ActionRunner(viewModel: viewModel, prompter: prompter) }
 
     init(viewModel: GraphViewModel, prompter: ActionPrompter) {
         self.viewModel = viewModel
         self.prompter = prompter
     }
 
-    /// Runs one git write and refreshes the tab, also after a failure: a stopped merge or rebase has changed the repository.
-    /// Returns the error so a caller can offer a way out, such as force; `report` false leaves telling the user to that caller.
     @discardableResult
-    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, report: Bool = true, _ operation: @Sendable (Repository) async throws -> Void) async -> GitError? {
-        do {
-            try await operation(viewModel.repository)
-            await viewModel.refresh(note: note)
-            return nil
-        } catch {
-            await viewModel.refresh(note: nil)
-            let gitError = error as? GitError
-            if report {
-                let title = gitError?.stoppedOnConflict == true ? (conflict ?? failure) : failure
-                await prompter.report(error, title: title, unlessStoppedIn: viewModel.repository)
-            }
-            return gitError ?? GitError(arguments: [], exitCode: -1, stderr: error.localizedDescription)
-        }
+    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, report: Bool = true, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
+        await actions.perform(failure: failure, conflict: conflict, note: note, report: report, operation)
     }
 
-    /// A question with a confirm button and Cancel; `destructive` marks the confirm button red.
     func confirm(_ title: LocalizedStringResource, info: LocalizedStringResource, button: LocalizedStringResource, destructive: Bool = false, style: NSAlert.Style = .informational) async -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = style
-        alert.setText(title, info: info)
-        alert.addButton(withTitle: button.text)
-        alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
-        alert.buttons.first?.hasDestructiveAction = destructive
-        return await prompter.confirm(alert)
+        await actions.confirm(title, info: info, button: button, destructive: destructive, style: style)
     }
 
     /// Deletes a local branch; when git refuses it as unmerged, shows git's message and offers to delete it anyway.

@@ -121,6 +121,21 @@ final class CloneTests: XCTestCase {
         XCTAssertEqual(try String(contentsOfFile: target + "/notes.txt", encoding: .utf8), "mine\n")
     }
 
+    /// Finder leaves `.DS_Store` in folders it shows; git counts it as content, so the destination check must too.
+    func testFolderWithOnlyFinderMetadataIsOccupiedAsGitSees() async throws {
+        let target = destination("finder")
+        try FileManager.default.createDirectory(atPath: target, withIntermediateDirectories: true)
+        try Data().write(to: URL(fileURLWithPath: target + "/.DS_Store"))
+        XCTAssertEqual(FolderDestination.at(target), .occupiedFolder)
+        XCTAssertEqual(FolderDestination.at(destination("absent")), .missing)
+
+        do {
+            try await Repository.clone(url: sourceURL, to: target)
+            XCTFail("git cloned into a folder holding .DS_Store")
+        } catch is GitError {}
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target + "/.DS_Store"))
+    }
+
     // MARK: Parsing
 
     func testParsesProgressLinesWithCarriageReturns() {

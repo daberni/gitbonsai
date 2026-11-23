@@ -1682,6 +1682,23 @@
         }
       }
     },
+    "clone.destination.unreadable" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Ordner lässt sich nicht lesen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The folder can't be read."
+          }
+        }
+      }
+    },
     "clone.progress.checkingOut" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -15954,6 +15971,42 @@
         }
       }
     },
+    "toolbar.fetch.allRemotes" : {
+      "comment" : "Start of the toolbar's fetch status when there are several remotes and the branch has no upstream.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "alle Remotes"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "all remotes"
+          }
+        }
+      }
+    },
+    "toolbar.fetch.failed" : {
+      "comment" : "The toolbar's fetch status after the remote name when the last fetch failed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch fehlgeschlagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "fetch failed"
+          }
+        }
+      }
+    },
     "toolbar.fetch.fetched" : {
       "comment" : "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.",
       "extractionState" : "extracted_with_value",
@@ -15968,6 +16021,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "fetched %@"
+          }
+        }
+      }
+    },
+    "toolbar.fetch.fetching" : {
+      "comment" : "The toolbar's fetch status after the remote name while a fetch runs.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wird gefetcht…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "fetching…"
           }
         }
       }
@@ -16507,20 +16578,20 @@
         }
       }
     },
-    "window.tabs.openToolTip" : {
-      "comment" : "Tooltip of the tab row's plus button.",
+    "window.tabs.plusToolTip" : {
+      "comment" : "Tooltip of the tab row's plus button: the command's title and its shortcut.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Repository öffnen (⌘T)"
+            "value" : "%1$@ (%2$@)"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Open Repository (⌘T)"
+            "value" : "%1$@ (%2$@)"
           }
         }
       }

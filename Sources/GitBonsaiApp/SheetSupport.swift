@@ -44,17 +44,4 @@ enum SheetSupport {
         panel.canCreateDirectories = true
         return panel
     }
-
-    enum Destination: Equatable {
-        case missing, file, emptyFolder, occupiedFolder, unreadableFolder
-    }
-
-    /// What is at a path git is to create a folder at, a clone or a worktree; entries named in `ignoring` do not count as content.
-    static func destination(at path: String, ignoring: Set<String> = []) -> Destination {
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { return .missing }
-        guard isDirectory.boolValue else { return .file }
-        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: path) else { return .unreadableFolder }
-        return contents.allSatisfy(ignoring.contains) ? .emptyFolder : .occupiedFolder
-    }
 }

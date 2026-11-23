@@ -17,6 +17,7 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     let cloneButton = NSButton(title: String(localized: "welcome.clone", defaultValue: "Clone…", bundle: .module), target: nil, action: nil)
     private let scrollView = NSScrollView()
     private let discovery = RepositoryDiscoveryStore.shared
+    private let observers = NotificationObservers()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -39,12 +40,8 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
         listView.onOpen = { [weak self] path, background in self?.onOpenPath?(path, background) }
         listView.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
         for view in [searchField, cloneButton, openButton, scrollView] as [NSView] { addSubview(view) }
-        NotificationCenter.default.addObserver(forName: RepositoryDiscoveryStore.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.rebuild() }
-        }
-        NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.rebuild() }
-        }
+        observers.observe(RepositoryDiscoveryStore.didChange) { [weak self] in self?.rebuild() }
+        observers.observe(AppSettings.didChange) { [weak self] in self?.rebuild() }
         rebuild()
     }
 

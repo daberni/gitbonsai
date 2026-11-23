@@ -27,6 +27,9 @@ final class RepositoryToolbar: BarView {
     private let behindBadge = CornerBadge()
     private let aheadBadge = CornerBadge()
     private let fetchLabel = NSTextField(labelWithString: "")
+    /// Turns beside the fetch state while a fetch runs.
+    private let fetchSpinner = NSProgressIndicator()
+    private var showsSpinner = false
     let searchField = CommitSearchField()
 
     init() {
@@ -34,6 +37,10 @@ final class RepositoryToolbar: BarView {
         fetchLabel.font = Theme.caption
         fetchLabel.textColor = Theme.inkMuted
         fetchLabel.translatesAutoresizingMaskIntoConstraints = false
+        fetchSpinner.style = .spinning
+        fetchSpinner.controlSize = .mini
+        fetchSpinner.isDisplayedWhenStopped = false
+        fetchSpinner.translatesAutoresizingMaskIntoConstraints = false
 
         let actions = NSStackView(views: [
             fetchButton,
@@ -49,7 +56,7 @@ final class RepositoryToolbar: BarView {
 
         searchField.translatesAutoresizingMaskIntoConstraints = false
 
-        for view in [fetchLabel, actions, searchField, behindBadge, aheadBadge] { addSubview(view) }
+        for view in [fetchLabel, fetchSpinner, actions, searchField, behindBadge, aheadBadge] { addSubview(view) }
         for (badge, button) in [(behindBadge, pull), (aheadBadge, push)] {
             NSLayoutConstraint.activate([
                 badge.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: Theme.Badge.overhang),
@@ -59,6 +66,8 @@ final class RepositoryToolbar: BarView {
         NSLayoutConstraint.activate([
             fetchLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Window.toolbarInset),
             fetchLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            fetchSpinner.leadingAnchor.constraint(equalTo: fetchLabel.trailingAnchor, constant: Theme.Space.xs),
+            fetchSpinner.centerYAnchor.constraint(equalTo: fetchLabel.centerYAnchor),
             actions.centerXAnchor.constraint(equalTo: centerXAnchor),
             actions.centerYAnchor.constraint(equalTo: centerYAnchor),
             searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Space.m),
@@ -126,20 +135,44 @@ final class RepositoryToolbar: BarView {
         return (buttons + tips).joined(separator: "\n")
     }
 
-    func showFetchState(hasRemote: Bool, lastFetch: Date?) {
-        let remote = hasRemote ? "origin" : String(localized: "toolbar.fetch.noRemote", defaultValue: "no remote", bundle: .module, comment: "Start of the toolbar's fetch status, in place of the remote name.")
-        guard let lastFetch else {
-            let state = String(localized: "toolbar.fetch.notFetched", defaultValue: "not fetched yet", bundle: .module, comment: "The toolbar's fetch status after the remote name.")
-            fetchLabel.stringValue = "\(remote) · \(state)"
-            fetchLabel.toolTip = nil
-            return
-        }
-        let relative = DateText.relative(lastFetch)
-        let state = String(localized: "toolbar.fetch.fetched", defaultValue: "fetched \(relative)", bundle: .module, comment: "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.")
-        fetchLabel.stringValue = "\(remote) · \(state)"
-        let exact = DateText.exact(lastFetch)
-        fetchLabel.toolTip = String(localized: "toolbar.fetch.lastFetchToolTip", defaultValue: "Last fetch: \(exact)", bundle: .module)
+    /// What the fetch state names: the upstream's remote, the only remote, or all of them, which is what Fetch reaches.
+    enum FetchTarget: Equatable {
+        case none
+        case remote(String)
+        case allRemotes
     }
+
+    /// "origin · fetched 5 minutes ago"; while a fetch runs "origin · fetching…" with the spinner, after a failed one "origin · fetch failed" with git's message as tooltip.
+    func showFetchState(target: FetchTarget, lastFetch: Date?, fetching: Bool, failure: String?) {
+        let remote = switch target {
+        case .none: String(localized: "toolbar.fetch.noRemote", defaultValue: "no remote", bundle: .module, comment: "Start of the toolbar's fetch status, in place of the remote name.")
+        case .remote(let name): name
+        case .allRemotes: String(localized: "toolbar.fetch.allRemotes", defaultValue: "all remotes", bundle: .module, comment: "Start of the toolbar's fetch status when there are several remotes and the branch has no upstream.")
+        }
+        if fetching { fetchSpinner.startAnimation(nil) } else { fetchSpinner.stopAnimation(nil) }
+        showsSpinner = fetching
+        let exact = lastFetch.map { DateText.exact($0) }
+        let lastFetchTip = exact.map { String(localized: "toolbar.fetch.lastFetchToolTip", defaultValue: "Last fetch: \($0)", bundle: .module) }
+        let state: String
+        if fetching {
+            state = String(localized: "toolbar.fetch.fetching", defaultValue: "fetching…", bundle: .module, comment: "The toolbar's fetch status after the remote name while a fetch runs.")
+            fetchLabel.toolTip = lastFetchTip
+        } else if let failure {
+            state = String(localized: "toolbar.fetch.failed", defaultValue: "fetch failed", bundle: .module, comment: "The toolbar's fetch status after the remote name when the last fetch failed.")
+            fetchLabel.toolTip = ([failure] + (lastFetchTip.map { [$0] } ?? [])).joined(separator: "\n")
+        } else if let lastFetch {
+            let relative = DateText.relative(lastFetch)
+            state = String(localized: "toolbar.fetch.fetched", defaultValue: "fetched \(relative)", bundle: .module, comment: "The toolbar's fetch status after the remote name, with a relative time such as “5 minutes ago”.")
+            fetchLabel.toolTip = lastFetchTip
+        } else {
+            state = String(localized: "toolbar.fetch.notFetched", defaultValue: "not fetched yet", bundle: .module, comment: "The toolbar's fetch status after the remote name.")
+            fetchLabel.toolTip = nil
+        }
+        fetchLabel.stringValue = "\(remote) · \(state)"
+    }
+
+    /// The fetch state as shown, for harness output.
+    var fetchStateText: String { "\(fetchLabel.stringValue)\(showsSpinner ? " [spinner]" : "") · tooltip \(fetchLabel.toolTip ?? "-")" }
 
     private func singleFetchMenu() -> NSMenu {
         let menu = NSMenu()

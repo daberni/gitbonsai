@@ -66,6 +66,8 @@ final class RepositoryViewController: NSObject {
     private let commonDirectory: String
     var selectsHeadAfterLoad = false
     let toast = Toast()
+    /// Questions and reports that arrived while the tab was in the background, waiting for it to be shown.
+    private var shownWaiters: [CheckedContinuation<NSWindow?, Never>] = []
 
     init(location: RepositoryLocation) {
         viewModel = GraphViewModel(location: location)
@@ -110,6 +112,19 @@ final class RepositoryViewController: NSObject {
     func becameVisible() {
         reconciler?.request(.visible)
         autoFetch?.becameVisible()
+        resumeShownWaiters(with: view.window)
+    }
+
+    /// The tab's window, at once while it is shown, otherwise once the tab is shown again; nil when the tab closes first.
+    func windowWhenShown() async -> NSWindow? {
+        if let window = view.window { return window }
+        return await withCheckedContinuation { shownWaiters.append($0) }
+    }
+
+    private func resumeShownWaiters(with window: NSWindow?) {
+        let waiters = shownWaiters
+        shownWaiters = []
+        for waiter in waiters { waiter.resume(returning: window) }
     }
 
     /// An open diff stays while its file still has changes there and, for a commit, while the commit is still in the history. A comparison of two revisions never changes, so it is not read again.
@@ -132,8 +147,16 @@ final class RepositoryViewController: NSObject {
 
     /// A remote counts once it is configured, before anything was fetched from it.
     func showFetchState() {
+        toolbar.showFetchState(target: fetchTarget, lastFetch: viewModel.lastFetch, fetching: viewModel.isFetching, failure: viewModel.lastFetchFailure)
+    }
+
+    private var fetchTarget: RepositoryToolbar.FetchTarget {
+        let remotes = fetchController.remotes
+        if let upstream = pullPush.upstream, remotes.isEmpty || remotes.contains(upstream.remote) { return .remote(upstream.remote) }
+        if remotes.count > 1 { return .allRemotes }
+        if let only = remotes.first { return .remote(only) }
         let hasRemoteBranch = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
-        toolbar.showFetchState(hasRemote: hasRemoteBranch || !fetchController.remotes.isEmpty, lastFetch: viewModel.lastFetch)
+        return hasRemoteBranch ? .allRemotes : .none
     }
 
     private func autoFetchSituation() async -> AutoFetchPolicy.Situation {
@@ -145,6 +168,7 @@ final class RepositoryViewController: NSObject {
 
     /// The tab closed or its window did: file events stop.
     func closed() {
+        resumeShownWaiters(with: nil)
         reconciler?.stopWatching()
         viewModel.close()
     }

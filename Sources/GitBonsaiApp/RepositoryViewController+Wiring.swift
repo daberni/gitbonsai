@@ -14,7 +14,9 @@ extension RepositoryViewController {
         pullPush.onChange = { [weak self] in
             guard let self else { return }
             toolbar.showUpstream(canPull: pullPush.canPull, canPush: pullPush.canPush, upstream: pullPush.upstream, lacksUpstream: pullPush.lacksUpstream)
+            showFetchState()
         }
+        viewModel.onFetchActivityChanged = { [weak self] in self?.showFetchState() }
         history.connect(searchField: toolbar.searchField)
 
         sidebar.onSelectCommit = { [weak self] sha in self?.history.navigate(to: sha) }
@@ -81,6 +83,7 @@ extension RepositoryViewController {
         for prompter in [sidebarActions.prompter, fileActions.prompter, commitActions.prompter, tagsController.prompter, stashesController.prompter] {
             prompter.onToast = { [weak self] text, action in self?.toast.show(text, action: action) }
             prompter.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
+            prompter.whenShown = { [weak self] in await self?.windowWhenShown() }
         }
         operationBanner.onStateChange = { [weak self] in
             guard let self else { return }

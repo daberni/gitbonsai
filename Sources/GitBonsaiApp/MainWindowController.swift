@@ -144,11 +144,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         ScreenshotHarness.driveClone(cloner)
     }
 
-    @objc func openRecent(_ sender: NSMenuItem) {
-        guard let path = sender.representedObject as? String else { return }
-        open(paths: [path], activate: 0)
-    }
-
     func closeTab() {
         // The last empty tab has nothing left to close but the window.
         if tabs.count == 1, tabs[0].welcome != nil {

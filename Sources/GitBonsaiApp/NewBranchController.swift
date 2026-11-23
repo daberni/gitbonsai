@@ -8,6 +8,8 @@ final class NewBranchController {
     private var viewModel: GraphViewModel { runner.viewModel }
     /// The sheet while it is open, for the harness.
     private(set) var sheet: NewBranchSheet?
+    /// From the click until the sheet closes, including the reads before it appears, so a second click does not open a second sheet.
+    private var isOpen = false
 
     init(runner: SidebarActionRunner) {
         self.runner = runner
@@ -15,9 +17,11 @@ final class NewBranchController {
 
     /// `commit` is offered under "Current" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
     func show(commit: Commit? = nil) {
-        guard sheet == nil, let parent = runner.prompter.window?() else { return }
+        guard !isOpen, let parent = runner.prompter.window?() else { return }
+        isOpen = true
         let repository = viewModel.repository
         Task {
+            defer { isOpen = false }
             let tips = (try? await repository.refTips()) ?? []
             let headBranch = viewModel.refs.first { $0.kind == .localBranch && $0.isHead }?.name
             let headCommit = await repository.commitSummary("HEAD")

@@ -72,9 +72,16 @@ final class TabBarView: NSView, NSViewToolTipOwner {
         for frame in tabFrames + [plusFrame] { addToolTip(frame, owner: self, userData: nil) }
     }
 
+    /// The plus opens a new tab, named and with its shortcut as the menu has them.
+    private static var plusToolTip: String {
+        let title = CommandSpec.newTab.title.text
+        guard let shortcut = CommandSpec.newTab.shortcut?.display else { return title }
+        return String(localized: "window.tabs.plusToolTip", defaultValue: "\(title) (\(shortcut))", bundle: .module, comment: "Tooltip of the tab row's plus button: the command's title and its shortcut.")
+    }
+
     func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
         switch hit(at: point) {
-        case .plus: String(localized: "window.tabs.openToolTip", defaultValue: "Open Repository (⌘T)", bundle: .module, comment: "Tooltip of the tab row's plus button.")
+        case .plus: Self.plusToolTip
         case .tab(let index), .close(let index): items.indices.contains(index) ? items[index].toolTip ?? "" : ""
         case .none: ""
         }

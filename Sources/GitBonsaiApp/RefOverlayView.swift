@@ -2,7 +2,7 @@ import AppKit
 
 /// A history row's ref pills at full length, floating above the rows like a popover. It is a subview of the table, so it shares the rows' coordinates and never moves them.
 /// Only the card itself takes clicks; the shadow margin around it lets them through to the rows.
-final class RefOverlayView: NSView {
+final class RefOverlayView: NSView, PointerOverlay {
     struct Content {
         let row: Int
         let pills: [PillModel]

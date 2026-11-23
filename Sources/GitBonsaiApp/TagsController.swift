@@ -46,9 +46,11 @@ final class TagsController {
     private static let pushButton: LocalizedStringResource = LocalizedStringResource("tag.action.push", defaultValue: "Push Tag", bundle: .module)
     private static let fetchButton: LocalizedStringResource = LocalizedStringResource("tag.action.fetch", defaultValue: "Fetch Tag", bundle: .module)
 
+    /// The list opens once the tags are read; by then the tab may be in the background or closed, and the popover stays away.
     func show(relativeTo rect: NSRect, of view: NSView) {
         Task {
             await reload()
+            guard view.window?.isVisible == true, !popover.isShown else { return }
             popover.show(relativeTo: rect, of: view)
         }
     }
@@ -99,7 +101,8 @@ final class TagsController {
         guard let tag = tag(name) else {
             let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.fetchFrom", defaultValue: "Fetch from \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.fetch(name, from: remote) } }
             let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) } }
-            return fetches + [NSMenuItem.separator()] + deletes + [NSMenuItem.separator(), ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }]
+            let copy: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }]
+            return [fetches, deletes, copy].joinedWithSeparators
         }
         let jump: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }]
         return ([jump] + localTagGroups(name, commit: tag.commitID)).joinedWithSeparators

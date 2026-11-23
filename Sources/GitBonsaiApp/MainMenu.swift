@@ -141,12 +141,14 @@ final class MainMenu: NSObject, NSMenuDelegate {
     private weak var target: AnyObject?
     private let runAction: Selector
     private let commandBarAction: Selector
+    private let openRecentAction: Selector
     private var menus: [ObjectIdentifier: Section] = [:]
     private let recentMenu = NSMenu(title: String(localized: "menu.file.openRecent", defaultValue: "Open Recent", bundle: .module))
 
-    /// `target` receives `runAction` with the command id as the item's `representedObject`, and `commandBarAction`.
-    init(target: AnyObject, runAction: Selector, commandBarAction: Selector, commands: @escaping () -> [Command], recents: @escaping () -> [String]) {
+    /// `target` receives `runAction` with the command id as the item's `representedObject`, `commandBarAction`, and `openRecentAction` with the path as `representedObject`.
+    init(target: AnyObject, runAction: Selector, commandBarAction: Selector, openRecentAction: Selector, commands: @escaping () -> [Command], recents: @escaping () -> [String]) {
         self.target = target
+        self.openRecentAction = openRecentAction
         self.runAction = runAction
         self.commandBarAction = commandBarAction
         self.commands = commands
@@ -288,7 +290,8 @@ final class MainMenu: NSObject, NSMenuDelegate {
         recentMenu.removeAllItems()
         let paths = recents()
         for path in paths {
-            let item = NSMenuItem(title: (path as NSString).abbreviatingWithTildeInPath, action: #selector(MainWindowController.openRecent(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: (path as NSString).abbreviatingWithTildeInPath, action: openRecentAction, keyEquivalent: "")
+            item.target = target
             item.representedObject = path
             recentMenu.addItem(item)
         }

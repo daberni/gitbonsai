@@ -38,6 +38,7 @@ final class WindowFrameKeeper {
     private let window: NSWindow
     private let store: SessionStore
     private var normalFrame: CGRect
+    private let observers = NotificationObservers()
     private var isInFullScreenTransition = false
     private var entersFullScreenWhenShown = false
     private var zoomsWhenShown = false
@@ -47,9 +48,7 @@ final class WindowFrameKeeper {
         self.window = window
         self.store = store
         normalFrame = window.frame
-        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.save() }
-        }
+        observers.observe(NSApplication.willTerminateNotification) { [weak self] in self?.save() }
     }
 
     /// Puts the window where it was, before it is shown; a new window is centred on the main screen.

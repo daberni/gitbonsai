@@ -14,6 +14,8 @@ final class InteractiveRebaseController {
     private let prompter: ActionPrompter
     /// The sheet while it is open, for the harness.
     private(set) var sheet: InteractiveRebaseSheet?
+    /// From the request until the sheet closes, including the reads before it appears, so a second request does not open a second sheet.
+    private var isOpening = false
     /// The rebase finished without stopping.
     var onEnded: (() -> Void)?
     /// "Edit Message" was chosen; the message is edited in place in the detail panel.
@@ -101,7 +103,10 @@ final class InteractiveRebaseController {
         let repository = viewModel.repository
         let hasLocalChanges = viewModel.status?.entries.contains { !$0.isUntracked && !$0.isIgnored } ?? false
         let upstream = viewModel.status?.branch.upstream
+        guard !isOpening else { return }
+        isOpening = true
         Task {
+            defer { isOpening = false }
             do {
                 let range = try await repository.rebaseRange(onto: target.id, detection: detection)
                 guard let base = await repository.rebaseCommit(range.base), let targetCommit = await repository.rebaseCommit(target.id) else { throw RebasePlanError.baseNotInHistory }

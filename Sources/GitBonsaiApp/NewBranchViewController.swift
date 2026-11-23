@@ -150,7 +150,7 @@ final class NewBranchViewController: NSViewController {
     private var pathProblem: String? {
         let path = (pathInput.stringValue as NSString).expandingTildeInPath
         guard !path.isEmpty else { return nil }
-        switch SheetSupport.destination(at: path) {
+        switch FolderDestination.at(path) {
         case .missing, .emptyFolder: return nil
         case .file, .occupiedFolder, .unreadableFolder: return String(localized: "branch.new.folderNotEmpty", defaultValue: "Something is already there. git only creates a worktree in a new or empty folder.", bundle: .module)
         }

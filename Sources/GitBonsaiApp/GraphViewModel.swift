@@ -41,7 +41,13 @@ final class GraphViewModel {
     /// The folder of the repository's main worktree, whichever worktree the tab shows.
     let repositoryName: String
     var lastFetch: Date?
-    private(set) var isFetching = false
+    private(set) var isFetching = false {
+        didSet { if isFetching != oldValue { onFetchActivityChanged?() } }
+    }
+    /// git's first line from the last fetch while it failed; nil once a fetch succeeded.
+    private(set) var lastFetchFailure: String?
+    /// A fetch started or ended, also one started by the auto fetch.
+    var onFetchActivityChanged: (() -> Void)?
     var statusLine = StatusLine(summary: String(localized: "history.status.loading", defaultValue: "Loading…", bundle: .module))
     var statusText: String { statusLine.text }
     var isLoading = false
@@ -172,12 +178,14 @@ final class GraphViewModel {
         let start = ContinuousClock.now
         do {
             try await repository.fetch(variant)
+            lastFetchFailure = nil
             await loadLastFetch()
             await refresh(note: "\(variant.commandLine) \(elapsed(since: start))")
             return nil
         } catch {
             await loadLastFetch()
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
+            lastFetchFailure = message
             await refresh(note: String(localized: "history.status.failedAfter", defaultValue: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"))
             return error
         }

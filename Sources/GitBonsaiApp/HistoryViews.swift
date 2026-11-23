@@ -2,7 +2,7 @@ import AppKit
 
 /// Column captions above the history, aligned with the columns the rows draw. The boundaries can be dragged, and a right click picks the columns.
 final class HistoryHeaderView: NSView {
-    var columns = HistoryColumns() { didSet { if columns != oldValue { needsDisplay = true; window?.invalidateCursorRects(for: self) } } }
+    var columns = HistoryColumns() { didSet { if columns != oldValue { needsDisplay = true } } }
     /// Full width of the graph with all its lanes; wider than the column means the graph can be scrolled.
     var graphContentWidth: CGFloat = 0 { didSet { needsDisplay = true } }
     var onDrag: ((HistoryColumns.Column, CGFloat) -> Void)?
@@ -13,14 +13,21 @@ final class HistoryHeaderView: NSView {
     override var isFlipped: Bool { true }
 
     private var dividers: [(HistoryColumns.Column, CGFloat)] { columns.layout(in: bounds.width).dividers }
+    private let cursor = DividerCursor()
 
-    override func resetCursorRects() {
-        ColumnDividers.addCursorRects(to: self, at: dividers.map(\.1))
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        window?.invalidateCursorRects(for: self)
+    override func mouseMoved(with event: NSEvent) {
+        let onDivider = ColumnDividers.hit(convert(event.locationInWindow, from: nil).x, in: dividers) != nil
+        cursor.update(overDivider: onDivider && PointerCover.reaches(self, at: event.locationInWindow))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        cursor.update(overDivider: false)
     }
 
     override func menu(for event: NSEvent) -> NSMenu? { makeMenu?() }
@@ -76,7 +83,6 @@ final class HistoryTableView: NSTableView {
     var columns = HistoryColumns() {
         didSet {
             guard columns != oldValue else { return }
-            window?.invalidateCursorRects(for: self)
             onLayoutChange?()
         }
     }
@@ -97,6 +103,7 @@ final class HistoryTableView: NSTableView {
     /// Escape; returns true when something closed.
     var onCancel: (() -> Bool)?
     private var hoverArea: NSTrackingArea?
+    private let cursor = DividerCursor()
 
     private var dividers: [(HistoryColumns.Column, CGFloat)] { columns.layout(in: bounds.width).dividers }
 
@@ -106,14 +113,9 @@ final class HistoryTableView: NSTableView {
         super.scrollWheel(with: event)
     }
 
-    override func resetCursorRects() {
-        ColumnDividers.addCursorRects(to: self, at: dividers.map(\.1))
-    }
-
     override func setFrameSize(_ newSize: NSSize) {
         let widthChanged = newSize.width != frame.width
         super.setFrameSize(newSize)
-        window?.invalidateCursorRects(for: self)
         // Loading more rows only makes the table taller; that leaves the rows on screen where they were.
         if widthChanged { onLayoutChange?() }
     }
@@ -126,14 +128,21 @@ final class HistoryTableView: NSTableView {
         hoverArea = area
     }
 
+    /// The expanded pills belong to the hover, so only what lies over the table from outside, such as the command bar, ends it; the boundaries' cursor also gives way to the pills.
     override func mouseMoved(with event: NSEvent) {
         super.mouseMoved(with: event)
-        onHover?(convert(event.locationInWindow, from: nil))
+        let point = convert(event.locationInWindow, from: nil)
+        let reached = PointerCover.reaches(self, at: event.locationInWindow, throughOverlays: true)
+        onHover?(reached ? point : nil)
+        let onDivider = ColumnDividers.hit(point.x, in: dividers) != nil
+        cursor.update(overDivider: onDivider && reached && PointerCover.reaches(self, at: event.locationInWindow))
     }
 
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
-        if event.trackingArea === hoverArea { onHover?(nil) }
+        guard event.trackingArea === hoverArea else { return }
+        onHover?(nil)
+        cursor.update(overDivider: false)
     }
 
     override func reloadData() {

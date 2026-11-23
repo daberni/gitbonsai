@@ -116,9 +116,10 @@ extension Repository {
         progress: @escaping @Sendable (CloneProgress) -> Void = { _ in }
     ) async throws {
         let target = URL(fileURLWithPath: destination).standardizedFileURL
-        let existedBefore = FileManager.default.fileExists(atPath: target.path)
+        let found = FolderDestination.at(target.path)
+        let existedBefore = found != .missing
         // git refuses a folder with content; that content is the user's and must survive the failure.
-        let ownsContent = !existedBefore || ((try? FileManager.default.contentsOfDirectory(atPath: target.path).isEmpty) ?? false)
+        let ownsContent = found.acceptsNewContent
         let arguments = ["clone", "--progress"] + options.arguments + ["--", url, target.path]
         let reader = ProgressReader(progress)
         do {

@@ -6,6 +6,8 @@ import GitEngine
 @MainActor
 final class ActionPrompter {
     var window: (() -> NSWindow?)?
+    /// The window once the tab is shown again, nil if it closes first: a question or report of a tab in the background waits for the user to come back to it instead of being dropped.
+    var whenShown: (() async -> NSWindow?)?
 
     /// The form's values, or nil when it was cancelled.
     func ask(_ form: ActionForm) async -> ActionForm.Values? {
@@ -41,7 +43,7 @@ final class ActionPrompter {
 
     func saveLocation(title: LocalizedStringResource, suggestedName: String) async -> URL? {
         if ScreenshotHarness.isActive { return ScreenshotHarness.saveLocation }
-        guard let window = window?() else { return nil }
+        guard let window = await presentingWindow() else { return nil }
         return await SheetSupport.chooseFile(title: title.text, name: suggestedName, on: window)
     }
 
@@ -91,17 +93,22 @@ final class ActionPrompter {
             FileHandle.standardError.write(Data("\(title.plain): \(summary.plain)\(details.map { " [Details: \($0.replacingOccurrences(of: "\n", with: " ⏎ "))]" } ?? "")\(actions.isEmpty ? "" : " {\(actions.map(\.title).joined(separator: " | "))}")\n".utf8))
             guard ScreenshotHarness.clicksReports else { return ScreenshotHarness.renderReport(sheet) }
         }
-        guard let window = window?() else { return }
-        if ScreenshotHarness.clicksReports { ScreenshotHarness.clickReport(sheet) }
         Task {
+            guard let window = await presentingWindow() else { return }
+            if ScreenshotHarness.clicksReports { ScreenshotHarness.clickReport(sheet) }
             guard let index = await sheet.run(on: window) else { return }
             actions[index].run()
         }
     }
 
     private func present(_ alert: NSAlert) async -> NSApplication.ModalResponse {
-        guard let window = window?() else { return .cancel }
+        guard let window = await presentingWindow() else { return .cancel }
         return await alert.beginSheet(on: window)
+    }
+
+    private func presentingWindow() async -> NSWindow? {
+        if let window = window?() { return window }
+        return await whenShown?()
     }
 }
 
