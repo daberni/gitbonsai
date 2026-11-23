@@ -52,24 +52,20 @@ extension Repository {
 
     /// For a file git shows as binary: the UTF-16 or UTF-32 encoding of its newer side (the older one when it was deleted), or nil when it is no such text.
     public func wideTextEncoding(of diff: FileDiff, in source: DiffSource) async -> WideTextEncoding? {
-        let oldPath = diff.oldPath ?? diff.path
-        let blob: String?
-        switch source {
-        case .commit(let commit): blob = diff.isDeleted ? commit.parents.first.map { "\($0):\(oldPath)" } : "\(commit.id):\(diff.path)"
-        case .revisions(let base, let target): blob = diff.isDeleted ? "\(base):\(oldPath)" : "\(target):\(diff.path)"
-        case .staged: blob = diff.isDeleted ? "HEAD:\(oldPath)" : ":\(diff.path)"
-        case .unstaged: blob = diff.isDeleted ? ":\(oldPath)" : nil
-        case .untracked: blob = nil
-        }
-        guard let blob else {
-            let handle = FileHandle(forReadingAtPath: URL(fileURLWithPath: path).appendingPathComponent(diff.path).path)
+        let sides = blobSides(of: diff, in: source)
+        switch sides.new ?? sides.old {
+        case .workingTree(let relativePath):
+            let handle = FileHandle(forReadingAtPath: URL(fileURLWithPath: path).appendingPathComponent(relativePath).path)
             defer { try? handle?.close() }
             return (try? handle?.read(upToCount: Self.encodingSample)).flatMap { $0.flatMap(WideTextEncoding.detect) }
+        case .object(let name):
+            // Large binaries are not read whole just to look at their first bytes; text files that size are rare.
+            guard let bytes = await blobSize(at: .object(name)), bytes <= Self.encodingBlobLimit else { return nil }
+            guard let content = try? await blobData(at: .object(name)) else { return nil }
+            return WideTextEncoding.detect(content)
+        case nil:
+            return nil
         }
-        // Large binaries are not read whole just to look at their first bytes; text files that size are rare.
-        guard let size = try? await runner.run(["cat-file", "-s", blob]), let bytes = Int(size.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)), bytes <= Self.encodingBlobLimit else { return nil }
-        guard let content = try? await runner.run(["cat-file", "blob", blob]) else { return nil }
-        return WideTextEncoding.detect(content.stdout)
     }
 
     private static let encodingSample = 4096
