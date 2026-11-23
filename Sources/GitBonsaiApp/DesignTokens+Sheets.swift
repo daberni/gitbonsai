@@ -20,8 +20,6 @@ extension Theme {
         static let messageHeight: CGFloat = 72
         static let rowSpacing = Space.s
         static let labelSpacing = Space.xs
-        /// Rows a ref suggestion list shows before it scrolls.
-        static let visibleSuggestions = 12
     }
 
     /// The app's one text field: a `FieldBox` with a borderless field, as in the commit form.

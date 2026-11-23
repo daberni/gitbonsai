@@ -117,20 +117,19 @@ final class BranchActionsController {
         }
     }
 
+    /// A remote branch from the picker becomes the upstream; with an upstream set, a checkbox removes it instead.
     private func setUpstream(of ref: Ref) {
         let name = ref.name
-        let remoteBranches = viewModel.refs.compactMap { candidate -> String? in
-            guard case .remoteBranch = candidate.kind, !candidate.name.hasSuffix("/HEAD") else { return nil }
-            return candidate.name
-        }.sorted()
-        // Clearing the field is how this form removes the upstream; nothing else says so.
-        let info: LocalizedStringResource? = ref.upstream == nil ? nil : LocalizedStringResource("branch.upstream.infoCurrent", defaultValue: "Leave empty to remove the upstream.", bundle: .module)
-        let form = ActionForm(title: LocalizedStringResource("branch.upstream.title", defaultValue: "Upstream of \(RefName.branch(name))", bundle: .module), info: info, confirm: LocalizedStringResource("common.apply", defaultValue: "Apply", bundle: .module))
-        let suggested = ref.upstream ?? remoteBranches.first { $0.hasSuffix("/" + name) } ?? ""
-        form.addComboField(key: "upstream", label: LocalizedStringResource("branch.upstream.remoteBranch", defaultValue: "Remote branch", bundle: .module), value: suggested, suggestions: remoteBranches, required: ref.upstream == nil)
+        let repository = viewModel.repository
+        let form = ActionForm(title: LocalizedStringResource("branch.upstream.title", defaultValue: "Upstream of \(RefName.branch(name))", bundle: .module), confirm: LocalizedStringResource("common.apply", defaultValue: "Apply", bundle: .module))
         Task {
+            let tips = (try? await repository.refTips()) ?? []
+            let catalog = RefCatalog.remoteBranches(tips)
+            let suggested = ref.upstream ?? catalog.groups(matching: "").flatMap(\.matches).map(\.item.title).first { $0.hasSuffix("/" + name) } ?? ""
+            form.addRefPicker(key: "upstream", label: LocalizedStringResource("branch.upstream.remoteBranch", defaultValue: "Remote branch", bundle: .module), repository: repository, catalog: catalog, selection: catalog.item(titled: suggested))
+            if ref.upstream != nil { form.addCheckbox(LocalizedStringResource("branch.upstream.remove", defaultValue: "Remove upstream", bundle: .module), checked: false) }
             guard let values = await runner.prompter.ask(form) else { return }
-            let upstream = values.value("upstream")
+            let upstream = values.isChecked ? nil : values.value("upstream")
             guard upstream != ref.upstream else { return }
             await runner.run(failure: LocalizedStringResource("failure.upstream.notSet", defaultValue: "Upstream not set", bundle: .module), note: upstream == nil ? "git branch --unset-upstream" : "git branch --set-upstream-to") { try await $0.setUpstream(of: name, to: upstream) }
         }

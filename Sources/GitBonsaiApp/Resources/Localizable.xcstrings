@@ -995,23 +995,6 @@
         }
       }
     },
-    "branch.upstream.infoCurrent" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leer lassen, um den Upstream zu entfernen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Leave empty to remove the upstream."
-          }
-        }
-      }
-    },
     "branch.upstream.remoteBranch" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -1025,6 +1008,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Remote branch"
+          }
+        }
+      }
+    },
+    "branch.upstream.remove" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove upstream"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upstream entfernen"
           }
         }
       }
@@ -3387,40 +3387,6 @@
         }
       }
     },
-    "commit.createBranch.checkout" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch auschecken"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Check out branch"
-          }
-        }
-      }
-    },
-    "commit.createBranch.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch bei %@ anlegen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Create Branch at %@"
-          }
-        }
-      }
-    },
     "commit.createTag.annotatedTitle" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -3630,16 +3596,16 @@
       "comment" : "Link that opens the list of the repository's authors to add as co-author.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Add Co-Author…"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Co-Author hinzufügen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Add Co-Author…"
           }
         }
       }
@@ -3666,16 +3632,16 @@
       "comment" : "The co-authors chosen for the next commit, as a list of names.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "With %@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mit %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "With %@"
           }
         }
       }
@@ -3719,16 +3685,16 @@
     "commit.form.noAuthors" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "No authors yet"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Noch keine Autoren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No authors yet"
           }
         }
       }
@@ -3737,16 +3703,16 @@
       "comment" : "Checkbox: add a Signed-off-by trailer with the committer's name.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Sign off"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abzeichnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sign off"
           }
         }
       }
@@ -5587,15 +5553,15 @@
       "comment" : "Detail panel: role of a person named in a Co-authored-by trailer",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Co-Author"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "Co-Author"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
             "value" : "Co-Author"
           }
         }
@@ -10898,6 +10864,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "All"
+          }
+        }
+      }
+    },
+    "panel.filter.scopes" : {
+      "comment" : "Accessibility label of the magnifier that opens the filter's scope menu.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Filter scope"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filterbereich"
           }
         }
       }

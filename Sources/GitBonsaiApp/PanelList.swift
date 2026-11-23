@@ -2,7 +2,7 @@ import AppKit
 
 /// The content of a sidebar popover: title with counter, a filter once the list is long, the entries, and the actions for the selected one.
 /// A click selects an entry, a double click activates it, a right click opens its menu.
-final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate {
+final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
     private typealias P = Theme.Panel
 
     var onSelect: ((String) -> Void)?
@@ -42,7 +42,10 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     let filterPlaceholder: String
     private let empty: String
     private let noMatch: String
-    let filterField = NSSearchField()
+    let filterField = TextInput()
+    /// The scope menu the magnifier opens; nil without scopes.
+    var scopeMenu: NSMenu?
+    private lazy var scopeButton = FieldIconButton(symbol: "magnifyingglass", label: String(localized: "panel.filter.scopes", defaultValue: "Filter scope", bundle: .module, comment: "Accessibility label of the magnifier that opens the filter's scope menu."), target: self, action: #selector(showScopeMenu(_:)))
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: "")
@@ -74,9 +77,10 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         emptyLabel.font = Theme.body
         emptyLabel.alignment = .center
 
-        filterField.placeholderString = filterPlaceholder.text
-        filterField.delegate = self
-        filterField.sendsSearchStringImmediately = true
+        filterField.placeholder = filterPlaceholder.text
+        filterField.leadingAddon = scopeButton
+        filterField.onChange = { [weak self] _ in self?.filterChanged() }
+        filterField.onCommand = { [weak self] selector in self?.filterCommand(selector) ?? false }
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("row"))
         tableView.addTableColumn(column)
@@ -206,15 +210,23 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         countLabel.stringValue = filtered ? "\(shownRows.count)/\(rows.count)" : "\(rows.count)"
     }
 
-    func controlTextDidChange(_ notification: Notification) {
+    @objc private func showScopeMenu(_ sender: NSView) {
+        scopeMenu?.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY), in: sender)
+    }
+
+    private func filterChanged() {
         applyFilter()
         if !shownRows.isEmpty { tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false) }
         updateFooter()
     }
 
-    /// Return in the filter activates the selected entry, the arrow keys move the selection.
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+    /// Return in the filter activates the selected entry, the arrow keys move the selection, Esc clears the text before it closes the panel.
+    private func filterCommand(_ selector: Selector) -> Bool {
         switch selector {
+        case #selector(NSResponder.cancelOperation(_:)) where !filterField.stringValue.isEmpty:
+            filterField.stringValue = ""
+            filterChanged()
+            return true
         case #selector(NSResponder.insertNewline(_:)):
             if let id = selectedID { onActivate?(id) }
             return true

@@ -88,6 +88,7 @@ extension RepositoryViewController {
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
         commitActions.onToast = { [weak self] text in self?.toast.show(text) }
+        commitActions.onNewBranch = { [weak self] commit in self?.sidebarActions.newBranch.show(commit: commit) }
         branchPull.onToast = { [weak self] text in self?.toast.show(text) }
         fastForward.onToast = { [weak self] text in self?.toast.show(text) }
         branchPull.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }

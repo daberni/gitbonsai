@@ -13,6 +13,8 @@ final class CommitActionsController {
     private let viewModel: GraphViewModel
     /// Says what a rebase or cherry-pick left out, in a toast.
     var onToast: ((RefString) -> Void)?
+    /// Opens the New Branch sheet starting at a commit.
+    var onNewBranch: ((Commit) -> Void)?
     /// A rebase started here finished without stopping; the tab selects HEAD and leaves any open diff.
     var onRebaseEnded: (() -> Void)? {
         didSet { interactiveRebase.onEnded = onRebaseEnded }
@@ -88,15 +90,9 @@ final class CommitActionsController {
         }
     }
 
+    /// The New Branch sheet with this commit preselected as the start point.
     private func createBranch(at commit: Commit) {
-        let form = ActionForm(title: LocalizedStringResource("commit.createBranch.title", defaultValue: "Create Branch at \(RefName.commit(commit.id))", bundle: .module), info: .verbatim(commit.subject), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
-        form.addField(key: "name", label: LocalizedStringResource("common.name", defaultValue: "Name", bundle: .module), placeholder: "feature/…")
-        form.addCheckbox(LocalizedStringResource("commit.createBranch.checkout", defaultValue: "Check out branch", bundle: .module), checked: true)
-        Task {
-            guard let values = await prompter.ask(form), let name = values.value("name") else { return }
-            let checkout = values.isChecked
-            run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: checkout ? "git switch -c" : "git branch") { try await $0.createBranch(name, at: commit.id, checkout: checkout) }
-        }
+        onNewBranch?(commit)
     }
 
     private func cherryPick(_ commit: Commit) {

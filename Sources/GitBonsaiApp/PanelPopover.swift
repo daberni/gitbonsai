@@ -28,7 +28,7 @@ final class PanelPopover: NSObject, NSPopoverDelegate {
         list.layoutSubtreeIfNeeded()
         popover.contentSize = list.fittingSize
         popover.show(relativeTo: rect, of: view, preferredEdge: .maxX)
-        list.window?.makeFirstResponder(list.filterField.isHidden ? list.tableView : list.filterField)
+        list.window?.makeFirstResponder(list.filterField.isHidden ? list.tableView : list.filterField.field)
     }
 
     func close() {

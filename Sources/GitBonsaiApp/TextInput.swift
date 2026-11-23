@@ -71,12 +71,15 @@ final class TextInput: NSView, NSTextFieldDelegate, DrawsOwnFocus {
         addSubview(box)
         box.addSubview(field)
         fieldLeading = field.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: T.inset.width)
+        // Just below required, so a container can collapse a hidden field to zero height.
+        let height = heightAnchor.constraint(equalToConstant: T.height)
+        height.priority = .required - 1
         var constraints = [
             box.topAnchor.constraint(equalTo: topAnchor),
             box.bottomAnchor.constraint(equalTo: bottomAnchor),
             box.leadingAnchor.constraint(equalTo: leadingAnchor),
             box.trailingAnchor.constraint(equalTo: trailingAnchor),
-            heightAnchor.constraint(equalToConstant: T.height),
+            height,
             fieldLeading!,
             field.centerYAnchor.constraint(equalTo: box.centerYAnchor),
         ]
@@ -157,5 +160,57 @@ final class FieldIconButton: NSButton, DrawsOwnFocus {
         ring.lineWidth = width
         Theme.moss.setStroke()
         ring.stroke()
+    }
+}
+
+/// The multi-line counterpart of `TextInput`: a `FieldBox` with a borderless, scrolling `PlainTextView`, the commit form body's style.
+final class TextArea: NSView {
+    let textView = PlainTextView()
+    private let box = FieldBox()
+    private let scroll = NSScrollView()
+
+    init() {
+        super.init(frame: .zero)
+        textView.font = Theme.body
+        textView.textColor = Theme.ink
+        textView.insertionPointColor = Theme.ink
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainerInset = NSSize(width: Theme.TextField.inset.width - Theme.Control.focusWidth, height: Theme.TextField.inset.height)
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.focusRingType = .none
+        textView.onFocusChange = { [weak self] focused in self?.box.isFocused = focused }
+        scroll.documentView = textView
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+        for view in [box, scroll] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+        }
+        addSubview(box)
+        box.addSubview(scroll)
+        let inset = Theme.Control.focusWidth
+        NSLayoutConstraint.activate([
+            box.topAnchor.constraint(equalTo: topAnchor),
+            box.bottomAnchor.constraint(equalTo: bottomAnchor),
+            box.leadingAnchor.constraint(equalTo: leadingAnchor),
+            box.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: box.topAnchor, constant: inset),
+            scroll.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: inset),
+            scroll.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -inset),
+            scroll.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -inset),
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    /// Clicks anywhere in the box edit the text.
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(textView)
     }
 }

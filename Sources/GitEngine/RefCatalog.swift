@@ -66,6 +66,14 @@ public struct RefCatalog: Sendable {
     private let tags: [Item]
 
     /// `current` comes first as given: HEAD, then for example the commit selected in the history.
+    /// Only the remote branches of `tips`, without the symbolic `<remote>/HEAD`, for upstream and push target pickers.
+    public static func remoteBranches(_ tips: [RefTip]) -> RefCatalog {
+        RefCatalog(tips: tips.filter { tip in
+            guard case .remoteBranch = tip.kind else { return false }
+            return !tip.name.hasSuffix("/HEAD")
+        }, current: [])
+    }
+
     public init(tips: [RefTip], current: [Item]) {
         self.current = current
         var locals: [Item] = []

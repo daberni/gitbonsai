@@ -26,11 +26,11 @@ extension ScreenshotHarness {
         let list = popover.list
         if let scope = environment["GITBONSAI_PANEL_SCOPE"] {
             list.selectScope(list.scopes.firstIndex { $0.title == scope })
-            FileHandle.standardError.write(Data("panel scope \(scope): \(list.activeScope.map(String.init) ?? "none"), placeholder \(list.filterField.placeholderString ?? "")\n".utf8))
+            FileHandle.standardError.write(Data("panel scope \(scope): \(list.activeScope.map(String.init) ?? "none"), placeholder \(list.filterField.placeholder)\n".utf8))
         }
         if let filter = environment["GITBONSAI_PANEL_FILTER"] {
             list.filterField.stringValue = filter
-            list.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: list.filterField))
+            list.filterField.onChange?(filter)
         }
         if let lines = environment["GITBONSAI_PANEL_SCROLL"].flatMap(Int32.init), let source = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -lines, wheel2: 0, wheel3: 0), let event = NSEvent(cgEvent: source) {
             list.tableView.enclosingScrollView?.scrollWheel(with: event)

@@ -13,7 +13,7 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     let preview = RebasePreviewView()
     let basePicker: RebaseBasePicker
     let messageView: NSTextView
-    private let messageScroll: NSScrollView
+    private let messageScroll: TextArea
     private let messageCaption = NSTextField(labelWithString: "")
     private let summary = NSTextField(labelWithString: "")
     private let problem = NSTextField(labelWithString: "")
@@ -32,8 +32,8 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         self.model = model
         self.basePicker = basePicker
         list = RebaseStepList(model: model)
-        messageScroll = NSTextView.scrollableTextView()
-        messageView = messageScroll.documentView as! NSTextView
+        messageScroll = TextArea()
+        messageView = messageScroll.textView
         window = NSWindow(contentRect: NSRect(origin: .zero, size: M.size), styleMask: [.titled, .resizable, .docModalWindow], backing: .buffered, defer: false)
         super.init()
         window.contentMinSize = M.minimumSize
@@ -89,15 +89,8 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         messageCaption.textColor = Theme.inkMuted
         messageCaption.lineBreakMode = .byTruncatingTail
         messageCaption.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        messageScroll.borderType = .lineBorder
-        messageScroll.hasVerticalScroller = true
-        messageScroll.autohidesScrollers = true
-        messageView.font = Theme.body
-        messageView.isRichText = false
-        messageView.allowsUndo = true
         messageView.isAutomaticQuoteSubstitutionEnabled = false
         messageView.isAutomaticDashSubstitutionEnabled = false
-        messageView.textContainerInset = NSSize(width: Theme.Space.xs, height: Theme.Space.xs)
         messageView.delegate = self
         messageView.setAccessibilityLabel(String(localized: "rebase.sheet.messageAccessibility", defaultValue: "Commit message", bundle: .module))
 
@@ -251,7 +244,6 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
         if messageView.string != text { messageView.string = text }
         messageView.isEditable = editable
         messageView.textColor = editable ? Theme.ink : Theme.inkMuted
-        messageView.backgroundColor = editable ? Theme.surface2 : Theme.surface1
     }
 
     func textDidChange(_ notification: Notification) {

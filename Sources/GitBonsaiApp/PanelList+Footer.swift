@@ -16,8 +16,8 @@ extension PanelListView {
     /// The magnifier's menu: everything, then each scope; the chosen one is checked and named in the placeholder.
     func rebuildScopeMenu() {
         guard !scopes.isEmpty else {
-            filterField.searchMenuTemplate = nil
-            filterField.placeholderString = filterPlaceholder
+            scopeMenu = nil
+            filterField.placeholder = filterPlaceholder
             return
         }
         let menu = NSMenu()
@@ -28,8 +28,8 @@ extension PanelListView {
             item.state = (activeScope ?? -1) == index - 1 ? .on : .off
             menu.addItem(item)
         }
-        filterField.searchMenuTemplate = menu
-        filterField.placeholderString = activeScope.map { "\(scopes[$0].title) · \(filterPlaceholder)" } ?? filterPlaceholder
+        scopeMenu = menu
+        filterField.placeholder = activeScope.map { "\(scopes[$0].title) · \(filterPlaceholder)" } ?? filterPlaceholder
     }
 
     @objc private func scopeChosen(_ sender: NSMenuItem) {

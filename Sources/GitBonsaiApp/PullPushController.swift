@@ -165,8 +165,10 @@ final class PullPushController {
         let candidates = remoteBranches()
         let preferred = candidates.first { $0 == "origin/\(branch)" } ?? candidates.first { $0.hasSuffix("/\(branch)") } ?? candidates.first ?? ""
         let form = ActionForm(title: LocalizedStringResource("pull.setUpstream.title", defaultValue: "Set Upstream for \(RefName.branch(branch))", bundle: .module), confirm: LocalizedStringResource("pull.setUpstream.confirm", defaultValue: "Set and Pull", bundle: .module))
-        form.addComboField(key: "upstream", label: LocalizedStringResource("pull.setUpstream.field", defaultValue: "Upstream", bundle: .module, comment: "Field label: the upstream branch."), value: preferred, suggestions: candidates)
+        let repository = viewModel.repository
         Task {
+            let catalog = RefCatalog.remoteBranches((try? await repository.refTips()) ?? [])
+            form.addRefPicker(key: "upstream", label: LocalizedStringResource("pull.setUpstream.field", defaultValue: "Upstream", bundle: .module, comment: "Field label: the upstream branch."), repository: repository, catalog: catalog, selection: catalog.item(titled: preferred))
             guard let values = await prompter.ask(form), let upstream = values.value("upstream") else { return }
             do {
                 try await viewModel.repository.setUpstream(of: branch, to: upstream)
