@@ -27,6 +27,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         let id: String
         let others: [String]
         let offset: CGFloat
+        /// The history was scrolled to its very top: it stays there, so rows added above show and the selection moves down instead.
+        let pinnedToTop: Bool
     }
 
     /// What a reload shows once it finished: the anchor to restore, or nil for the current row.

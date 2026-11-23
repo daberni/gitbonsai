@@ -91,10 +91,11 @@ extension HistoryViewController {
 
     private func anchor() -> Anchor? {
         guard let selectedID, selectedRow >= 0 else { return nil }
-        return Anchor(id: selectedID, others: otherSelectedIDs, offset: tableView.rect(ofRow: selectedRow).minY - tableView.visibleRect.minY)
+        let top = tableView.visibleRect.minY
+        return Anchor(id: selectedID, others: otherSelectedIDs, offset: tableView.rect(ofRow: selectedRow).minY - top, pinnedToTop: top <= Theme.Graph.rowHeight / 2)
     }
 
-    /// Selects the anchored commits again and scrolls so that the anchor's row sits where it sat before. False when that commit is no longer in the history; others that left stay unselected.
+    /// Selects the anchored commits again and scrolls so that the anchor's row sits where it sat before, or keeps the top in view when the history was at its top. False when that commit is no longer in the history; others that left stay unselected.
     private func restore(_ anchor: Anchor?) -> Bool {
         let rewritten = rewrittenCommits
         rewrittenCommits = [:]
@@ -104,7 +105,7 @@ extension HistoryViewController {
         tableView.selectRowIndexes(others.union(IndexSet(integer: row)), byExtendingSelection: false)
         guard let clip = tableView.enclosingScrollView?.contentView else { return true }
         let maxY = max(tableView.bounds.height - clip.bounds.height, 0)
-        let y = min(max(tableView.rect(ofRow: row).minY - anchor.offset, 0), maxY)
+        let y = anchor.pinnedToTop ? 0 : min(max(tableView.rect(ofRow: row).minY - anchor.offset, 0), maxY)
         clip.scroll(to: NSPoint(x: clip.bounds.minX, y: y))
         tableView.enclosingScrollView?.reflectScrolledClipView(clip)
         return true
