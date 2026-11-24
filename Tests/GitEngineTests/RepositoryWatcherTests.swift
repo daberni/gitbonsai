@@ -170,13 +170,15 @@ final class RepositoryWatcherTests: XCTestCase {
         try await assertNothingElse(counter)
     }
 
-    func testABurstOfAThousandWritesIsOneChange() async throws {
+    /// How the writes split into bursts depends on the machine's speed (a stall longer than `quiet`, the `longest` cap), so the test counts all bursts up to a sentinel instead of expecting a single one.
+    func testABurstOfAThousandWritesIsCoalesced() async throws {
         let (watcher, counter) = try await watch(fixture)
         defer { watcher.stop() }
         for index in 0..<1000 { try fixture.write("burst/\(index).txt", "\(index)\n") }
-        let burst = await counter.wait(for: 0)
-        XCTAssertGreaterThan(burst?.events ?? 0, 1)
-        try await assertNothingElse(counter)
+        try await probe(fixture, counter)
+        let bursts = (0..<counter.count - 1).compactMap(counter.burst)
+        XCTAssertGreaterThanOrEqual(bursts.map(\.events).reduce(0, +), 1000)
+        XCTAssertLessThanOrEqual(bursts.count, 20, "\(bursts.count) bursts for 1000 writes")
     }
 
     func testIgnoredFoldersAndObjectsAreNoChange() async throws {
