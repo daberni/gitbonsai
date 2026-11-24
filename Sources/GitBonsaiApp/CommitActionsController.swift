@@ -7,6 +7,7 @@ import GitEngine
 final class CommitActionsController {
     let prompter = ActionPrompter()
     let interactiveRebase: InteractiveRebaseController
+    let squash: SquashController
     private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
         self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, undo: .head, operation)
     }
@@ -23,6 +24,7 @@ final class CommitActionsController {
     init(viewModel: GraphViewModel) {
         self.viewModel = viewModel
         interactiveRebase = InteractiveRebaseController(viewModel: viewModel, prompter: prompter)
+        squash = SquashController(viewModel: viewModel, prompter: prompter, interactiveRebase: interactiveRebase)
     }
 
     /// The commit section of the history menus beyond its checkout; `worktreeForBranch` replaces Create Worktree…'s own form with the branch's; `moveHere` is the fast-forward of the current branch to this commit, when a branch pill does not already offer it.

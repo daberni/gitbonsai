@@ -96,6 +96,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .command(.commitAll),
             .command(.amend),
             .command(.editMessage),
+            .command(.squash),
             .command(.stageAll),
             .command(.unstageAll),
             .command(.discardAll),

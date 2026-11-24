@@ -89,6 +89,7 @@ final class HistoryMenuController {
         }
         var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch, rebaseAllCommits: rebaseAllCommits)
         if let detached = checkout.detachedItem(forRow: index) { sections.goThere.append(detached) }
+        if let squash = commitActions.squash.menuItem(for: commit) { sections.change.append(squash) }
         return sections
     }
 

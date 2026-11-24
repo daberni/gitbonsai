@@ -1822,6 +1822,38 @@
         }
       }
     },
+    "command.blocker.containsMerge" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enthält einen Merge"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contains a merge"
+          }
+        }
+      }
+    },
+    "command.blocker.mergeAbove" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Darüber liegt ein Merge"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A merge lies above"
+          }
+        }
+      }
+    },
     "command.blocker.noChanges" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -1992,6 +2024,22 @@
         }
       }
     },
+    "command.blocker.notConsecutive" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht aufeinanderfolgend"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not consecutive"
+          }
+        }
+      }
+    },
     "command.blocker.notFastForward" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -2005,6 +2053,22 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Not a fast-forward"
+          }
+        }
+      }
+    },
+    "command.blocker.notOnCurrentBranch" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht auf dem aktuellen Branch"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not on the current Branch"
           }
         }
       }
@@ -2090,6 +2154,22 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "First Commit, no parent"
+          }
+        }
+      }
+    },
+    "command.blocker.tooFewCommits" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mehrere Commits auswählen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select several Commits"
           }
         }
       }
@@ -3299,6 +3379,22 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Show sidebar"
+          }
+        }
+      }
+    },
+    "command.squash.keywords" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "squash, zusammenfassen, fixup, rebase -i"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "squash, combine, fixup, rebase -i"
           }
         }
       }
@@ -8564,6 +8660,22 @@
         }
       }
     },
+    "failure.squash.notPossible" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash nicht möglich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash not possible"
+          }
+        }
+      }
+    },
     "failure.stash.appliedWithConflicts" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -13797,6 +13909,142 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Skipped an empty step"
+          }
+        }
+      }
+    },
+    "rebase.squash.error.merge" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zwischen oder über den ausgewählten Commits liegt ein Merge."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A merge lies among or above the selected commits."
+          }
+        }
+      }
+    },
+    "rebase.squash.error.notConsecutive" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zwischen den ausgewählten Commits liegen andere."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other commits lie between the selected ones."
+          }
+        }
+      }
+    },
+    "rebase.squash.error.tooFew" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mindestens zwei Commits auswählen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select at least two commits."
+          }
+        }
+      }
+    },
+    "rebase.squash.menu.title" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commits squashen…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash Commits…"
+          }
+        }
+      }
+    },
+    "rebase.squash.sheet.confirm" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squashen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash"
+          }
+        }
+      }
+    },
+    "rebase.squash.sheet.message" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachricht"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        }
+      }
+    },
+    "rebase.squash.sheet.title" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commit squashen"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commits squashen"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Squash %lld Commit"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Squash %lld Commits"
+                }
+              }
+            }
           }
         }
       }

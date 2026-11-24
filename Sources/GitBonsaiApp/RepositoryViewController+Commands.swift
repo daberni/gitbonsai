@@ -8,7 +8,7 @@ extension RepositoryViewController: CommandProvider {
     }
 
     var commandProviders: [CommandProvider] {
-        [fetchController, pullPush, checkoutController, fastForward, sidebarActions, stashesController, staging, commitActions.interactiveRebase, operationBanner, conflicts]
+        [fetchController, pullPush, checkoutController, fastForward, sidebarActions, stashesController, staging, commitActions.interactiveRebase, commitActions.squash, operationBanner, conflicts]
     }
 
     /// Every repository command, in the order the empty bar lists them.
