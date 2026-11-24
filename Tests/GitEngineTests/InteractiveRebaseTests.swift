@@ -265,6 +265,27 @@ final class InteractiveRebaseTests: XCTestCase {
         XCTAssertNil(afterUndo, "an undone rebase offers no second undo")
     }
 
+    /// A stacked branch moved after the rebase stays where it is now; the rest of the rebase is still undone.
+    func testUndoLeavesAStackedBranchThatMovedSince() async throws {
+        let (fixture, base) = try linearFixture()
+        defer { fixture.remove() }
+        try fixture.git("branch", "stacked", "HEAD~2")
+        let repo = fixture.repository
+        let commits = try await repo.rebaseCommits(after: base)
+        var plan = RebasePlan(base: base, commits: commits, branches: await repo.stackedBranches(in: commits))
+        plan.steps[0].action = .reword
+        plan.messages[commits[0].id] = "a2"
+        _ = try await repo.startInteractiveRebase(plan)
+        let finished = await repo.finishedInteractiveRebase()
+        let undo = try XCTUnwrap(finished)
+        try fixture.git("branch", "-f", "stacked", base)
+
+        try await repo.undoRebase(undo)
+
+        XCTAssertEqual(try subjects(fixture, "\(base)..main"), ["a", "b", "c", "d"])
+        XCTAssertEqual(try fixture.git("rev-parse", "stacked"), base, "the branch the user moved stays")
+    }
+
     func testUndoIsRefusedOnceHeadHasMoved() async throws {
         let (fixture, base) = try linearFixture()
         defer { fixture.remove() }

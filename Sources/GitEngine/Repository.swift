@@ -23,7 +23,7 @@ public struct LogOptions: Sendable, Hashable {
     /// Other namespaces stay out: tools keep snapshots and backups under their own refs (`refs/codex/…`), and other worktrees' HEADs are theirs.
     public var limit: Int? = nil
     public var order: HistoryOrder = .date
-    /// Passed through verbatim after the options and before `--`. For `-S`, `-G`, `--since`, revision ranges.
+    /// Passed through verbatim after the options and before `--`. For `-S`, `-G`, `--since`, revision ranges and stash commits.
     public var extraArguments: [String] = []
 
     public init() {}
@@ -40,10 +40,12 @@ public struct LogOptions: Sendable, Hashable {
         ["rev-list"] + selection(includingHead: includingHead)
     }
 
+    /// `--ignore-missing` skips a stash commit dropped since the refs were read; `--` keeps a file named like a revision, such as `HEAD`, from being taken for a path.
     private func selection(includingHead: Bool) -> [String] {
-        var args = [order.argument] + Self.historyRefs + (includingHead ? ["HEAD"] : [])
+        var args = [order.argument, "--ignore-missing"] + Self.historyRefs + (includingHead ? ["HEAD"] : [])
         if let limit { args.append("-n\(limit)") }
         args.append(contentsOf: extraArguments)
+        args.append("--")
         return args
     }
 }
@@ -149,7 +151,7 @@ public final class Repository: Sendable {
     private func changedFiles(command: [String], revisions: [String]) async throws -> [ChangedFile] {
         async let names = runner.run(command + ["--name-status", "-M", "-z"] + revisions)
         async let stats = runner.run(command + ["--numstat", "-M", "-z"] + revisions)
-        let counted = (try? await DiffParser.parseNumstat(stats.stdout)) ?? [:]
+        let counted = DiffParser.parseNumstat(try await stats.stdout)
         return Self.parseNameStatus(try await names.stdout).map { file in
             var file = file
             file.stat = counted[file.path]

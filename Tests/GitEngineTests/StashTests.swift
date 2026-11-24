@@ -316,4 +316,14 @@ final class StashTests: XCTestCase {
         let remaining = try await repo.stashes()
         XCTAssertTrue(remaining.isEmpty)
     }
+
+    /// Another worktree or session may push a stash right after ours: the new entry with our message is ours, whichever is newest.
+    func testTheNewStashIsTheOneWithOurMessage() {
+        func entry(_ id: String, _ message: String) -> Stash { Stash(selector: "stash@{0}", commitID: id, message: message, date: Date()) }
+        let before = [entry("old", "On main: mine")]
+        let after = [entry("theirs", "On work: other"), entry("ours", "On main: mine"), entry("old", "On main: mine")]
+        XCTAssertEqual(Repository.newStash(in: after, before: before, message: "mine")?.commitID, "ours")
+        XCTAssertNil(Repository.newStash(in: [entry("theirs", "On work: other")] + before, before: before, message: "mine"), "only someone else's stash is new")
+        XCTAssertEqual(Repository.newStash(in: [entry("wip", "WIP on main: abc subject")], before: [], message: nil)?.commitID, "wip", "without a message the single new entry is ours")
+    }
 }

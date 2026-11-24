@@ -75,4 +75,20 @@ final class HistoryOrderTests: XCTestCase {
             XCTAssertEqual(revList, log, "\(order)")
         }
     }
+
+    func testAFileNamedHeadDoesNotBreakTheHistory() async throws {
+        try repo.commit("head file", file: "HEAD")
+        let commits = try await history(.date)
+        XCTAssertTrue(commits.contains { $0.subject == "head file" })
+        let ids = try await repo.repository.historyOrder(.date, stashCommits: [])
+        XCTAssertEqual(ids.count, commits.count)
+    }
+
+    /// A stash dropped between reading the refs and reading the order names a commit that may be gone.
+    func testAStashCommitThatIsGoneLeavesTheRestOfTheOrder() async throws {
+        let missing = String(repeating: "1", count: 40)
+        let ids = try await repo.repository.historyOrder(.date, stashCommits: [missing])
+        let commits = try await history(.date)
+        XCTAssertEqual(ids.count, commits.count)
+    }
 }

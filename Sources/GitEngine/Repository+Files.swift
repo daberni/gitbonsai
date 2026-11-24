@@ -22,7 +22,8 @@ extension Repository {
         guard !paths.isEmpty else { return }
         let base: String
         if let parent = commit.parents.first { base = parent } else { base = try await emptyTree() }
-        let patch = try await runner.run(["diff", "--binary", "-M", base, commit.id, "--"] + paths).stdout
+        // Fixed options keep the user's diff configuration (prefixes, external tools, textconv, colour) out of a patch that `apply` has to read.
+        let patch = try await runner.run(["diff", "--binary", "--no-color", "--no-ext-diff", "--no-textconv", "-M"] + Self.patchPrefixes + [base, commit.id, "--"] + paths).stdout
         guard !patch.isEmpty else { return }
         _ = try await runner.runWrite(["apply", "--reverse", "--whitespace=nowarn", "-"], stdin: patch)
     }

@@ -1,5 +1,10 @@
 import Foundation
 
+/// The path is not unmerged (any more): resolved, here or elsewhere. Other failures to read a conflict are `GitError`s.
+public struct NoConflict: Error, Sendable, Equatable {
+    public let path: String
+}
+
 extension Repository {
     /// Files larger than this are offered as whole sides only, like binaries; the merge of their text is not read.
     static let conflictTextLimit = 8 << 20
@@ -13,12 +18,10 @@ extension Repository {
     }
 
     /// One unmerged path with its stages and its content: for text on both sides the three-way merge of the stages, aligned from `git diff` of each side against the base, independent of what the working tree holds now.
-    /// Throws when the path is not unmerged.
+    /// Throws `NoConflict` when the path is not unmerged.
     public func conflict(at path: String) async throws -> Conflict {
         let listed = try await runner.run(["ls-files", "-u", "-z", "--", path])
-        guard let stages = ConflictParser.parseStages(listed.stdout)[path] else {
-            throw GitError(arguments: ["ls-files", "-u", "--", path], exitCode: 1, stderr: "\(path) has no unresolved conflict.")
-        }
+        guard let stages = ConflictParser.parseStages(listed.stdout)[path] else { throw NoConflict(path: path) }
         return Conflict(path: path, stages: stages, content: try await content(of: stages))
     }
 

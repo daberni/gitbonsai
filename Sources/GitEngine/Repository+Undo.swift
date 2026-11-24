@@ -61,9 +61,14 @@ extension Repository {
     }
 
     /// Puts HEAD and the watched refs back where they were before the operation. Local changes stay; git refuses where they would be overwritten.
+    /// The refs go back first, in one transaction that checks their current values: if any moved meanwhile nothing changes, and HEAD is only moved once they are back.
+    /// Only the branch HEAD leaves goes back after the switch, since git cannot switch away from a branch that is gone; if that last step fails, HEAD is back and the branch merely stays.
     public func undo(_ point: UndoPoint) async throws {
         guard let after = point.after, await canUndo(point) else { throw GitError(arguments: ["update-ref"], exitCode: 1, stderr: "The refs have moved since; there is nothing to undo.") }
         let before = point.before
+        let changed = point.watched.filter { !point.isHeadBranch($0) && before.refs[$0] != after.refs[$0] }
+        let left = before.branch != after.branch ? after.branch : nil
+        try await moveBack(changed.filter { $0 != left }, before: before, after: after)
         if before.branch != after.branch {
             if let branch = before.branch {
                 _ = try await runner.runWrite(["switch", "--no-guess", UndoPoint.short(branch)])
@@ -73,7 +78,12 @@ extension Repository {
         } else if before.head != after.head, let head = before.head {
             _ = try await runner.runWrite(["reset", "--\(point.headRestore.rawValue)", head])
         }
-        let moves = point.watched.filter { !point.isHeadBranch($0) && before.refs[$0] != after.refs[$0] }.map { ref -> String in
+        try await moveBack(changed.filter { $0 == left }, before: before, after: after)
+    }
+
+    /// One `update-ref` transaction that puts `refs` back, each only if it is still where the operation left it.
+    private func moveBack(_ refs: [String], before: UndoPoint.State, after: UndoPoint.State) async throws {
+        let moves = refs.map { ref -> String in
             switch (before.refs[ref], after.refs[ref]) {
             case (let old?, let new?): "update \(ref) \(old) \(new)\n"
             case (let old?, nil): "create \(ref) \(old)\n"

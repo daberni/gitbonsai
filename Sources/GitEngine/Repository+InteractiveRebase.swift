@@ -265,11 +265,17 @@ extension Repository {
     /// Puts the branch back on `ORIG_HEAD`, the commit before the rebase, keeping uncommitted changes (`git reset --keep`), and moves stacked branches back that are still where the rebase put them.
     public func undoRebase(_ undo: RebaseUndo) async throws {
         guard await canUndoRebase(undo) else { throw GitError(arguments: ["reset", "--keep", "ORIG_HEAD"], exitCode: 1, stderr: "HEAD has moved since the rebase; there is nothing to undo.") }
+        // Stacked branches go back first, only those still where the rebase put them; the record is removed once the branch is back too.
+        var moves: [String] = []
+        for move in undo.stacked {
+            guard let after = move.after, await resolveCommit(move.ref) == after else { continue }
+            moves.append("update \(move.ref) \(move.before) \(after)\n")
+        }
+        if !moves.isEmpty {
+            _ = try await runner.runWrite(["update-ref", "--stdin"], stdin: Data(("start\n" + moves.joined() + "commit\n").utf8))
+        }
         _ = try await runner.runWrite(["reset", "--keep", undo.before])
         if let session = try? await rebaseSession(), !session.exists { session.remove() }
-        let moves = undo.stacked.compactMap { move in move.after.map { "update \(move.ref) \(move.before) \($0)\n" } }
-        guard !moves.isEmpty else { return }
-        _ = try await runner.runWrite(["update-ref", "--stdin"], stdin: Data(("start\n" + moves.joined() + "commit\n").utf8))
     }
 
     /// The session folder of this worktree and git's own rebase folder next to it.

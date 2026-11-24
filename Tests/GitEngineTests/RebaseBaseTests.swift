@@ -63,6 +63,22 @@ final class RebaseBaseTests: XCTestCase {
         XCTAssertEqual(try subjects(fixture, "main..stacked"), ["s2", "s1"])
     }
 
+    func testSquashMergedParentIsFoundWithColouredDiffsConfigured() async throws {
+        let (fixture, _, parent) = try stackedFixture()
+        defer { fixture.remove() }
+        try fixture.git("config", "color.diff", "always")
+        try fixture.git("switch", "-q", "main")
+        try fixture.git("merge", "-q", "--squash", "parent")
+        try fixture.git("commit", "-q", "-m", "squashed parent")
+        let squash = try fixture.git("rev-parse", "HEAD")
+        try fixture.git("branch", "-q", "-D", "parent")
+        try fixture.git("switch", "-q", "stacked")
+
+        let detection = await fixture.repository.detectRebaseBase(of: "stacked", onto: squash, targetRef: "main")
+
+        XCTAssertEqual(detection, .detected(RebaseBase(commit: parent, reason: .squashed(into: squash), moving: 2)))
+    }
+
     func testRewrittenRemoteTargetUsesItsForkPoint() async throws {
         let upstream = try FixtureRepo(name: "upstream")
         defer { upstream.remove() }

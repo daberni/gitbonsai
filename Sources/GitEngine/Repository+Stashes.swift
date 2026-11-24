@@ -20,12 +20,22 @@ extension Repository {
     /// Stashes the changes `scope` names and returns the new stash with the working tree it left, or nil when there was nothing to stash. Without a message git writes its `WIP on …` subject.
     @discardableResult
     public func stash(message: String?, scope: StashScope) async throws -> NewStash? {
-        let before = try await stashes().first?.commitID
+        let before = try await stashes()
+        let message = message?.isEmpty == false ? message : nil
         var arguments = ["stash", "push"] + scope.arguments
-        if let message, !message.isEmpty { arguments += ["-m", message] }
+        if let message { arguments += ["-m", message] }
         _ = try await runner.runWrite(arguments)
-        guard let newest = try await stashes().first, newest.commitID != before else { return nil }
-        return NewStash(stash: newest, remaining: try await workingTreeState())
+        guard let created = Self.newStash(in: try await stashes(), before: before, message: message) else { return nil }
+        return NewStash(stash: created, remaining: try await workingTreeState())
+    }
+
+    /// The entry a push just added. All worktrees share one stash list, so another push may land right after ours: an entry counts only when it is new and carries our message.
+    /// Without a message git writes its own subject, and the push is ours only when it is the single new entry.
+    static func newStash(in after: [Stash], before: [Stash], message: String?) -> Stash? {
+        let known = Set(before.map(\.commitID))
+        let added = after.filter { !known.contains($0.commitID) }
+        guard let message else { return added.count == 1 ? added[0] : nil }
+        return added.first { $0.text == message }
     }
 
     /// Every change and untracked file, as `git status --porcelain` lists them.

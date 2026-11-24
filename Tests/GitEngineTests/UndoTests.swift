@@ -108,4 +108,46 @@ extension UndoTests {
         XCTAssertEqual(try fixture.git("symbolic-ref", "--short", "HEAD"), "main")
         XCTAssertNil(sha("refs/heads/topic"))
     }
+
+    /// A checkout of a remote branch that also moved `other`, so the undo switches back and moves two refs.
+    private func checkoutMovingOther() async throws -> UndoPoint {
+        try fixture.git("remote", "add", "origin", fixture.path)
+        try fixture.git("update-ref", "refs/remotes/origin/topic", first)
+        try fixture.git("branch", "other", second)
+        let repository = fixture.repository
+        let point = await repository.undoPoint(watching: ["refs/heads/topic", "refs/heads/other"])
+        try await repository.checkout(.remoteBranch(remote: "origin", branch: "topic"), stashMessage: "test")
+        try fixture.git("branch", "-f", "other", first)
+        let finished = await repository.finishUndoPoint(point)
+        return try XCTUnwrap(finished)
+    }
+
+    /// A lock on another ref the undo moves makes its transaction fail: HEAD must not have switched back before that.
+    func testAnUndoWhoseRefsCannotMoveChangesNothing() async throws {
+        let done = try await checkoutMovingOther()
+        try "".write(to: fixture.url.appendingPathComponent(".git/refs/heads/other.lock"), atomically: true, encoding: .utf8)
+
+        do {
+            try await fixture.repository.undo(done)
+            XCTFail("the locked ref cannot move")
+        } catch is GitError {}
+
+        XCTAssertEqual(try fixture.git("symbolic-ref", "--short", "HEAD"), "topic", "HEAD stays where the operation left it")
+        XCTAssertEqual(sha("refs/heads/other"), first)
+    }
+
+    /// The branch HEAD leaves can only go after the switch; when that fails, HEAD and the other refs are back and the branch merely stays.
+    func testAnUndoWhoseLeftBranchCannotGoKeepsItAndRestoresTheRest() async throws {
+        let done = try await checkoutMovingOther()
+        try "".write(to: fixture.url.appendingPathComponent(".git/refs/heads/topic.lock"), atomically: true, encoding: .utf8)
+
+        do {
+            try await fixture.repository.undo(done)
+            XCTFail("the locked branch cannot be deleted")
+        } catch is GitError {}
+
+        XCTAssertEqual(try fixture.git("symbolic-ref", "--short", "HEAD"), "main")
+        XCTAssertEqual(sha("refs/heads/other"), second)
+        XCTAssertEqual(sha("refs/heads/topic"), first)
+    }
 }

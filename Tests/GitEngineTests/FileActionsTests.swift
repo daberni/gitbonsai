@@ -145,6 +145,25 @@ final class FileActionsTests: XCTestCase {
         XCTAssertEqual(try fixture.git("diff", "--cached", "--name-only"), "", "the index stays")
     }
 
+    /// Diff settings that change the patch text: no prefixes, an external diff tool, a textconv driver and colour.
+    func testRevertIgnoresTheUsersDiffConfiguration() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("add", file: "a.txt", contents: "one\n")
+        try fixture.write("a.txt", "two\n")
+        try fixture.git("commit", "-q", "-am", "change")
+        let change = try await commit(try fixture.git("rev-parse", "HEAD"), in: fixture)
+        try fixture.git("config", "diff.noprefix", "true")
+        try fixture.git("config", "diff.external", "false")
+        try fixture.git("config", "diff.upper.textconv", "tr a-z A-Z")
+        try fixture.git("config", "color.diff", "always")
+        try fixture.write(".git/info/attributes", "*.txt diff=upper\n")
+
+        try await fixture.repository.revertChanges(of: change, paths: ["a.txt"])
+
+        XCTAssertEqual(try read(fixture, "a.txt"), "one\n")
+    }
+
     func testRevertThatDoesNotApplyWritesNothing() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }

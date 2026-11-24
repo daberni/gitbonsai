@@ -263,7 +263,9 @@ final class ConflictTests: XCTestCase {
         do {
             _ = try await fixture.repository.conflict(at: "file.txt")
             XCTFail("a resolved path has no conflict")
-        } catch {}
+        } catch let error as NoConflict {
+            XCTAssertEqual(error.path, "file.txt")
+        }
     }
 
     // MARK: Merge tool

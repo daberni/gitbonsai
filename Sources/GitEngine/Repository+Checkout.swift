@@ -62,14 +62,14 @@ extension Repository {
             let localExists = await revisionExists("refs/heads/\(branch)")
             _ = try await runner.runWrite(localExists ? ["switch", branch] : ["switch", "-c", branch, "--track", "\(remote)/\(branch)"])
         case .fastForward(let branch, let upstream):
-            let original = try await currentCheckout()
-            _ = try await runner.runWrite(["switch", branch])
-            do {
-                _ = try await runner.runWrite(["merge", "--ff-only", upstream])
-            } catch {
-                // The carried changes belong where they were made, not on a branch that stayed where it was.
-                _ = try? await runner.runWrite(original)
-                throw error
+            // The branch moves first, as a ref only, and the working tree switches once: a refused fast-forward leaves everything where it was, with no switch back that could fail.
+            // A SHA as the fetch source: a short name like `origin/topic` matches no ref on `.`, and git then reads the refspec as a deletion of the branch.
+            let target = try await runner.run(["rev-parse", "--verify", "\(upstream)^{commit}"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+            if await isCurrentBranch(branch) {
+                _ = try await runner.runWrite(["merge", "--ff-only", target])
+            } else {
+                _ = try await runner.runWrite(["fetch", "--no-write-fetch-head", ".", "\(target):refs/heads/\(branch)"])
+                _ = try await runner.runWrite(["switch", branch])
             }
         case .reset(let branch, let upstream):
             _ = try await runner.runWrite(["switch", "-C", branch, upstream])
@@ -78,13 +78,10 @@ extension Repository {
         }
     }
 
-    /// The `git switch` that returns to the current branch, or to the current commit on a detached HEAD.
-    private func currentCheckout() async throws -> [String] {
-        if let ref = try? await runner.run(["symbolic-ref", "-q", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines), ref.hasPrefix("refs/heads/") {
-            return ["switch", String(ref.dropFirst("refs/heads/".count))]
-        }
-        let head = try await runner.run(["rev-parse", "--verify", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
-        return ["switch", "--detach", head]
+    /// git refuses to fetch into the checked-out branch; that one fast-forwards in place.
+    private func isCurrentBranch(_ branch: String) async -> Bool {
+        let ref = try? await runner.run(["symbolic-ref", "-q", "HEAD"]).stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ref == "refs/heads/\(branch)"
     }
 
     /// Stashes tracked and untracked changes under `message`; nil when there was nothing to stash.
@@ -95,3 +92,4 @@ extension Repository {
         return try await stash(message: message, scope: .includingUntracked)?.stash
     }
 }
+

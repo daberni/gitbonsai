@@ -160,22 +160,75 @@ final class CheckoutTests: XCTestCase {
         XCTAssertEqual(try fixture.git("stash", "list"), "")
     }
 
-    /// A post-checkout hook recreates an untracked file the stash carries, so putting the stash back fails after the switch failed.
+    /// A post-checkout hook recreates an untracked file the stash carries and fails the switch, so putting the stash back fails after the switch failed.
     func testAFailedPutBackNamesTheStashThatKeepsTheChanges() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
-        let target = try divergedTopic(fixture)
+        _ = try divergedTopic(fixture)
         let hook = fixture.url.appendingPathComponent(".git/hooks/post-checkout")
-        try "#!/bin/sh\necho hook > untracked.txt\n".write(to: hook, atomically: true, encoding: .utf8)
+        try "#!/bin/sh\necho hook > untracked.txt\nexit 1\n".write(to: hook, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
         try fixture.write("untracked.txt", "new\n")
 
         do {
-            try await fixture.repository.checkout(.fastForward(branch: "topic", to: target), stashMessage: "carried by the test")
-            XCTFail("a fast-forward of diverged branches succeeded")
+            try await fixture.repository.checkout(.localBranch("topic"), stashMessage: "carried by the test")
+            XCTFail("the hook fails the switch")
         } catch let error as GitError {
             XCTAssertTrue(error.stderr.contains("carried by the test"), error.stderr)
         }
         XCTAssertTrue(try fixture.git("stash", "list").contains("carried by the test"))
+    }
+
+    /// A post-checkout hook records every switch: a refused fast-forward must not touch the working tree at all.
+    func testARefusedFastForwardNeverSwitchesAndLeavesTheBranch() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        let target = try divergedTopic(fixture)
+        let topic = try fixture.git("rev-parse", "topic")
+        let hook = fixture.url.appendingPathComponent(".git/hooks/post-checkout")
+        try "#!/bin/sh\n[ \"$3\" = 1 ] && touch .git/switched\nexit 0\n".write(to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        try fixture.write("shared.txt", "edited\n")
+
+        do {
+            try await fixture.repository.checkout(.fastForward(branch: "topic", to: target), stashMessage: "carried by the test")
+            XCTFail("a fast-forward of diverged branches succeeded")
+        } catch is GitError {}
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent(".git/switched").path), "no branch switch ran")
+        XCTAssertEqual(try fixture.git("rev-parse", "topic"), topic)
+        XCTAssertEqual(try currentBranch(fixture), "main")
+        XCTAssertEqual(try contents(fixture, "shared.txt"), "edited\n")
+        XCTAssertEqual(try fixture.git("stash", "list"), "")
+    }
+
+    func testFastForwardMovesTheBranchThenSwitchesOnce() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "shared.txt", contents: "base\n")
+        try fixture.git("branch", "topic")
+        let ahead = try fixture.commit("ahead", file: "ahead.txt")
+        try fixture.git("switch", "-q", "-c", "work")
+        try fixture.write("untracked.txt", "new\n")
+
+        try await fixture.repository.checkout(.fastForward(branch: "topic", to: ahead), stashMessage: "carried by the test")
+
+        XCTAssertEqual(try currentBranch(fixture), "topic")
+        XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), ahead)
+        XCTAssertEqual(try contents(fixture, "untracked.txt"), "new\n")
+        XCTAssertEqual(try fixture.git("stash", "list"), "")
+    }
+
+    func testFastForwardOfTheCurrentBranchStaysOnIt() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "shared.txt", contents: "base\n")
+        try fixture.git("switch", "-q", "-c", "ahead")
+        let ahead = try fixture.commit("ahead", file: "ahead.txt")
+        try fixture.git("switch", "-q", "main")
+
+        try await fixture.repository.checkout(.fastForward(branch: "main", to: ahead), stashMessage: "carried by the test")
+
+        XCTAssertEqual(try currentBranch(fixture), "main")
+        XCTAssertEqual(try fixture.git("rev-parse", "HEAD"), ahead)
     }
 }
