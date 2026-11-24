@@ -27,9 +27,10 @@ extension ScreenshotHarness {
         after((steps.isEmpty ? 0 : 0.5)) { runSettingsSteps(steps[...], in: window) }
     }
 
-    /// The main window is not captured while the settings window is.
+    /// The main window is not captured while the settings or About window is.
     static func capturesSettingsInstead(of window: NSWindow) -> Bool {
-        settingsSection != nil && window !== SettingsWindowController.shared.window
+        if capturesAbout { return window !== aboutPanel }
+        return settingsSection != nil && window !== SettingsWindowController.shared.window
     }
 
     /// `GITBONSAI_SETTINGS_SCRIPT=<step>;…`, half a second per step, then the capture: `click:<label or identifier>`, `action:<element>=<action name>`, `scroll:<points>`, `type:<text>`, `key:return|tab|escape`, `print`, `shot:<png>`, `wait:<seconds>`.

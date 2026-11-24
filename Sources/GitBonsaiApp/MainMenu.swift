@@ -32,7 +32,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
 
     static let sections: [Section] = [
         Section(title: .verbatim("GitBonsai"), entries: [
-            .standard(LocalizedStringResource("menu.app.about", defaultValue: "About GitBonsai", bundle: .module), #selector(NSApplication.orderFrontStandardAboutPanel(_:)), nil),
+            .standard(LocalizedStringResource("menu.app.about", defaultValue: "About GitBonsai", bundle: .module), #selector(AppDelegate.showAbout(_:)), nil),
             .separator,
             .command(.settings),
             .separator,

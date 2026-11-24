@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         AppSettings.apply()
         ScreenshotHarness.applyAppearance()
         ScreenshotHarness.applyRepositoryFolders()
+        ScreenshotHarness.applyLicensee()
         let menu = MainMenu(target: self, runAction: #selector(runMenuCommand(_:)), commandBarAction: #selector(showCommandBar(_:)), openRecentAction: #selector(openRecent(_:)), commands: { [weak self] in self?.currentCommands() ?? [] }, recents: { [weak self] in self?.windowController?.recentRepositories ?? [] })
         menu.install()
         mainMenu = menu
@@ -26,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         controller.openInitialTabs(arguments: Array(CommandLine.arguments.dropFirst()), folders: pendingFolders)
         pendingFolders = []
         ScreenshotHarness.openSettingsIfAsked()
+        ScreenshotHarness.openAboutIfAsked()
     }
 
     /// Folders dropped on the Dock icon, opened from Finder or with `open -a GitBonsai <folder>`; a folder outside any repository gets the same alert as the Open panel.
@@ -48,6 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     // MARK: Commands
+
+    @objc func showAbout(_ sender: Any?) {
+        AboutPanel.show()
+    }
 
     /// The command bar and the menu's command items target the delegate, so they also work while the window is not key.
     @objc func showCommandBar(_ sender: Any?) {

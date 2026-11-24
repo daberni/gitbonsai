@@ -4719,6 +4719,42 @@
         }
       }
     },
+    "common.license.buy" : {
+      "comment" : "Link to buying a license for commercial use.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kommerzielle Lizenz kaufen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Buy a Commercial License"
+          }
+        }
+      }
+    },
+    "common.license.notice" : {
+      "comment" : "Licensing summary in the About window and the settings.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private Nutzung ist kostenlos. Kommerzielle Nutzung braucht eine Lizenz."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Personal use is free. Commercial use needs a license."
+          }
+        }
+      }
+    },
     "common.name" : {
       "comment" : "Caption of the branch name field.\nLabel of a branch name field.",
       "extractionState" : "extracted_with_value",
@@ -14635,6 +14671,59 @@
         }
       }
     },
+    "settings.general.licensee.caption" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird im Fenster „Über GitBonsai“ angezeigt. GitBonsai prüft das nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shown in the About window. GitBonsai does not check it."
+          }
+        }
+      }
+    },
+    "settings.general.licensee.label" : {
+      "comment" : "Settings label of the name shown as the commercial licensee.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lizenziert für"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Licensed to"
+          }
+        }
+      }
+    },
+    "settings.general.licensee.placeholder" : {
+      "comment" : "Placeholder of the licensee name field.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Optional"
+          }
+        }
+      }
+    },
     "settings.general.repositoryFolders.caption" : {
       "localizations" : {
         "de" : {
@@ -17315,6 +17404,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Open Repository"
+          }
+        }
+      }
+    },
+    "window.about.licensedTo" : {
+      "comment" : "About window line naming who holds the commercial license; the name as the user entered it.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lizenziert für %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Licensed to %@"
           }
         }
       }

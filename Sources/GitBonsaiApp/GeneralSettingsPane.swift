@@ -1,7 +1,7 @@
 import GitEngine
 import SwiftUI
 
-/// General: the color scheme, the folders the empty tab suggests repositories from, the order of the history, and the interface language, applied on the next launch.
+/// General: the color scheme, the folders the empty tab suggests repositories from, the order of the history, the interface language, applied on the next launch, and the license.
 struct GeneralSettingsPane: View {
     @Environment(SettingsModel.self) private var model
 
@@ -32,6 +32,7 @@ struct GeneralSettingsPane: View {
         } footer: {
             SettingsCaption(LocalizedStringResource("settings.general.language.caption", defaultValue: "Takes effect the next time GitBonsai starts.", bundle: .module))
         }
+        LicenseSettingsSection()
     }
 
     /// Each language is named in itself, so it can be found whatever the interface shows now.

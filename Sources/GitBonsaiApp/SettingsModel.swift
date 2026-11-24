@@ -62,6 +62,11 @@ final class SettingsModel {
         set { AppSettings.avatarMode = newValue }
     }
 
+    var licensee: String {
+        get { read { AppSettings.licensee ?? "" } }
+        set { AppSettings.licensee = newValue }
+    }
+
     var repositoryFolders: [String] {
         get { read { AppSettings.repositoryFolders } }
         set { AppSettings.repositoryFolders = newValue }

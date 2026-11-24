@@ -134,6 +134,12 @@ enum AppSettings {
         }
     }
 
+    /// The name the About window shows as holder of a commercial license; nothing checks it.
+    static var licensee: String? {
+        get { defaults.string(forKey: "licensee").flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } }
+        set { store(newValue?.isEmpty == true ? nil : newValue, forKey: "licensee") }
+    }
+
     /// The settings section shown last, so the window opens there again; view state, so changing it notifies no one.
     static var lastSettingsSection: String? {
         get { defaults.string(forKey: "lastSettingsSection") }
