@@ -100,7 +100,7 @@ final class RepositoryViewController: NSObject {
         inlineReword = InlineRewordController(viewModel: viewModel, prompter: commitActions.prompter, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutController
         sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
-        historyMenu = HistoryMenuController(viewModel: viewModel, checkout: checkoutController, commitActions: commitActions, branches: sidebarActions.branches, tags: tagsController, fastForward: fastForward)
+        historyMenu = HistoryMenuController(viewModel: viewModel, checkout: checkoutController, commitActions: commitActions, branches: sidebarActions.branches, tags: tagsController, fastForward: fastForward, stashes: stashesController)
         wire()
         layout()
         bind()

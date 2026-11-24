@@ -13,17 +13,20 @@ final class HistoryMenuController {
     private let branches: BranchActionsController
     private let tags: TagsController
     private let fastForward: FastForwardController
+    private let stashes: StashesController
 
-    init(viewModel: GraphViewModel, checkout: CheckoutController, commitActions: CommitActionsController, branches: BranchActionsController, tags: TagsController, fastForward: FastForwardController) {
+    init(viewModel: GraphViewModel, checkout: CheckoutController, commitActions: CommitActionsController, branches: BranchActionsController, tags: TagsController, fastForward: FastForwardController, stashes: StashesController) {
         self.viewModel = viewModel
         self.checkout = checkout
         self.commitActions = commitActions
         self.branches = branches
         self.tags = tags
         self.fastForward = fastForward
+        self.stashes = stashes
     }
 
     func rowMenu(forRow index: Int) -> [NSMenuItem] {
+        if let stash = stashID(at: index) { return stashMenu(stash) }
         guard let commit = commit(at: index) else { return [] }
         let all = pills(of: commit)
         let subjects = all.filter { !refSections($0.ref, commit: commit).groups.joinedWithSeparators.isEmpty }
@@ -98,6 +101,19 @@ final class HistoryMenuController {
     private func commit(at index: Int) -> Commit? {
         guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .commit || viewModel.kinds[index] == .merge else { return nil }
         return viewModel.commits[index]
+    }
+
+    private func stashID(at index: Int) -> String? {
+        guard viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .stash else { return nil }
+        return viewModel.commits[index].id
+    }
+
+    /// The sidebar's stash menu, with Copy SHA in the copy group right before Drop.
+    private func stashMenu(_ id: String) -> [NSMenuItem] {
+        var items = stashes.menuItems(for: id)
+        let removeGroup = items.lastIndex { $0.isSeparatorItem } ?? items.endIndex
+        items.insert(contentsOf: [.separator(), RefMenus.copySHAItem(id)], at: removeGroup)
+        return items
     }
 
     private func pills(of commit: Commit) -> [PillModel] {
