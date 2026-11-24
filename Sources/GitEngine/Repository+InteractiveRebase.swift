@@ -14,6 +14,12 @@ public enum RebasePlanError: Error, Sendable, Equatable {
     case rootCommit
     /// HEAD has no commit above it to swap with.
     case nothingAbove
+    /// A squash needs at least two commits.
+    case tooFewCommits
+    /// The commits to squash have others between them.
+    case notConsecutive
+    /// A merge lies among or above the commits to squash.
+    case containsMerge
     case invalidPlan(RebasePlanProblem)
 }
 

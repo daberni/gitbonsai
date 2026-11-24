@@ -230,7 +230,7 @@ final class InteractiveRebaseController {
         }
     }
 
-    private func publishedHint(_ plan: RebasePlan) async -> RefString? {
+    func publishedHint(_ plan: RebasePlan) async -> RefString? {
         CommitActionsController.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: plan.base), upstream: viewModel.status?.branch.upstream)
     }
 
@@ -273,6 +273,9 @@ final class InteractiveRebaseController {
         case .notOnCurrentBranch: String(localized: "rebase.error.notOnCurrentBranch", defaultValue: "The commit is not on the line of the current branch.", bundle: .module)
         case .rootCommit: String(localized: "rebase.error.rootCommit", defaultValue: "The repository’s first commit has no parent the rebase could start from.", bundle: .module)
         case .nothingAbove: String(localized: "rebase.error.nothingAbove", defaultValue: "No commit lies above this one to swap with.", bundle: .module)
+        case .tooFewCommits: String(localized: "rebase.squash.error.tooFew", defaultValue: "Select at least two commits.", bundle: .module)
+        case .notConsecutive: String(localized: "rebase.squash.error.notConsecutive", defaultValue: "Other commits lie between the selected ones.", bundle: .module)
+        case .containsMerge: String(localized: "rebase.squash.error.merge", defaultValue: "A merge lies among or above the selected commits.", bundle: .module)
         case let .invalidPlan(.nothingToFoldInto(commit)): String(localized: "rebase.error.nothingToFoldInto", defaultValue: "\(commit.shortID) has no commit above it to fold into.", bundle: .module)
         case let .invalidPlan(.emptyMessage(commit)): String(localized: "rebase.error.emptyMessage", defaultValue: "The commit from \(commit.shortID) needs a message.", bundle: .module)
         }

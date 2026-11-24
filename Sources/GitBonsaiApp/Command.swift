@@ -174,6 +174,11 @@ extension CommandBlocker {
         case .noCommitSelected: LocalizedStringResource("command.blocker.noCommitSelected", defaultValue: "No Commit selected", bundle: .module)
         case .rootCommit: LocalizedStringResource("command.blocker.rootCommit", defaultValue: "First Commit, no parent", bundle: .module)
         case .noChildren: LocalizedStringResource("command.blocker.noChildren", defaultValue: "No newer Commit on it", bundle: .module)
+        case .tooFewCommits: LocalizedStringResource("command.blocker.tooFewCommits", defaultValue: "Select several Commits", bundle: .module)
+        case .notOnCurrentBranch: LocalizedStringResource("command.blocker.notOnCurrentBranch", defaultValue: "Not on the current Branch", bundle: .module)
+        case .notConsecutive: LocalizedStringResource("command.blocker.notConsecutive", defaultValue: "Not consecutive", bundle: .module)
+        case .containsMerge: LocalizedStringResource("command.blocker.containsMerge", defaultValue: "Contains a merge", bundle: .module)
+        case .mergeAbove: LocalizedStringResource("command.blocker.mergeAbove", defaultValue: "A merge lies above", bundle: .module)
         }
     }
 }

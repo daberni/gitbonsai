@@ -77,6 +77,16 @@ public enum CommandBlocker: Sendable, Equatable {
     case rootCommit
     /// No loaded commit has the selected one as parent.
     case noChildren
+    /// Squashing needs several selected commits.
+    case tooFewCommits
+    /// A selected commit is not on the current branch's first-parent line.
+    case notOnCurrentBranch
+    /// Other commits lie between the selected ones.
+    case notConsecutive
+    /// A selected commit is a merge.
+    case containsMerge
+    /// A merge lies above the selected commits and would be flattened by the replay.
+    case mergeAbove
 }
 
 /// The enabled rules of the repository commands, one function per command family. Nil means the command can run.
@@ -200,5 +210,18 @@ public enum CommandRules {
 
     public static func copyHead(_ state: RepositoryCommandState) -> CommandBlocker? {
         state.headSHA == nil ? .noCommits : nil
+    }
+
+    /// Squashing the selected commits. `line` is HEAD's first-parent line as far as it is loaded, newest first, with each commit's parent count.
+    public static func squash(_ state: RepositoryCommandState, selected: Set<String>, line: [(id: String, parentCount: Int)]) -> CommandBlocker? {
+        if state.branch == nil { return .detachedHead }
+        if let operation = state.operation { return .operationInProgress(operation) }
+        guard selected.count >= 2 else { return .tooFewCommits }
+        let positions = line.indices.filter { selected.contains(line[$0].id) }
+        guard positions.count == selected.count, let first = positions.first, let last = positions.last else { return .notOnCurrentBranch }
+        if last - first + 1 != positions.count { return .notConsecutive }
+        if positions.contains(where: { line[$0].parentCount > 1 }) { return .containsMerge }
+        if line[..<first].contains(where: { $0.parentCount > 1 }) { return .mergeAbove }
+        return line[last].parentCount == 0 ? .rootCommit : nil
     }
 }
