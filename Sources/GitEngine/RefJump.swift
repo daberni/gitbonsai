@@ -19,6 +19,17 @@ public enum RefJump {
             case .stash: 4
             }
         }
+
+        /// Order of the refs after the best match inside a merged row.
+        var groupOrder: Int {
+            switch self {
+            case .localBranch: 0
+            case .remoteBranch: 1
+            case .tag: 2
+            case .worktree: 3
+            case .stash: 4
+            }
+        }
     }
 
     public struct Target: Sendable, Hashable, Identifiable {
@@ -108,6 +119,41 @@ public enum RefJump {
             return a.index < b.index
         }
         return scored.map(\.match)
+    }
+
+    /// Matches that point at the same commit, shown as one row: the best-matching ref first, then local branches, remote branches, tags and worktrees.
+    public struct Group: Sendable, Equatable {
+        public let matches: [Match]
+
+        public var best: Match { matches[0] }
+
+        /// What ⌥⏎ checks out: the best match, unless it is a tag and the group has a branch to check out instead, so the checkout does not detach HEAD needlessly.
+        public var checkoutTarget: Target {
+            guard best.target.kind == .tag else { return best.target }
+            let local = matches.first { if case .localBranch = $0.target.kind { true } else { false } }
+            let remote = matches.first { if case .remoteBranch = $0.target.kind { true } else { false } }
+            return (local ?? remote ?? best).target
+        }
+    }
+
+    /// Groups ranked matches by commit, keeping the ranking: a group stands where its best match stood. Stashes and worktrees without a commit stay alone.
+    public static func group(_ matches: [Match]) -> [Group] {
+        var order: [String] = []
+        var members: [String: [Match]] = [:]
+        for match in matches {
+            let key = match.target.kind == .stash ? nil : match.target.commit
+            let id = key.map { "commit:" + $0 } ?? "target:" + match.target.id
+            if members[id] == nil { order.append(id) }
+            members[id, default: []].append(match)
+        }
+        return order.map { id in
+            let group = members[id]!
+            let rest = group.dropFirst().enumerated().sorted { a, b in
+                let (ka, kb) = (a.element.target.kind.groupOrder, b.element.target.kind.groupOrder)
+                return ka != kb ? ka < kb : a.offset < b.offset
+            }.map(\.element)
+            return Group(matches: [group[0]] + rest)
+        }
     }
 
     private static func match(_ words: [String], _ target: Target) -> (Int, [NSRange])? {

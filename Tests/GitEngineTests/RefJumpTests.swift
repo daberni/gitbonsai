@@ -67,6 +67,45 @@ final class RefJumpTests: XCTestCase {
         XCTAssertEqual(Set(targets.map(\.id)).count, 2)
     }
 
+    private func target(_ kind: RefJump.Kind, _ name: String, _ commit: String?) -> RefJump.Target {
+        RefJump.Target(kind: kind, name: name, commit: commit)
+    }
+
+    private var sameCommit: [RefJump.Target] {
+        [
+            target(.localBranch(isHead: false), "release", "c1"),
+            target(.worktree(path: "/w/release", isCurrent: false), "release-wt", "c1"),
+            target(.remoteBranch(remote: "origin"), "origin/release", "c1"),
+            target(.tag, "v2.0", "c1"),
+            target(.localBranch(isHead: false), "dev", "c2"),
+            target(.worktree(path: "/w/new", isCurrent: false), "new-wt", nil),
+            target(.worktree(path: "/w/new2", isCurrent: false), "new2-wt", nil),
+            target(.stash, "stash@{0}", "c1"),
+        ]
+    }
+
+    func testRefsOfOneCommitShareARowOrderedBestMatchThenKind() {
+        let groups = RefJump.group(RefJump.rank(sameCommit, query: ""))
+        XCTAssertEqual(groups.map { $0.matches.map(\.target.name) }, [["release", "origin/release", "v2.0", "release-wt"], ["dev"], ["new-wt"], ["new2-wt"], ["stash@{0}"]])
+        // Only matching refs join a row; the others follow the best match in kind order and keep their own highlights.
+        let tagFirst = RefJump.group(RefJump.rank(sameCommit, query: "v2"))
+        XCTAssertEqual(tagFirst.map { $0.matches.map(\.target.name) }, [["v2.0"]])
+        let byRemote = RefJump.group(RefJump.rank(sameCommit, query: "rel"))
+        XCTAssertEqual(byRemote.first?.matches.map(\.target.name), ["release", "origin/release", "release-wt"])
+        XCTAssertEqual(byRemote.first?.matches[1].nameRanges.map { ("origin/release" as NSString).substring(with: $0) }, ["rel"])
+    }
+
+    func testCheckoutOfAMergedRowPrefersABranchOverItsTag() {
+        let tagLed = RefJump.Group(matches: [target(.tag, "v2.0", "c1"), target(.worktree(path: "/w", isCurrent: false), "w", "c1"), target(.remoteBranch(remote: "origin"), "origin/release", "c1"), target(.localBranch(isHead: false), "release", "c1")].map { RefJump.Match(target: $0, nameRanges: []) })
+        XCTAssertEqual(tagLed.checkoutTarget.name, "release")
+        let remoteOnly = RefJump.Group(matches: [target(.tag, "v2.0", "c1"), target(.remoteBranch(remote: "origin"), "origin/release", "c1")].map { RefJump.Match(target: $0, nameRanges: []) })
+        XCTAssertEqual(remoteOnly.checkoutTarget.name, "origin/release")
+        let tagOnly = RefJump.Group(matches: [RefJump.Match(target: target(.tag, "v2.0", "c1"), nameRanges: [])])
+        XCTAssertEqual(tagOnly.checkoutTarget.name, "v2.0")
+        let remoteLed = RefJump.group(RefJump.rank(sameCommit, query: "origin"))
+        XCTAssertEqual(remoteLed.first?.checkoutTarget.name, "origin/release")
+    }
+
     func testCheckoutRules() {
         let state = RepositoryCommandState(branch: "main", headSHA: "abc")
         let busy = RepositoryCommandState(branch: "main", headSHA: "abc", operation: .rebase)

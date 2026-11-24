@@ -8,6 +8,10 @@ final class CommandRowView: NSView {
     struct Content {
         let command: Command
         let titleRanges: [NSRange]
+        /// The other refs of a "Go to Ref…" row that point at the same commit, each with its own highlight.
+        var sameCommit: [(ref: RefEntry, ranges: [NSRange])] = []
+        /// What ⌥⏎ checks out in a merged row; nil checks out the command's own ref.
+        var checkout: RefEntry? = nil
     }
 
     var content: Content? { didSet { needsDisplay = true } }
@@ -36,7 +40,7 @@ final class CommandRowView: NSView {
         }
         let textLeft = left + C.glyph + C.glyphGap
         if let ref = command.ref {
-            return drawPill(ref, ranges: content.titleRanges, detail: command.context, x: textLeft, right: right, midY: midY, context: context)
+            return drawPills([(ref, content.titleRanges)] + content.sameCommit, detail: command.context, x: textLeft, right: right, midY: midY, context: context)
         }
         let title = GraphRowView.highlighted(command.title, ranges: content.titleRanges, attributes: [.font: Theme.body, .foregroundColor: ink, .paragraphStyle: RefPickerRowView.truncating])
         let titleWidth = min(title.size().width, right - textLeft)
@@ -48,16 +52,34 @@ final class CommandRowView: NSView {
         RefPickerRowView.draw(text, x: detailLeft, width: right - detailLeft, midY: midY)
     }
 
-    /// A ref of "Go to Ref…": its name in the history's pill, the matched characters highlighted, then the muted context.
-    private func drawPill(_ ref: RefEntry, ranges: [NSRange], detail: String?, x: CGFloat, right: CGFloat, midY: CGFloat, context: CGContext) {
-        let pill = ref.pill
-        let title = GraphRowView.highlighted(pill.name, ranges: ranges, attributes: [.font: pill.isHead ? Theme.Pill.fontStrong : Theme.Pill.font, .foregroundColor: Theme.ink])
-        let chrome = RefPills.chrome(pill)
-        let textWidth = min(ceil(title.size().width), right - x - chrome)
-        guard textWidth > 0 else { return }
-        let rect = CGRect(x: x, y: midY - Theme.Pill.height / 2, width: chrome + textWidth, height: Theme.Pill.height)
-        RefPills.draw(pill, in: rect, textWidth: textWidth, strand: ref.strand, context: context, title: title)
-        let detailLeft = rect.maxX + C.detailGap
+    /// The refs of a "Go to Ref…" row in the history's pills, the matched characters highlighted, then the muted context. Pills that do not fit become a "+n" counter whose tooltip names them.
+    private func drawPills(_ refs: [(ref: RefEntry, ranges: [NSRange])], detail: String?, x: CGFloat, right: CGFloat, midY: CGFloat, context: CGContext) {
+        typealias P = Theme.Pill
+        var left = x
+        var drawn = 0
+        for (index, entry) in refs.enumerated() {
+            let pill = entry.ref.pill
+            let title = GraphRowView.highlighted(pill.name, ranges: entry.ranges, attributes: [.font: pill.isHead ? P.fontStrong : P.font, .foregroundColor: Theme.ink])
+            let chrome = RefPills.chrome(pill)
+            let reserve = index < refs.count - 1 ? P.counterReserve : 0
+            let fullWidth = ceil(title.size().width)
+            let available = right - left - chrome - reserve
+            // Only the first pill may be cut short; a later one either fits whole or goes into the counter.
+            guard index == 0 ? available > P.minimumText : available >= fullWidth else { break }
+            let textWidth = min(fullWidth, available)
+            let rect = CGRect(x: left, y: midY - P.height / 2, width: chrome + textWidth, height: P.height)
+            RefPills.draw(pill, in: rect, textWidth: textWidth, strand: entry.ref.strand, context: context, title: title)
+            left = rect.maxX + P.spacing
+            drawn += 1
+        }
+        let hidden = refs.dropFirst(drawn).map(\.ref.target.name)
+        toolTip = hidden.isEmpty ? nil : hidden.joined(separator: "\n")
+        if !hidden.isEmpty {
+            let text = NSAttributedString(string: "+\(hidden.count)", attributes: [.font: P.font, .foregroundColor: Theme.inkMuted])
+            RefPickerRowView.draw(text, x: left, width: ceil(text.size().width), midY: midY)
+            left += ceil(text.size().width) + P.spacing
+        }
+        let detailLeft = left - P.spacing + C.detailGap
         guard let detail, right > detailLeft else { return }
         let text = NSAttributedString(string: detail, attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted, .paragraphStyle: RefPickerRowView.truncating])
         RefPickerRowView.draw(text, x: detailLeft, width: right - detailLeft, midY: midY)

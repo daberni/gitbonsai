@@ -114,7 +114,11 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         let byID = Dictionary(step.commands.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let targets = step.commands.compactMap(\.ref?.target)
         if !targets.isEmpty {
-            rows = RefJump.rank(targets, query: step.query).compactMap { match in byID[match.target.id].map { CommandRowView.Content(command: $0, titleRanges: match.nameRanges) } }
+            rows = RefJump.group(RefJump.rank(targets, query: step.query)).compactMap { group in
+                guard let command = byID[group.best.target.id] else { return nil }
+                let sameCommit = group.matches.dropFirst().compactMap { match in byID[match.target.id]?.ref.map { (ref: $0, ranges: match.nameRanges) } }
+                return CommandRowView.Content(command: command, titleRanges: group.best.nameRanges, sameCommit: sameCommit, checkout: byID[group.checkoutTarget.id]?.ref)
+            }
         } else {
             let candidates = step.commands.map { CommandRanking.Candidate(id: $0.id, title: $0.title, keywords: $0.keywords + [$0.context].compactMap { $0 }, isEnabled: $0.isEnabled) }
             let recent = steps.count == 1 ? recents.ids : []
@@ -175,7 +179,7 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
 
     /// ⌥⏎ on a ref of "Go to Ref…" checks it out; elsewhere, or where it cannot be checked out, it beeps.
     private func checkout(row: Int) {
-        guard rows.indices.contains(row), let ref = rows[row].command.ref, ref.checkoutBlocked == nil else { return NSSound.beep() }
+        guard rows.indices.contains(row), let ref = rows[row].checkout ?? rows[row].command.ref, ref.checkoutBlocked == nil else { return NSSound.beep() }
         close()
         ref.checkout()
     }
@@ -207,7 +211,11 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
             var line = "\(mark) \(command.title)"
             if let context = command.context { line += " · \(context)" }
             if let reason = command.disabledReason { line += " [disabled: \(reason)]" }
-            if let ref = command.ref { line += ref.checkoutBlocked.map { " [⌥⏎: \($0)]" } ?? " [⌥⏎]" }
+            if !row.sameCommit.isEmpty { line += " + " + row.sameCommit.map(\.ref.target.name).joined(separator: ", ") }
+            if let ref = row.checkout ?? command.ref {
+                let pick = ref.target.id == command.ref?.target.id ? "" : " \(ref.target.name)"
+                line += ref.checkoutBlocked.map { " [⌥⏎\(pick): \($0)]" } ?? " [⌥⏎\(pick)]"
+            }
             if let shortcut = command.shortcut { line += " \(MainMenu.displayedShortcut(of: command.id) ?? shortcut.display)" }
             if !highlighted.isEmpty { line += " {\(highlighted)}" }
             lines.append(line)
