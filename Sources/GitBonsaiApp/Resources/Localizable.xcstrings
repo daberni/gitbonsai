@@ -10476,6 +10476,24 @@
         }
       }
     },
+    "history.status.worktreeRemoved" : {
+      "comment" : "Status line after the shown worktree was removed outside the app: removed folder, folder shown now",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Worktree %1$@ wurde entfernt; angezeigt wird %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Worktree %1$@ was removed; showing %2$@"
+          }
+        }
+      }
+    },
     "history.undo.button" : {
       "comment" : "Status line button that undoes the last local operation.",
       "extractionState" : "extracted_with_value",

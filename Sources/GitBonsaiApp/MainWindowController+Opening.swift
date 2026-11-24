@@ -73,6 +73,7 @@ extension MainWindowController {
             guard let self, let tab, let index = tabs.index(of: tab) else { return }
             showWorktree(at: path, inTab: index)
         }
+        controller.onWorktreeReplaced = { [weak self] in self?.refreshTabBar() }
         return tab
     }
 

@@ -105,8 +105,14 @@ final class GraphViewModel {
     /// The row that stands for where the working tree is: its uncommitted changes if there are any, otherwise HEAD.
     var currentRow: Int? { history.wipRow ?? headSHA.flatMap { rowIndex(of: $0) } }
 
+    /// Shared by every worktree, so git still runs there after the shown worktree was removed.
+    let commonDirectory: String
+    /// The shown worktree was removed outside the app and the tab moved to another one; the path is the new working tree.
+    var onWorktreeReplaced: ((String) -> Void)?
+
     init(location: RepositoryLocation, historyOrder: HistoryOrder = AppSettings.historyOrder) {
         repository = Repository(path: location.root)
+        commonDirectory = location.commonDirectory
         self.historyOrder = historyOrder
         repositoryName = location.name
         observers.observe(AppSettings.didChange) { [weak self] in self?.followHistoryOrder() }
@@ -187,6 +193,18 @@ final class GraphViewModel {
         repository = Repository(path: path, gitPath: repository.runner.gitPath)
         updateBranchesInOtherWorktrees()
         Task { await refresh(note: nil, focus: .current) }
+    }
+
+    /// A worktree removed outside the app, such as by `git worktree remove` in a terminal, fails every git call run in it. The tab then moves to the main worktree before reading, so it never keeps showing, or running git in, a folder that is gone.
+    func replaceRemovedWorktree() async {
+        let shown = repository.path
+        guard let replacement = await Repository.replacementWorktree(for: shown, commonDirectory: commonDirectory, gitPath: repository.runner.gitPath), repository.path == shown else { return }
+        repository = Repository(path: replacement, gitPath: repository.runner.gitPath)
+        updateBranchesInOtherWorktrees()
+        let removed = (shown as NSString).lastPathComponent
+        let shownNow = (replacement as NSString).lastPathComponent
+        setNote(String(localized: "history.status.worktreeRemoved", defaultValue: "Worktree \(removed) was removed; showing \(shownNow)", bundle: .module, comment: "Status line after the shown worktree was removed outside the app: removed folder, folder shown now"))
+        onWorktreeReplaced?(replacement)
     }
 
     /// Runs one fetch variant; the status line names the command and its duration. Returns git's error so the caller can show its message.

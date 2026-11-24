@@ -23,6 +23,7 @@ extension GraphViewModel {
         isLoading = true
         loadTask = Task { [weak self] in
             guard let self else { return }
+            await replaceRemovedWorktree()
             status = try? await repository.status()
             layoutHead = headSHA
             await loadStashes()
@@ -83,6 +84,7 @@ extension GraphViewModel {
         let start = ContinuousClock.now
         inPlaceRefreshes += 1
         defer { inPlaceRefreshes -= 1 }
+        await replaceRemovedWorktree()
         startedRefreshes += 1
         let ticket = startedRefreshes
         let generation = loadGeneration

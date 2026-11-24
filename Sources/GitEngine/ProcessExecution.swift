@@ -75,6 +75,9 @@ final class ProcessExecution: @unchecked Sendable {
     /// `onStderr` sees stderr as it arrives, for progress; stderr is collected for the outcome either way.
     /// Throws `CancellationError` when the task was cancelled or `terminate` ran, whether or not git had started.
     func run(onStdout: @escaping @Sendable (Data) -> Void, onStderr: (@Sendable (Data) -> Void)? = nil) async throws -> ProcessOutcome {
+        // posix_spawn reports a missing working directory only as ENOENT, which reads like a missing git.
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory, isDirectory: &isDirectory), isDirectory.boolValue else { throw MissingWorkingDirectory(path: directory) }
         let start = Date()
         let stderrCollector = DataCollector()
         let status = try await withTaskCancellationHandler {
@@ -249,4 +252,11 @@ final class DataCollector: @unchecked Sendable {
         defer { lock.unlock() }
         return buffer
     }
+}
+
+/// git was asked to run in a folder that does not exist (anymore), such as a worktree removed in a terminal.
+public struct MissingWorkingDirectory: Error, Sendable, LocalizedError {
+    public let path: String
+
+    public var errorDescription: String? { "The folder \(path) no longer exists." }
 }

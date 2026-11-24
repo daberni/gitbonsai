@@ -13,6 +13,8 @@ final class RepositoryViewController: NSObject {
     var onSwitchWorktree: ((String) -> Void)? {
         didSet { checkoutController.onSwitchWorktree = onSwitchWorktree }
     }
+    /// The shown worktree was removed outside the app and the tab moved to the main worktree.
+    var onWorktreeReplaced: (() -> Void)?
     var name: String { viewModel.repositoryName }
     var preferredFirstResponder: NSView { history.tableView }
 
@@ -109,6 +111,11 @@ final class RepositoryViewController: NSObject {
         }, isVisible: { [weak self] in self?.view.window != nil })
         reconciler?.onReconciled = { [weak self] in self?.reconciled() }
         reconciler?.watch(root: location.root, commonDirectory: location.commonDirectory, gitPath: viewModel.repository.runner.gitPath)
+        viewModel.onWorktreeReplaced = { [weak self] path in
+            guard let self else { return }
+            reconciler?.watch(root: path, commonDirectory: commonDirectory, gitPath: viewModel.repository.runner.gitPath)
+            onWorktreeReplaced?()
+        }
     }
 
     /// The tab became the one its window shows.

@@ -38,3 +38,14 @@ extension GitError {
     /// `git worktree remove` refused a worktree with modified or untracked files; `--force` removes it anyway.
     public var isDirtyWorktree: Bool { stderr.contains("contains modified or untracked files") }
 }
+
+extension Repository {
+    /// The worktree to show instead of `path` once its folder is gone, for instance after `git worktree remove` in a terminal: the main worktree, or else the first linked one whose folder still exists. Nil while `path` exists or when no worktree is left.
+    /// git still runs in `commonDirectory`, which every worktree of the repository shares.
+    public static func replacementWorktree(for path: String, commonDirectory: String, gitPath: String = GitRunner.defaultGitPath()) async -> String? {
+        let fileManager = FileManager.default
+        guard !fileManager.fileExists(atPath: path) else { return nil }
+        guard let worktrees = try? await Repository(path: commonDirectory, gitPath: gitPath).worktrees() else { return nil }
+        return worktrees.first { !$0.isBare && !$0.isPrunable && fileManager.fileExists(atPath: $0.path) }?.path
+    }
+}
