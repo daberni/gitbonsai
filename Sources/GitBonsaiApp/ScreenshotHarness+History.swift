@@ -30,7 +30,9 @@ extension ScreenshotHarness {
     static func prepare(_ history: HistoryViewController) {
         let table = history.tableView
         let columns = history.columnsController
-        if let row = environment["GITBONSAI_SELECT_ROW"].flatMap(Int.init), row < table.numberOfRows { history.select(row: row, scroll: true) }
+        let rows = (environment["GITBONSAI_SELECT_ROW"] ?? "").split(separator: ",").compactMap { Int($0) }.filter { $0 < table.numberOfRows }
+        if let first = rows.first { history.select(row: first, scroll: true) }
+        if rows.count > 1 { table.selectRowIndexes(IndexSet(rows), byExtendingSelection: false) }
         if let width = environment["GITBONSAI_GRAPH_WIDTH"].flatMap(Double.init), let graph = columns.columns.layout(in: table.bounds.width).graph {
             columns.resize(.graph, to: graph.lowerBound + CGFloat(width))
         }
@@ -267,7 +269,7 @@ extension ScreenshotHarness {
     // MARK: Commit context menu
 
     /// `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event through the window. AppKit shows that menu on screen above other apps for a moment. While the menu is open its entries go to stderr
-    /// and `GITBONSAI_MENU_SHOT=<png>` captures the menu's window. `GITBONSAI_MENU_PICK=<title>`, or `<title>/<title>` in a submenu, then chooses an entry.
+    /// and `GITBONSAI_MENU_SHOT=<png>` captures the menu's window, `GITBONSAI_MENU_WINDOW_SHOT=<png>` the main window behind it. `GITBONSAI_MENU_PICK=<title>`, or `<title>/<title>` in a submenu, then chooses an entry.
     /// `GITBONSAI_MENU_LIST=<row>` only prints the entries of a row's menu, without opening it on screen, right before the capture; entries that search the repository, such as the detected rebase base, hold the capture until they have their final titles.
     static func openCommitMenu(on tab: RepositoryViewController) {
         if let row = environment["GITBONSAI_MENU_LIST"].flatMap(Int.init), let items = tab.history.menuItems?(row) {
@@ -289,6 +291,7 @@ extension ScreenshotHarness {
                 MainActor.assumeIsolated {
                     FileHandle.standardError.write(Data("menu: \(describe(tracked))\n".utf8))
                     if let shot = environment["GITBONSAI_MENU_SHOT"] { captureMenuWindow(to: shot) }
+                    if let shot = environment["GITBONSAI_MENU_WINDOW_SHOT"] { renderWindow(window, to: shot) }
                     tracked.cancelTracking()
                 }
             }

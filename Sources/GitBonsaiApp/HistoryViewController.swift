@@ -230,8 +230,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        guard tableView.clickedRow >= 0 else { return }
-        menuItems?(tableView.clickedRow).forEach(menu.addItem)
+        guard tableView.menuRow >= 0 else { return }
+        menuItems?(tableView.menuRow).forEach(menu.addItem)
     }
 
     // MARK: Table

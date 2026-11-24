@@ -162,11 +162,19 @@ final class HistoryTableView: NSTableView {
         case none
     }
 
+    /// The row the open context menu belongs to, -1 for none.
+    private(set) var menuRow = -1
+
+    /// The row's menu is handed out here instead of by NSTableView, whose own handling outlines the clicked or selected rows in the system style the custom-drawn rows do not use.
     override func menu(for event: NSEvent) -> NSMenu? {
-        switch labelMenu?(convert(event.locationInWindow, from: nil)) {
-        case .menu(let menu): menu
-        case .none?: nil
-        case nil: super.menu(for: event)
+        let point = convert(event.locationInWindow, from: nil)
+        menuRow = -1
+        switch labelMenu?(point) {
+        case .menu(let menu): return menu
+        case .none?: return nil
+        case nil:
+            menuRow = row(at: point)
+            return menuRow >= 0 ? menu : nil
         }
     }
 
