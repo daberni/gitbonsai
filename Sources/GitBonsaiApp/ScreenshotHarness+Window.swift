@@ -183,6 +183,19 @@ extension ScreenshotHarness {
         FileHandle.standardError.write(Data("[\(since) ms] return refresh \(name) [\(triggers.joined(separator: ","))]: \(outcome) in \(String(format: "%.1f", milliseconds)) ms\n".utf8))
     }
 
+    /// Every harness run prints each diff load: the comparison, the path, the folder git ran in and how it ended.
+    static func traceDiffLoad(_ load: DiffLoadTrace, _ phase: DiffLoadTrace.Phase) {
+        guard isActive else { return }
+        let milliseconds = Int(Date().timeIntervalSince(launch) * 1000)
+        let outcome = switch phase {
+        case .started: "start"
+        case .cancelled: "cancel"
+        case .finished(let result, let duration): "finish, \(result) in \(duration)"
+        case .failed(let message, let duration): "error after \(duration): \(message)"
+        }
+        FileHandle.standardError.write(Data("[\(milliseconds) ms] diff load \(load.source) \(load.path) in \((load.repository as NSString).lastPathComponent): \(outcome)\n".utf8))
+    }
+
     /// Every harness run prints what the file watcher of each tab does: what it watches, each burst it reports and when it stops.
     static func traceWatcher(_ name: String, _ line: String) {
         guard isActive else { return }

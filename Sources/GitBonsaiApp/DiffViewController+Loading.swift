@@ -44,21 +44,56 @@ extension DiffViewController {
         let mode = mode
         let options = style.options
         let loadsLargeImages = loadsLargeImages
+        let trace = DiffLoadTrace(selection: selection, repository: repository.path)
+        trace.record(.started)
         loadTask = Task { [weak self] in
-            let read = try? await Self.read(selection, mode: mode, options: options, loadingLargeImages: loadsLargeImages, from: repository)
-            guard let self, !Task.isCancelled else { return }
-            pending = nil
-            if load.closesWhenGone {
-                // A failed read, such as a lock held for a moment, says nothing about the file; only a diff that is gone closes the view.
-                guard let read else { return }
-                guard read.diff != nil else { onClose?(); return }
+            let start = ContinuousClock.now
+            let outcome: Result<Read, Error>
+            do { outcome = .success(try await Self.read(selection, mode: mode, options: options, loadingLargeImages: loadsLargeImages, from: repository)) } catch { outcome = .failure(error) }
+            guard let self, !Task.isCancelled else {
+                trace.record(.cancelled)
+                return
             }
-            self.selection = selection
-            images = read?.images
-            words = read?.words
-            apply(read?.diff, full: read?.full, encoding: read?.encoding, onlyLeftOut: read?.onlyLeftOut ?? false, scrolling: load.scroll)
+            let duration = start.duration(to: .now)
+            pending = nil
+            switch outcome {
+            case .success(let read):
+                trace.record(.finished(read.diff == nil ? "no changes" : "\(read.diff?.hunks.count ?? 0) hunks", duration))
+                // Only a diff that is gone closes the view.
+                if load.closesWhenGone, read.diff == nil { onClose?(); return }
+                self.selection = selection
+                images = read.images
+                words = read.words
+                apply(read.diff, full: read.full, encoding: read.encoding, onlyLeftOut: read.onlyLeftOut, scrolling: load.scroll)
+            case .failure(let error):
+                let message = Self.failureMessage(error)
+                trace.record(.failed(message, duration))
+                // A reload that fails, such as on a lock held for a moment, says nothing about the file and keeps what is shown.
+                if load.closesWhenGone, self.selection == selection { return }
+                self.selection = selection
+                images = nil
+                words = nil
+                apply(nil, full: nil, encoding: nil, onlyLeftOut: false, scrolling: load.scroll, failure: message)
+            }
             load.ready.forEach { $0() }
         }
+    }
+
+    /// Reads the shown file again after a failed read.
+    func retry() {
+        guard let selection = pending?.selection ?? selection else { return }
+        load(selection, scroll: .keep, closesWhenGone: false)
+    }
+
+    /// git's first line of error output, which names what went wrong, or the error itself when git did not run.
+    private static func failureMessage(_ error: Error) -> String {
+        let gitLine = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init)
+        return gitLine ?? error.localizedDescription
+    }
+
+    private static func failureContent(_ message: String) -> EmptyStateView.Content {
+        let retry = EmptyStateView.Content.Action(title: String(localized: "diff.failed.retry", defaultValue: "Retry", bundle: .module, comment: "Button below a diff that could not be read"), identifier: "diff.retry")
+        return EmptyStateView.Content(title: String(localized: "diff.failed.title", defaultValue: "The diff could not be read", bundle: .module), detail: [message], detailIsCode: true, toolTip: message, action: retry)
     }
 
     private struct Read {
@@ -106,7 +141,7 @@ extension DiffViewController {
         table.reloadData()
     }
 
-    private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, onlyLeftOut: Bool, scrolling: PendingLoad.Scroll) {
+    private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, onlyLeftOut: Bool, scrolling: PendingLoad.Scroll, failure: String? = nil) {
         guard let selection else { return }
         self.diff = diff
         fileLines = full?.hunks.flatMap(\.lines) ?? []
@@ -116,7 +151,7 @@ extension DiffViewController {
         rows += style.notice.map { [.notice($0)] } ?? []
         hunkStarts = []
         let showsImages = applyImages()
-        let empty = showsImages ? nil : onlyLeftOut ? Self.leftOutContent(style.options.whitespace) : Self.emptyContent(for: diff, encoding: encoding)
+        let empty = failure.map(Self.failureContent) ?? (showsImages ? nil : onlyLeftOut ? Self.leftOutContent(style.options.whitespace) : Self.emptyContent(for: diff, encoding: encoding))
         if let empty { emptyState.show(empty) }
         emptyState.isHidden = empty == nil
         scroll.isHidden = empty != nil || showsImages

@@ -6764,6 +6764,41 @@
         }
       }
     },
+    "diff.failed.retry" : {
+      "comment" : "Button below a diff that could not be read",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut versuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "diff.failed.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Diff konnte nicht gelesen werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The diff could not be read"
+          }
+        }
+      }
+    },
     "diff.fileMode" : {
       "comment" : "e.g. File mode 100644 → 100755",
       "extractionState" : "extracted_with_value",

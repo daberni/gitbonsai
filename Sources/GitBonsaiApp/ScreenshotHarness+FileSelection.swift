@@ -6,7 +6,7 @@ import GitEngine
 extension ScreenshotHarness {
     /// `GITBONSAI_FILE_SELECT=<step>;…` drives the file lists with real mouse events through the window, one step every 0.8 seconds, and prints after each step the selected files and what the history pane shows:
     /// `<n>` clicks file row n, `cmd:<n>` and `shift:<n>` click it with ⌘ or ⇧, `menu:<n>` prints the context menu row n opens with each entry's enabled state and reason, `pick:<title>` then chooses an entry,
-    /// `bar:<title>` clicks that button in the bar above stacked diffs, `close` clicks its close button, `shot:<png>` renders the window.
+    /// `bar:<title>` clicks that button in the bar above stacked diffs, `close` clicks its close button, `shot:<png>` renders the window, `outside:<command>` runs a shell command as a terminal would, such as `git worktree remove`.
     static func driveFileSelection(on tab: RepositoryViewController) {
         guard let script = environment["GITBONSAI_FILE_SELECT"] else { return }
         let steps = script.split(separator: ";").map(String.init)
@@ -49,6 +49,8 @@ extension ScreenshotHarness {
                     clickWithFlags(in: window, at: center(tab.stackedDiff.bar.close), flags: [])
                 case "shot":
                     renderWindow(window, to: argument)
+                case "outside":
+                    runOutside(argument)
                 default:
                     selectionLog("unknown file selection step \(step)")
                 }
@@ -62,13 +64,28 @@ extension ScreenshotHarness {
         let selected = tab.detail.selectedFiles.map { "\($0.path) (\($0.source))" }.joined(separator: ", ")
         let pane: String
         switch tab.historyPane.current {
-        case tab.diff.view: pane = "diff of \(tab.diff.selection?.path ?? "nothing")"
+        case tab.diff.view: pane = "diff of \(tab.diff.selection?.path ?? "nothing") (\(tab.diff.harnessState))"
         case tab.stackedDiff.view: pane = "stacked \(tab.stackedDiff.summary)"
         case tab.history.view: pane = "graph"
         default: pane = "other"
         }
         let status = tab.viewModel.status.map { status in "unstaged \(status.unstaged.map(\.path)), staged \(status.staged.map(\.path))" } ?? "no status"
-        selectionLog("after \(step): selected [\(selected)]; pane \(pane); \(status)")
+        let worktrees = tab.viewModel.worktrees.map { ($0.worktree.path as NSString).lastPathComponent }
+        selectionLog("after \(step): selected [\(selected)]; pane \(pane); \(status); tab in \((tab.viewModel.repository.path as NSString).lastPathComponent), worktrees \(worktrees)")
+    }
+
+    /// Waits for the command, so the next step sees what it changed on disk.
+    private static func runOutside(_ command: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        do {
+            try process.run()
+            process.waitUntilExit()
+            selectionLog("outside exited with \(process.terminationStatus): \(command)")
+        } catch {
+            selectionLog("outside failed: \(error)")
+        }
     }
 
     private static func clickWithFlags(in window: NSWindow, at point: CGPoint, flags: NSEvent.ModifierFlags) {

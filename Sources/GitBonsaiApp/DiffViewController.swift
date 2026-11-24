@@ -97,6 +97,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         scroll.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(self, selector: #selector(scrolled(_:)), name: NSView.boundsDidChangeNotification, object: scroll.contentView)
         emptyState.isHidden = true
+        emptyState.onAction = { [weak self] in self?.retry() }
         imageView.isHidden = true
         for subview in [header, scroll, emptyState, imageView] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
@@ -306,3 +307,12 @@ struct NumberPair: Hashable {
         new = line.newNumber
     }
 }
+
+extension DiffViewController {
+    /// What the pane shows, for harness reports: the empty state's title and its action, or how many rows.
+    var harnessState: String {
+        guard emptyState.isHidden else { return "empty: \(emptyState.harnessSummary)" }
+        return "\(rows.count) rows"
+    }
+}
+

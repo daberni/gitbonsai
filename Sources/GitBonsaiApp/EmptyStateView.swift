@@ -10,13 +10,24 @@ final class EmptyStateView: NSView {
         /// Paths, modes and other git values read best in monospace.
         var detailIsCode = false
         var toolTip: String?
+        /// A button below the text, such as Retry after a failed read.
+        var action: Action?
+
+        struct Action: Equatable {
+            var title: String
+            var identifier: String
+        }
     }
+
+    /// Runs when the content's action button is pressed.
+    var onAction: (() -> Void)?
 
     private typealias E = Theme.EmptyState
     private let art = BonsaiArtView()
     private let title = NSTextField(labelWithString: "")
     private let details = NSStackView()
     private let stack = NSStackView()
+    private let actionButton = NSButton(title: "", target: nil, action: nil)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -33,6 +44,11 @@ final class EmptyStateView: NSView {
         stack.spacing = E.titleGap
         stack.addArrangedSubview(title)
         stack.addArrangedSubview(details)
+        actionButton.bezelStyle = .push
+        actionButton.target = self
+        actionButton.action = #selector(performAction)
+        actionButton.isHidden = true
+        stack.addArrangedSubview(actionButton)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         let preferredWidth = stack.widthAnchor.constraint(equalToConstant: E.maximumTextWidth)
@@ -66,6 +82,16 @@ final class EmptyStateView: NSView {
             field.widthAnchor.constraint(lessThanOrEqualTo: details.widthAnchor).isActive = true
         }
         details.isHidden = content.detail.isEmpty
+        actionButton.title = content.action?.title ?? ""
+        actionButton.setAccessibilityIdentifier(content.action?.identifier)
+        actionButton.isHidden = content.action == nil
+    }
+
+    /// The title and, when shown, the action button's title, for harness reports.
+    var harnessSummary: String { actionButton.isHidden ? title.stringValue : "\(title.stringValue) [\(actionButton.title)]" }
+
+    @objc private func performAction() {
+        onAction?()
     }
 
     /// The drawing keeps its proportions: two thirds of the height, unless that would take more than half the width.
