@@ -98,6 +98,8 @@ $(for lproj in "$app"/Contents/Resources/GitBonsai_GitBonsaiApp.bundle/Contents/
 	<string>public.app-category.developer-tools</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© Bernhard Danecker. PolyForm Noncommercial 1.0.0; commercial use needs a license.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>

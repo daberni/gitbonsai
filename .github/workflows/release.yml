@@ -104,8 +104,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
+          LICENSE_NOTE: 'Free for personal and noncommercial use under the PolyForm Noncommercial License 1.0.0. Use for work at or for a company needs a commercial license, see COMMERCIAL.md.'
         run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/dist/* --draft --verify-tag --title "GitBonsai $GITHUB_REF_NAME" --generate-notes --notes "$SIGNING_NOTE"
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/dist/* --draft --verify-tag --title "GitBonsai $GITHUB_REF_NAME" --generate-notes --notes "$SIGNING_NOTE"$'\n\n'"$LICENSE_NOTE"
 
       - name: Remove signing keychain
         if: always() && steps.signing.outputs.keychain != ''

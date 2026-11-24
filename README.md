@@ -7,6 +7,12 @@ A native macOS Git client that shapes your history the way a bonsai is shaped: p
 
 See [docs/feature-overview.md](docs/feature-overview.md) for scope, [docs/architecture.md](docs/architecture.md) for the engine design, and [docs/screens.md](docs/screens.md) and [docs/flows.md](docs/flows.md) for the UI.
 
+## License
+
+GitBonsai is free for personal and other noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE). Use for work at or for a company needs a commercial license; see [COMMERCIAL.md](COMMERCIAL.md).
+
+GitBonsai uses the `git` installed on your Mac as an external program; it does not bundle git or any other third-party code.
+
 ## Build and run
 
 ```bash

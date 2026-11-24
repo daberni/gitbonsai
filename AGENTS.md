@@ -30,6 +30,7 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
 
 - Build with `swift build`; test with `swift test`. Both must pass before a commit. The build stays free of compiler warnings, in debug and release (`swift build -c release`); a change fixes the warnings it introduces.
 - Keep `GitEngine` and `GraphLayout` free of AppKit/SwiftUI imports.
+- A new third-party dependency or bundled binary lands only after a check that its license allows distribution under PolyForm Noncommercial and under the separately sold commercial license.
 - Run every `git` with `GIT_TERMINAL_PROMPT=0`, `-c core.quotepath=off`, `-c color.ui=never`; reads additionally with `GIT_OPTIONAL_LOCKS=0`.
 - Parsers get a fixture test for every format they consume, including: unicode paths, renames, submodules, conflicts, detached HEAD, octopus merges, empty repo.
 - Performance budgets are tests (`swift test --filter Performance`): first 300 commits laid out in < 100 ms; 100k commits laid out in < 2 s on Apple Silicon.
