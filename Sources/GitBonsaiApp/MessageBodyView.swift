@@ -30,14 +30,23 @@ final class MessageBodyView: NSScrollView {
 
     required init?(coder: NSCoder) { nil }
 
-    /// The text wraps at the panel's width, so its height is known only once the width is.
+    /// The text wraps at the panel's width, so its height is known only once the width is. The height is decided from the view's own width alone: measuring at the current content width would let a legacy scroller that appears or hides change the wrap, then the height, then the scroller again, a layout loop AppKit ends with an exception.
     override func layout() {
         super.layout()
-        text.frame.size.width = contentSize.width
-        guard let manager = text.layoutManager, let container = text.textContainer else { return }
-        manager.ensureLayout(for: container)
-        let fitting = min(ceil(manager.usedRect(for: container).height), Theme.MessageEditor.bodyMaximumHeight)
+        let fullWidth = bounds.width
+        let fullHeight = measuredHeight(width: fullWidth)
+        let fitting = min(fullHeight, Theme.MessageEditor.bodyMaximumHeight)
+        if fullHeight > fitting, scrollerStyle == .legacy {
+            text.frame.size.width = fullWidth - NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+        }
         if height.constant != fitting { height.constant = fitting }
+    }
+
+    private func measuredHeight(width: CGFloat) -> CGFloat {
+        text.frame.size.width = width
+        guard let manager = text.layoutManager, let container = text.textContainer else { return 0 }
+        manager.ensureLayout(for: container)
+        return ceil(manager.usedRect(for: container).height)
     }
 
     var string: String { text.string }

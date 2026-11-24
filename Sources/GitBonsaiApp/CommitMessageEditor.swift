@@ -161,13 +161,22 @@ final class CommitMessageEditor: NSView, NSTextViewDelegate {
         fitBody()
     }
 
+    /// Measured at the width without a scroller, like `MessageBodyView`, so an autohiding legacy scroller cannot flip the wrap and the height back and forth.
     private func fitBody() {
-        body.frame.size.width = bodyScroll.contentSize.width
-        guard let manager = body.layoutManager, let container = body.textContainer else { return }
-        manager.ensureLayout(for: container)
-        let text = manager.usedRect(for: container).height + 2 * body.textContainerInset.height + 2 * Theme.Control.focusWidth
-        let height = min(max(M.bodyMinimumHeight, ceil(text)), M.bodyMaximumHeight)
+        let fullWidth = NSScrollView.contentSize(forFrameSize: bodyScroll.frame.size, horizontalScrollerClass: nil, verticalScrollerClass: nil, borderType: bodyScroll.borderType, controlSize: .regular, scrollerStyle: bodyScroll.scrollerStyle).width
+        let fullText = measuredBodyHeight(width: fullWidth)
+        let height = min(max(M.bodyMinimumHeight, fullText), M.bodyMaximumHeight)
+        if fullText > height, bodyScroll.scrollerStyle == .legacy {
+            body.frame.size.width = fullWidth - NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+        }
         if bodyHeight.constant != height { bodyHeight.constant = height }
+    }
+
+    private func measuredBodyHeight(width: CGFloat) -> CGFloat {
+        body.frame.size.width = width
+        guard let manager = body.layoutManager, let container = body.textContainer else { return 0 }
+        manager.ensureLayout(for: container)
+        return ceil(manager.usedRect(for: container).height + 2 * body.textContainerInset.height + 2 * Theme.Control.focusWidth)
     }
 
     // MARK: Events
