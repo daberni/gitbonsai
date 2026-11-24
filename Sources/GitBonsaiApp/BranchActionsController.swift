@@ -35,7 +35,7 @@ final class BranchActionsController {
         let worktree = viewModel.branchesInOtherWorktrees[ref.fullName]
         let worktreeName = worktree.map { ($0.path as NSString).lastPathComponent }
         var sections = MenuSections()
-        sections.integrate = fastForward.item(to: .ref(ref)).map { [$0] } ?? []
+        sections.integrate = [fastForward.item(to: .ref(ref)), fastForward.toHeadItem(for: ref)].compactMap { $0 }
         if !ref.isHead {
             let title: LocalizedStringResource = worktreeName.map { folder -> LocalizedStringResource in LocalizedStringResource("worktree.action.switchTo", defaultValue: "Switch to Worktree \(RefName.worktree(folder))", bundle: .module) } ?? LocalizedStringResource("checkout.action.branch", defaultValue: "Checkout \(RefName.branch(name))", bundle: .module)
             sections.goThere.append(ActionMenuItem(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })

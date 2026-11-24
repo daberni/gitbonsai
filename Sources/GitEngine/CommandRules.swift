@@ -176,6 +176,14 @@ public enum CommandRules {
         return reachableFromTarget.contains(branchHead) ? nil : .notFastForward
     }
 
+    /// Fast-forwarding another local branch to HEAD is offered only for a branch that is not HEAD's and is a strict ancestor of HEAD.
+    public static func fastForwardToHead(branch: String, currentBranch: String?, branchHead: String, head: String?, reachableFromHead: Set<String>) -> CommandBlocker? {
+        guard let currentBranch else { return .detachedHead }
+        guard let head else { return .noCommits }
+        if branch == currentBranch { return .upToDate }
+        return fastForward(branchHead: branchHead, target: head, reachableFromTarget: reachableFromHead)
+    }
+
     public static func rebaseInteractive(_ state: RepositoryCommandState) -> CommandBlocker? {
         if state.branch == nil { return .detachedHead }
         if let operation = state.operation { return .operationInProgress(operation) }

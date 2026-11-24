@@ -32,6 +32,14 @@ final class FastForwardController {
         return ActionMenuItem(title) { [weak self] in self?.fastForward(to: target) }
     }
 
+    /// "Fast-Forward old to main" for another local branch that HEAD's history contains: the one move of a branch that is not checked out here, always to HEAD.
+    func toHeadItem(for ref: Ref) -> NSMenuItem? {
+        guard ref.kind == .localBranch, !ref.isHead, let current = viewModel.currentBranch, let head = viewModel.headSHA else { return nil }
+        guard CommandRules.fastForwardToHead(branch: ref.name, currentBranch: current, branchHead: ref.target, head: head, reachableFromHead: reachable(from: head)) == nil else { return nil }
+        let title = LocalizedStringResource("branch.menu.fastForwardToHead", defaultValue: "Fast-Forward \(RefName.branch(ref.name)) to \(RefName.branch(current))", bundle: .module)
+        return ActionMenuItem(title) { [weak self] in self?.fastForwardToHead(ref.name, current: current) }
+    }
+
     /// Whether the checked-out branch is a strict ancestor of `sha`; merging or rebasing onto it would only fast-forward then.
     func canFastForwardCurrent(to sha: String) -> Bool {
         guard viewModel.currentBranch != nil, let head = viewModel.headSHA else { return false }
@@ -74,11 +82,37 @@ final class FastForwardController {
                 let reason: LocalizedStringResource? = switch error {
                 case .notFastForward: LocalizedStringResource("branch.fastForward.diverged", defaultValue: "\(RefName.branch(branch)) has commits that \(targetName.marked) does not have. Merge or rebase instead.", bundle: .module)
                 case .upToDate: LocalizedStringResource("branch.fastForward.upToDate", defaultValue: "\(RefName.branch(branch)) already contains \(targetName.marked).", bundle: .module)
-                case .detachedHead: nil
+                case .detachedHead, .isCurrentBranch: nil
                 }
                 prompter.report(error, title: Self.failure(branch), summary: reason)
             } catch {
                 await viewModel.refresh(note: nil, focus: .followHead)
+                prompter.report(error, title: Self.failure(branch))
+            }
+        }
+    }
+
+    /// A branch checked out nowhere can be put back from the status line; one checked out in another worktree is not, because Undo would move its ref without its files.
+    func fastForwardToHead(_ branch: String, current: String) {
+        let repository = viewModel.repository
+        let inWorktree = viewModel.branchesInOtherWorktrees["refs/heads/\(branch)"] != nil
+        let current = RefString(marked: RefName.branch(current))
+        Task {
+            do {
+                let (result, _) = try await viewModel.recordingUndo(inWorktree ? nil : .branch(branch), operation: "git fetch . HEAD:refs/heads/\(branch)") { try await repository.fastForwardBranchToHead(branch) }
+                let summary = RefString(LocalizedStringResource("branch.fastForward.done", defaultValue: "Fast-forwarded \(RefName.branch(branch)) by \(result.commits) commits to \(current.marked)", bundle: .module))
+                await viewModel.refresh(note: summary.plain + " · " + result.commandLine, focus: .keepSelection)
+                onToast?(summary)
+            } catch let error as FastForwardError {
+                await viewModel.refresh(note: nil, focus: .keepSelection)
+                let reason: LocalizedStringResource? = switch error {
+                case .notFastForward: LocalizedStringResource("branch.fastForward.diverged", defaultValue: "\(RefName.branch(branch)) has commits that \(current.marked) does not have. Merge or rebase instead.", bundle: .module)
+                case .upToDate: LocalizedStringResource("branch.fastForward.upToDate", defaultValue: "\(RefName.branch(branch)) already contains \(current.marked).", bundle: .module)
+                case .detachedHead, .isCurrentBranch: nil
+                }
+                prompter.report(error, title: Self.failure(branch), summary: reason)
+            } catch {
+                await viewModel.refresh(note: nil, focus: .keepSelection)
                 prompter.report(error, title: Self.failure(branch))
             }
         }

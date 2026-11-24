@@ -107,6 +107,16 @@ final class CommandRulesTests: XCTestCase {
         XCTAssertEqual(CommandRules.fastForward(state), .detachedHead)
     }
 
+    func testFastForwardToHeadOnlyForAnotherBranchBehindHead() {
+        // a ← b ← c (HEAD on main), d forked from a.
+        let reachableFromHead: Set<String> = ["c", "b", "a"]
+        XCTAssertNil(CommandRules.fastForwardToHead(branch: "old", currentBranch: "main", branchHead: "a", head: "c", reachableFromHead: reachableFromHead))
+        XCTAssertEqual(CommandRules.fastForwardToHead(branch: "main", currentBranch: "main", branchHead: "c", head: "c", reachableFromHead: reachableFromHead), .upToDate)
+        XCTAssertEqual(CommandRules.fastForwardToHead(branch: "same", currentBranch: "main", branchHead: "c", head: "c", reachableFromHead: reachableFromHead), .upToDate)
+        XCTAssertEqual(CommandRules.fastForwardToHead(branch: "forked", currentBranch: "main", branchHead: "d", head: "c", reachableFromHead: reachableFromHead), .notFastForward)
+        XCTAssertEqual(CommandRules.fastForwardToHead(branch: "old", currentBranch: nil, branchHead: "a", head: "c", reachableFromHead: reachableFromHead), .detachedHead)
+    }
+
     func testFirstPushNeedsNoUpstreamButARemoteAndACommit() {
         var state = clean
         state.upstream = nil
