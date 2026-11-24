@@ -38,7 +38,7 @@ extension CheckoutTarget {
 
 extension GraphViewModel {
     /// Runs `body` and, when it moved HEAD or a ref of `scope`, offers to undo it; nil runs it without.
-    func recordingUndo<T>(_ scope: UndoScope?, operation: String, _ body: () async throws -> T) async throws -> T {
+    func withUndoPoint<T>(scope: UndoScope?, operation: String, _ body: () async throws -> T) async throws -> T {
         guard let scope else { return try await body() }
         let repository = repository
         let point = await repository.undoPoint(watching: scope.refs, headRestore: scope.headRestore)
@@ -59,14 +59,14 @@ final class UndoController {
 
     let button = NSButton(title: String(localized: "history.undo.button", defaultValue: "Undo", bundle: .module, comment: "Status line button that undoes the last local operation."), target: nil, action: nil)
     private let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
+    private let runner: ActionRunner
     private var pending: Pending?
     /// Each update starts a new check; only the latest one may change the button.
     private var generation = 0
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        runner = context.runner
         button.bezelStyle = .accessoryBarAction
         button.controlSize = .small
         button.font = Theme.caption
@@ -117,7 +117,6 @@ final class UndoController {
         self.pending = nil
         viewModel.undoOffer = nil
         show()
-        let runner = ActionRunner(viewModel: viewModel, prompter: prompter)
         let failure = LocalizedStringResource("failure.undo.failed", defaultValue: "Not undone", bundle: .module)
         switch pending {
         case .point(let offer):

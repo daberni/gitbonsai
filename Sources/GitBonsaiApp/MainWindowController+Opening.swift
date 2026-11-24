@@ -11,12 +11,14 @@ extension MainWindowController {
         let active = folders.isEmpty ? (arguments.isEmpty ? store.activeTab : 0) : paths.count - 1
         Task {
             let failed = await open(paths, activate: active)
+            // harness: the harness drives this from outside through Accessibility and real events.
             if tabs.isEmpty || ScreenshotHarness.wantsNewTab { newTab() }
             if ScreenshotHarness.wantsClone { cloneRepository() }
             if let welcome = tabs.active?.welcome { ScreenshotHarness.clickCloneIfAsked(on: welcome) }
             // The window appears once, with all tabs, their final names and the saved tab active.
             showWindow(nil)
             // The capture renders the views itself, so the window can stay behind everything else.
+            // harness: the harness launches the app hidden; window order stays the app's own.
             if ScreenshotHarness.runsInBackground { window?.orderBack(nil) }
             reportNotARepository(failed.filter { arguments.contains($0) || folders.contains($0) })
             didFinishInitialOpen = true
@@ -62,7 +64,8 @@ extension MainWindowController {
     }
 
     private func makeTab(for location: RepositoryLocation) -> WindowTab {
-        let controller = RepositoryViewController(location: location)
+        let model = GraphViewModel(location: location, settings: context.settings)
+        let controller = RepositoryViewController(context: RepositoryContext(app: context, model: model, commandBar: commandBar))
         controller.panelWidths = panelWidths
         let tab = WindowTab(repository: controller)
         controller.onLoaded = { [weak self, weak tab] in

@@ -18,6 +18,8 @@ final class RepositoryViewController: NSObject {
     var name: String { viewModel.repositoryName }
     var preferredFirstResponder: NSView { history.tableView }
 
+    /// What the tab's controllers share; created by the window for this tab.
+    let context: RepositoryContext
     let viewModel: GraphViewModel
     let history: HistoryViewController
     let checkoutController: CheckoutController
@@ -56,8 +58,8 @@ final class RepositoryViewController: NSObject {
     /// The detail panel's content while several commits are selected.
     var comparison: ComparisonDetail?
     let toolbar = RepositoryToolbar()
-    let sidebar = SidebarView()
-    let detail = DetailView()
+    let sidebar: SidebarView
+    let detail: DetailView
     var inlineReword: InlineRewordController!
     let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
@@ -65,79 +67,69 @@ final class RepositoryViewController: NSObject {
     private var shownReadRevision: Int?
     /// The working directory panel was shown afresh during the reconcile under way, so its end need not read it again.
     private var workingDirectoryShownDuringReconcile = false
-    private var autoFetch: AutoFetchScheduler?
-    private var reconciler: TabReconciler?
-    private let commonDirectory: String
     var selectsHeadAfterLoad = false
-    let toast = Toast()
-    /// Questions and reports that arrived while the tab was in the background, waiting for it to be shown.
-    private var shownWaiters: [CheckedContinuation<NSWindow?, Never>] = []
-    private var isClosed = false
+    var toast: Toast { context.toast }
 
-    init(location: RepositoryLocation) {
-        viewModel = GraphViewModel(location: location)
-        commonDirectory = location.commonDirectory
-        history = HistoryViewController(viewModel: viewModel)
-        checkoutController = CheckoutController(viewModel: viewModel)
-        commitActions = CommitActionsController(viewModel: viewModel)
-        fetchController = FetchController(viewModel: viewModel, prompter: commitActions.prompter)
-        pullPush = PullPushController(viewModel: viewModel, prompter: commitActions.prompter)
-        branchPull = BranchPullController(viewModel: viewModel, pullPush: pullPush)
-        fastForward = FastForwardController(viewModel: viewModel, prompter: commitActions.prompter)
-        operationBanner = OperationBannerController(viewModel: viewModel, prompter: commitActions.prompter)
-        undo = UndoController(viewModel: viewModel, prompter: commitActions.prompter)
-        staging = StagingController(viewModel: viewModel)
-        fileActions = FileActionsController(viewModel: viewModel, staging: staging)
-        commitController = CommitController(viewModel: viewModel)
-        tagsController = TagsController(viewModel: viewModel)
-        stashesController = StashesController(viewModel: viewModel)
+    /// Builds the tab's parts and controllers, each with the context and, where it reads them, the tab's state, and starts loading.
+    init(context: RepositoryContext) {
+        self.context = context
+        viewModel = context.model
+        sidebar = SidebarView(sessions: context.app.sessions)
+        detail = DetailView(avatars: context.app.avatars, pasteboard: context.app.pasteboard)
+        history = HistoryViewController(context: context)
+        checkoutController = CheckoutController(context: context)
+        commitActions = CommitActionsController(context: context)
+        fetchController = FetchController(context: context)
+        pullPush = PullPushController(context: context)
+        branchPull = BranchPullController(context: context, pullPush: pullPush)
+        fastForward = FastForwardController(context: context)
+        operationBanner = OperationBannerController(context: context)
+        undo = UndoController(context: context)
+        staging = StagingController(context: context)
+        fileActions = FileActionsController(context: context, staging: staging)
+        commitController = CommitController(context: context)
+        tagsController = TagsController(context: context)
+        stashesController = StashesController(context: context)
         let model = viewModel
-        diff = DiffViewController(staging: staging, repository: { model.repository })
-        stackedDiff = StackedDiffController(staging: staging, repository: { model.repository })
+        let preferences = DiffPreferences(defaults: context.app.persistence.defaults)
+        diff = DiffViewController(staging: staging, repository: { model.repository }, preferences: preferences, trace: context.app.trace)
+        stackedDiff = StackedDiffController(staging: staging, repository: { model.repository }, preferences: preferences, trace: context.app.trace)
         super.init()
-        conflicts = ConflictViewController(repository: { model.repository }, sides: { [weak self] in self?.conflictSides() ?? ConflictSides(ours: "HEAD", theirs: "MERGE_HEAD") }, refresh: { await model.refresh(note: nil) }, prompter: commitActions.prompter)
+        context.lifecycle.view = view
+        conflicts = ConflictViewController(context: context) { [weak self] in self?.conflictSides() ?? ConflictSides(ours: "HEAD", theirs: "MERGE_HEAD") }
         let rebase = commitActions.interactiveRebase
-        inlineReword = InlineRewordController(viewModel: viewModel, prompter: commitActions.prompter, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
+        inlineReword = InlineRewordController(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutController
-        sidebarActions = SidebarActionsController(viewModel: viewModel, branchPull: branchPull, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
-        historyMenu = HistoryMenuController(viewModel: viewModel, checkout: checkoutController, commitActions: commitActions, branches: sidebarActions.branches, tags: tagsController, fastForward: fastForward, stashes: stashesController)
+        sidebarActions = SidebarActionsController(context: context, branchPull: branchPull, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
+        historyMenu = HistoryMenuController(context: context, checkout: checkoutController, commitActions: commitActions, branches: sidebarActions.branches, tags: tagsController, fastForward: fastForward, stashes: stashesController)
         wire()
         layout()
         bind()
         viewModel.load()
-        autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes, background: true) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak self] in self?.view.window != nil })
-        reconciler = TabReconciler(name: viewModel.repositoryName, refresh: { [weak self] in
+        startKeepingCurrent()
+    }
+
+    /// File watching, reconciling and automatic fetches; the lifecycle owns them and stops them when the tab closes.
+    private func startKeepingCurrent() {
+        let lifecycle = context.lifecycle
+        let autoFetch = AutoFetchScheduler(fetch: { [weak self] in await self?.viewModel.fetch(.allRemotes, background: true) }, lastFetch: { [weak self] in self?.viewModel.lastFetch }, situation: { [weak self] in await self?.autoFetchSituation() ?? .init(hasRemote: false, operationInProgress: false, fetchRunning: false) }, isVisible: { [weak lifecycle] in lifecycle?.isVisible ?? false }, settings: context.settings)
+        let reconciler = TabReconciler(name: viewModel.repositoryName, refresh: { [weak self] in
             self?.workingDirectoryShownDuringReconcile = false
             return await self?.viewModel.reconcile() ?? .loading
-        }, isVisible: { [weak self] in self?.view.window != nil })
-        reconciler?.onReconciled = { [weak self] in self?.reconciled() }
-        reconciler?.watch(root: location.root, commonDirectory: location.commonDirectory, gitPath: viewModel.repository.runner.gitPath)
+        }, isVisible: { [weak lifecycle] in lifecycle?.isVisible ?? false })
+        reconciler.onReconciled = { [weak self] in self?.reconciled() }
+        lifecycle.start(autoFetch: autoFetch, reconciler: reconciler)
+        lifecycle.watch(root: viewModel.repository.path)
         viewModel.onWorktreeReplaced = { [weak self] path in
             guard let self else { return }
-            reconciler?.watch(root: path, commonDirectory: commonDirectory, gitPath: viewModel.repository.runner.gitPath)
+            context.lifecycle.watch(root: path)
             onWorktreeReplaced?()
         }
     }
 
     /// The tab became the one its window shows.
     func becameVisible() {
-        reconciler?.request(.visible)
-        autoFetch?.becameVisible()
-        resumeShownWaiters(with: view.window)
-    }
-
-    /// The tab's window, at once while it is shown, otherwise once the tab is shown again; nil when the tab closes first.
-    func windowWhenShown() async -> NSWindow? {
-        if let window = view.window { return window }
-        // A closed tab is never shown again, so a waiter added now would never resume.
-        if isClosed { return nil }
-        return await withCheckedContinuation { shownWaiters.append($0) }
-    }
-
-    private func resumeShownWaiters(with window: NSWindow?) {
-        let waiters = shownWaiters
-        shownWaiters = []
-        for waiter in waiters { waiter.resume(returning: window) }
+        context.lifecycle.becameVisible()
     }
 
     /// An open diff stays while its file still has changes there and, for a commit, while the commit is still in the history. A comparison of two revisions never changes, so it is not read again.
@@ -153,7 +145,7 @@ final class RepositoryViewController: NSObject {
         // Editing an already changed file keeps its status line, so the working directory's line counts are read again, unless a changed status just did.
         if !workingDirectoryShownDuringReconcile { refreshWorkingDirectoryCounts() }
         workingDirectoryShownDuringReconcile = false
-        AvatarStore.shared.remotesMayHaveChanged(in: viewModel.repository)
+        context.app.avatars.remotesMayHaveChanged(in: viewModel.repository)
     }
 
     /// A remote counts once it is configured, before anything was fetched from it.
@@ -177,17 +169,14 @@ final class RepositoryViewController: NSObject {
         return AutoFetchPolicy.Situation(hasRemote: hasRemote, operationInProgress: operation != nil, fetchRunning: viewModel.remoteActivity.running != nil)
     }
 
-    /// The tab closed or its window did: file events stop.
+    /// The tab closed or its window did: nothing of it runs any more.
     func closed() {
-        isClosed = true
-        resumeShownWaiters(with: nil)
-        reconciler?.stopWatching()
-        viewModel.close()
+        context.lifecycle.close()
     }
 
     func switchWorktree(to path: String) {
         viewModel.switchWorktree(to: path)
-        reconciler?.watch(root: path, commonDirectory: commonDirectory, gitPath: viewModel.repository.runner.gitPath)
+        context.lifecycle.watch(root: path)
     }
 
     // MARK: Binding
@@ -247,13 +236,13 @@ final class RepositoryViewController: NSObject {
     private func reportLoadedOnce() {
         guard !didReportLoaded, !viewModel.isLoading else { return }
         didReportLoaded = true
-        // A one-time action of the harness reloads the tab; the capture waits for the next full load.
+        // harness: one-time actions and refresh steps are driven from outside through Accessibility once the history's rows appear; the capture waits for the next full load.
         if ScreenshotHarness.driveLoadedTab(self) {
             didReportLoaded = false
             return
         }
-        autoFetch?.loaded()
-        reconciler?.loaded()
+        context.lifecycle.loaded()
+        // harness: replaced by the harness switching apps and touching files from outside, then reading the trace from the unified log.
         ScreenshotHarness.runReturnRefreshSteps(on: self)
         onLoaded?()
     }

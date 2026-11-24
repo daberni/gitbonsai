@@ -18,7 +18,7 @@ extension MainWindowController: CommandProvider {
                     Command(id: "tab.\(index)", title: .verbatim(title), glyph: .symbol("square"), scope: .app, context: index == active ? String(localized: "window.tabs.active", defaultValue: "Active", bundle: .module, comment: "Marks the current tab in the command bar's tab list.") : nil) { self?.showTab(at: index) }
                 }
             }),
-            Command(.settings) { SettingsWindowController.shared.show() },
+            Command(.settings) { [weak self] in self?.openSettings(nil) },
         ]
     }
 
@@ -31,7 +31,7 @@ extension MainWindowController: CommandProvider {
 
     func showCommandBar(_ sender: Any?) {
         guard let window else { return }
-        CommandBarController.shared.toggle(in: window, commands: allCommands())
+        commandBar.toggle(in: window, commands: allCommands())
     }
 
     /// A main-menu item whose `representedObject` is a command id runs that command of the active tab; one that takes an argument opens the command bar at its second list.
@@ -41,10 +41,10 @@ extension MainWindowController: CommandProvider {
         guard command.isEnabled else { return NSSound.beep() }
         switch command.action {
         case .run(let perform):
-            if CommandBarController.shared.isOpen { CommandBarController.shared.close() }
+            if commandBar.isOpen { commandBar.close() }
             perform()
         case .choose:
-            CommandBarController.shared.open(in: window, commands: commands, step: command)
+            commandBar.open(in: window, commands: commands, step: command)
         }
     }
 }

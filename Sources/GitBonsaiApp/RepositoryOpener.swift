@@ -31,6 +31,7 @@ struct RepositoryOpener {
     }
 
     func reportNotARepository(_ path: String, on window: NSWindow) {
+        // harness: the harness reads and dismisses the alert through Accessibility.
         guard ScreenshotHarness.outputPath == nil else { return }
         let alert = NSAlert()
         alert.messageText = String(localized: "repository.open.notRepositoryTitle", defaultValue: "Not a Git Repository", bundle: .module)

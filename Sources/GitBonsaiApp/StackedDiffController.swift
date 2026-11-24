@@ -20,9 +20,14 @@ final class StackedDiffController {
     private let stack = NSStackView()
     private let countState = EmptyStateView()
 
-    init(staging: StagingController, repository: @escaping () -> Repository) {
+    private let preferences: DiffPreferences
+    private let trace: TraceSink
+
+    init(staging: StagingController, repository: @escaping () -> Repository, preferences: DiffPreferences, trace: TraceSink) {
         self.staging = staging
         self.repository = repository
+        self.preferences = preferences
+        self.trace = trace
         bar.onClose = { [weak self] in self?.onClose?() }
         bar.onAction = { [weak self] action in self?.run(action) }
         layout()
@@ -86,7 +91,7 @@ final class StackedDiffController {
         }
         var waiting = selections.count
         for file in selections {
-            let part = DiffViewController(staging: staging, repository: repository, embedded: true)
+            let part = DiffViewController(staging: staging, repository: repository, preferences: preferences, trace: trace, embedded: true)
             part.onClose = { [weak self, weak part] in
                 guard let self, let part else { return }
                 remove(part)

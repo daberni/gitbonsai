@@ -22,13 +22,13 @@ final class CheckoutController: NSObject {
 
     /// A worktree was chosen instead of a checkout.
     var onSwitchWorktree: ((String) -> Void)?
-    /// The window that questions and errors are shown on.
-    var window: (() -> NSWindow?)?
-
     let viewModel: GraphViewModel
+    /// Gives the window that questions and errors are shown on.
+    private let prompter: any Prompting
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
     }
 
     /// What a double click or the context menu offers on a history row: its branches first, the bare commit last.
@@ -115,8 +115,9 @@ final class CheckoutController: NSObject {
         if !offer.isCurrent { alert.addButton(withTitle: String(localized: "checkout.diverged.justCheckout", defaultValue: "Just Checkout", bundle: .module)) }
         alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = true
+        // harness: the harness clicks the chosen button through Accessibility.
         if ScreenshotHarness.isActive { return ScreenshotHarness.answerReset(alert) }
-        guard let window = window?() else { return .cancel }
+        guard let window = prompter.window else { return .cancel }
         alert.applyRefText()
         return await withCheckedContinuation { continuation in
             alert.beginSheetModal(for: window) { continuation.resume(returning: $0) }
@@ -156,7 +157,8 @@ final class CheckoutController: NSObject {
     }
 
     private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
-        guard ScreenshotHarness.outputPath == nil, let window = window?() else {
+        // harness: the harness reads the alert through Accessibility; the app always shows it.
+        guard ScreenshotHarness.outputPath == nil, let window = prompter.window else {
             FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
             return
         }

@@ -71,6 +71,7 @@ final class WindowFrameKeeper {
         let entersFullScreen = entersFullScreenWhenShown
         zoomsWhenShown = false
         entersFullScreenWhenShown = false
+        // harness: the harness launches the app hidden and reads the window's zoom and full screen state through Accessibility.
         if ScreenshotHarness.runsInBackground {
             if zooms { FileHandle.standardError.write(Data("window would zoom\n".utf8)) }
             if entersFullScreen { FileHandle.standardError.write(Data("window would enter full screen\n".utf8)) }

@@ -29,6 +29,16 @@ final class SidebarView: NSView {
     var outline = SidebarOutline()
     /// The repository whose collapsed sections `outline` holds; another one restores its own.
     private var outlinePath: String?
+    /// Remembers which groups are open, per repository.
+    private let sessions: SessionStore
+
+    init(sessions: SessionStore) {
+        self.sessions = sessions
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
     var hovered: Int?
     private lazy var pointer: ListHover = {
         let hover = ListHover(view: self)
@@ -78,7 +88,7 @@ final class SidebarView: NSView {
         let path = model.repository.path
         if path != outlinePath {
             outlinePath = path
-            outline = SidebarOutline(state: SessionStore.standard().sidebarState(for: path) ?? OutlineState())
+            outline = SidebarOutline(state: sessions.sidebarState(for: path) ?? OutlineState())
         }
         items = outline.items(from: model, remotes: remotes)
         layoutItems()
@@ -93,7 +103,7 @@ final class SidebarView: NSView {
     }
 
     func saveOutline() {
-        if let outlinePath { SessionStore.standard().saveSidebarState(outline.state, for: outlinePath) }
+        if let outlinePath { sessions.saveSidebarState(outline.state, for: outlinePath) }
     }
 
     private func layoutItems() {

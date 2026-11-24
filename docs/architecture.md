@@ -33,6 +33,25 @@ Rules for SwiftUI surfaces:
 
 Never mix the two inside one surface beyond a hosted view; a SwiftUI view per commit or per list row in the main window is ruled out.
 
+### 1.2 Contexts
+
+Three contexts: `AppContext` exists once per launch, `RepositoryContext` once per open repository tab, and `ActionContext` is what one action runs in.
+
+Dependencies are passed by initializer, never looked up: there is no shared instance, service locator or global mutable service state. Static constants and pure helpers are fine.
+
+| Created by | Service | Passed to |
+|---|---|---|
+| `main.swift` (composition root) | `AppContext`: `Persistence` (the defaults domain), `AppSettings`, `Pasteboard`, `AvatarStore` (cache folder and network transport), `TraceSink` (`os.Logger`), `SessionStore`, `RepositoryDiscoveryStore` | `AppDelegate` |
+| `AppDelegate` | `SettingsWindowController` (on first use) | `MainWindowController` gets a closure that opens it |
+| `MainWindowController` | `CommandBarController`, `CloneController`, `WelcomeView`; per repository tab its `GraphViewModel` and one `RepositoryContext` around it | `RepositoryViewController(context:)` |
+| `RepositoryContext` | the tab's `GraphViewModel` (`model`), `TabLifecycle`, `Toast`, one `Prompting` implementation (`ActionPrompter`), one `ActionRunner`; the current `Repository` | every controller of the tab, by `init(context:)` |
+
+- `Prompting` is the tab's one way to ask and tell: forms, confirmations, save locations, failure reports, toasts and the way to the conflicts. A question of a tab in the background waits until the tab is shown again.
+- The context carries the tab's state, the view model, beside its services. `ActionRunner` still sees only `ActionContext`, what one action runs in: the repository, an undo point (`withUndoPoint(scope:operation:_:)`) and the refresh. `GraphViewModel` provides it.
+- `ActionRunner` runs one git write, refreshes the tab and reports a failure; it offers to stash and retry when local changes block a command, and `performOrForce` asks before overriding a refusal git allows to override (an unmerged branch, a worktree with changes).
+- `TabLifecycle` owns visibility and the end of a tab: it holds the file watcher's `TabReconciler` and the `AutoFetchScheduler`, and `close()` stops both, the view model's loading and observers, and answers every waiting question with no window.
+- Production code reaches `ScreenshotHarness` only at call sites marked `// harness:`, each saying what the out-of-process harness will do instead.
+
 ## 2. GitRunner
 
 `GitRunner` is an actor per repository path. Each worktree gets its own runner, because `git -C <worktree>` decides the working tree.

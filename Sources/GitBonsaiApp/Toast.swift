@@ -56,6 +56,7 @@ final class Toast {
             }
         }
         view.isHidden = false
+        // harness: the harness reads the toast through Accessibility.
         if ScreenshotHarness.isActive { ScreenshotHarness.toastShown(view, text: text) }
         fade(to: 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + (action == nil ? Theme.Toast.duration : Theme.Toast.actionDuration)) { [weak self] in

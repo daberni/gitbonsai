@@ -4,9 +4,12 @@ import GitEngine
 /// The one app window: the tab row in the title bar, and below it the content of the active tab.
 /// It coordinates the tab list, the repository opener and the title bar row, and answers the window's menu actions.
 final class MainWindowController: NSWindowController, NSWindowDelegate {
-    let store: SessionStore
+    let context: AppContext
+    var store: SessionStore { context.sessions }
+    let openSettings: (SettingsWindowController.Section?) -> Void
+    let commandBar: CommandBarController
     let opener = RepositoryOpener()
-    private let cloner = CloneController()
+    private let cloner: CloneController
     private let content = TabContentView()
     private let root: FillView
     private let titlebar: TitlebarTabRow
@@ -20,8 +23,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private var tabBar: TabBarView { titlebar.tabBar }
 
-    init(store: SessionStore) {
-        self.store = store
+    init(context: AppContext, openSettings: @escaping (SettingsWindowController.Section?) -> Void) {
+        self.context = context
+        self.openSettings = openSettings
+        commandBar = CommandBarController(persistence: context.persistence)
+        cloner = CloneController(settings: context.settings, pasteboard: context.pasteboard)
+        let store = context.sessions
+        // harness: the harness stores the window layout in its defaults domain before launch.
         ScreenshotHarness.prepareLayout(store)
         let saved = store.panelWidths
         panelWidths = saved.map { PanelWidths(sidebar: $0.sidebar, detail: $0.detail) } ?? PanelWidths()
@@ -71,7 +79,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         // A clone below a repository folder belongs in the suggestions at once, not only after the next scan.
         cloner.onCloned = { [weak self] path in
             self?.open(paths: [path], activate: 0)
-            RepositoryDiscoveryStore.shared.refresh()
+            self?.context.discovery.refresh()
         }
         cloner.onClose = { [weak self] in self?.captureIfRequested() }
     }
@@ -122,14 +130,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             activate(existing)
             return
         }
-        let welcome = WelcomeView()
+        let welcome = WelcomeView(settings: context.settings, discovery: context.discovery)
         welcome.onOpenPath = { [weak self] path, background in
             if background { self?.openInBackground(path) } else { self?.open(paths: [path], activate: 0) }
         }
         welcome.onChooseFolder = { [weak self] in self?.chooseFolder() }
         welcome.onClone = { [weak self] in self?.cloneRepository() }
-        welcome.onOpenSettings = { SettingsWindowController.shared.show(.general) }
+        welcome.onOpenSettings = { [weak self] in self?.openSettings(.general) }
         let tab = WindowTab(welcome: welcome)
+        // harness: the harness waits for the empty tab's list through Accessibility.
         ScreenshotHarness.waitForDiscovery(tab) { [weak self] in self?.captureIfRequested() }
         activate(tabs.append(tab))
     }
@@ -141,6 +150,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func cloneRepository() {
         guard let window else { return }
         cloner.show(on: window)
+        // harness: the harness drives this from outside through Accessibility and real events.
         ScreenshotHarness.driveClone(cloner)
     }
 
@@ -220,6 +230,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: Screenshot harness
 
     func captureIfRequested() {
+        // harness: the harness waits for the window's Accessibility state, drives it from outside and captures with ScreenCaptureKit.
         guard !didCapture, didFinishInitialOpen, let window, ScreenshotHarness.outputPath != nil, tabs.active?.isLoaded == true, !ScreenshotHarness.holdsCapture(for: cloner) else { return }
         guard ScreenshotHarness.driveTabRow(tabBar, in: window, tabs: { [unowned self] in tabs }) else { return }
         didCapture = true

@@ -15,8 +15,11 @@ final class HistoryMenuController {
     private let fastForward: FastForwardController
     private let stashes: StashesController
 
-    init(viewModel: GraphViewModel, checkout: CheckoutController, commitActions: CommitActionsController, branches: BranchActionsController, tags: TagsController, fastForward: FastForwardController, stashes: StashesController) {
-        self.viewModel = viewModel
+    private let pasteboard: Pasteboard
+
+    init(context: RepositoryContext, checkout: CheckoutController, commitActions: CommitActionsController, branches: BranchActionsController, tags: TagsController, fastForward: FastForwardController, stashes: StashesController) {
+        viewModel = context.model
+        pasteboard = context.app.pasteboard
         self.checkout = checkout
         self.commitActions = commitActions
         self.branches = branches
@@ -77,7 +80,7 @@ final class HistoryMenuController {
             // HEAD is the commit itself; the commit section has everything it offers.
             return MenuSections()
         case .other(let name):
-            return MenuSections(copy: [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { ActionRunner.copy(name) }])
+            return MenuSections(copy: [ActionMenuItem(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }])
         }
     }
 
@@ -112,7 +115,7 @@ final class HistoryMenuController {
     private func stashMenu(_ id: String) -> [NSMenuItem] {
         var items = stashes.menuItems(for: id)
         let removeGroup = items.lastIndex { $0.isSeparatorItem } ?? items.endIndex
-        items.insert(contentsOf: [.separator(), RefMenus.copySHAItem(id)], at: removeGroup)
+        items.insert(contentsOf: [.separator(), RefMenus.copySHAItem(id, to: pasteboard)], at: removeGroup)
         return items
     }
 
@@ -151,7 +154,7 @@ enum RefMenus {
     }
 
     /// "Copy <SHA>", copying the full SHA.
-    @MainActor static func copySHAItem(_ sha: String) -> NSMenuItem {
-        ActionMenuItem(LocalizedStringResource("commit.menu.copySHA", defaultValue: "Copy \(RefName.commit(sha))", bundle: .module)) { ActionRunner.copy(sha) }
+    @MainActor static func copySHAItem(_ sha: String, to pasteboard: Pasteboard) -> NSMenuItem {
+        ActionMenuItem(LocalizedStringResource("commit.menu.copySHA", defaultValue: "Copy \(RefName.commit(sha))", bundle: .module)) { pasteboard.copy(sha) }
     }
 }

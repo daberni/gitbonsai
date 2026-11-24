@@ -44,14 +44,14 @@ extension ScreenshotHarness {
     // MARK: Empty tab
 
     /// `GITBONSAI_REPOSITORY_FOLDERS=<folder>:<folder>` stores the repository folders in the harness defaults before anything reads them; an empty value stores an empty list.
-    static func applyRepositoryFolders() {
+    static func applyRepositoryFolders(_ settings: AppSettings) {
         guard isActive, let value = environment["GITBONSAI_REPOSITORY_FOLDERS"] else { return }
-        AppSettings.repositoryFolders = value.split(separator: ":").map(String.init)
+        settings.repositoryFolders = value.split(separator: ":").map(String.init)
     }
 
     /// The empty tab counts as loaded once the first scan finished, so the capture shows found repositories and not only the cache.
     static func waitForDiscovery(_ tab: WindowTab, then capture: @escaping @MainActor () -> Void) {
-        let discovery = RepositoryDiscoveryStore.shared
+        let discovery = app.discovery
         guard isActive, !discovery.hasScanned else { return }
         tab.isLoaded = false
         discovery.whenScanned {

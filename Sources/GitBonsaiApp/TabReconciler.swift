@@ -55,6 +55,7 @@ final class TabReconciler {
             }
             watcher.start()
             self.watcher = watcher
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceWatcher(name, "watching \(scope.watchedPaths.joined(separator: ", "))")
         }
     }
@@ -65,12 +66,23 @@ final class TabReconciler {
         guard let watcher else { return }
         watcher.stop()
         self.watcher = nil
+        // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
         ScreenshotHarness.traceWatcher(name, "stopped")
+    }
+
+    /// The tab closed: no watching, no reconciling, no following the app's activation any more.
+    func stop() {
+        stopWatching()
+        isLoaded = false
+        triggers = []
+        observer.map(NotificationCenter.default.removeObserver)
+        observer = nil
     }
 
     /// A hidden tab only notes the change; becoming visible reconciles it.
     private func filesChanged(_ burst: RepositoryWatcher.Burst) {
         let visible = isVisible()
+        // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
         ScreenshotHarness.traceWatcher(name, "\(burst.events) events from \(burst.firstPath)\(visible ? "" : ", hidden: waits until shown")")
         if visible { request(.files) }
     }
@@ -100,11 +112,13 @@ final class TabReconciler {
         let start = ContinuousClock.now
         // A tab that went into the background meanwhile reconciles when it comes back.
         guard isVisible() else {
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceReturnRefresh(name, triggers: gathered.map(\.rawValue), outcome: "skipped, hidden", duration: start.duration(to: .now))
             if coalescer.finish() { schedule() }
             return
         }
         let outcome = await refresh()
+        // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
         ScreenshotHarness.traceReturnRefresh(name, triggers: gathered.map(\.rawValue), outcome: "\(outcome)", duration: start.duration(to: .now))
         if outcome == .done { onReconciled?() }
         let again = coalescer.finish()

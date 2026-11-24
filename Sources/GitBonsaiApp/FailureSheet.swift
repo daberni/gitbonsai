@@ -30,12 +30,12 @@ final class FailureSheet {
     private var choices: [ObjectIdentifier: Int?] = [:]
     private var chosen: Int?
 
-    init(title: RefString, summary: RefString, details: String?, actions: [FailureAction]) {
+    init(title: RefString, summary: RefString, details: String?, actions: [FailureAction], pasteboard: Pasteboard) {
         self.title = title
         self.summary = summary
         self.actions = actions
         let contentWidth = M.width - 2 * M.padding
-        self.details = details.map { FailureDetailsView(details: $0, width: contentWidth) }
+        self.details = details.map { FailureDetailsView(details: $0, width: contentWidth, pasteboard: pasteboard) }
         window = SheetWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: M.width, height: M.width)), styleMask: [.titled, .docModalWindow], backing: .buffered, defer: false)
         window.title = title.plain
         window.contentView = layout(contentWidth: contentWidth)

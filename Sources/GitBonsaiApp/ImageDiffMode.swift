@@ -21,18 +21,7 @@ enum ImageDiffMode: String, CaseIterable {
         includingText ? allCases : allCases.filter { $0 != .text }
     }
 
-    private static let key = "imageDiffMode"
-
-    /// Harness runs start side by side unless `GITBONSAI_IMAGE_MODE` names a mode.
-    @MainActor static var remembered: ImageDiffMode {
-        get {
-            if ScreenshotHarness.isActive { return ProcessInfo.processInfo.environment["GITBONSAI_IMAGE_MODE"].flatMap(ImageDiffMode.init) ?? .sideBySide }
-            return defaults.string(forKey: key).flatMap(ImageDiffMode.init) ?? .sideBySide
-        }
-        set { defaults.set(newValue.rawValue, forKey: key) }
-    }
-
-    @MainActor private static var defaults: UserDefaults { ScreenshotHarness.defaults }
+    static let key = "imageDiffMode"
 }
 
 /// Which files are shown as images, by extension.

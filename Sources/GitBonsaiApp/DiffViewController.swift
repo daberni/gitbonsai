@@ -1,5 +1,6 @@
 import AppKit
 import GitEngine
+import os
 
 /// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged, and unstaged or untracked hunks discarded.
 /// The "Whole file" mode shows the whole file with the changes in place instead; hunks are staged in the "Diff" mode only.
@@ -33,7 +34,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     let imageView = ImageDiffView()
     /// Both sides of a changed image, or nil for any other file.
     var images: ImageDiffContent?
-    var imageMode = ImageDiffMode.remembered
+    var imageMode: ImageDiffMode
     /// Images over the automatic limit load once asked for, for the file shown.
     var loadsLargeImages = false
     let column = NSTableColumn(identifier: .init("diff"))
@@ -43,8 +44,13 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     var words: FileDiff?
     /// The hunks whose lines are shown.
     var shown: FileDiff? { words ?? diff }
-    var mode = DiffMode.remembered
-    var style = DiffLineStyle(options: DiffOptions.remembered)
+    var mode: DiffMode
+    var style: DiffLineStyle
+    /// Where the mode and options chosen here are remembered for the next file and launch.
+    let preferences: DiffPreferences
+    /// The unified log's category `diff`, where every read is traced.
+    let log: Logger
+    let trace: TraceSink
     /// Every line of the file, read only in the "Whole file" mode.
     var fileLines: [DiffLine] = []
     /// The rows hunk navigation stops at: hunk headers, or in the "Whole file" mode the line each hunk starts with.
@@ -54,9 +60,15 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     /// The read under way and what it does once it is in.
     var pending: PendingLoad?
 
-    init(staging: StagingController, repository: @escaping () -> Repository, embedded: Bool = false) {
+    init(staging: StagingController, repository: @escaping () -> Repository, preferences: DiffPreferences, trace: TraceSink, embedded: Bool = false) {
         self.staging = staging
         self.repository = repository
+        self.preferences = preferences
+        self.trace = trace
+        log = trace.logger("diff")
+        imageMode = preferences.imageMode
+        mode = preferences.mode
+        style = DiffLineStyle(options: preferences.options)
         isEmbedded = embedded
         scroll = embedded ? NestedScrollView() : NSScrollView()
         super.init()

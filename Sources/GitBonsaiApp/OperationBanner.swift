@@ -7,7 +7,7 @@ import GitEngine
 final class OperationBannerController {
     let view = OperationBannerView()
     private let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
+    private let prompter: any Prompting
     private(set) var progress: OperationProgress?
     /// Each update starts a new read; only the latest one may change the banner.
     private var generation = 0
@@ -16,14 +16,12 @@ final class OperationBannerController {
     var onAmend: (() -> Void)?
     /// The banner shows another state; the commit form follows whether git waits at an edit stop.
     var onStateChange: (() -> Void)?
-    /// Says what continuing or skipping left out, in a toast.
-    var onToast: ((RefString) -> Void)?
     /// The operation is over, finished or aborted, however it got there; the tab selects HEAD and leaves the conflict state behind.
     var onEnded: (() -> Void)?
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
         view.isHidden = true
         view.onContinue = { [weak self] in self?.perform(.continue) }
         view.onSkip = { [weak self] in self?.perform(.skip) }
@@ -147,13 +145,13 @@ final class OperationBannerController {
                 isRunning = false
                 // Continuing a step that the resolution left empty skips it; the toast says so.
                 await viewModel.refresh(note: report?.skippedEmptyStep == true ? "git \(kind.command) --skip" : command, focus: .followHead)
-                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
+                if let toast = GitFailureText.toast(for: report) { prompter.toast(toast) }
             } catch {
                 isRunning = false
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil, focus: .followHead)
-                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
-                await prompter.report(error, title: LocalizedStringResource("failure.operation.failed", defaultValue: "\(command) failed", bundle: .module), unlessStoppedIn: repository)
+                if let toast = GitFailureText.toast(for: report) { prompter.toast(toast) }
+                await prompter.reportUnlessStopped(error, title: LocalizedStringResource("failure.operation.failed", defaultValue: "\(command) failed", bundle: .module), actions: [], in: repository)
             }
             update()
         }

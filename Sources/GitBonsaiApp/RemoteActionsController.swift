@@ -4,13 +4,17 @@ import GitEngine
 /// Adding a remote from the sidebar's "Add Remote…" and the menu of a remote's header: edit its name and URL, or remove it.
 @MainActor
 final class RemoteActionsController {
-    private let runner: SidebarActionRunner
-    private var repository: Repository { runner.viewModel.repository }
+    private let runner: ActionRunner
+    private let prompter: any Prompting
+    private let viewModel: GraphViewModel
+    private var repository: Repository { viewModel.repository }
     /// The sheet while it is open, for the harness.
     private(set) var sheet: RemoteSheet?
 
-    init(runner: SidebarActionRunner) {
-        self.runner = runner
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        runner = context.runner
+        prompter = context.prompter
     }
 
     func menuGroups(for remote: String) -> [[NSMenuItem]] {
@@ -22,7 +26,7 @@ final class RemoteActionsController {
     }
 
     func showAdd() {
-        guard sheet == nil, let parent = runner.prompter.window?() else { return }
+        guard sheet == nil, let parent = prompter.window else { return }
         Task {
             let existing = Set((try? await repository.remotes()) ?? [])
             let sheet = RemoteSheet(mode: .add, repository: repository, existing: existing)
@@ -31,14 +35,14 @@ final class RemoteActionsController {
             self.sheet = nil
             guard let request else { return }
             let failure = LocalizedStringResource("failure.remote.notAdded", defaultValue: "Remote not added", bundle: .module)
-            guard await runner.run(failure: failure, note: "git remote add", { try await $0.addRemote(request.name, url: request.url) }) == nil, request.fetch else { return }
+            guard await runner.perform(failure: failure, note: "git remote add", { try await $0.addRemote(request.name, url: request.url) }) == nil, request.fetch else { return }
             let fetch = FetchVariant.remote(request.name, prune: false)
-            await runner.run(failure: LocalizedStringResource("failure.fetch.failed", defaultValue: "Fetch failed", bundle: .module), note: fetch.commandLine) { try await $0.fetch(fetch) }
+            await runner.perform(failure: LocalizedStringResource("failure.fetch.failed", defaultValue: "Fetch failed", bundle: .module), note: fetch.commandLine) { try await $0.fetch(fetch) }
         }
     }
 
     func showEdit(_ remote: String) {
-        guard sheet == nil, let parent = runner.prompter.window?() else { return }
+        guard sheet == nil, let parent = prompter.window else { return }
         Task {
             let urls = try? await repository.remoteURLs()
             let url = urls?.remotes.first { $0.name == remote }?.url ?? ""
@@ -50,10 +54,10 @@ final class RemoteActionsController {
             guard let request else { return }
             let failure = LocalizedStringResource("failure.remote.notChanged", defaultValue: "Remote not changed", bundle: .module)
             if request.name != remote {
-                guard await runner.run(failure: failure, note: "git remote rename", { try await $0.renameRemote(remote, to: request.name) }) == nil else { return }
+                guard await runner.perform(failure: failure, note: "git remote rename", { try await $0.renameRemote(remote, to: request.name) }) == nil else { return }
             }
             if request.url != url {
-                await runner.run(failure: failure, note: "git remote set-url") { try await $0.setRemoteURL(request.name, url: request.url) }
+                await runner.perform(failure: failure, note: "git remote set-url") { try await $0.setRemoteURL(request.name, url: request.url) }
             }
         }
     }
@@ -61,7 +65,7 @@ final class RemoteActionsController {
     func remove(_ remote: String) {
         Task {
             guard await runner.confirm(LocalizedStringResource("sidebar.remote.remove.title", defaultValue: "Remove Remote?", bundle: .module), names: RefString(marked: RefName.remote(remote)), button: LocalizedStringResource("sidebar.remote.remove.confirm", defaultValue: "Remove", bundle: .module, comment: "Button that removes the remote."), destructive: true, style: .warning) else { return }
-            await runner.run(failure: LocalizedStringResource("failure.remote.notRemoved", defaultValue: "Remote not removed", bundle: .module), note: "git remote remove") { try await $0.removeRemote(remote) }
+            await runner.perform(failure: LocalizedStringResource("failure.remote.notRemoved", defaultValue: "Remote not removed", bundle: .module), note: "git remote remove") { try await $0.removeRemote(remote) }
         }
     }
 }

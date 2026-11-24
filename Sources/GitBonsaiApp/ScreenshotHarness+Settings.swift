@@ -17,7 +17,7 @@ extension ScreenshotHarness {
 
     static func openSettingsIfAsked() {
         guard isActive, let section = settingsSection else { return }
-        let settings = SettingsWindowController.shared
+        let settings = settingsWindow()
         settings.show(section)
         if runsInBackground { hideWindows() }
         guard let window = settings.window else { return }
@@ -30,7 +30,7 @@ extension ScreenshotHarness {
     /// The main window is not captured while the settings or About window is.
     static func capturesSettingsInstead(of window: NSWindow) -> Bool {
         if capturesAbout { return window !== aboutPanel }
-        return settingsSection != nil && window !== SettingsWindowController.shared.window
+        return settingsSection != nil && window !== settingsWindow().window
     }
 
     /// `GITBONSAI_SETTINGS_SCRIPT=<step>;…`, half a second per step, then the capture: `click:<label or identifier>`, `action:<element>=<action name>`, `scroll:<points>`, `type:<text>`, `key:return|tab|escape`, `print`, `shot:<png>`, `wait:<seconds>`.
@@ -86,7 +86,7 @@ extension ScreenshotHarness {
             if let (characters, code) = keys[argument] { sendKey(characters, code: code, in: window) }
             print("settings: key \(argument), first responder \(window.firstResponder.map { "\(type(of: $0))" } ?? "none")")
         case "print":
-            print("settings: \(SettingsWindowController.shared.selectedSection.rawValue), window \(Int(window.frame.width))×\(Int(window.frame.height))")
+            print("settings: \(settingsWindow().selectedSection.rawValue), window \(Int(window.frame.width))×\(Int(window.frame.height))")
             settingsElements(in: window).forEach { print("  " + describe($0)) }
         case "shot":
             if let view = window.contentView?.superview, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {

@@ -18,8 +18,11 @@ final class FailureDetailsView: NSView {
     /// The sheet fits itself again, so it grows or shrinks with the details.
     var onToggle: (() -> Void)?
 
-    init(details: String, width: CGFloat) {
+    private let pasteboard: Pasteboard
+
+    init(details: String, width: CGFloat, pasteboard: Pasteboard) {
         self.details = details
+        self.pasteboard = pasteboard
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         disclosure.imagePosition = .imageLeading
@@ -117,7 +120,7 @@ final class FailureDetailsView: NSView {
     @objc private func toggle(_ sender: Any?) { isExpanded.toggle() }
 
     @objc private func copy(_ sender: Any?) {
-        ActionRunner.copy(details)
+        pasteboard.copy(details)
         setCopyTitle(String(localized: "common.copied", defaultValue: "Copied", bundle: .module, comment: "Shown briefly after git's output was copied."))
         DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Detail.copiedFeedback) { [weak self] in self?.setCopyTitle(Self.copyTitle) }
     }

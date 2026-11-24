@@ -5,15 +5,19 @@ import Avatars
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_AVATARS=off|remote|gravatar` stores the avatar setting in the harness defaults at launch.
-    static func applyAvatarSwitches() {
-        guard isActive, let value = environment["GITBONSAI_AVATARS"] else { return }
+    static func applyAvatarSwitches(_ settings: AppSettings) {
+        guard isActive else { return }
+        guard let value = environment["GITBONSAI_AVATARS"] else {
+            if !settings.hasStoredAvatarMode { settings.avatarMode = .initialsOnly }
+            return
+        }
         switch value {
         case "remote":
-            AppSettings.avatarMode = .remoteHost
+            settings.avatarMode = .remoteHost
         case "gravatar":
-            AppSettings.avatarMode = .remoteHostAndGravatar
+            settings.avatarMode = .remoteHostAndGravatar
         default:
-            AppSettings.avatarMode = .initialsOnly
+            settings.avatarMode = .initialsOnly
         }
     }
 

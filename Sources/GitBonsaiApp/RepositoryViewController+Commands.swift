@@ -81,25 +81,26 @@ extension RepositoryViewController: CommandProvider {
     func openCommands() -> [Command] {
         let folder = URL(fileURLWithPath: repositoryPath, isDirectory: true)
         let name = (repositoryPath as NSString).lastPathComponent
-        let terminal = ExternalApps.terminal()
-        let editor = ExternalApps.editor(forRepository: repositoryPath)
+        let settings = context.settings
+        let terminal = ExternalApps.terminal(settings: settings)
+        let editor = ExternalApps.editor(forRepository: repositoryPath, settings: settings)
         return [
             Command(.openTerminal, keywords: [terminal?.app.name].compactMap { $0 }, context: terminal.map { "\(name) · \($0.app.name)" }, disabledReason: terminal == nil ? LocalizedStringResource("command.openTerminal.notFound", defaultValue: "No terminal found", bundle: .module) : nil) {
-                ExternalApps.openInTerminal(folder)
+                ExternalApps.openInTerminal(folder, settings: settings)
             },
-            Self.chooseApp(.chooseTerminal, kind: .terminal, folder: folder, context: name, preferred: terminal),
+            Self.chooseApp(.chooseTerminal, kind: .terminal, folder: folder, context: name, preferred: terminal, settings: settings),
             Command(.openEditor, keywords: [editor?.app.name].compactMap { $0 }, context: editor.map { "\(name) · \($0.app.name)" }, disabledReason: editor == nil ? LocalizedStringResource("command.openEditor.notFound", defaultValue: "No editor found", bundle: .module) : nil) {
                 guard let editor else { return }
                 ExternalApps.open(folder, in: editor.app, at: editor.url)
             },
-            Self.chooseApp(.chooseEditor, kind: .editor, folder: folder, context: name, preferred: editor),
+            Self.chooseApp(.chooseEditor, kind: .editor, folder: folder, context: name, preferred: editor, settings: settings),
             Command(.revealInFinder, context: name) { ExternalApps.reveal([folder]) },
         ]
     }
 
     /// "Open in editor with…" and "Open in terminal with…": the apps checked in the settings, the default marked.
-    static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?) -> Command {
-        let shown = ExternalApps.shown(kind)
+    static func chooseApp(_ spec: CommandSpec, kind: ExternalApps.Kind, folder: URL, context: String, preferred: ExternalApps.Choice?, settings: AppSettings) -> Command {
+        let shown = ExternalApps.shown(kind, settings: settings)
         let none: LocalizedStringResource = kind == .editor ? LocalizedStringResource("command.openEditor.notFound", defaultValue: "No editor found", bundle: .module) : LocalizedStringResource("command.openTerminal.notFound", defaultValue: "No terminal found", bundle: .module)
         let placeholder: LocalizedStringResource = kind == .editor ? LocalizedStringResource("command.chooseEditor.searchPlaceholder", defaultValue: "Search editors", bundle: .module) : LocalizedStringResource("command.chooseTerminal.searchPlaceholder", defaultValue: "Search terminals", bundle: .module)
         return Command(spec, keywords: shown.map(\.app.name), context: context, disabledReason: shown.isEmpty ? none : nil, action: .choose(placeholder: placeholder) {
@@ -112,12 +113,13 @@ extension RepositoryViewController: CommandProvider {
     }
 
     func copyCommands(_ state: RepositoryCommandState) -> [Command] {
-        [
+        let pasteboard = context.app.pasteboard
+        return [
             Command(.copyBranch, context: state.branch, blocker: CommandRules.copyBranchName(state)) {
-                if let branch = state.branch { ActionRunner.copy(branch) }
+                if let branch = state.branch { pasteboard.copy(branch) }
             },
             Command(.copyHead, context: state.headSHA.map { String($0.prefix(RefString.shortSHA)) }, blocker: CommandRules.copyHead(state)) {
-                if let sha = state.headSHA { ActionRunner.copy(sha) }
+                if let sha = state.headSHA { pasteboard.copy(sha) }
             },
         ]
     }

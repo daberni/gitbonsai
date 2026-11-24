@@ -6,7 +6,6 @@ import GitEngine
 final class RepositoryDiscoveryStore {
     /// Posted after a scan changed the result.
     static let didChange = Notification.Name("RepositoryDiscoveryStore.didChange")
-    static let shared = RepositoryDiscoveryStore()
 
     /// One scanned folder and what lies in it.
     struct Folder: Codable, Equatable {
@@ -22,11 +21,14 @@ final class RepositoryDiscoveryStore {
     private var scannedFolders: [String] = []
     private var scanWaiters: [@MainActor () -> Void] = []
 
-    private init() {
-        folders = loadCache().filter { AppSettings.repositoryFolders.contains($0.path) }
+    private let settings: AppSettings
+
+    init(settings: AppSettings) {
+        self.settings = settings
+        folders = loadCache().filter { settings.repositoryFolders.contains($0.path) }
         NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, AppSettings.repositoryFolders != self.scannedFolders else { return }
+                guard let self, self.settings.repositoryFolders != self.scannedFolders else { return }
                 self.refresh()
             }
         }
@@ -38,7 +40,7 @@ final class RepositoryDiscoveryStore {
             scanAgain = true
             return
         }
-        let paths = AppSettings.repositoryFolders
+        let paths = settings.repositoryFolders
         scannedFolders = paths
         let depth = RepositoryDiscovery.defaultDepth
         scan = Task { [weak self] in
@@ -67,6 +69,7 @@ final class RepositoryDiscoveryStore {
         let changed = result != folders || !hasScanned
         folders = result
         hasScanned = true
+        // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
         ScreenshotHarness.traceDiscovery(result, duration: duration)
         if changed {
             saveCache()
@@ -86,6 +89,7 @@ final class RepositoryDiscoveryStore {
     /// Harness runs keep their own cache, like their own defaults, so they never show or replace the user's.
     private var cacheURL: URL? {
         guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        // harness: the throwaway user's own caches folder keeps the harness's cache apart.
         let name = ScreenshotHarness.isActive ? "repositories-harness.json" : "repositories.json"
         return caches.appendingPathComponent("app.gitbonsai", isDirectory: true).appendingPathComponent(name)
     }

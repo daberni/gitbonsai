@@ -5,15 +5,14 @@ import GitEngine
 /// Checkouts stay with `CheckoutController`; `HistoryMenuController` puts the sections together.
 @MainActor
 final class CommitActionsController {
-    let prompter = ActionPrompter()
+    private let prompter: any Prompting
+    private let pasteboard: Pasteboard
     let interactiveRebase: InteractiveRebaseController
     let squash: SquashController
     private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
         self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, undo: .head, operation)
     }
     private let viewModel: GraphViewModel
-    /// Says what a rebase or cherry-pick left out, in a toast.
-    var onToast: ((RefString) -> Void)?
     /// Opens the New Branch sheet starting at a commit.
     var onNewBranch: ((Commit) -> Void)?
     /// A rebase started here finished without stopping; the tab selects HEAD and leaves any open diff.
@@ -21,10 +20,12 @@ final class CommitActionsController {
         didSet { interactiveRebase.onEnded = onRebaseEnded }
     }
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
-        interactiveRebase = InteractiveRebaseController(viewModel: viewModel, prompter: prompter)
-        squash = SquashController(viewModel: viewModel, prompter: prompter, interactiveRebase: interactiveRebase)
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
+        pasteboard = context.app.pasteboard
+        interactiveRebase = InteractiveRebaseController(context: context)
+        squash = SquashController(context: context, interactiveRebase: interactiveRebase)
     }
 
     /// The commit section of the history menus beyond its checkout; `worktreeForBranch` replaces Create Worktree…'s own form with the branch's; `moveHere` is the fast-forward of the current branch to this commit, when a branch pill does not already offer it.
@@ -42,7 +43,7 @@ final class CommitActionsController {
         // Edit Message and Move up/down change the commit; Drop Commit removes it.
         sections.change = Array(rewrite.dropLast())
         sections.remove = Array(rewrite.suffix(1))
-        sections.copy = [RefMenus.copySHAItem(commit.id)]
+        sections.copy = [RefMenus.copySHAItem(commit.id, to: pasteboard)]
         // A merge has no patch of its own; format-patch writes nothing for it.
         if commit.parents.count <= 1 {
             sections.copy.append(ActionMenuItem(LocalizedStringResource("commit.menu.savePatch", defaultValue: "Save Patch…", bundle: .module)) { [weak self] in self?.savePatch(commit) })
@@ -165,17 +166,17 @@ final class CommitActionsController {
         let repository = viewModel.repository
         Task {
             do {
-                let report = try await viewModel.recordingUndo(undo, operation: note) { try await operation(repository) }
+                let report = try await viewModel.withUndoPoint(scope: undo, operation: note) { try await operation(repository) }
                 await viewModel.refresh(note: note, focus: .followHead)
-                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
+                if let toast = GitFailureText.toast(for: report) { prompter.toast(toast) }
                 if endsRebase { onRebaseEnded?() }
             } catch {
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil, focus: .followHead)
-                if let toast = GitFailureText.toast(for: report) { onToast?(toast) }
+                if let toast = GitFailureText.toast(for: report) { prompter.toast(toast) }
                 let stopped = (error as? GitError)?.stoppedOnConflict == true
                 let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, endsRebase: endsRebase, undo: undo, operation)] : []
-                await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, unlessStoppedIn: repository)
+                await prompter.reportUnlessStopped(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, in: repository)
             }
         }
     }

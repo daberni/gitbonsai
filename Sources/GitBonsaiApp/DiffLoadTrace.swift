@@ -29,17 +29,16 @@ struct DiffLoadTrace {
 
     var line: String { "\(source) \(path) in \(repository)" }
 
-    private static let log = Logger(subsystem: "app.gitbonsai", category: "diff")
-
-    /// Writes the phase to the unified log (subsystem `app.gitbonsai`, category `diff`), which stores it lazily, and to a harness run's output.
+    /// Writes the phase to the unified log, which stores it lazily, and to a harness run's output.
     @MainActor
-    func record(_ phase: Phase) {
+    func record(_ phase: Phase, to log: Logger) {
         switch phase {
-        case .started: Self.log.debug("start \(line, privacy: .private)")
-        case .cancelled: Self.log.debug("cancel \(line, privacy: .private)")
-        case .finished(let result, let duration): Self.log.debug("finish \(line, privacy: .private): \(result, privacy: .public) in \(duration, privacy: .public)")
-        case .failed(let message, let duration): Self.log.error("error \(line, privacy: .private): \(message, privacy: .private) after \(duration, privacy: .public)")
+        case .started: log.debug("start \(line, privacy: .private)")
+        case .cancelled: log.debug("cancel \(line, privacy: .private)")
+        case .finished(let result, let duration): log.debug("finish \(line, privacy: .private): \(result, privacy: .public) in \(duration, privacy: .public)")
+        case .failed(let message, let duration): log.error("error \(line, privacy: .private): \(message, privacy: .private) after \(duration, privacy: .public)")
         }
+        // harness: the harness reads these traces from the unified log (`log stream --predicate 'subsystem == "app.gitbonsai"'`).
         ScreenshotHarness.traceDiffLoad(self, phase)
     }
 }

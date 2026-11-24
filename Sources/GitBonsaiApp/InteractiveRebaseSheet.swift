@@ -28,10 +28,10 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     /// Says whether the commits above HEAD would be published, for the current old base.
     var publishedHint: (Int) -> RefString? = { _ in nil }
 
-    init(model: InteractiveRebaseModel, basePicker: RebaseBasePicker) {
+    init(model: InteractiveRebaseModel, basePicker: RebaseBasePicker, columnStore: ColumnStore) {
         self.model = model
         self.basePicker = basePicker
-        list = RebaseStepList(model: model)
+        list = RebaseStepList(model: model, store: columnStore)
         messageScroll = TextArea()
         messageView = messageScroll.textView
         window = NSWindow(contentRect: NSRect(origin: .zero, size: M.size), styleMask: [.titled, .resizable, .docModalWindow], backing: .buffered, defer: false)
@@ -50,6 +50,7 @@ final class InteractiveRebaseSheet: NSObject, NSTextViewDelegate {
     /// Shows the sheet on `parent` and waits for the answer.
     func run(on parent: NSWindow) async -> RebasePlan? {
         window.initialFirstResponder = list.table
+        // harness: the harness drives this from outside through Accessibility and real events.
         if let base = ScreenshotHarness.ontoBase { Task { await basePicker.type(base) } }
         let response = await withCheckedContinuation { continuation in
             parent.beginSheet(window) { continuation.resume(returning: $0) }

@@ -6,11 +6,14 @@ import GitEngine
 final class StagingController {
     /// The index or the working tree changed; open diffs need to read them again.
     var onChange: (() -> Void)?
-    var window: (() -> NSWindow?)?
     let viewModel: GraphViewModel
+    let prompter: any Prompting
+    let runner: ActionRunner
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
+        runner = context.runner
     }
 
     func stage(_ paths: [String]) {
@@ -77,7 +80,6 @@ final class StagingController {
 
     /// The question comes as a sheet on the window; the destructive button is never the default, so Return does not discard, and Esc cancels too.
     private func confirm(title: LocalizedStringResource, names: RefString, text: LocalizedStringResource? = nil, then perform: @escaping () -> Void) {
-        guard let window = window?() else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.setConfirmation(title, names: names, info: text)
@@ -86,10 +88,7 @@ final class StagingController {
         discard.keyEquivalent = ""
         let cancel = alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         cancel.keyEquivalent = "\r"
-        if ScreenshotHarness.keysSheets { ScreenshotHarness.pressKey(on: alert) } else { ScreenshotHarness.answerDiscardSheet(alert) }
-        Task {
-            if await alert.beginSheet(on: window) == .alertFirstButtonReturn { perform() }
-        }
+        prompter.confirmDiscard(alert, then: perform)
     }
 
     // MARK: Running
@@ -100,22 +99,10 @@ final class StagingController {
             do {
                 try await operation(repository)
             } catch {
-                self?.report(error, title: failure)
+                self?.prompter.report(error, title: failure)
             }
             await self?.viewModel.refresh(note: nil)
             self?.onChange?()
         }
-    }
-
-    private func report(_ error: Error, title: LocalizedStringResource) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = title.text
-        alert.informativeText = (error as? GitError)?.stderr.trimmingCharacters(in: .whitespacesAndNewlines) ?? "\(error)"
-        guard ScreenshotHarness.outputPath == nil, let window = window?() else {
-            FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
-            return
-        }
-        alert.beginSheetModal(for: window)
     }
 }

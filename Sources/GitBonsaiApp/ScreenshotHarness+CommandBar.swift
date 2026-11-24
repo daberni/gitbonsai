@@ -22,7 +22,7 @@ extension ScreenshotHarness {
         guard let script = environment["GITBONSAI_COMMAND_BAR"] else { return false }
         let steps = script.split(separator: ";").map(String.init)
         // Each run starts without recently used commands, so lists and captures do not depend on earlier runs.
-        CommandRecents().clear()
+        CommandRecents(persistence: app.persistence).clear()
         func step(_ index: Int) {
             guard index < steps.count else { return captureAndQuit(window: window) }
             let delay = perform(steps[index], in: window, host: host)
@@ -34,7 +34,7 @@ extension ScreenshotHarness {
 
     /// Runs one step and returns how long to wait before the next.
     private static func perform(_ step: String, in window: NSWindow, host: MainWindowController) -> TimeInterval {
-        let bar = CommandBarController.shared
+        let bar = host.commandBar
         let (name, argument) = step.split(separator: ":", maxSplits: 1).map(String.init).splitPair
         switch name {
         case "open":
@@ -92,8 +92,8 @@ extension ScreenshotHarness {
             menu.performActionForItem(at: index)
             report("menu: picked \(argument)")
         case "settings":
-            SettingsWindowController.shared.show()
-            SettingsWindowController.shared.window?.makeKey()
+            settingsWindow().show()
+            settingsWindow().window?.makeKey()
             report("settings shown, key window \(NSApp.keyWindow.map { $0 === window ? "main" : $0.title } ?? "none")")
         case "windows":
             let open = NSApp.windows.filter(\.isVisible).map { $0 === window ? "main" : $0.title.isEmpty ? "\(type(of: $0))" : $0.title }
@@ -154,8 +154,8 @@ extension ScreenshotHarness {
             }
         }
         for kind in ExternalApps.Kind.allCases {
-            let found = ExternalApps.choices(kind).map { "\($0.app.name)\($0.isShown ? "" : " (unchecked)")" }
-            report("\(kind) choices: \(found.joined(separator: ", ")); default \(ExternalApps.preferred(kind)?.app.name ?? "none")")
+            let found = ExternalApps.choices(kind, settings: app.settings).map { "\($0.app.name)\($0.isShown ? "" : " (unchecked)")" }
+            report("\(kind) choices: \(found.joined(separator: ", ")); default \(ExternalApps.preferred(kind, settings: app.settings)?.app.name ?? "none")")
         }
     }
 

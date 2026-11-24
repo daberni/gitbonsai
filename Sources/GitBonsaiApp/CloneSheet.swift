@@ -25,7 +25,10 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
     private typealias M = Theme.Clone
     private let stack = NSStackView()
 
-    override init() {
+    private let pasteboard: Pasteboard
+
+    init(pasteboard: Pasteboard) {
+        self.pasteboard = pasteboard
         window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: M.width, height: M.minimumHeight)), styleMask: [.titled], backing: .buffered, defer: true)
         super.init()
         build()
@@ -145,7 +148,7 @@ final class CloneSheet: NSObject, NSTextFieldDelegate {
         summary.preferredMaxLayoutWidth = M.width - 2 * M.padding
         failure.addArrangedSubview(summary)
         if let details = GitFailureText.details(of: error), details != summary.stringValue {
-            let view = FailureDetailsView(details: details, width: M.width - 2 * M.padding)
+            let view = FailureDetailsView(details: details, width: M.width - 2 * M.padding, pasteboard: pasteboard)
             view.onToggle = { [weak self] in self?.fitWindow() }
             failure.addArrangedSubview(view)
         }

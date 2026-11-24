@@ -10,12 +10,15 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
     let scrollView = NSScrollView()
     let header = RebaseColumnHeaderView()
     private let guide = ColumnGuideView()
-    private(set) var columns = RebaseColumns.load()
+    private(set) var columns: RebaseColumns
+    private let store: ColumnStore
     private let model: InteractiveRebaseModel
     private let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("step"))
     var onSelect: ((Int?) -> Void)?
 
-    init(model: InteractiveRebaseModel) {
+    init(model: InteractiveRebaseModel, store: ColumnStore) {
+        self.store = store
+        columns = RebaseColumns.load(from: store)
         self.model = model
         super.init()
         table.addTableColumn(column)
@@ -97,7 +100,7 @@ final class RebaseStepList: NSObject, NSTableViewDataSource, NSTableViewDelegate
         guard updated != columns else { return }
         columns = updated
         applyColumns()
-        columns.save()
+        columns.save(to: store)
     }
 
     @objc private func clipChanged() {

@@ -128,6 +128,7 @@ final class RemoteSheet: NSViewController {
         self.window = window
         fitToContent()
         window.initialFirstResponder = mode == .add ? nameInput.field : urlInput.field
+        // harness: the harness drives this from outside through Accessibility and real events.
         ScreenshotHarness.driveRemoteSheet(self)
         let response = await withCheckedContinuation { continuation in
             parent.beginSheet(window) { continuation.resume(returning: $0) }

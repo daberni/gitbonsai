@@ -57,9 +57,13 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     /// Expands a row's ref pills that the label column cuts off.
     let refOverlay: RefOverlayController
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
-        columnsController = HistoryColumnsController(header: header, table: tableView, guide: guide)
+    /// Pictures for the authors' nodes.
+    private let avatars: AvatarStore
+
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        avatars = context.app.avatars
+        columnsController = HistoryColumnsController(header: header, table: tableView, guide: guide, store: ColumnStore(persistence: context.app.persistence), settings: context.settings)
         search = HistorySearchController(viewModel: viewModel)
         refOverlay = RefOverlayController(table: tableView)
         super.init()
@@ -274,7 +278,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         let identifier = NSUserInterfaceItemIdentifier("row")
         let view = (tableView.makeView(withIdentifier: identifier, owner: nil) as? GraphRowView) ?? GraphRowView()
         view.identifier = identifier
-        view.model = HistoryRowModel.make(row: index, in: viewModel, isSelected: selectedRows.contains(index), columns: columnsController.columns, search: search)
+        view.model = HistoryRowModel.make(row: index, in: viewModel, avatars: avatars, isSelected: selectedRows.contains(index), columns: columnsController.columns, search: search)
         if let model = view.model { toolTips.install(on: view, model: model, width: tableView.bounds.width) }
         return view
     }

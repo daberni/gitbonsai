@@ -9,6 +9,12 @@ final class NotificationObservers {
         tokens.append(NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { _ in MainActor.assumeIsolated { handler() } })
     }
 
+    /// Stops every observation made so far.
+    func removeAll() {
+        for token in tokens { NotificationCenter.default.removeObserver(token) }
+        tokens = []
+    }
+
     deinit {
         for token in tokens { NotificationCenter.default.removeObserver(token) }
     }

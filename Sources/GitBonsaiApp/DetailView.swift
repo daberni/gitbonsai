@@ -43,8 +43,14 @@ final class DetailView: NSView {
 
     override var isFlipped: Bool { true }
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    /// Pictures of the commit's people.
+    let avatars: AvatarStore
+    let pasteboard: Pasteboard
+
+    init(avatars: AvatarStore, pasteboard: Pasteboard) {
+        self.avatars = avatars
+        self.pasteboard = pasteboard
+        super.init(frame: .zero)
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = M.spacing

@@ -10,6 +10,7 @@ final class AutoFetchScheduler {
     private let lastFetch: () -> Date?
     private let situation: () async -> AutoFetchPolicy.Situation
     private let isVisible: () -> Bool
+    private let settings: AppSettings
     private var policy: AutoFetchPolicy
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
@@ -17,7 +18,8 @@ final class AutoFetchScheduler {
     private var isChecking = false
 
     /// `fetch` runs the fetch and returns git's error; `situation` reads what decides whether the repository can fetch now.
-    init(fetch: @escaping () async -> Error?, lastFetch: @escaping () -> Date?, situation: @escaping () async -> AutoFetchPolicy.Situation, isVisible: @escaping () -> Bool) {
+    init(fetch: @escaping () async -> Error?, lastFetch: @escaping () -> Date?, situation: @escaping () async -> AutoFetchPolicy.Situation, isVisible: @escaping () -> Bool, settings: AppSettings) {
+        self.settings = settings
         self.fetch = fetch
         self.lastFetch = lastFetch
         self.situation = situation
@@ -39,6 +41,7 @@ final class AutoFetchScheduler {
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
+    // harness: the harness sets the interval in its defaults domain and makes the app active itself.
     private static var isEnabled: Bool { !ScreenshotHarness.isActive || ScreenshotHarness.asksForAutoFetch }
 
     /// The first load finished; a fetch before it would race the load for the refs.
@@ -47,17 +50,27 @@ final class AutoFetchScheduler {
         consider(.activation)
     }
 
+    /// The tab closed: no timer, no observers, no fetch.
+    func stop() {
+        isLoaded = false
+        timer?.invalidate()
+        timer = nil
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+    }
+
     /// The tab became the visible one in its window.
     func becameVisible() {
         consider(.activation)
     }
 
     private func applySettings() {
-        policy.fetchOnActivation = AppSettings.fetchOnActivation
+        policy.fetchOnActivation = settings.fetchOnActivation
+        // harness: the harness stores the interval in its defaults domain.
         if ScreenshotHarness.isActive {
             policy.interval = ScreenshotHarness.autoFetchSeconds
         } else {
-            let minutes = AppSettings.autoFetchMinutes
+            let minutes = settings.autoFetchMinutes
             policy.interval = minutes > 0 ? TimeInterval(minutes * 60) : nil
         }
         scheduleTimer()
@@ -82,6 +95,7 @@ final class AutoFetchScheduler {
         guard Self.isEnabled, isLoaded, !isChecking, isVisible(), appIsActive else { return }
         if let skip = policy.skip(trigger, now: Date(), lastFetch: lastFetch(), power: Self.power) {
             // Periodic ticks that are not due are the normal case and stay out of the trace.
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             if trigger == .activation || skip != .recent { ScreenshotHarness.traceAutoFetch(trigger, skip: skip) }
             return
         }
@@ -89,9 +103,11 @@ final class AutoFetchScheduler {
         Task {
             defer { isChecking = false }
             if let skip = AutoFetchPolicy.skip(await situation()) {
+                // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
                 ScreenshotHarness.traceAutoFetch(trigger, skip: skip)
                 return
             }
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceAutoFetch(trigger, skip: nil)
             policy.started(at: Date())
             let error = await fetch()
@@ -100,6 +116,7 @@ final class AutoFetchScheduler {
     }
 
     /// A harness run in the background never becomes the active app, so the switch stands in for it.
+    // harness: the harness activates the app instead.
     private var appIsActive: Bool { NSApp.isActive || ScreenshotHarness.asksForAutoFetch }
 
     private static var power: AutoFetchPolicy.Power {

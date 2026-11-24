@@ -5,8 +5,8 @@ import GitEngine
 @MainActor
 extension ScreenshotHarness {
     /// `GITBONSAI_HISTORY_ORDER=date|authorDate|branchesTogether` stores that order in the run's defaults before the first tab loads.
-    static func applyHistoryOrderSwitch() {
+    static func applyHistoryOrderSwitch(_ settings: AppSettings) {
         guard isActive, let order = environment["GITBONSAI_HISTORY_ORDER"].flatMap(HistoryOrder.init) else { return }
-        AppSettings.historyOrder = order
+        settings.historyOrder = order
     }
 }

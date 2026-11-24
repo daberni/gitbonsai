@@ -5,7 +5,7 @@ import GitEngine
 /// It keeps the branch's upstream and the configured pull default, read again on every change of the tab, so a menu is built without waiting for git.
 @MainActor
 final class PullPushController {
-    let prompter: ActionPrompter
+    let prompter: any Prompting
     private let viewModel: GraphViewModel
     private(set) var branch: String?
     private(set) var upstream: Upstream?
@@ -16,9 +16,9 @@ final class PullPushController {
     /// Each refresh starts a new read; only the latest one may change the state.
     private var generation = 0
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
     }
 
     var canPull: Bool { branch != nil && !remotes.isEmpty }
@@ -131,7 +131,7 @@ final class PullPushController {
         do {
             let result = try await repository.pull(variant)
             await viewModel.refresh(note: variant.commandLine + (result.localChangesConflicted ? " · " + Self.conflictedChanges : ""), focus: .followHead)
-            if result.localChangesConflicted { prompter.onToast?(RefString(LocalizedStringResource("pull.toast.doneWithConflicts", defaultValue: "Pull done, local changes brought back with conflicts, stash “autostash” stays", bundle: .module)), prompter.onShowConflicts.map { show in ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { show() } }) }
+            if result.localChangesConflicted { prompter.toast(RefString(LocalizedStringResource("pull.toast.doneWithConflicts", defaultValue: "Pull done, local changes brought back with conflicts, stash “autostash” stays", bundle: .module)), action: prompter.showConflictsAction) }
             return true
         } catch is CancellationError {
             await viewModel.refreshAfterCancel(variant.commandLine, focus: .followHead)
@@ -141,7 +141,7 @@ final class PullPushController {
         } catch {
             await viewModel.refresh(note: nil, focus: .followHead)
             let stopped = (error as? GitError)?.stoppedOnConflict == true
-            await prompter.report(error, title: stopped ? LocalizedStringResource("failure.pull.conflicts", defaultValue: "Pull stopped on conflicts", bundle: .module) : LocalizedStringResource("failure.pull.failed", defaultValue: "Pull failed", bundle: .module), unlessStoppedIn: repository)
+            await prompter.reportUnlessStopped(error, title: stopped ? LocalizedStringResource("failure.pull.conflicts", defaultValue: "Pull stopped on conflicts", bundle: .module) : LocalizedStringResource("failure.pull.failed", defaultValue: "Pull failed", bundle: .module), actions: [], in: repository)
         }
         return false
     }

@@ -4,20 +4,23 @@ import GitEngine
 /// The "New Branch" sheet of the Local header's plus and the toolbar's Branch button, and as "New Worktree" the sheet of the Worktrees header's plus: loads what the picker offers, shows the sheet and runs git with the answer.
 @MainActor
 final class NewBranchController {
-    private let runner: SidebarActionRunner
-    private var viewModel: GraphViewModel { runner.viewModel }
+    private let runner: ActionRunner
+    private let prompter: any Prompting
+    private let viewModel: GraphViewModel
     /// The sheet while it is open, for the harness.
     private(set) var sheet: NewBranchSheet?
     /// From the click until the sheet closes, including the reads before it appears, so a second click does not open a second sheet.
     private var isOpen = false
 
-    init(runner: SidebarActionRunner) {
-        self.runner = runner
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        runner = context.runner
+        prompter = context.prompter
     }
 
     /// `commit` is offered under "Current" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
     func show(commit: Commit? = nil, worktree: Bool = false) {
-        guard !isOpen, let parent = runner.prompter.window?() else { return }
+        guard !isOpen, let parent = prompter.window else { return }
         isOpen = true
         let repository = viewModel.repository
         Task {
@@ -37,9 +40,10 @@ final class NewBranchController {
             let picker = RefPicker(repository: repository)
             picker.setCatalog(catalog, selection: worktree ? firstFree ?? current.first : picked ?? current.first)
             let purpose: NewBranchViewController.Purpose = worktree ? .worktree(freeBranches: free) : .branch
-            let form = NewBranchViewController(repository: repository, purpose: purpose, existingBranches: existing, picker: picker) { [runner] name in runner.defaultWorktreePath(suffix: name) }
+            let form = NewBranchViewController(repository: repository, purpose: purpose, existingBranches: existing, picker: picker) { [viewModel] name in viewModel.defaultWorktreePath(suffix: name) }
             let sheet = NewBranchSheet(form: form)
             self.sheet = sheet
+            // harness: the harness drives this from outside through Accessibility and real events.
             ScreenshotHarness.driveNewBranchSheet(sheet)
             let request = await sheet.run(on: parent)
             self.sheet = nil
@@ -52,13 +56,13 @@ final class NewBranchController {
         let start = request.start
         switch request.follow {
         case .stay:
-            await runner.run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
+            await runner.perform(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git branch") { try await $0.createBranch(name, at: start, checkout: false) }
         case .checkout:
-            await runner.run(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
+            await runner.perform(failure: LocalizedStringResource("failure.branch.notCreated", defaultValue: "Branch not created", bundle: .module), note: "git switch -c") { try await $0.createBranch(name, at: start, checkout: true) }
         case .worktree(let path) where name.isEmpty:
-            await runner.run(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add") { try await $0.addWorktree(at: path, branch: start) }
+            await runner.perform(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add") { try await $0.addWorktree(at: path, branch: start) }
         case .worktree(let path):
-            await runner.run(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
+            await runner.perform(failure: LocalizedStringResource("failure.worktree.notCreated", defaultValue: "Worktree not created", bundle: .module), note: "git worktree add -b") { try await $0.addWorktree(at: path, commit: start, newBranch: name) }
         }
     }
 }

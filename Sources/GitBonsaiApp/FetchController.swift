@@ -4,16 +4,16 @@ import GitEngine
 /// The Fetch button's menu and running the chosen variant. The status line says what ran; a failure shows git's message.
 @MainActor
 final class FetchController {
-    let prompter: ActionPrompter
+    let prompter: any Prompting
     private let viewModel: GraphViewModel
     /// The configured remotes as of the last refresh; a menu has to be built without waiting for git.
     private(set) var remotes: [String] = []
     /// Called when the configured remotes changed, for instance after `git remote add` in a terminal.
     var onRemotesChanged: (() -> Void)?
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
     }
 
     /// Reads the remotes again, for instance after the tab moved or a remote was added.

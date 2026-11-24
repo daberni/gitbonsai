@@ -30,7 +30,7 @@ extension DiffViewController {
     func switchImageMode(to newMode: ImageDiffMode) {
         guard newMode != imageMode, let selection else { return }
         imageMode = newMode
-        ImageDiffMode.remembered = newMode
+        preferences.imageMode = newMode
         header.show(selection, diff: diff, mode: mode, options: style.options)
         scroll.isHidden = applyImages() || !emptyState.isHidden
         fitEmbeddedHeight()

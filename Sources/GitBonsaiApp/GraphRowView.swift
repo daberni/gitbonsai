@@ -26,6 +26,7 @@ final class GraphRowView: NSView {
         var isSearchMiss = false
         /// The author's picture when the avatar store has it; the node shows the generated fallback otherwise.
         var avatar: NSImage?
+        var avatarFallback: AvatarFallbackStyle = .initials
         var highlights = Highlights()
         var columns: HistoryColumns
     }
@@ -186,7 +187,7 @@ final class GraphRowView: NSView {
             if let avatar = model.avatar {
                 AvatarDrawing.draw(avatar, in: rect, ring: G.strandWidth, context: context)
             } else {
-                AvatarFallbackDrawing.draw(email: model.commit.authorEmail, initials: Self.initials(model.commit.authorName), font: Theme.initialsSmall, in: rect, ring: G.strandWidth, context: context)
+                AvatarFallbackDrawing.draw(email: model.commit.authorEmail, initials: Self.initials(model.commit.authorName), style: model.avatarFallback, font: Theme.initialsSmall, in: rect, ring: G.strandWidth, context: context)
             }
             context.setStrokeColor(strand.cgColor)
             context.setLineWidth(G.strandWidth)

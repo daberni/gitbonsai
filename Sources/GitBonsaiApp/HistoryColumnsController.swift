@@ -5,18 +5,24 @@ import GitEngine
 /// It keeps the header, the table and the hover guide in step and remembers the user's choice.
 @MainActor
 final class HistoryColumnsController: NSObject {
-    private(set) var columns = ColumnStore.load()
+    private(set) var columns: HistoryColumns
     /// Called after every change, so the visible rows can be redrawn.
     var onChange: (() -> Void)?
 
     /// Nil while the graph column follows the number of lanes; set once the user has dragged it.
-    private var chosenGraphWidth = ColumnStore.loadGraphWidth()
+    private var chosenGraphWidth: CGFloat?
+    private let store: ColumnStore
+    private let settings: AppSettings
     private var laneCount = 1
     private let header: HistoryHeaderView
     private let table: HistoryTableView
     private let guide: ColumnGuideView
 
-    init(header: HistoryHeaderView, table: HistoryTableView, guide: ColumnGuideView) {
+    init(header: HistoryHeaderView, table: HistoryTableView, guide: ColumnGuideView, store: ColumnStore, settings: AppSettings) {
+        self.store = store
+        self.settings = settings
+        columns = store.load()
+        chosenGraphWidth = store.loadGraphWidth()
         self.header = header
         self.table = table
         self.guide = guide
@@ -88,7 +94,7 @@ final class HistoryColumnsController: NSObject {
     }
 
     private func save() {
-        ColumnStore.save(columns, graphWidth: chosenGraphWidth)
+        store.save(columns, graphWidth: chosenGraphWidth)
     }
 
     // MARK: Menu
@@ -113,7 +119,7 @@ final class HistoryColumnsController: NSObject {
             let item = NSMenuItem(title: String(localized: order.title), action: #selector(chooseOrder(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = order.rawValue
-            item.state = AppSettings.historyOrder == order ? .on : .off
+            item.state = settings.historyOrder == order ? .on : .off
             menu.addItem(item)
         }
         menu.addItem(.separator())
@@ -133,7 +139,7 @@ final class HistoryColumnsController: NSObject {
 
     @objc private func chooseOrder(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let order = HistoryOrder(rawValue: raw) else { return }
-        AppSettings.historyOrder = order
+        settings.historyOrder = order
     }
 
     @objc private func toggleAutomaticGraphWidth(_ sender: Any?) {

@@ -11,11 +11,6 @@ final class SessionStore {
         self.defaults = defaults
     }
 
-    /// Screenshot runs keep their own state so they never disturb the tabs of a real session.
-    static func standard() -> SessionStore {
-        SessionStore(defaults: ScreenshotHarness.defaults)
-    }
-
     /// Most recently used first; folders that no longer exist are left out.
     var recentRepositories: [String] {
         (defaults.stringArray(forKey: "recentRepositories") ?? []).filter { FileManager.default.fileExists(atPath: $0) }

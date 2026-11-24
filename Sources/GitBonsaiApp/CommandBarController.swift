@@ -5,8 +5,6 @@ import GitEngine
 /// ↑ ↓ move, ⏎ runs, ⌥⏎ checks out a ref of "Go to Ref…", Esc closes, ⌫ on an empty field goes back a step. Disabled commands stay listed with their reason, below the enabled ones, so the bar also says why something cannot run now.
 @MainActor
 final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
-    static let shared = CommandBarController()
-
     private struct Step {
         let title: String?
         let glyph: CommandGlyph?
@@ -19,7 +17,11 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
     private var steps: [Step] = []
     private var rows: [CommandRowView.Content] = []
     private weak var previousResponder: NSResponder?
-    private let recents = CommandRecents()
+    private let recents: CommandRecents
+
+    init(persistence: Persistence) {
+        recents = CommandRecents(persistence: persistence)
+    }
 
     var isOpen: Bool { overlay != nil }
     private var panel: CommandBarPanel? { overlay?.panel }
@@ -224,12 +226,16 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
     }
 }
 
-/// Ids of the commands run from the bar's first list, most recent first. Harness runs keep their own list.
+/// Ids of the commands run from the bar's first list, most recent first.
 @MainActor
 final class CommandRecents {
     private static let key = "commandBarRecents"
     private static let limit = 8
-    private var defaults: UserDefaults { ScreenshotHarness.defaults }
+    private let defaults: UserDefaults
+
+    init(persistence: Persistence) {
+        defaults = persistence.defaults
+    }
 
     var ids: [String] { defaults.stringArray(forKey: Self.key) ?? [] }
 

@@ -8,6 +8,7 @@ final class AvatarView: NSView {
         let email: String
         let commit: String
         let repository: Repository
+        let store: AvatarStore
     }
 
     private let initials: String
@@ -37,10 +38,10 @@ final class AvatarView: NSView {
         let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: Theme.Stroke.strand / 2, dy: Theme.Stroke.strand / 2))
         Theme.surface2.setFill(); circle.fill()
         if let context = NSGraphicsContext.current?.cgContext {
-            if let image = AvatarStore.shared.image(email: source.email, commit: source.commit, in: source.repository) {
+            if let image = source.store.image(email: source.email, commit: source.commit, in: source.repository) {
                 AvatarDrawing.draw(image, in: bounds, ring: Theme.Stroke.strand, context: context)
             } else {
-                AvatarFallbackDrawing.draw(email: source.email, initials: initials, font: Theme.initials, in: bounds, ring: Theme.Stroke.strand, context: context)
+                AvatarFallbackDrawing.draw(email: source.email, initials: initials, style: source.store.fallbackStyle, font: Theme.initials, in: bounds, ring: Theme.Stroke.strand, context: context)
             }
         }
         ring.setStroke(); circle.lineWidth = Theme.Stroke.strand; circle.stroke()

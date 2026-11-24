@@ -9,9 +9,9 @@ extension ScreenshotHarness {
     }
 
     /// `GITBONSAI_LICENSEE=<name>` stores the licensee in the run's defaults before any window reads it.
-    static func applyLicensee() {
+    static func applyLicensee(_ settings: AppSettings) {
         guard isActive, let name = environment["GITBONSAI_LICENSEE"] else { return }
-        AppSettings.licensee = name
+        settings.licensee = name
     }
 
     /// The About panel the run captures; AppKit creates it on first show.
@@ -20,7 +20,7 @@ extension ScreenshotHarness {
     static func openAboutIfAsked() {
         guard capturesAbout else { return }
         let before = Set(NSApp.windows.map(ObjectIdentifier.init))
-        AboutPanel.show()
+        AboutPanel.show(licensee: app.settings.licensee)
         if runsInBackground { hideWindows() }
         guard let panel = NSApp.windows.first(where: { !before.contains(ObjectIdentifier($0)) }) else { return print("about: no panel") }
         aboutPanel = panel

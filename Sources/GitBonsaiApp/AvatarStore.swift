@@ -9,7 +9,6 @@ import GitEngine
 /// Rows only ask while they are on screen, which keeps the network lazy and the history's cost per row a dictionary lookup.
 @MainActor
 final class AvatarStore {
-    static let shared = AvatarStore(cacheDirectory: ScreenshotHarness.avatarCacheDirectory ?? defaultCacheDirectory, fetcher: ScreenshotHarness.avatarFetcher(wrapping: URLSessionAvatarFetcher())) { AppSettings.avatarMode }
     /// Posted, at most once per run loop turn, when avatars arrived or were dropped; views showing avatars redraw.
     static let didChange = Notification.Name("AvatarStore.didChange")
 
@@ -50,13 +49,15 @@ final class AvatarStore {
         }
     }
 
-    private static var defaultCacheDirectory: URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
-        return support.appendingPathComponent("GitBonsai/Avatars", isDirectory: true)
-    }
-
     /// Whether nodes show pictures and, for authors without one, the generated stand-in; otherwise plain initials.
     var showsPictures: Bool { applied.showsPictures }
+
+    /// The stand-in for an author without picture.
+    var fallbackStyle: AvatarFallbackStyle {
+        guard showsPictures else { return .initials }
+        // harness: the harness stores the style in its defaults domain, or the theme decides alone.
+        return ScreenshotHarness.avatarFallbackStyle ?? Theme.Avatar.fallback
+    }
 
     /// The avatar of whoever uses `email`, if it is in memory; otherwise nil, and a lookup starts unless one ran recently.
     /// `commit` is a commit with that address as author or committer; GitHub's commit list starts there to name the account.

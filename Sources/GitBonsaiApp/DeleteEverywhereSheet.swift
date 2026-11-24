@@ -22,7 +22,7 @@ final class DeleteEverywhereSheet: NSObject {
     }
 
     /// The checked refs, or nil when cancelled.
-    static func ask(_ deletion: BranchDeletion, prompter: ActionPrompter) async -> [BranchDeletion.Target]? {
+    static func ask(_ deletion: BranchDeletion, prompter: any Prompting) async -> [BranchDeletion.Target]? {
         let sheet = DeleteEverywhereSheet(deletion)
         guard await prompter.confirm(sheet.alert) else { return nil }
         return sheet.checked

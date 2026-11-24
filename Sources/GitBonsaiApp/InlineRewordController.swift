@@ -6,7 +6,7 @@ import GitEngine
 @MainActor
 final class InlineRewordController {
     private let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
+    private let prompter: any Prompting
     private let access: (Commit) -> InteractiveRebaseController.RewordAccess?
     private weak var detail: DetailView?
     /// The editor while it is open, for the harness.
@@ -19,9 +19,9 @@ final class InlineRewordController {
     /// The editor closed, saved or cancelled; after saving the refresh is done and the panel shows whatever is selected now.
     var onClosed: (() -> Void)?
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter, detail: DetailView, access: @escaping (Commit) -> InteractiveRebaseController.RewordAccess?) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext, detail: DetailView, access: @escaping (Commit) -> InteractiveRebaseController.RewordAccess?) {
+        viewModel = context.model
+        prompter = context.prompter
         self.detail = detail
         self.access = access
     }

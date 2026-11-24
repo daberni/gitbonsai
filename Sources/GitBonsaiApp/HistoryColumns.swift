@@ -117,13 +117,19 @@ struct HistoryColumns: Equatable {
     }
 }
 
-/// Column widths and visibility are a preference of the user, shared by all tabs and kept across launches. Screenshot runs neither read nor write them.
+/// Column widths and visibility are a preference of the user, shared by all tabs and kept across launches. They live in the app's `Persistence`.
 @MainActor
-enum ColumnStore {
-    private static var defaults: UserDefaults? { ScreenshotHarness.outputPath == nil ? .standard : nil }
+struct ColumnStore {
+    private let defaults: UserDefaults?
 
-    static func load() -> HistoryColumns {
+    init(persistence: Persistence) {
+        // harness: the harness starts every run with an empty defaults domain, so nothing needs to be left out.
+        defaults = ScreenshotHarness.outputPath == nil ? persistence.defaults : nil
+    }
+
+    func load() -> HistoryColumns {
         var columns = HistoryColumns.standard
+        // harness: the harness stores the hidden columns in its defaults domain before launch.
         if let hidden = ScreenshotHarness.hiddenColumns { columns.hidden = hidden }
         guard let defaults else { return columns }
         func width(_ key: String) -> CGFloat? { defaults.object(forKey: key) == nil ? nil : CGFloat(defaults.double(forKey: key)) }
@@ -135,22 +141,22 @@ enum ColumnStore {
         return columns
     }
 
-    static func loadGraphWidth() -> CGFloat? {
+    func loadGraphWidth() -> CGFloat? {
         guard let defaults, defaults.object(forKey: "columnGraph") != nil else { return nil }
         return CGFloat(defaults.double(forKey: "columnGraph"))
     }
 
     /// Column widths of another list, such as the interactive rebase steps, by column name under their own key.
-    static func widths(forKey key: String) -> [String: CGFloat] {
+    func widths(forKey key: String) -> [String: CGFloat] {
         guard let defaults, let stored = defaults.dictionary(forKey: key) as? [String: Double] else { return [:] }
         return stored.mapValues { CGFloat($0) }
     }
 
-    static func save(widths: [String: CGFloat], forKey key: String) {
+    func save(widths: [String: CGFloat], forKey key: String) {
         defaults?.set(widths.mapValues { Double($0) }, forKey: key)
     }
 
-    static func save(_ columns: HistoryColumns, graphWidth: CGFloat?) {
+    func save(_ columns: HistoryColumns, graphWidth: CGFloat?) {
         guard let defaults else { return }
         defaults.set(Double(columns.label), forKey: "columnLabel")
         defaults.set(Double(columns.author), forKey: "columnAuthor")

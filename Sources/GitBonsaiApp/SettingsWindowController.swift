@@ -39,12 +39,11 @@ final class SettingsWindowController: NSWindowController {
         }
     }
 
-    static let shared = SettingsWindowController()
-
-    let model = SettingsModel()
+    let model: SettingsModel
     private let tabs = SettingsTabs()
 
-    private init() {
+    init(settings: AppSettings) {
+        model = SettingsModel(settings: settings)
         tabs.tabStyle = .toolbar
         for section in Section.allCases {
             let host = NSHostingController(rootView: SettingsPaneFrame { section.pane }.environment(model))
@@ -57,9 +56,9 @@ final class SettingsWindowController: NSWindowController {
             item.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)
             tabs.addTabViewItem(item)
         }
-        let last = AppSettings.lastSettingsSection.flatMap(Section.init) ?? .general
+        let last = settings.lastSettingsSection.flatMap(Section.init) ?? .general
         tabs.selectedTabViewItemIndex = Section.allCases.firstIndex(of: last) ?? 0
-        tabs.onSelect = { AppSettings.lastSettingsSection = $0 }
+        tabs.onSelect = { settings.lastSettingsSection = $0 }
         let window = NSWindow(contentViewController: tabs)
         window.styleMask = [.titled, .closable]
         window.toolbarStyle = .preference
@@ -81,6 +80,7 @@ final class SettingsWindowController: NSWindowController {
             window?.title = section.title
         }
         showWindow(nil)
+        // harness: the harness launches the app hidden; the window always comes to the front.
         if !ScreenshotHarness.runsInBackground { window?.makeKeyAndOrderFront(nil) }
     }
 }

@@ -17,7 +17,7 @@ extension RepositoryViewController {
         guard command.isEnabled else { return NSSound.beep() }
         switch command.action {
         case .run(let perform): perform()
-        case .choose: if let window = view.window { CommandBarController.shared.open(in: window, commands: [command], step: command) }
+        case .choose: if let window = view.window { context.commandBar.open(in: window, commands: [command], step: command) }
         }
     }
 

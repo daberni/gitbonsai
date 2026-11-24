@@ -30,7 +30,12 @@ final class HistoryOpenPerformanceTests: XCTestCase {
 
     /// Time until the history holds `count` commits, measured like a tab opening the repository.
     private func timeToFirstRows(_ count: Int, in url: URL, order: HistoryOrder) async -> Duration {
-        let model = GraphViewModel(location: RepositoryLocation(root: url.path, commonDirectory: url.appendingPathComponent(".git").path), historyOrder: order)
+        let suite = "app.gitbonsai.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = AppSettings(persistence: Persistence(defaults: defaults))
+        settings.historyOrder = order
+        let model = GraphViewModel(location: RepositoryLocation(root: url.path, commonDirectory: url.appendingPathComponent(".git").path), settings: settings)
         let start = ContinuousClock.now
         let elapsed: Duration = await withCheckedContinuation { continuation in
             var resumed = false
@@ -41,7 +46,7 @@ final class HistoryOpenPerformanceTests: XCTestCase {
             }
             model.load()
         }
-        model.loadTask?.cancel()
+        model.close()
         return elapsed
     }
 

@@ -104,37 +104,37 @@ enum ExternalApps {
     }
 
     /// Installed apps of the catalog, then apps the system lists as able to run a shell script file (terminals only; for editors that list is mostly browsers and office apps), then the ones added in the settings.
-    static func choices(_ kind: Kind) -> [Choice] {
-        let hidden = Set(AppSettings.hiddenApps(kind))
+    static func choices(_ kind: Kind, settings: AppSettings) -> [Choice] {
+        let hidden = Set(settings.hiddenApps(kind))
         var found: [(ExternalApp, URL)] = kind.catalog.compactMap { app in app.url.map { (app, $0) } }
         func add(_ url: URL) {
             guard let app = app(at: url), !found.contains(where: { $0.0.bundleID == app.bundleID }) else { return }
             found.append((app, url))
         }
         if kind == .terminal { NSWorkspace.shared.urlsForApplications(toOpen: .unixExecutable).forEach(add) }
-        AppSettings.addedApps(kind).forEach(add)
+        settings.addedApps(kind).forEach(add)
         return found.map { Choice(app: $0.0, url: $0.1, isShown: !hidden.contains($0.0.bundleID)) }
     }
 
     /// The apps the command bar lists under "Open in editor with…" and "Open in terminal with…".
-    static func shown(_ kind: Kind) -> [Choice] {
-        choices(kind).filter(\.isShown)
+    static func shown(_ kind: Kind, settings: AppSettings) -> [Choice] {
+        choices(kind, settings: settings).filter(\.isShown)
     }
 
     /// The default from the settings when it is installed, otherwise the first shown app.
-    static func preferred(_ kind: Kind) -> Choice? {
-        let choices = choices(kind)
-        if let id = AppSettings.defaultApp(kind), let chosen = choices.first(where: { $0.app.bundleID == id }) { return chosen }
+    static func preferred(_ kind: Kind, settings: AppSettings) -> Choice? {
+        let choices = choices(kind, settings: settings)
+        if let id = settings.defaultApp(kind), let chosen = choices.first(where: { $0.app.bundleID == id }) { return chosen }
         return choices.first(where: \.isShown)
     }
 
     /// The editor for a repository. This is the one place to ask; a per-repository choice (`gitbonsai.editor` in git config) would be looked up here first.
-    static func editor(forRepository path: String?) -> Choice? {
-        preferred(.editor)
+    static func editor(forRepository path: String?, settings: AppSettings) -> Choice? {
+        preferred(.editor, settings: settings)
     }
 
-    static func terminal() -> Choice? {
-        preferred(.terminal)
+    static func terminal(settings: AppSettings) -> Choice? {
+        preferred(.terminal, settings: settings)
     }
 
     /// The app at `url` as an entry, with the catalog's way of opening when it is a known app.
@@ -144,8 +144,8 @@ enum ExternalApps {
         return known ?? ExternalApp(name: FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: ""), bundleID: id)
     }
 
-    static func openInTerminal(_ folder: URL) {
-        guard let terminal = terminal() else { return }
+    static func openInTerminal(_ folder: URL, settings: AppSettings) {
+        guard let terminal = terminal(settings: settings) else { return }
         open(folder, in: terminal.app, at: terminal.url)
     }
 
@@ -153,12 +153,14 @@ enum ExternalApps {
 
     /// Shows the items selected in a Finder window. Harness runs print what they would reveal instead.
     static func reveal(_ items: [URL]) {
+        // harness: the harness checks the launched process from outside instead of the app skipping the launch.
         if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("Finder", "reveal \(items.map(\.path).joined(separator: " "))") }
         NSWorkspace.shared.activateFileViewerSelecting(items)
     }
 
     /// Opens the item with the app the system assigns to it. Harness runs print what they would open instead.
     static func openWithDefaultApp(_ item: URL) {
+        // harness: the harness checks the launched process from outside instead of the app skipping the launch.
         if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("default app", "open \(item.path)") }
         NSWorkspace.shared.open(item)
     }
@@ -166,6 +168,7 @@ enum ExternalApps {
     /// Hands the file or folder to the app the way it supports.
     static func open(_ item: URL, in app: ExternalApp, at appURL: URL, completion: (@MainActor @Sendable (Error?) -> Void)? = nil) {
         let plan = plan(for: item, in: app, at: appURL)
+        // harness: the harness checks the launched process from outside instead of the app skipping the launch.
         if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening(app.name, plan.description) }
         switch plan {
         case .document(let items, let application):

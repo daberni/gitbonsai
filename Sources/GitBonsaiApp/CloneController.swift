@@ -17,10 +17,17 @@ final class CloneController {
     private var suggestedDestination = ""
 
     var isShowing: Bool { sheet != nil }
+    private let settings: AppSettings
+    private let pasteboard: Pasteboard
+
+    init(settings: AppSettings, pasteboard: Pasteboard) {
+        self.settings = settings
+        self.pasteboard = pasteboard
+    }
 
     func show(on window: NSWindow) {
         guard sheet == nil else { return }
-        let sheet = CloneSheet()
+        let sheet = CloneSheet(pasteboard: pasteboard)
         self.sheet = sheet
         parent = window
         sheet.onChange = { [weak self] in self?.update() }
@@ -30,7 +37,9 @@ final class CloneController {
         sheet.cancelButton.action = #selector(cancel(_:))
         sheet.chooseButton.target = self
         sheet.chooseButton.action = #selector(chooseDestination(_:))
-        if let pasted = ScreenshotHarness.clonePasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), CloneSource.isCloneable(pasted) {
+        // harness: the out-of-process harness puts its text on the pasteboard before it opens the sheet.
+        ScreenshotHarness.seedClonePasteboard()
+        if let pasted = pasteboard.string()?.trimmingCharacters(in: .whitespacesAndNewlines), CloneSource.isCloneable(pasted) {
             sheet.urlField.stringValue = pasted
         }
         update()
@@ -40,8 +49,8 @@ final class CloneController {
 
     // MARK: Form
 
-    private static var destinationBase: String {
-        AppSettings.repositoryFolders.first ?? FileManager.default.homeDirectoryForCurrentUser.path
+    private var destinationBase: String {
+        settings.repositoryFolders.first ?? FileManager.default.homeDirectoryForCurrentUser.path
     }
 
     private var url: String { sheet?.urlField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
@@ -53,7 +62,7 @@ final class CloneController {
         let current = sheet.destinationField.stringValue
         if current.isEmpty || current == suggestedDestination {
             let name = CloneSource.repositoryName(of: url) ?? ""
-            let suggestion = name.isEmpty ? "" : ((Self.destinationBase as NSString).appendingPathComponent(name) as NSString).abbreviatingWithTildeInPath
+            let suggestion = name.isEmpty ? "" : ((destinationBase as NSString).appendingPathComponent(name) as NSString).abbreviatingWithTildeInPath
             sheet.destinationField.stringValue = suggestion
             suggestedDestination = suggestion
         }
@@ -91,7 +100,7 @@ final class CloneController {
 
     @objc private func chooseDestination(_ sender: Any?) {
         guard let sheet else { return }
-        let current = URL(fileURLWithPath: destination.isEmpty ? Self.destinationBase : destination)
+        let current = URL(fileURLWithPath: destination.isEmpty ? destinationBase : destination)
         let title = String(localized: "clone.destination.panelTitle", defaultValue: "Clone Destination", bundle: .module)
         SheetSupport.chooseFolder(title: title, directory: current.deletingLastPathComponent(), name: current.lastPathComponent, on: sheet.window) { [weak self] url in
             sheet.destinationField.stringValue = (url.path as NSString).abbreviatingWithTildeInPath
@@ -107,6 +116,7 @@ final class CloneController {
         let destination = destination
         let options = options
         sheet.showRunning(true)
+        // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
         ScreenshotHarness.traceClone((["git", "clone", "--progress"] + options.arguments + ["--", url, destination]).joined(separator: " "))
         clone = Task { [weak self] in
             do {
@@ -124,13 +134,16 @@ final class CloneController {
         clone = nil
         switch result {
         case .success(let path):
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceClone("cloned into \(path)")
             close()
             onCloned?(path)
         case .failure(let error) where error is CancellationError:
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceClone("cancelled, folder left behind: \(FileManager.default.fileExists(atPath: destination))")
             close()
         case .failure(let error):
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceClone("failed: \(GitFailureText.summary(of: error).plain)")
             sheet?.showRunning(false)
             sheet?.showFailure(error)
@@ -141,6 +154,7 @@ final class CloneController {
     /// Cancel while git runs stops it, and `Repository.clone` removes what it wrote; the sheet closes once git has exited.
     @objc func cancel(_ sender: Any?) {
         if let clone {
+            // harness: replaced by an `os.Logger` trace through `TraceSink`, which the harness reads from the unified log.
             ScreenshotHarness.traceClone("cancelling")
             clone.cancel()
             return

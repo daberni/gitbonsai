@@ -4,11 +4,15 @@ import GitEngine
 /// The context menu of a worktree in the sidebar, and running its actions.
 @MainActor
 final class WorktreeActionsController {
-    private let runner: SidebarActionRunner
+    private let runner: ActionRunner
+    private let prompter: any Prompting
+    private let settings: AppSettings
     private let switchWorktree: (String) -> Void
 
-    init(runner: SidebarActionRunner, switchWorktree: @escaping (String) -> Void) {
-        self.runner = runner
+    init(context: RepositoryContext, switchWorktree: @escaping (String) -> Void) {
+        runner = context.runner
+        prompter = context.prompter
+        settings = context.settings
         self.switchWorktree = switchWorktree
     }
 
@@ -23,7 +27,7 @@ final class WorktreeActionsController {
         }
         let openGroup: [NSMenuItem] = exists ? [
             ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) },
-            ActionMenuItem(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { Self.openInTerminal(path) },
+            ActionMenuItem(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) },
         ] : []
         var manageGroup: [NSMenuItem] = []
         if !worktree.isMain {
@@ -40,22 +44,22 @@ final class WorktreeActionsController {
 
     // MARK: Actions
 
-    private static func openInTerminal(_ path: String) {
-        ExternalApps.openInTerminal(URL(fileURLWithPath: path, isDirectory: true))
+    private func openInTerminal(_ path: String) {
+        ExternalApps.openInTerminal(URL(fileURLWithPath: path, isDirectory: true), settings: settings)
     }
 
     private func lock(_ path: String) {
         let form = ActionForm(title: LocalizedStringResource("worktree.lock.title", defaultValue: "Lock \(RefName.worktree((path as NSString).lastPathComponent))", bundle: .module), confirm: LocalizedStringResource("worktree.lock.confirm", defaultValue: "Lock", bundle: .module))
         form.addField(key: "reason", label: LocalizedStringResource("worktree.lock.reason", defaultValue: "Reason (optional)", bundle: .module), required: false)
         Task {
-            guard let values = await runner.prompter.ask(form) else { return }
+            guard let values = await prompter.ask(form) else { return }
             let reason = values.value("reason")
-            await runner.run(failure: LocalizedStringResource("failure.worktree.notLocked", defaultValue: "Worktree not locked", bundle: .module), note: "git worktree lock") { try await $0.lockWorktree(at: path, reason: reason) }
+            await runner.perform(failure: LocalizedStringResource("failure.worktree.notLocked", defaultValue: "Worktree not locked", bundle: .module), note: "git worktree lock") { try await $0.lockWorktree(at: path, reason: reason) }
         }
     }
 
     private func unlock(_ path: String) {
-        Task { await runner.run(failure: LocalizedStringResource("failure.worktree.notUnlocked", defaultValue: "Worktree not unlocked", bundle: .module), note: "git worktree unlock") { try await $0.unlockWorktree(at: path) } }
+        Task { await runner.perform(failure: LocalizedStringResource("failure.worktree.notUnlocked", defaultValue: "Worktree not unlocked", bundle: .module), note: "git worktree unlock") { try await $0.unlockWorktree(at: path) } }
     }
 
     /// Asks first, with the choice to delete the worktree's branch as well; the branch goes only once the worktree is gone.
@@ -65,13 +69,13 @@ final class WorktreeActionsController {
         if let branch = worktree.branchName { form.addCheckbox(LocalizedStringResource("worktree.remove.deleteBranch", defaultValue: "Also delete branch \(RefName.branch(branch))", bundle: .module), checked: false) }
         form.alert.buttons.first?.hasDestructiveAction = true
         Task {
-            guard let values = await runner.prompter.ask(form) else { return }
+            guard let values = await prompter.ask(form) else { return }
             guard await runner.removeWorktree(at: worktree.path) else { return }
             if values.isChecked, let branch = worktree.branchName { await runner.deleteBranch(branch) }
         }
     }
 
     private func prune() {
-        Task { await runner.run(failure: LocalizedStringResource("failure.worktree.pruneFailed", defaultValue: "Pruning failed", bundle: .module), note: "git worktree prune") { try await $0.pruneWorktrees() } }
+        Task { await runner.perform(failure: LocalizedStringResource("failure.worktree.pruneFailed", defaultValue: "Pruning failed", bundle: .module), note: "git worktree prune") { try await $0.pruneWorktrees() } }
     }
 }

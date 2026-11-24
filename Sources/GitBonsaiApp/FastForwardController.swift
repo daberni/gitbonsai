@@ -11,13 +11,11 @@ final class FastForwardController {
     }
 
     let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
-    /// Says briefly what a fast-forward did, in a toast.
-    var onToast: ((RefString) -> Void)?
+    private let prompter: any Prompting
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
     }
 
     // MARK: Menu
@@ -76,7 +74,7 @@ final class FastForwardController {
                 let result = try await repository.fastForwardCurrentBranch(to: revision)
                 let summary = RefString(LocalizedStringResource("branch.fastForward.done", defaultValue: "Fast-forwarded \(RefName.branch(branch)) by \(result.commits) commits to \(targetName.marked)", bundle: .module))
                 await viewModel.refresh(note: summary.plain + " · " + result.commandLine, focus: .followHead)
-                onToast?(summary)
+                prompter.toast(summary)
             } catch let error as FastForwardError {
                 await viewModel.refresh(note: nil, focus: .followHead)
                 let reason: LocalizedStringResource? = switch error {
@@ -99,10 +97,10 @@ final class FastForwardController {
         let current = RefString(marked: RefName.branch(current))
         Task {
             do {
-                let (result, _) = try await viewModel.recordingUndo(inWorktree ? nil : .branch(branch), operation: "git fetch . HEAD:refs/heads/\(branch)") { try await repository.fastForwardBranchToHead(branch) }
+                let (result, _) = try await viewModel.withUndoPoint(scope: inWorktree ? nil : .branch(branch), operation: "git fetch . HEAD:refs/heads/\(branch)") { try await repository.fastForwardBranchToHead(branch) }
                 let summary = RefString(LocalizedStringResource("branch.fastForward.done", defaultValue: "Fast-forwarded \(RefName.branch(branch)) by \(result.commits) commits to \(current.marked)", bundle: .module))
                 await viewModel.refresh(note: summary.plain + " · " + result.commandLine, focus: .keepSelection)
-                onToast?(summary)
+                prompter.toast(summary)
             } catch let error as FastForwardError {
                 await viewModel.refresh(note: nil, focus: .keepSelection)
                 let reason: LocalizedStringResource? = switch error {

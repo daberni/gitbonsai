@@ -11,7 +11,9 @@ final class InteractiveRebaseController {
     }
 
     let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
+    private let prompter: any Prompting
+    private let persistence: Persistence
+    private let runner: ActionRunner
     /// The sheet while it is open, for the harness.
     private(set) var sheet: InteractiveRebaseSheet?
     /// From the request until the sheet closes, including the reads before it appears, so a second request does not open a second sheet.
@@ -23,9 +25,11 @@ final class InteractiveRebaseController {
     /// Beyond this many commits below HEAD the menu does not walk the history and offers nothing.
     private static let maximumDistance = 5000
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
+        persistence = context.app.persistence
+        runner = context.runner
     }
 
     // MARK: Menu
@@ -122,16 +126,17 @@ final class InteractiveRebaseController {
                     guard let model else { return nil }
                     return await self.changeBase(of: model, to: revision, onto: target.id)
                 }
-                let sheet = InteractiveRebaseSheet(model: model, basePicker: picker)
+                let sheet = InteractiveRebaseSheet(model: model, basePicker: picker, columnStore: ColumnStore(persistence: persistence))
                 sheet.publishedHint = { CommitActionsController.publishedHint($0, upstream: upstream) }
-                guard let window = prompter.window?() else { return }
+                guard let window = prompter.window else { return }
                 self.sheet = sheet
+                // harness: the harness drives this from outside through Accessibility and real events.
                 ScreenshotHarness.driveRebaseSheet(sheet)
                 let plan = await sheet.run(on: window)
                 self.sheet = nil
                 guard let plan else { return }
                 if plan.dropsEverything {
-                    let confirmed = await ActionRunner(viewModel: viewModel, prompter: prompter).confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all Commits?", bundle: .module), names: RefString(marked: RefName.branch(branch) + " → " + RefName.commit(model.targetCommit.id) + " " + model.targetCommit.subject), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
+                    let confirmed = await runner.confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all Commits?", bundle: .module), names: RefString(marked: RefName.branch(branch) + " → " + RefName.commit(model.targetCommit.id) + " " + model.targetCommit.subject), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
                     guard confirmed else { return }
                 }
                 let hint = CommitActionsController.publishedHint(model.published, upstream: upstream)

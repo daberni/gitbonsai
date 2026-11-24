@@ -48,7 +48,6 @@ extension RepositoryViewController {
         sidebar.onNewWorktree = { [weak self] in self?.sidebarActions.newBranch.show(worktree: true) }
         sidebar.onAddRemote = { [weak self] in self?.sidebarActions.remotes.showAdd() }
         toolbar.onBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
-        sidebarActions.prompter.window = { [weak self] in self?.view.window }
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row, pill in self?.checkoutController.activate(row: row, pill: pill) }
@@ -71,18 +70,11 @@ extension RepositoryViewController {
         commitActions.interactiveRebase.onReword = { [weak self] commit in self?.editMessage(of: commit) }
         inlineReword.onRewritten = { [weak self] old, new in self?.history.followRewrite(of: old, to: new) }
         inlineReword.onClosed = { [weak self] in self?.messageEditingClosed() }
-        fileActions.prompter.window = { [weak self] in self?.view.window }
         fileActions.onChange = { [weak self] in
             self?.reloadDiffs()
             self?.refreshWorkingDirectoryCounts()
         }
         detail.showNothing()
-        checkoutController.window = { [weak self] in self?.view.window }
-        commitActions.prompter.window = { [weak self] in self?.view.window }
-        tagsController.prompter.window = { [weak self] in self?.view.window }
-        stashesController.prompter.window = { [weak self] in self?.view.window }
-        staging.window = { [weak self] in self?.view.window }
-        commitController.window = { [weak self] in self?.view.window }
         staging.onChange = { [weak self] in
             self?.reloadDiffs()
             self?.refreshWorkingDirectoryCounts()
@@ -97,17 +89,9 @@ extension RepositoryViewController {
         operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
-        commitActions.onToast = { [weak self] text in self?.toast.show(text) }
         commitActions.onNewBranch = { [weak self] commit in self?.sidebarActions.newBranch.show(commit: commit) }
-        branchPull.onToast = { [weak self] text in self?.toast.show(text) }
-        fastForward.onToast = { [weak self] text in self?.toast.show(text) }
         branchPull.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
-        operationBanner.onToast = { [weak self] text in self?.toast.show(text) }
-        for prompter in [sidebarActions.prompter, fileActions.prompter, commitActions.prompter, tagsController.prompter, stashesController.prompter] {
-            prompter.onToast = { [weak self] text, action in self?.toast.show(text, action: action) }
-            prompter.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
-            prompter.whenShown = { [weak self] in await self?.windowWhenShown() }
-        }
+        context.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
         operationBanner.onStateChange = { [weak self] in
             guard let self else { return }
             rightColumn.showsBar = showsCommitForm(at: singleSelectedRow)

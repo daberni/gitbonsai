@@ -21,9 +21,7 @@ extension StagingController: CommandProvider {
         guard let status = viewModel.status else { return }
         let paths = status.entries.filter { !$0.isUntracked && !$0.isIgnored && $0.conflict == nil && $0.worktreeState != .unmodified }.map(\.path)
         guard !paths.isEmpty else { return }
-        let prompter = ActionPrompter()
-        prompter.window = window
-        let runner = ActionRunner(viewModel: viewModel, prompter: prompter)
+        let runner = runner
         Task { [weak self] in
             guard await runner.confirm(LocalizedStringResource("files.discardAll.title", defaultValue: "Discard all Changes?", bundle: .module), info: LocalizedStringResource("files.discardAll.info", defaultValue: "Unstaged changes to \(paths.count) files are lost.", bundle: .module), button: LocalizedStringResource("common.discard", defaultValue: "Discard", bundle: .module)) else { return }
             runner.run(failure: LocalizedStringResource("failure.files.notDiscarded", defaultValue: "Changes not discarded", bundle: .module), note: "git restore --worktree -- …", then: { self?.onChange?() }) { repository in

@@ -80,17 +80,17 @@ struct RebaseColumns: Equatable {
     private static let storeKey = "rebaseColumns"
 
     @MainActor
-    static func load() -> RebaseColumns {
+    static func load(from store: ColumnStore) -> RebaseColumns {
         var columns = RebaseColumns()
-        for (name, width) in ColumnStore.widths(forKey: storeKey) {
+        for (name, width) in store.widths(forKey: storeKey) {
             if let column = Column(rawValue: name) { columns.widths[column] = max(width, column.minimumWidth) }
         }
         return columns
     }
 
     @MainActor
-    func save() {
-        ColumnStore.save(widths: Dictionary(uniqueKeysWithValues: widths.map { ($0.key.rawValue, $0.value) }), forKey: Self.storeKey)
+    func save(to store: ColumnStore) {
+        store.save(widths: Dictionary(uniqueKeysWithValues: widths.map { ($0.key.rawValue, $0.value) }), forKey: Self.storeKey)
     }
 }
 

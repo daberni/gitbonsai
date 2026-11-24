@@ -16,11 +16,14 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     private let openButton = NSButton(title: String(localized: "welcome.open", defaultValue: "Open folder…", bundle: .module), target: nil, action: nil)
     let cloneButton = NSButton(title: String(localized: "welcome.clone", defaultValue: "Clone…", bundle: .module), target: nil, action: nil)
     private let scrollView = NSScrollView()
-    private let discovery = RepositoryDiscoveryStore.shared
+    private let discovery: RepositoryDiscoveryStore
+    private let settings: AppSettings
     private let observers = NotificationObservers()
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
+    init(settings: AppSettings, discovery: RepositoryDiscoveryStore) {
+        self.settings = settings
+        self.discovery = discovery
+        super.init(frame: .zero)
         searchField.placeholderString = String(localized: "welcome.search.placeholder", defaultValue: "Search repositories", bundle: .module)
         searchField.controlSize = .large
         searchField.delegate = self
@@ -56,7 +59,7 @@ final class WelcomeView: NSView, NSSearchFieldDelegate {
     }
 
     private func rebuild() {
-        let configured = Set(AppSettings.repositoryFolders)
+        let configured = Set(settings.repositoryFolders)
         let folders = discovery.folders.filter { configured.contains($0.path) }
         listView.showsFolderHint = configured.isEmpty
         listView.list = WelcomeList(recents: recents, folders: folders, openPaths: openPaths, filter: searchField.stringValue, recentLimit: M.maximumRows)

@@ -16,7 +16,8 @@ final class ConflictViewController: NSObject {
     private let repository: () -> Repository
     private let sides: () -> ConflictSides
     private let refresh: () async -> Void
-    let prompter: ActionPrompter
+    let prompter: any Prompting
+    private let settings: AppSettings
     private let scroll = NSScrollView()
     private let content = FlippedStack()
     let unified = UnifiedConflictView()
@@ -35,11 +36,13 @@ final class ConflictViewController: NSObject {
 
     var path: String? { conflict?.path }
 
-    init(repository: @escaping () -> Repository, sides: @escaping () -> ConflictSides, refresh: @escaping () async -> Void, prompter: ActionPrompter) {
-        self.repository = repository
+    init(context: RepositoryContext, sides: @escaping () -> ConflictSides) {
+        let viewModel = context.model
+        repository = { viewModel.repository }
         self.sides = sides
-        self.refresh = refresh
-        self.prompter = prompter
+        refresh = { await viewModel.refresh(note: nil) }
+        prompter = context.prompter
+        settings = context.settings
         super.init()
         header.onBack = { [weak self] in self?.close(); self?.onClose?() }
         header.onPrevious = { [weak self] in self?.go(by: -1) }
@@ -56,7 +59,7 @@ final class ConflictViewController: NSObject {
 
     /// The merge tool "Resolve…" opens: only when the settings choose one over the merge window and git names one here.
     var resolvingTool: String? {
-        AppSettings.conflictResolver == .mergeTool ? mergeTool : nil
+        settings.conflictResolver == .mergeTool ? mergeTool : nil
     }
 
     private func layout() {

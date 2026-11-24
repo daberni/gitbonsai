@@ -5,14 +5,19 @@ import GitEngine
 /// Staging, unstaging and discarding stay with `StagingController`; the menu only offers them.
 @MainActor
 final class FileActionsController {
-    let prompter = ActionPrompter()
+    private let prompter: any Prompting
+    private let settings: AppSettings
+    private let pasteboard: Pasteboard
     /// The working tree changed outside of git's index operations; open diffs need to read it again.
     var onChange: (() -> Void)?
     private let viewModel: GraphViewModel
     private let staging: StagingController
 
-    init(viewModel: GraphViewModel, staging: StagingController) {
-        self.viewModel = viewModel
+    init(context: RepositoryContext, staging: StagingController) {
+        viewModel = context.model
+        prompter = context.prompter
+        settings = context.settings
+        pasteboard = context.app.pasteboard
         self.staging = staging
     }
 
@@ -64,7 +69,7 @@ final class FileActionsController {
             items.append(Self.item(LocalizedStringResource("files.menu.openDiffTool", defaultValue: "Open in diff tool", bundle: .module), disabledBy: LocalizedStringResource("files.menu.oneAtATime", defaultValue: "The diff tool opens one file at a time", bundle: .module)) {})
         }
         let missing: LocalizedStringResource? = onDisk ? nil : LocalizedStringResource("files.menu.notAllOnDisk", defaultValue: "Not every selected file is in the working directory", bundle: .module)
-        let editor = ExternalApps.editor(forRepository: viewModel.repository.path)
+        let editor = ExternalApps.editor(forRepository: viewModel.repository.path, settings: settings)
         let editorTitle: LocalizedStringResource = editor.map { editor -> LocalizedStringResource in LocalizedStringResource("files.menu.openIn", defaultValue: "Open in \(editor.app.name)", bundle: .module) } ?? LocalizedStringResource("command.openEditor.title", defaultValue: "Open in editor", bundle: .module)
         items.append(Self.item(editorTitle, disabledBy: missing) { [weak self] in urls.forEach { self?.openInEditor($0) } })
         items.append(Self.item(LocalizedStringResource("files.menu.openDefaultApp", defaultValue: "Open with default app", bundle: .module), disabledBy: missing) { urls.forEach(ExternalApps.openWithDefaultApp) })
@@ -74,11 +79,11 @@ final class FileActionsController {
 
     /// ⌥ turns "Copy path" into "Copy full path"; several paths go to the pasteboard one per line.
     private func copyItems(_ selections: [FileSelection]) -> [NSMenuItem] {
-        let relative = ActionMenuItem(LocalizedStringResource("files.menu.copyPath", defaultValue: "Copy path", bundle: .module)) { ActionRunner.copy(selections.map(\.path).joined(separator: "\n")) }
+        let relative = ActionMenuItem(LocalizedStringResource("files.menu.copyPath", defaultValue: "Copy path", bundle: .module)) { [pasteboard] in pasteboard.copy(selections.map(\.path).joined(separator: "\n")) }
         relative.keyEquivalentModifierMask = []
         let full = ActionMenuItem(LocalizedStringResource("files.menu.copyFullPath", defaultValue: "Copy full path", bundle: .module)) { [weak self] in
             guard let self else { return }
-            ActionRunner.copy(selections.map { self.url(of: $0).path }.joined(separator: "\n"))
+            self.pasteboard.copy(selections.map { self.url(of: $0).path }.joined(separator: "\n"))
         }
         full.keyEquivalentModifierMask = .option
         full.isAlternate = true
@@ -132,6 +137,7 @@ final class FileActionsController {
                 return
             }
             // git starts the configured program itself, so harness runs stop before it.
+            // harness: the harness checks the started tool's process from outside instead of the app skipping the launch.
             if ScreenshotHarness.isActive { return ScreenshotHarness.reportOpening("diff tool", "git difftool \(selection.path)") }
             do {
                 try await repository.openDiffTool(for: selection.path, originalPath: selection.originalPath, in: selection.source)
@@ -143,7 +149,7 @@ final class FileActionsController {
 
     /// The same default editor as the command bar's "Open in editor"; without any editor the system's default app.
     private func openInEditor(_ file: URL) {
-        guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path) else { return ExternalApps.openWithDefaultApp(file) }
+        guard let editor = ExternalApps.editor(forRepository: viewModel.repository.path, settings: settings) else { return ExternalApps.openWithDefaultApp(file) }
         ExternalApps.open(file, in: editor.app, at: editor.url) { [weak self] error in
             guard let error else { return }
             self?.prompter.report(error, title: LocalizedStringResource("failure.file.notOpened", defaultValue: "Couldn’t Open File", bundle: .module))

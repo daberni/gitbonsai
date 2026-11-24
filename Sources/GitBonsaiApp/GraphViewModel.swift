@@ -110,17 +110,21 @@ final class GraphViewModel {
     /// The shown worktree was removed outside the app and the tab moved to another one; the path is the new working tree.
     var onWorktreeReplaced: ((String) -> Void)?
 
-    init(location: RepositoryLocation, historyOrder: HistoryOrder = AppSettings.historyOrder) {
+    private let settings: AppSettings
+
+    init(location: RepositoryLocation, settings: AppSettings) {
         repository = Repository(path: location.root)
         commonDirectory = location.commonDirectory
-        self.historyOrder = historyOrder
+        self.settings = settings
+        historyOrder = settings.historyOrder
         repositoryName = location.name
-        observers.observe(AppSettings.didChange) { [weak self] in self?.followHistoryOrder() }
+        // Only its own settings: another instance, such as a test's, changing its order is none of this tab's business.
+        observers.observe(AppSettings.didChange, object: settings) { [weak self] in self?.followHistoryOrder() }
     }
 
     private func followHistoryOrder() {
-        guard AppSettings.historyOrder != historyOrder else { return }
-        historyOrder = AppSettings.historyOrder
+        guard settings.historyOrder != historyOrder else { return }
+        historyOrder = settings.historyOrder
         reload()
     }
 
@@ -161,6 +165,7 @@ final class GraphViewModel {
 
     /// The tab closed: a log still streaming and a refresh under way stop.
     func close() {
+        observers.removeAll()
         loadTask?.cancel()
         loadGeneration += 1
     }
@@ -172,7 +177,7 @@ final class GraphViewModel {
         let start = ContinuousClock.now
         do {
             let repository = repository
-            try await recordingUndo(target.undoScope, operation: "git switch") { try await repository.checkout(target, stashMessage: target.stashMessage) }
+            try await withUndoPoint(scope: target.undoScope, operation: "git switch") { try await repository.checkout(target, stashMessage: target.stashMessage) }
             await refresh(note: "git switch \(elapsed(since: start))", focus: .current)
             return .done
         } catch let conflict as CarriedChangesConflict {
@@ -243,3 +248,6 @@ final class GraphViewModel {
         await Task { @MainActor in await refresh(note: note, focus: focus) }.value
     }
 }
+
+/// `ActionRunner` refreshes the tab and records undo through the view model.
+extension GraphViewModel: ActionContext {}

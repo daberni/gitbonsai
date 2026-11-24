@@ -1,11 +1,19 @@
 import AppKit
 import GitEngine
 
+/// What one action runs in: the repository its write goes to, an undo point around it, and the refresh afterwards. `GraphViewModel` provides it for its tab.
+@MainActor
+protocol ActionContext: AnyObject, Sendable {
+    var repository: Repository { get }
+    func withUndoPoint<T>(scope: UndoScope?, operation: String, _ body: () async throws -> T) async throws -> T
+    func refresh(note: String?, focus: GraphViewModel.Focus) async
+}
+
 /// Runs one git write for a panel or toolbar action, refreshes the tab and reports a failure with git's message.
 @MainActor
 struct ActionRunner {
-    let viewModel: GraphViewModel
-    let prompter: ActionPrompter
+    let context: any ActionContext
+    let prompter: any Prompting
 
     /// The tab is refreshed after a failure too: a conflicting apply or pop has changed the working tree.
     /// When local changes stopped the command before it changed anything, the failure offers to stash them, run it again and bring them back.
@@ -21,18 +29,18 @@ struct ActionRunner {
     /// `then` runs after a retry with the changes stashed, which ends after this call.
     @discardableResult
     func perform(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, report: Bool = true, undo: UndoScope? = nil, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
-        let repository = viewModel.repository
+        let repository = context.repository
         do {
-            try await viewModel.recordingUndo(undo, operation: note) { try await operation(repository) }
-            await viewModel.refresh(note: note, focus: focus)
+            try await context.withUndoPoint(scope: undo, operation: note) { try await operation(repository) }
+            await context.refresh(note: note, focus: focus)
             return nil
         } catch {
-            await viewModel.refresh(note: nil)
+            await context.refresh(note: nil, focus: .keepSelection)
             let gitError = error as? GitError
             if report {
                 let stopped = gitError?.stoppedOnConflict == true
                 let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, undo: undo, then: then, operation)] : []
-                await prompter.report(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, unlessStoppedIn: repository)
+                await prompter.reportUnlessStopped(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, in: repository)
             }
             return gitError ?? GitError(arguments: [], exitCode: -1, stderr: error.localizedDescription)
         }
@@ -51,6 +59,27 @@ struct ActionRunner {
         }
     }
 
+    /// Runs a write that git may refuse for a reason the user can override, such as an unmerged branch or a worktree with changes: on that refusal it asks with `question`, then runs the forced variant.
+    /// Any other failure is reported. True when the write went through.
+    @discardableResult
+    func performOrForce(failure: LocalizedStringResource, note: String, forcedNote: String, undo: UndoScope? = nil, refusedBecause isRefusal: (GitError) -> Bool, question: ForceQuestion, _ operation: @escaping @Sendable (Repository, _ force: Bool) async throws -> Void) async -> Bool {
+        guard let error = await perform(failure: failure, note: note, report: false, undo: undo, { try await operation($0, false) }) else { return true }
+        guard isRefusal(error) else {
+            prompter.report(error, title: failure)
+            return false
+        }
+        guard await confirm(question.title, names: question.names, info: question.info, button: question.button) else { return false }
+        return await perform(failure: failure, note: forcedNote, undo: undo) { try await operation($0, true) } == nil
+    }
+
+    /// What `performOrForce` asks before it overrides git's refusal; the button is destructive.
+    struct ForceQuestion {
+        let title: LocalizedStringResource
+        let names: RefString
+        var info: LocalizedStringResource?
+        let button: LocalizedStringResource
+    }
+
     /// A question with a confirm button and Cancel; `destructive` marks the confirm button red. `names` are the refs it acts on, shown as full pills between the short title and `info`.
     func confirm(_ title: LocalizedStringResource, names: RefString? = nil, info: LocalizedStringResource? = nil, button: LocalizedStringResource, destructive: Bool = true, style: NSAlert.Style = .warning) async -> Bool {
         let alert = NSAlert()
@@ -60,11 +89,5 @@ struct ActionRunner {
         alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
         alert.buttons.first?.hasDestructiveAction = destructive
         return await prompter.confirm(alert)
-    }
-
-    static func copy(_ text: String) {
-        let pasteboard = ScreenshotHarness.pasteboard
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
     }
 }

@@ -5,7 +5,6 @@ import GitEngine
 @MainActor
 final class CommitController {
     let form = CommitFormView()
-    var window: (() -> NSWindow?)?
 
     private let viewModel: GraphViewModel
     private var stagedCount = 0
@@ -26,8 +25,12 @@ final class CommitController {
     /// Loaded when the co-author menu first opens.
     private var knownAuthors: [KnownAuthor]?
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
+    /// Gives the window that questions are shown on.
+    private let prompter: any Prompting
+
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
         form.onEdit = { [weak self] in self?.updateButton() }
         form.onAmendChanged = { [weak self] on in self?.amendChanged(on) }
         form.onCommit = { [weak self] in self?.commit(amend: self?.form.isAmend ?? false) }
@@ -228,7 +231,8 @@ final class CommitController {
     }
 
     private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
-        guard ScreenshotHarness.outputPath == nil, let window = window?() else {
+        // harness: the harness reads and answers the alert through Accessibility; the app always shows it.
+        guard ScreenshotHarness.outputPath == nil, let window = prompter.window else {
             ScreenshotHarness.render(alert)
             FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
             // Without a sheet nobody confirms: the same as cancelling.

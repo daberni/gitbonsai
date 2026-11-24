@@ -5,16 +5,16 @@ import GitEngine
 @MainActor
 final class SquashController {
     private let viewModel: GraphViewModel
-    private let prompter: ActionPrompter
+    private let prompter: any Prompting
     private let interactiveRebase: InteractiveRebaseController
     /// The commits selected in the history, in any order.
     var selectedCommitIDs: (() -> [String])?
     /// Beyond this many commits below HEAD the rule does not walk the history.
     private static let maximumDistance = 5000
 
-    init(viewModel: GraphViewModel, prompter: ActionPrompter, interactiveRebase: InteractiveRebaseController) {
-        self.viewModel = viewModel
-        self.prompter = prompter
+    init(context: RepositoryContext, interactiveRebase: InteractiveRebaseController) {
+        viewModel = context.model
+        prompter = context.prompter
         self.interactiveRebase = interactiveRebase
     }
 

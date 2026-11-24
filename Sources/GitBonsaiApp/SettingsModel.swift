@@ -3,7 +3,7 @@ import Avatars
 import GitEngine
 import Observation
 
-/// `AppSettings` for the SwiftUI settings panes. Every property reads and writes the stored preference itself; `revision` follows `AppSettings.didChange`,
+/// The app's `AppSettings` for the SwiftUI settings panes. Every property reads and writes the stored preference itself; `revision` follows `AppSettings.didChange`,
 /// so a change from anywhere, the harness or another pane included, redraws the views that read it.
 @Observable
 @MainActor
@@ -11,8 +11,11 @@ final class SettingsModel {
     private var revision = 0
     @ObservationIgnored private let observers = NotificationObservers()
 
-    init() {
-        observers.observe(AppSettings.didChange) { [weak self] in self?.revision += 1 }
+    @ObservationIgnored private let settings: AppSettings
+
+    init(settings: AppSettings) {
+        self.settings = settings
+        observers.observe(AppSettings.didChange, object: settings) { [weak self] in self?.revision += 1 }
     }
 
     private func read<Value>(_ value: () -> Value) -> Value {
@@ -21,83 +24,83 @@ final class SettingsModel {
     }
 
     var gitPath: String {
-        get { read { AppSettings.gitPath ?? "" } }
-        set { AppSettings.gitPath = newValue }
+        get { read { settings.gitPath ?? "" } }
+        set { settings.gitPath = newValue }
     }
 
     var conflictResolver: AppSettings.ConflictResolver {
-        get { read { AppSettings.conflictResolver } }
-        set { AppSettings.conflictResolver = newValue }
+        get { read { settings.conflictResolver } }
+        set { settings.conflictResolver = newValue }
     }
 
     var appearance: AppSettings.Appearance {
-        get { read { AppSettings.appearance } }
-        set { AppSettings.appearance = newValue }
+        get { read { settings.appearance } }
+        set { settings.appearance = newValue }
     }
 
     var language: AppLanguage.Choice {
-        get { read { AppSettings.language } }
-        set { AppSettings.language = newValue }
+        get { read { settings.language } }
+        set { settings.language = newValue }
     }
 
     var historyOrder: HistoryOrder {
-        get { read { AppSettings.historyOrder } }
-        set { AppSettings.historyOrder = newValue }
+        get { read { settings.historyOrder } }
+        set { settings.historyOrder = newValue }
     }
 
     var fetchOnActivation: Bool {
-        get { read { AppSettings.fetchOnActivation } }
-        set { AppSettings.fetchOnActivation = newValue }
+        get { read { settings.fetchOnActivation } }
+        set { settings.fetchOnActivation = newValue }
     }
 
     var autoFetchMinutes: Int {
-        get { read { AppSettings.autoFetchMinutes } }
-        set { AppSettings.autoFetchMinutes = newValue }
+        get { read { settings.autoFetchMinutes } }
+        set { settings.autoFetchMinutes = newValue }
     }
 
     var avatarMode: AvatarMode {
-        get { read { AppSettings.avatarMode } }
-        set { AppSettings.avatarMode = newValue }
+        get { read { settings.avatarMode } }
+        set { settings.avatarMode = newValue }
     }
 
     var licensee: String {
-        get { read { AppSettings.licensee ?? "" } }
-        set { AppSettings.licensee = newValue }
+        get { read { settings.licensee ?? "" } }
+        set { settings.licensee = newValue }
     }
 
     var repositoryFolders: [String] {
-        get { read { AppSettings.repositoryFolders } }
-        set { AppSettings.repositoryFolders = newValue }
+        get { read { settings.repositoryFolders } }
+        set { settings.repositoryFolders = newValue }
     }
 
     // MARK: Editors and terminals
 
     /// The apps found on the system and the added ones, checked or not.
     func apps(_ kind: ExternalApps.Kind) -> [ExternalApps.Choice] {
-        read { ExternalApps.choices(kind) }
+        read { ExternalApps.choices(kind, settings: settings) }
     }
 
     /// The app "Open in editor" or "Open in terminal" uses: the chosen default, or the first checked app.
     func defaultApp(_ kind: ExternalApps.Kind) -> String? {
-        read { ExternalApps.preferred(kind)?.app.bundleID }
+        read { ExternalApps.preferred(kind, settings: settings)?.app.bundleID }
     }
 
     func makeDefault(_ id: String, _ kind: ExternalApps.Kind) {
-        AppSettings.setDefaultApp(id, kind)
+        settings.setDefaultApp(id, kind)
     }
 
     /// An unchecked app leaves the command bar and stops being the default.
     func setShown(_ shown: Bool, _ id: String, _ kind: ExternalApps.Kind) {
-        var hidden = AppSettings.hiddenApps(kind).filter { $0 != id }
+        var hidden = settings.hiddenApps(kind).filter { $0 != id }
         if !shown { hidden.append(id) }
-        AppSettings.setHiddenApps(hidden, kind)
-        if !shown, AppSettings.defaultApp(kind) == id { AppSettings.setDefaultApp(nil, kind) }
+        settings.setHiddenApps(hidden, kind)
+        if !shown, settings.defaultApp(kind) == id { settings.setDefaultApp(nil, kind) }
     }
 
     /// Adds an app to the list and checks it again if it was unchecked before.
     func addApp(at url: URL, _ kind: ExternalApps.Kind) {
         guard let app = ExternalApps.app(at: url) else { return }
-        if !ExternalApps.choices(kind).contains(where: { $0.app.bundleID == app.bundleID }) { AppSettings.setAddedApps(AppSettings.addedApps(kind) + [url], kind) }
-        AppSettings.setHiddenApps(AppSettings.hiddenApps(kind).filter { $0 != app.bundleID }, kind)
+        if !ExternalApps.choices(kind, settings: settings).contains(where: { $0.app.bundleID == app.bundleID }) { settings.setAddedApps(settings.addedApps(kind) + [url], kind) }
+        settings.setHiddenApps(settings.hiddenApps(kind).filter { $0 != app.bundleID }, kind)
     }
 }

@@ -94,6 +94,7 @@ final class RefPicker: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSP
         controller.view = content
         popover.contentViewController = controller
         popover.behavior = .transient
+        // harness: the harness waits for the popover through Accessibility instead of turning its animation off.
         popover.animates = !ScreenshotHarness.isActive
         popover.delegate = self
     }

@@ -45,6 +45,7 @@ final class RebaseOntoController {
         let targetRef = branchRef(at: commit)
         let found = DetectionResult()
         let key = "\(branch) \(viewModel.headSHA ?? "") \(commit.id)"
+        // harness: the harness waits for the Accessibility state instead of shortening the delay.
         let delay = ScreenshotHarness.rebaseDetectionDelay
         let detection = Task.detached {
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
@@ -74,6 +75,7 @@ final class RebaseOntoController {
         nonisolated(unsafe) let remember: (RebaseBaseDetection) -> Void = { [weak self] result in self?.detections[key] = result }
         // An open menu runs its own tracking loop, which serves no main-actor tasks; a timer in the common modes still fires and updates the entry in place.
         let started = Date()
+        // harness: the harness waits for the Accessibility state instead of holding the capture.
         let releaseCapture = ScreenshotHarness.hold()
         // The timer fires on the main run loop; the entry only crosses into its closure.
         nonisolated(unsafe) weak let entry = oneClick

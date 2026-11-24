@@ -7,14 +7,13 @@ import GitEngine
 final class BranchPullController {
     private let viewModel: GraphViewModel
     private let pullPush: PullPushController
-    private var prompter: ActionPrompter { pullPush.prompter }
+    private let prompter: any Prompting
     /// Moves the tab to another worktree, like a double click on it in the sidebar.
     var onSwitchWorktree: ((String) -> Void)?
-    /// Says briefly what a pull did, in a toast.
-    var onToast: ((RefString) -> Void)?
 
-    init(viewModel: GraphViewModel, pullPush: PullPushController) {
-        self.viewModel = viewModel
+    init(context: RepositoryContext, pullPush: PullPushController) {
+        viewModel = context.model
+        prompter = context.prompter
         self.pullPush = pullPush
     }
 
@@ -57,7 +56,7 @@ final class BranchPullController {
             case .fastForwarded(let commits):
                 let summary = Self.fastForwarded(branch, by: commits, to: upstream, place: result.place, conflicted: result.localChangesConflicted)
                 await viewModel.refresh(note: summary.plain + " · " + result.commandLine, focus: .followHead)
-                onToast?(summary)
+                prompter.toast(summary)
             case .upToDate(let ahead):
                 let summary: RefString = if ahead > 0 {
                     RefString(LocalizedStringResource("branch.pull.upToDateUnpushed", defaultValue: "\(RefName.branch(branch)) is up to date with \(RefName.remoteBranch(upstream)), \(ahead) local commits not pushed yet", bundle: .module))
@@ -65,7 +64,7 @@ final class BranchPullController {
                     RefString(LocalizedStringResource("branch.pull.upToDate", defaultValue: "\(RefName.branch(branch)) is up to date with \(RefName.remoteBranch(upstream))", bundle: .module))
                 }
                 await viewModel.refresh(note: summary.plain + " · " + result.commandLine)
-                onToast?(summary)
+                prompter.toast(summary)
             case .diverged(let ahead, let behind):
                 let diverged = String(localized: "branch.pull.diverged", defaultValue: "\(branch) has diverged from \(upstream)", bundle: .module, comment: "Status line; the arguments are a local branch and its upstream.")
                 await viewModel.refresh(note: diverged + " · " + result.commandLine)
@@ -133,10 +132,10 @@ final class BranchPullController {
         let repository = viewModel.repository
         guard let head = try? await repository.branchHead(branch) else { return }
         do {
-            try await viewModel.recordingUndo(.branch(branch), operation: "git update-ref refs/heads/\(branch)") { try await repository.resetBranchToUpstream(branch, expecting: head) }
+            try await viewModel.withUndoPoint(scope: .branch(branch), operation: "git update-ref refs/heads/\(branch)") { try await repository.resetBranchToUpstream(branch, expecting: head) }
             let done = String(localized: "branch.reset.done", defaultValue: "\(branch) reset to \(upstream)", bundle: .module)
             await viewModel.refresh(note: done + " · git update-ref refs/heads/\(branch)", focus: .followHead)
-            onToast?(RefString(LocalizedStringResource("branch.reset.done", defaultValue: "\(RefName.branch(branch)) reset to \(RefName.remoteBranch(upstream))", bundle: .module)))
+            prompter.toast(RefString(LocalizedStringResource("branch.reset.done", defaultValue: "\(RefName.branch(branch)) reset to \(RefName.remoteBranch(upstream))", bundle: .module)))
         } catch {
             await viewModel.refresh(note: nil, focus: .followHead)
             prompter.report(error, title: LocalizedStringResource("failure.branch.notReset", defaultValue: "\(RefName.branch(branch)) not reset", bundle: .module))

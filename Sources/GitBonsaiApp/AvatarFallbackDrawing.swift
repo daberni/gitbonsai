@@ -13,13 +13,8 @@ enum AvatarFallbackStyle: String, CaseIterable {
 
 @MainActor
 enum AvatarFallbackDrawing {
-    static var style: AvatarFallbackStyle {
-        guard AvatarStore.shared.showsPictures else { return .initials }
-        return ScreenshotHarness.avatarFallbackStyle ?? Theme.Avatar.fallback
-    }
-
     /// Draws inside the ring whose outer bounds are `rect`, where a picture would go; the caller draws background and ring.
-    static func draw(email: String, initials: String, font: NSFont, in rect: CGRect, ring: CGFloat, context: CGContext) {
+    static func draw(email: String, initials: String, style: AvatarFallbackStyle, font: NSFont, in rect: CGRect, ring: CGFloat, context: CGContext) {
         let inner = rect.insetBy(dx: ring + Theme.Avatar.ringGap, dy: ring + Theme.Avatar.ringGap)
         let seed = AvatarFallback(email: email, palette: Theme.strandCount)
         let tint = Theme.strand(seed.tint)

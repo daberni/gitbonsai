@@ -8,13 +8,15 @@ final class StashesController {
     var onNavigate: ((String) -> Void)?
     /// Shows a stash's changes: the stash selected in the history with the diff of its first file.
     var onShowDiff: ((Stash) -> Void)?
-    let prompter = ActionPrompter()
+    private let prompter: any Prompting
     let popover: PanelPopover
     private let viewModel: GraphViewModel
-    private var runner: ActionRunner { ActionRunner(viewModel: viewModel, prompter: prompter) }
+    private let runner: ActionRunner
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
+        runner = context.runner
         popover = PanelPopover(list: PanelListView(title: LocalizedStringResource("stash.panel.title", defaultValue: "Stashes", bundle: .module), empty: LocalizedStringResource("stash.panel.empty", defaultValue: "No stashes", bundle: .module), noMatch: LocalizedStringResource("stash.panel.noMatch", defaultValue: "No matching stashes", bundle: .module), filterPlaceholder: LocalizedStringResource("stash.panel.filter", defaultValue: "Filter stashes", bundle: .module)))
         let list = popover.list
         list.onSelect = { [weak self] id in self?.onNavigate?(id) }
@@ -118,10 +120,10 @@ final class StashesController {
             let created = try await repository.stash(message: message, scope: scope)
             await viewModel.refresh(note: created == nil ? nil : scope.commandLine)
             guard let created else {
-                prompter.onToast?(RefString(LocalizedStringResource("stash.toast.nothingToStash", defaultValue: "Nothing to stash", bundle: .module)), nil)
+                prompter.toast(RefString(LocalizedStringResource("stash.toast.nothingToStash", defaultValue: "Nothing to stash", bundle: .module)))
                 return
             }
-            prompter.onToast?(RefString(LocalizedStringResource("stash.toast.stashed", defaultValue: "Stashed: \(RefName.stash(created.stash.text))", bundle: .module)), ToastAction(title: LocalizedStringResource("stash.toast.undo", defaultValue: "Undo Stash", bundle: .module)) { [weak self] in self?.undo(created) })
+            prompter.toast(RefString(LocalizedStringResource("stash.toast.stashed", defaultValue: "Stashed: \(RefName.stash(created.stash.text))", bundle: .module)), action: ToastAction(title: LocalizedStringResource("stash.toast.undo", defaultValue: "Undo Stash", bundle: .module)) { [weak self] in self?.undo(created) })
         } catch {
             await viewModel.refresh(note: nil)
             prompter.report(error, title: LocalizedStringResource("failure.stash.notCreated", defaultValue: "Stash not created", bundle: .module))
@@ -135,9 +137,9 @@ final class StashesController {
             do {
                 try await repository.undoStash(created)
                 await viewModel.refresh(note: "git stash pop --index stash@{0}")
-                prompter.onToast?(RefString(LocalizedStringResource("stash.toast.undone", defaultValue: "Stash taken back: \(RefName.stash(created.stash.text))", bundle: .module)), nil)
+                prompter.toast(RefString(LocalizedStringResource("stash.toast.undone", defaultValue: "Stash taken back: \(RefName.stash(created.stash.text))", bundle: .module)))
             } catch let error as StashUndoError {
-                prompter.onToast?(RefString(Self.notUndone(error)), nil)
+                prompter.toast(RefString(Self.notUndone(error)))
             } catch {
                 await viewModel.refresh(note: nil)
                 prompter.report(error, title: LocalizedStringResource("failure.stash.notUndone", defaultValue: "Stash not taken back", bundle: .module))

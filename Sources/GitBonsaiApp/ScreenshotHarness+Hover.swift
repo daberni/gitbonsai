@@ -27,10 +27,10 @@ extension ScreenshotHarness {
         after(0.5) {
             trackingMove("uncovered")
             guard let window = table.window else { return release() }
-            CommandBarController.shared.open(in: window, commands: [])
+            tab.context.commandBar.open(in: window, commands: [])
             after(0.5) {
                 trackingMove("under the command bar")
-                CommandBarController.shared.close()
+                tab.context.commandBar.close()
                 after(0.3) {
                     trackingMove("after closing")
                     release()

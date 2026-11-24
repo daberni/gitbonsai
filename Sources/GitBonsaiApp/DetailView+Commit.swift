@@ -45,14 +45,14 @@ extension DetailView {
         let samePerson = commit.authorName == commit.committerName && commit.authorEmail == commit.committerEmail
         let sameTime = abs(commit.authorDate.timeIntervalSince(commit.committerDate)) < 1
         if samePerson && sameTime {
-            add(person(commit.authorName, role: String(localized: "detail.commit.authoredAndCommitted", defaultValue: "Authored and committed", bundle: .module, comment: "Detail panel: role of the one person who wrote and committed a commit, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
+            add(person(commit.authorName, role: String(localized: "detail.commit.authoredAndCommitted", defaultValue: "Authored and committed", bundle: .module, comment: "Detail panel: role of the one person who wrote and committed a commit, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository, store: avatars)))
         } else {
-            add(person(commit.authorName, role: String(localized: "detail.commit.authored", defaultValue: "Authored", bundle: .module, comment: "Detail panel: role of the commit's author, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository)))
-            add(person(commit.committerName, role: String(localized: "detail.commit.committed", defaultValue: "Committed", bundle: .module, comment: "Detail panel: role of the commit's committer, followed by the date"), date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository)))
+            add(person(commit.authorName, role: String(localized: "detail.commit.authored", defaultValue: "Authored", bundle: .module, comment: "Detail panel: role of the commit's author, followed by the date"), date: commit.authorDate, ring: strand, avatar: AvatarView.Source(email: commit.authorEmail, commit: commit.id, repository: repository, store: avatars)))
+            add(person(commit.committerName, role: String(localized: "detail.commit.committed", defaultValue: "Committed", bundle: .module, comment: "Detail panel: role of the commit's committer, followed by the date"), date: commit.committerDate, ring: Theme.hairline, avatar: AvatarView.Source(email: commit.committerEmail, commit: commit.id, repository: repository, store: avatars)))
         }
         for coAuthor in commit.coAuthors {
             let identity = coAuthor.person
-            add(person(identity.name, role: String(localized: "detail.commit.coAuthored", defaultValue: "Co-Author", bundle: .module, comment: "Detail panel: role of a person named in a Co-authored-by trailer"), date: nil, ring: Theme.hairline, avatar: AvatarView.Source(email: identity.email, commit: commit.id, repository: repository)))
+            add(person(identity.name, role: String(localized: "detail.commit.coAuthored", defaultValue: "Co-Author", bundle: .module, comment: "Detail panel: role of a person named in a Co-authored-by trailer"), date: nil, ring: Theme.hairline, avatar: AvatarView.Source(email: identity.email, commit: commit.id, repository: repository, store: avatars)))
         }
 
         add(divider())
@@ -162,7 +162,7 @@ extension DetailView {
     /// A click copies the full SHA, ⌥-click the short one; the icon turns into a checkmark for a moment as the confirmation.
     @objc private func copyCommitSHA(_ sender: NSButton) {
         let short = NSApp.currentEvent?.modifierFlags.contains(.option) == true
-        ActionRunner.copy(short ? copySHA.short : copySHA.full)
+        pasteboard.copy(short ? copySHA.short : copySHA.full)
         showCopyIcon(on: sender, copied: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + M.copiedFeedback) { [weak self, weak sender] in
             guard let self, let sender else { return }

@@ -9,18 +9,22 @@ final class TagsController {
     var onNavigate: ((String) -> Void)?
     /// Checks a commit out through the tab's checkout flow, which deals with local changes.
     var onCheckout: ((CheckoutTarget) -> Void)?
-    let prompter = ActionPrompter()
+    private let prompter: any Prompting
+    private let pasteboard: Pasteboard
     let popover: PanelPopover
     private let viewModel: GraphViewModel
-    private var runner: ActionRunner { ActionRunner(viewModel: viewModel, prompter: prompter) }
+    private let runner: ActionRunner
     private let remoteTags = RemoteTagCache()
     private(set) var tags: [Tag] = []
     private(set) var remotes: [String] = []
     private var localTargets: [String: TagTarget] = [:]
     private(set) var rows = TagRows(tags: [], remotes: [])
 
-    init(viewModel: GraphViewModel) {
-        self.viewModel = viewModel
+    init(context: RepositoryContext) {
+        viewModel = context.model
+        prompter = context.prompter
+        runner = context.runner
+        pasteboard = context.app.pasteboard
         popover = PanelPopover(list: PanelListView(title: LocalizedStringResource("tag.panel.title", defaultValue: "Tags", bundle: .module), empty: LocalizedStringResource("tag.panel.empty", defaultValue: "No tags", bundle: .module), noMatch: LocalizedStringResource("tag.panel.noMatch", defaultValue: "No matching tags", bundle: .module), filterPlaceholder: LocalizedStringResource("tag.panel.filter", defaultValue: "Filter tags", bundle: .module)))
         let list = popover.list
         list.onSelect = { [weak self] name in self?.jump(to: name) }
@@ -37,7 +41,7 @@ final class TagsController {
             PanelAction(Self.pushButton, isEnabled: { [weak self] _ in self?.remotes.isEmpty == false }, isShown: isLocal) { [weak self] name in self?.pushFromButton(name) },
             PanelAction(Self.fetchButton, isShown: { !isLocal($0) }) { [weak self] name in self?.fetchFromButton(name) },
             PanelAction(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module), isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
-            PanelAction(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { name in ActionRunner.copy(name) },
+            PanelAction(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { [pasteboard] name in pasteboard.copy(name) },
         ]
         remoteTags.onChange = { [weak self] in self?.render() }
     }
@@ -101,7 +105,7 @@ final class TagsController {
         guard let tag = tag(name) else {
             let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.fetchFrom", defaultValue: "Fetch from \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.fetch(name, from: remote) } }
             let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) } }
-            let copy: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { ActionRunner.copy(name) }]
+            let copy: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }]
             return [fetches, deletes, copy].joinedWithSeparators
         }
         let jump: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }]
@@ -114,7 +118,7 @@ final class TagsController {
         var sections = MenuSections()
         if checkout { sections.goThere = [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] }
         sections.sync = remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push \(RefName.tag(name)) to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } }
-        sections.copy = [ActionMenuItem(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { ActionRunner.copy(name) }]
+        sections.copy = [ActionMenuItem(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }]
         sections.remove = [ActionMenuItem(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
             ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
         }

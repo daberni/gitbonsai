@@ -8,14 +8,10 @@ extension ScreenshotHarness {
     static var wantsClone: Bool { environment["GITBONSAI_CLONE"] != nil && environment["GITBONSAI_CLONE_CLICK"] == nil }
 
     /// The run's own pasteboard, which `GITBONSAI_CLONE_PASTE=<text>` fills first.
-    static var clonePasteboard: NSPasteboard {
-        let board = pasteboard
-        guard isActive else { return board }
-        if let text = environment["GITBONSAI_CLONE_PASTE"], board.string(forType: .string) != text {
-            board.clearContents()
-            board.setString(text, forType: .string)
-        }
-        return board
+    static func seedClonePasteboard() {
+        guard isActive, let text = environment["GITBONSAI_CLONE_PASTE"], pasteboard.string(forType: .string) != text else { return }
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
     }
 
     static func clickCloneIfAsked(on welcome: WelcomeView) {
@@ -39,7 +35,7 @@ extension ScreenshotHarness {
     /// and `GITBONSAI_CLONE_CANCEL_AT=<fraction>` clicks "Cancel" once the progress passes that fraction. Without RUN the sheet is cancelled after the shot.
     static func driveClone(_ cloner: CloneController) {
         guard isActive, let sheet = cloner.sheet else { return }
-        if let pasted = clonePasteboard.string(forType: .string) { traceClone("pasteboard \"\(pasted)\", URL field \"\(sheet.urlField.stringValue)\"") }
+        if let pasted = pasteboard.string(forType: .string) { traceClone("pasteboard \"\(pasted)\", URL field \"\(sheet.urlField.stringValue)\"") }
         if let form = environment["GITBONSAI_CLONE_FORM"] {
             var answers: [String: String] = [:]
             for pair in form.split(separator: ";") {

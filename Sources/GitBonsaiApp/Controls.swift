@@ -2,6 +2,7 @@ import AppKit
 
 /// A drawn control that takes the keyboard focus like its system counterpart: while enabled and only with full keyboard access (System Settings → Keyboard → Keyboard navigation), and Space presses it.
 class KeyboardControl: NSControl {
+    // harness: the harness turns on Full Keyboard Access for its throwaway user (`AppleKeyboardUIMode`).
     static var isFullKeyboardAccess: Bool { NSApp.isFullKeyboardAccessEnabled || ScreenshotHarness.simulatesFullKeyboardAccess }
 
     override var acceptsFirstResponder: Bool { isEnabled && Self.isFullKeyboardAccess }

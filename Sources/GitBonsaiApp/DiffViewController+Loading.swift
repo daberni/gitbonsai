@@ -30,7 +30,7 @@ extension DiffViewController {
     func switchMode(to newMode: DiffMode) {
         guard newMode != mode, let selection = pending?.selection ?? selection else { return }
         mode = newMode
-        DiffMode.remembered = newMode
+        preferences.mode = newMode
         load(selection, scroll: .start(sideways: false), closesWhenGone: false)
     }
 
@@ -45,20 +45,21 @@ extension DiffViewController {
         let options = style.options
         let loadsLargeImages = loadsLargeImages
         let trace = DiffLoadTrace(selection: selection, repository: repository.path)
-        trace.record(.started)
+        let log = log
+        trace.record(.started, to: log)
         loadTask = Task { [weak self] in
             let start = ContinuousClock.now
             let outcome: Result<Read, Error>
             do { outcome = .success(try await Self.read(selection, mode: mode, options: options, loadingLargeImages: loadsLargeImages, from: repository)) } catch { outcome = .failure(error) }
             guard let self, !Task.isCancelled else {
-                trace.record(.cancelled)
+                trace.record(.cancelled, to: log)
                 return
             }
             let duration = start.duration(to: .now)
             pending = nil
             switch outcome {
             case .success(let read):
-                trace.record(.finished(read.diff == nil ? "no changes" : "\(read.diff?.hunks.count ?? 0) hunks", duration))
+                trace.record(.finished(read.diff == nil ? "no changes" : "\(read.diff?.hunks.count ?? 0) hunks", duration), to: log)
                 // Only a diff that is gone closes the view.
                 if load.closesWhenGone, read.diff == nil { onClose?(); return }
                 self.selection = selection
@@ -67,7 +68,7 @@ extension DiffViewController {
                 apply(read.diff, full: read.full, encoding: read.encoding, onlyLeftOut: read.onlyLeftOut, scrolling: load.scroll)
             case .failure(let error):
                 let message = Self.failureMessage(error)
-                trace.record(.failed(message, duration))
+                trace.record(.failed(message, duration), to: log)
                 // A reload that fails, such as on a lock held for a moment, says nothing about the file and keeps what is shown.
                 if load.closesWhenGone, self.selection == selection { return }
                 self.selection = selection
@@ -132,7 +133,7 @@ extension DiffViewController {
         guard newOptions != style.options else { return }
         let readsAgain = newOptions.readsDifferently(from: style.options)
         style.options = newOptions
-        DiffOptions.remembered = newOptions
+        preferences.options = newOptions
         if readsAgain, let selection = pending?.selection ?? selection {
             load(selection, scroll: .keep, closesWhenGone: false)
             return
