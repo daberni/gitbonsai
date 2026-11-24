@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          # The build number is the commit count and the default version the latest tag, so the whole history is needed.
+          # The default version is the latest tag, so the whole history is needed.
           fetch-depth: 0
       - name: Select Xcode
         # Pinned to the Xcode the code is developed with; the image's default can lag behind it.
@@ -60,6 +60,7 @@ jobs:
 
       - name: Build release bundle
         env:
+          GITBONSAI_BUILD: ${{ github.run_number }}
           GITBONSAI_SIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
           GITBONSAI_KEYCHAIN: ${{ steps.signing.outputs.keychain }}
         run: |

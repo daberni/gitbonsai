@@ -12,7 +12,7 @@ The bundle id is also the defaults domain, so the dev bundle keeps its own open 
 Version and build number go into `Info.plist`:
 
 - `CFBundleShortVersionString`: `GITBONSAI_VERSION`, else the version tag on HEAD (`0.2.0`, no `v` prefix), else the latest version tag, else `0.1`; an earlier `v0.1.0`-style tag counts only where no plain one exists.
-- `CFBundleVersion`: `GITBONSAI_BUILD`, else the commit count of HEAD (monotonic on `main`).
+- `CFBundleVersion`: `GITBONSAI_BUILD`. Release builds set it to the workflow's run number, which strictly increases with every run, as Sparkle needs to order updates. Local builds fall back to the commit count of HEAD; they are never distributed.
 
 ## Signing and notarization
 
