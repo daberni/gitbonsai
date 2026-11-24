@@ -26,7 +26,7 @@ final class ConflictViewController: NSObject {
     private var observation: UUID?
     /// The tool `git mergetool --gui` opens in this repository; nil when git names none.
     private(set) var mergeTool: String?
-    private var settingsObserver: NSObjectProtocol?
+    private let observers = NotificationObservers()
     private var loadTask: Task<Void, Never>?
     private var isWriting = false
     /// Sessions with decisions not yet marked resolved, per path and stages; a merge window shares the one of its file.
@@ -51,9 +51,7 @@ final class ConflictViewController: NSObject {
         }
         unified.onLink = { [weak self] link in self?.follow(link) }
         layout()
-        settingsObserver = NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.header.showResolveTool(self?.resolvingTool) }
-        }
+        observers.observe(AppSettings.didChange) { [weak self] in self?.header.showResolveTool(self?.resolvingTool) }
     }
 
     /// The merge tool "Resolve…" opens: only when the settings choose one over the merge window and git names one here.
@@ -97,21 +95,26 @@ final class ConflictViewController: NSObject {
 
     // MARK: Loading
 
-    /// Reads the conflict and only then replaces what is shown; `ready` runs once it is in place. A path that is no longer unmerged counts as resolved.
+    /// Reads the conflict and only then replaces what is shown; `ready` runs once it is in place. A path that is no longer unmerged counts as resolved; any other failure is reported with Retry and keeps what is shown.
     func show(path: String, ready: (() -> Void)? = nil) {
         loadTask?.cancel()
         let repository = self.repository()
         loadTask = Task { [weak self] in
-            let loaded = try? await repository.conflict(at: path)
+            let loaded: Result<Conflict, Error>
+            do { loaded = .success(try await repository.conflict(at: path)) } catch { loaded = .failure(error) }
             let mergeTool = await repository.mergeToolName()
             guard let self, !Task.isCancelled else { return }
-            guard let loaded else {
-                onResolved?(path)
-                return
+            switch loaded {
+            case .success(let conflict):
+                self.mergeTool = mergeTool
+                build(conflict)
+                ready?()
+            case .failure(let error as NoConflict):
+                onResolved?(error.path)
+            case .failure(let error):
+                let retry = FailureAction(title: LocalizedStringResource("failure.action.retry", defaultValue: "Retry", bundle: .module)) { [weak self] in self?.show(path: path, ready: ready) }
+                prompter.report(error, title: LocalizedStringResource("failure.conflict.notRead", defaultValue: "Conflict could not be read", bundle: .module), actions: [retry])
             }
-            self.mergeTool = mergeTool
-            build(loaded)
-            ready?()
         }
     }
 
@@ -273,8 +276,9 @@ final class ConflictViewController: NSObject {
             }
             await self?.refresh()
             self?.isWriting = false
-            let stages = try? await repository.conflictStages()
-            if stages?[path] == nil { self?.resolved(path) }
+            // Stages that could not be read say nothing about the file; its session and the decisions in it stay.
+            guard let stages = try? await repository.conflictStages() else { return }
+            if stages[path] == nil { self?.resolved(path) }
         }
     }
 
@@ -299,6 +303,8 @@ final class ConflictViewController: NSObject {
             }
             self?.header.resolve.isEnabled = true
             await self?.refresh()
+            // The user may have moved on to another file while the tool was open.
+            guard self?.path == path else { return }
             self?.show(path: path)
         }
     }

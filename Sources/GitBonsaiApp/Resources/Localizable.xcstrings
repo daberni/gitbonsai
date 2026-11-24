@@ -7591,6 +7591,23 @@
         }
       }
     },
+    "failure.action.retry" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut versuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
     "failure.action.stashAndRetry" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -7858,6 +7875,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Merge tool failed"
+          }
+        }
+      }
+    },
+    "failure.conflict.notRead" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konflikt konnte nicht gelesen werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Conflict could not be read"
           }
         }
       }

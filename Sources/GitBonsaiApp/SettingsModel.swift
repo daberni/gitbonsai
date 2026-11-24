@@ -9,12 +9,10 @@ import Observation
 @MainActor
 final class SettingsModel {
     private var revision = 0
-    @ObservationIgnored private var observer: NSObjectProtocol?
+    @ObservationIgnored private let observers = NotificationObservers()
 
     init() {
-        observer = NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.revision += 1 }
-        }
+        observers.observe(AppSettings.didChange) { [weak self] in self?.revision += 1 }
     }
 
     private func read<Value>(_ value: () -> Value) -> Value {

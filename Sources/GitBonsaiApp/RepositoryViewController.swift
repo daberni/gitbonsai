@@ -72,6 +72,7 @@ final class RepositoryViewController: NSObject {
     let toast = Toast()
     /// Questions and reports that arrived while the tab was in the background, waiting for it to be shown.
     private var shownWaiters: [CheckedContinuation<NSWindow?, Never>] = []
+    private var isClosed = false
 
     init(location: RepositoryLocation) {
         viewModel = GraphViewModel(location: location)
@@ -128,6 +129,8 @@ final class RepositoryViewController: NSObject {
     /// The tab's window, at once while it is shown, otherwise once the tab is shown again; nil when the tab closes first.
     func windowWhenShown() async -> NSWindow? {
         if let window = view.window { return window }
+        // A closed tab is never shown again, so a waiter added now would never resume.
+        if isClosed { return nil }
         return await withCheckedContinuation { shownWaiters.append($0) }
     }
 
@@ -176,6 +179,7 @@ final class RepositoryViewController: NSObject {
 
     /// The tab closed or its window did: file events stop.
     func closed() {
+        isClosed = true
         resumeShownWaiters(with: nil)
         reconciler?.stopWatching()
         viewModel.close()
