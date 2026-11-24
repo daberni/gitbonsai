@@ -229,6 +229,7 @@ final class CommitController {
 
     private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
         guard ScreenshotHarness.outputPath == nil, let window = window?() else {
+            ScreenshotHarness.render(alert)
             FileHandle.standardError.write(Data("\(alert.messageText): \(alert.informativeText)\n".utf8))
             // Without a sheet nobody confirms: the same as cancelling.
             completion(.cancel)

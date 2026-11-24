@@ -6,7 +6,7 @@ import GitEngine
 extension ScreenshotHarness {
     /// `GITBONSAI_NAVIGATE=<step>;…` runs one step every `GITBONSAI_NAVIGATE_INTERVAL` seconds (default 1.5) with real clicks and keys through the window, and after each prints
     /// whether a diff is open, the selected commits, what the detail panel shows and the first responder. Steps:
-    /// `file:<n>` clicks file n in the detail panel, `row:<n>`, `cmd:<n>` and `shift:<n>` click history row n plainly, with ⌘ or with ⇧, `key:up|down|return|escape` presses that key,
+    /// `file:<n>` clicks file n in the detail panel, `row:<n>`, `cmd:<n>` and `shift:<n>` click history row n plainly, with ⌘ or with ⇧, `row2:<n>` double-clicks it, `key:up|down|return|escape` presses that key,
     /// `parent:<n>` clicks parent link n, `sidebar:<subject>` clicks a sidebar row and `sidebar2:<subject>` double-clicks it (subjects as for `GITBONSAI_SIDEBAR_MENU_LIST`), `tags:<n>` opens the tag list and presses entry n,
     /// `search:<text>` types into the commit search, `git:<argument>,<argument>…` runs a git command and refreshes the history in place like a write action, `stage:<path>` stages a file through the app,
     /// `base` clicks the comparison's "since common base", `close` the diff's close button, `focus:history` focuses the history, `tooltips:<row>` prints the tooltip a row registers over its labels, subject, author and date, `width:<points>` resizes the window and `shot:<png>` renders the window.
@@ -31,7 +31,7 @@ extension ScreenshotHarness {
         let parts = step.split(separator: ":", maxSplits: 1).map(String.init)
         let argument = parts.count > 1 ? parts[1] : ""
         let table = tab.history.tableView
-        func clickRow(_ flags: NSEvent.ModifierFlags) {
+        func clickRow(_ flags: NSEvent.ModifierFlags, count: Int = 1) {
             guard let row = Int(argument), row < table.numberOfRows else { return navigationLog("no row \(argument)") }
             guard table.window != nil else { return navigationLog("\(step): the history is not on screen") }
             table.scrollRowToVisible(row)
@@ -39,6 +39,7 @@ extension ScreenshotHarness {
             let columns = tab.history.columnsController.columns.layout(in: table.bounds.width)
             let point = table.convert(NSPoint(x: columns.commit.lowerBound + Theme.Space.xl, y: rect.midY), to: nil)
             send(click: point, flags: flags, count: 1, in: window)
+            if count == 2 { send(click: point, flags: flags, count: 2, in: window) }
         }
         switch parts[0] {
         case "file":
@@ -47,6 +48,7 @@ extension ScreenshotHarness {
             let row = rows[index]
             send(click: row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil), flags: [], count: 1, in: window)
         case "row": clickRow([])
+        case "row2": clickRow([], count: 2)
         case "cmd": clickRow(.command)
         case "shift": clickRow(.shift)
         case "key":
