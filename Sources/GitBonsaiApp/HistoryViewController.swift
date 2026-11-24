@@ -68,14 +68,14 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         refOverlay.activate = { [weak self] row, pill in self?.onActivate?(row, pill) }
         refOverlay.menuItems = { [weak self] row in self?.menuItems?(row) ?? [] }
         refOverlay.pillMenuItems = { [weak self] row, ref in self?.pillMenuItems?(row, ref) ?? [] }
-        columnsController.onChange = { [weak self] in self?.reloadVisibleRows() }
+        columnsController.onChange = { [weak self] in self?.reloadAvailableRows() }
         tableView.onModifiedClick = { [weak self] row, flags in self?.extendSelection(to: row, flags: flags) ?? false }
         search.onChange = { [weak self] in
-            self?.reloadVisibleRows()
+            self?.reloadAvailableRows()
             self?.updateSearchCounter()
         }
         search.selectedRow = { [weak self] in self?.selectedRow ?? -1 }
-        observers.observe(AvatarStore.didChange) { [weak self] in self?.reloadVisibleRows() }
+        observers.observe(AvatarStore.didChange) { [weak self] in self?.reloadAvailableRows() }
         // Selecting through the table leaves the search field first responder, so typing goes on.
         search.onJump = { [weak self] row in self?.select(row: row, scroll: true) }
         configureTable()
@@ -86,9 +86,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     }
 
     @objc private func tableResized(_ notification: Notification) {
-        let visible = tableView.rows(in: tableView.visibleRect)
-        for row in visible.location..<(visible.location + visible.length) {
-            guard let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? GraphRowView, let model = view.model else { continue }
+        tableView.enumerateAvailableRowViews { rowView, _ in
+            guard let view = rowView.view(atColumn: 0) as? GraphRowView, let model = view.model else { return }
             toolTips.install(on: view, model: model, width: tableView.bounds.width)
         }
     }

@@ -109,10 +109,11 @@ final class HistoryTableView: NSTableView {
 
     private var dividers: [(HistoryColumns.Column, CGFloat)] { columns.layout(in: bounds.width).dividers }
 
+    /// Over the graph column the sideways part of a gesture scrolls the graph and the vertical part the table, so a diagonal gesture moves both.
     override func scrollWheel(with event: NSEvent) {
-        let isSideways = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY)
-        if isSideways, onGraphScroll?(event.scrollingDeltaX, convert(event.locationInWindow, from: nil)) == true { return }
-        super.scrollWheel(with: event)
+        let dx = event.scrollingDeltaX
+        guard dx != 0, onGraphScroll?(dx, convert(event.locationInWindow, from: nil)) == true else { return super.scrollWheel(with: event) }
+        if event.scrollingDeltaY != 0, let vertical = event.scrollingAxis(.vertical) { super.scrollWheel(with: vertical) }
     }
 
     override func setFrameSize(_ newSize: NSSize) {

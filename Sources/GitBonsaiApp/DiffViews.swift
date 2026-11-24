@@ -244,7 +244,7 @@ final class DiffHunkView: NSView {
     var onAction: (() -> Void)?
     var onDiscard: (() -> Void)?
     private let label = NSTextField(labelWithString: "")
-    private let action = NSButton()
+    let action = NSButton()
     let discard = NSButton()
 
     override init(frame frameRect: NSRect) {
@@ -277,8 +277,9 @@ final class DiffHunkView: NSView {
         super.layout()
         action.sizeToFit()
         discard.sizeToFit()
-        let visible = visibleRect.isEmpty ? bounds : visibleRect
-        action.setFrameOrigin(NSPoint(x: visible.maxX - Theme.Space.m - action.frame.width, y: (bounds.height - action.frame.height) / 2))
+        // The clip view's sideways offset, not `visibleRect`, which is empty for rows prepared above or below the visible ones.
+        let visibleMaxX = enclosingScrollView.map { min(convert($0.contentView.bounds, from: $0.contentView).maxX, bounds.maxX) } ?? bounds.maxX
+        action.setFrameOrigin(NSPoint(x: visibleMaxX - Theme.Space.m - action.frame.width, y: (bounds.height - action.frame.height) / 2))
         discard.setFrameOrigin(NSPoint(x: action.frame.minX - Theme.Space.s - discard.frame.width, y: (bounds.height - discard.frame.height) / 2))
     }
 

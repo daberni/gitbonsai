@@ -29,6 +29,7 @@ extension ScreenshotHarness {
         driveRebase(on: tab)
         navigate(on: tab)
         driveCoveredHover(on: tab)
+        driveScrollChecks(on: tab)
         printFetchState(of: tab)
         return false
     }

@@ -47,11 +47,7 @@ enum NoWrapText {
 /// A scroll view for one block of lines: it scrolls sideways and leaves vertical scrolling to the conflict view around it.
 final class SidewaysScrollView: NSScrollView {
     override func scrollWheel(with event: NSEvent) {
-        if abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) {
-            nextResponder?.scrollWheel(with: event)
-        } else {
-            super.scrollWheel(with: event)
-        }
+        NSEvent.split(event, sideways: { super.scrollWheel(with: $0) }, vertical: { nextResponder?.scrollWheel(with: $0) })
     }
 }
 

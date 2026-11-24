@@ -135,12 +135,9 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         embeddedHeight.constant = Theme.Diff.headerHeight + lines + scroller
     }
 
-    /// Hunk headers place their button by what is visible; a sideways scroll moves it along.
+    /// Hunk headers place their button by what is visible; a sideways scroll moves it along in every row the table keeps.
     @objc private func scrolled(_ notification: Notification) {
-        let visible = table.rows(in: table.visibleRect)
-        for row in visible.location..<(visible.location + visible.length) {
-            table.view(atColumn: 0, row: row, makeIfNecessary: false)?.needsLayout = true
-        }
+        table.enumerateAvailableRowViews { rowView, _ in (rowView.view(atColumn: 0) as? NSView)?.needsLayout = true }
     }
 
     // MARK: Actions
@@ -263,11 +260,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 /// The lines of one stacked file scroll sideways themselves; vertical scrolling belongs to the stack around them.
 final class NestedScrollView: NSScrollView {
     override func scrollWheel(with event: NSEvent) {
-        if abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) {
-            nextResponder?.scrollWheel(with: event)
-        } else {
-            super.scrollWheel(with: event)
-        }
+        NSEvent.split(event, sideways: { super.scrollWheel(with: $0) }, vertical: { nextResponder?.scrollWheel(with: $0) })
     }
 }
 

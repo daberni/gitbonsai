@@ -69,7 +69,7 @@ extension HistoryViewController {
 
     func metadataChanged() {
         search.refsMayHaveChanged()
-        reloadVisibleRows()
+        reloadAvailableRows()
         guard selectedRow < 0, !viewModel.isLoading else { return }
         let anchor = focusAfterReload
         focusAfterReload = nil
@@ -111,9 +111,11 @@ extension HistoryViewController {
         return true
     }
 
-    func reloadVisibleRows() {
-        let visible = tableView.rows(in: tableView.visibleRect)
-        guard visible.length > 0 else { return }
-        tableView.reloadData(forRowIndexes: IndexSet(integersIn: visible.location..<(visible.location + visible.length)), columnIndexes: IndexSet(integer: 0))
+    /// Every row view the table keeps, not only the visible ones: responsive scrolling prepares rows beyond the visible rect, and those must not scroll in with an earlier model.
+    func reloadAvailableRows() {
+        var rows = IndexSet()
+        tableView.enumerateAvailableRowViews { _, row in rows.insert(row) }
+        guard !rows.isEmpty else { return }
+        tableView.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(integer: 0))
     }
 }
