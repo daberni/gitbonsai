@@ -53,7 +53,6 @@ extension RepositoryViewController {
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row, pill in self?.checkoutController.activate(row: row, pill: pill) }
         history.menuItems = { [weak self] row in self?.historyMenu.rowMenu(forRow: row) ?? [] }
-        historyMenu.relativeItems = { [weak self] commit in self?.relativeMenuItems(for: commit) ?? [] }
         history.tableView.onRelative = { [weak self] parent in self?.goToRelative(parent ? .parent : .child) }
         history.pillMenuItems = { [weak self] row, ref in self?.historyMenu.pillMenu(forRow: row, ref: ref) ?? [] }
 

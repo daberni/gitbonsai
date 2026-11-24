@@ -13,8 +13,6 @@ final class HistoryMenuController {
     private let branches: BranchActionsController
     private let tags: TagsController
     private let fastForward: FastForwardController
-    /// "Go to Parent" and "Go to Child" of a commit, for the "go there" group.
-    var relativeItems: ((Commit) -> [NSMenuItem])?
 
     init(viewModel: GraphViewModel, checkout: CheckoutController, commitActions: CommitActionsController, branches: BranchActionsController, tags: TagsController, fastForward: FastForwardController) {
         self.viewModel = viewModel
@@ -80,7 +78,6 @@ final class HistoryMenuController {
         }
         var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch)
         if let detached = checkout.detachedItem(forRow: index) { sections.goThere.append(detached) }
-        sections.goThere += relativeItems?(commit) ?? []
         return sections
     }
 

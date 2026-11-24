@@ -10,17 +10,9 @@ extension RepositoryViewController {
         return [relativeCommand(.parent, of: commit), relativeCommand(.child, of: commit)]
     }
 
-    /// The context menu's entries for the clicked commit, in its "go there" group; left out where there is nowhere to go.
-    func relativeMenuItems(for commit: Commit) -> [NSMenuItem] {
-        [Relation.parent, .child].compactMap { relation in
-            guard !relatives(relation, of: commit).isEmpty else { return nil }
-            return ActionMenuItem(Self.spec(relation).title) { [weak self] in self?.goToRelative(relation, of: commit) }
-        }
-    }
-
-    /// The shortcut in the history (⌘↓ parent, ⌘↑ child) and the context menu.
-    func goToRelative(_ relation: Relation, of commit: Commit? = nil) {
-        guard let commit = commit ?? selectedHistoryCommit else { return NSSound.beep() }
+    /// The shortcut in the history (⌘↓ parent, ⌘↑ child).
+    func goToRelative(_ relation: Relation) {
+        guard let commit = selectedHistoryCommit else { return NSSound.beep() }
         let command = relativeCommand(relation, of: commit)
         guard command.isEnabled else { return NSSound.beep() }
         switch command.action {
