@@ -4,6 +4,9 @@ import GitEngine
 /// Harness switches for the interactive rebase: the sheet driven by real clicks, drags and keys, the amend at an edit stop and the undo in the status line.
 @MainActor
 extension ScreenshotHarness {
+    /// `GITBONSAI_REBASE_DETECTION_DELAY=<seconds>` holds back the rebase base detection of commit menus, as in a large repository.
+    static var rebaseDetectionDelay: Double { environment["GITBONSAI_REBASE_DETECTION_DELAY"].flatMap(Double.init) ?? 0 }
+
     /// `GITBONSAI_REBASE_SCRIPT=<step>;<step>…` drives the sheet once it is open; open it with `GITBONSAI_MENU_RUN=<row>:Rebase <branch> interaktiv`.
     /// Steps: `drag:<row>><gap>` drags a row by its grip to the gap before row `gap`, `click:<row>`, `key:<key>` (a letter, `opt-up`, `opt-down`, `up`, `down`),
     /// `popup:<row>=<action>` picks from the row's pop-up, `subject:<row>=<text>` and `message:<text>` replace text by typing (`\n` for a new line),

@@ -74,7 +74,13 @@ extension ScreenshotHarness {
     private static func showAndCapture(_ menu: NSMenu, with event: NSEvent, for view: NSView, to path: String) {
         // The timer fires on the main run loop; the menu only crosses into its closure.
         nonisolated(unsafe) let tracked = menu
-        let capture = Timer(timeInterval: 0.4, repeats: false) { _ in
+        // `GITBONSAI_MENU_SHOT_AT=<seconds>` keeps the menu open that long; `GITBONSAI_MENU_KEYS=down,right,…` presses arrow keys in it first, such as to open a submenu.
+        let keys = (environment["GITBONSAI_MENU_KEYS"] ?? "").split(separator: ",").map(String.init)
+        let press = Timer(timeInterval: 0.2, repeats: false) { _ in
+            MainActor.assumeIsolated { keys.forEach(postMenuKey) }
+        }
+        RunLoop.current.add(press, forMode: .eventTracking)
+        let capture = Timer(timeInterval: environment["GITBONSAI_MENU_SHOT_AT"].flatMap(Double.init) ?? 0.4, repeats: false) { _ in
             MainActor.assumeIsolated {
                 captureMenuWindow(to: path)
                 tracked.cancelTracking()
@@ -83,5 +89,19 @@ extension ScreenshotHarness {
         RunLoop.current.add(capture, forMode: .eventTracking)
         RunLoop.current.add(capture, forMode: .common)
         NSMenu.popUpContextMenu(menu, with: event, for: view)
+    }
+
+    private static func postMenuKey(_ name: String) {
+        let arrows: [String: (Int, UInt16)] = [
+            "down": (NSDownArrowFunctionKey, 125),
+            "up": (NSUpArrowFunctionKey, 126),
+            "right": (NSRightArrowFunctionKey, 124),
+        ]
+        guard let (character, code) = arrows[name], let scalar = UnicodeScalar(character) else { return }
+        let text = String(Character(scalar))
+        for type in [NSEvent.EventType.keyDown, .keyUp] {
+            guard let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil, characters: text, charactersIgnoringModifiers: text, isARepeat: false, keyCode: code) else { continue }
+            NSApp.postEvent(event, atStart: false)
+        }
     }
 }

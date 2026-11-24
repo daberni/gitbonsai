@@ -331,10 +331,18 @@ extension ScreenshotHarness {
     }
 
     /// The open menu is a window of the app above the normal level (its glass backdrop is another one, left out); it is rendered like the main window.
+    /// An open submenu is another such window; it goes next to the picture with "-sub" before the extension.
     static func captureMenuWindow(to path: String) {
         let menuWindows = NSApp.windows.filter { $0.isVisible && $0.level.rawValue > NSWindow.Level.normal.rawValue }
         FileHandle.standardError.write(Data("menu windows: \(menuWindows.map { "\(type(of: $0)) \($0.frame)" })\n".utf8))
-        guard let window = menuWindows.first(where: { "\(type(of: $0))".contains("Menu") }), let view = window.contentView?.superview ?? window.contentView else { return }
+        let menus = menuWindows.filter { "\(type(of: $0))".contains("Menu") }.sorted { $0.frame.minX < $1.frame.minX }
+        for (index, window) in menus.enumerated() {
+            render(menuWindow: window, to: index == 0 ? path : (path as NSString).deletingPathExtension + "-sub.png")
+        }
+    }
+
+    private static func render(menuWindow window: NSWindow, to path: String) {
+        guard let view = window.contentView?.superview ?? window.contentView else { return }
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
         // The menu draws only its content; without the glass behind it the picture gets the window background.

@@ -13,6 +13,8 @@ final class RebaseOntoController {
     private let viewModel: GraphViewModel
     private let interactive: InteractiveRebaseController
     private let runPlainRebase: Runner
+    /// Detections of earlier menus by branch, HEAD and target: an open menu keeps its shape, so a result that would change it shows from the next open on.
+    private var detections: [String: RebaseBaseDetection] = [:]
 
     init(viewModel: GraphViewModel, interactive: InteractiveRebaseController, runPlainRebase: @escaping Runner) {
         self.viewModel = viewModel
@@ -42,7 +44,10 @@ final class RebaseOntoController {
         let repository = viewModel.repository
         let targetRef = branchRef(at: commit)
         let found = DetectionResult()
+        let key = "\(branch) \(viewModel.headSHA ?? "") \(commit.id)"
+        let delay = ScreenshotHarness.rebaseDetectionDelay
         let detection = Task.detached {
+            if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
             let result = await repository.detectRebaseBase(of: branch, onto: commit.id, targetRef: targetRef)
             found.store(result)
             return result
@@ -58,9 +63,15 @@ final class RebaseOntoController {
             }
         }
         let isVariant = allCommits != nil
-        let sheetTitle = RefString(interactiveTitle)
+        let known = isVariant ? detections[key] ?? Self.briefly(found) : nil
+        // Nothing left out: the branch's own commits are all of them, so the plain rebase and the interactive one stay single entries.
+        if let allCommits, let known, Self.ownCommitsTitle(branch: branch, place: place, detection: known) == nil {
+            detections[key] = known
+            return [allCommits, sheet]
+        }
         let grouped = allCommits.map { variants($0, oneClick: oneClick, sheet: sheet, commit: commit, branch: branch) }
-        nonisolated(unsafe) weak let group = grouped
+        // The timer fires on the main run loop; storing the result only crosses into its closure.
+        nonisolated(unsafe) let remember: (RebaseBaseDetection) -> Void = { [weak self] result in self?.detections[key] = result }
         // An open menu runs its own tracking loop, which serves no main-actor tasks; a timer in the common modes still fires and updates the entry in place.
         let started = Date()
         let releaseCapture = ScreenshotHarness.hold()
@@ -70,12 +81,11 @@ final class RebaseOntoController {
             let finished = MainActor.assumeIsolated {
                 guard let entry, Date().timeIntervalSince(started) < Self.searchTimeout else { return true }
                 guard let result = found.value else { return false }
-                if !isVariant {
+                if isVariant {
+                    remember(result)
+                    entry.setTitle(Self.ownCommitsTitle(branch: branch, place: place, detection: result) ?? Self.allOwn(branch: branch, result))
+                } else {
                     entry.setTitle(Self.title(branch: branch, place: place, detection: result))
-                } else if let title = Self.ownCommitsTitle(branch: branch, place: place, detection: result) {
-                    entry.setTitle(title)
-                } else if let group {
-                    Self.ungroup(group, interactiveTitle: sheetTitle)
                 }
                 return true
             }
@@ -104,20 +114,6 @@ final class RebaseOntoController {
         return parent
     }
 
-    /// A detection that leaves nothing out makes "only the branch's own commits" the same as all of them: one variant is left, so the entry runs it itself and the interactive one follows it, as without a submenu.
-    private static func ungroup(_ parent: NSMenuItem, interactiveTitle: RefString) {
-        guard let items = parent.submenu?.items, items.count == 3, let menu = parent.menu else { return }
-        let (allCommits, sheet) = (items[0], items[2])
-        parent.submenu?.removeAllItems()
-        parent.submenu = nil
-        // A menu item holds its target weakly; the entry keeps the plain rebase alive.
-        parent.representedObject = allCommits
-        parent.target = allCommits.target
-        parent.action = allCommits.action
-        sheet.setTitle(interactiveTitle)
-        menu.insertItem(sheet, at: menu.index(of: parent) + 1)
-    }
-
     /// "Only main's own commits (1 commit, without feature/a)"; nil when the detection leaves nothing out, so the variant equals all commits.
     private static func ownCommitsTitle(branch: String, place: RefString?, detection: RebaseBaseDetection) -> RefString? {
         switch detection {
@@ -129,9 +125,24 @@ final class RebaseOntoController {
         }
     }
 
+    /// The shape stays while the menu is open: a detection that leaves nothing out names the count of all commits.
+    private static func allOwn(branch: String, _ detection: RebaseBaseDetection) -> RefString {
+        guard case .plain(let moving) = detection else { return ownCommits(branch: branch, notes: []) }
+        return ownCommits(branch: branch, notes: [commits(moving)])
+    }
+
     private static func ownCommits(branch: String, notes: [RefString]) -> RefString {
         let list = notes.map(\.marked).joined(separator: ", ")
         return RefString(LocalizedStringResource("rebase.onto.variant.own", defaultValue: "Only \(RefName.branch(branch))'s own commits (\(list))", bundle: .module))
+    }
+
+    /// A detection that finishes within this time decides the menu's shape before it opens.
+    private static let menuWait: TimeInterval = 0.15
+
+    private static func briefly(_ found: DetectionResult) -> RebaseBaseDetection? {
+        let deadline = Date().addingTimeInterval(menuWait)
+        while found.value == nil, Date() < deadline { usleep(5_000) }
+        return found.value
     }
 
     /// After this many seconds an open menu stops waiting for the detected base; choosing the entry still waits for it.

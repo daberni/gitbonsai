@@ -232,7 +232,11 @@ extension NSMenuItem {
     /// Shows `title` with its names as pills; VoiceOver gets the plain sentence.
     @MainActor func setTitle(_ title: RefString) {
         self.title = title.plain
-        guard title.containsNames else { return }
+        guard title.containsNames else {
+            // A pill title set before would otherwise stay on screen over the plain one.
+            attributedTitle = nil
+            return
+        }
         attributedTitle = RefText.attributed(title, font: NSFont.menuFont(ofSize: 0))
         setAccessibilityLabel(title.plain)
     }
