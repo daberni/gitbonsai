@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// Pulling a local branch from its context menu, also when it is not checked out: in the sidebar and on its ref pill in the history.
+/// Pulling and pushing a local branch from its context menu, also when it is not checked out: in the sidebar and on its ref pill in the history.
 /// The checked-out branch takes the toolbar's normal pull; any other branch is only ever fast-forwarded, and a diverged one is left alone with a way out offered.
 @MainActor
 final class BranchPullController {
@@ -25,6 +25,16 @@ final class BranchPullController {
         let item = ActionMenuItem(LocalizedStringResource("branch.menu.pull", defaultValue: "Pull \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.pull(name) }
         item.toolTip = String(localized: "branch.pull.toolTip", defaultValue: "Fetches \(upstream) and fast-forwards \(name) when that works without a merge.", bundle: .module)
         return item
+    }
+
+    /// "Push <branch>" to its upstream for a local branch with an upstream on a known remote, nil for anything else. A rejected push offers the same ways out as the toolbar's.
+    func pushItem(for ref: Ref) -> NSMenuItem? {
+        guard ref.kind == .localBranch, let upstream = ref.upstream, let remote = pullPush.remotes.filter({ upstream.hasPrefix($0 + "/") }).max(by: { $0.count < $1.count }) else { return nil }
+        let name = ref.name
+        let remoteBranch = String(upstream.dropFirst(remote.count + 1))
+        return ActionMenuItem(LocalizedStringResource("branch.menu.push", defaultValue: "Push \(RefName.branch(name))", bundle: .module)) { [weak self] in
+            self?.pullPush.push(.branch(name, remote: remote, remoteBranch: remoteBranch, setUpstream: false, forceWithLease: false), upstream: upstream)
+        }
     }
 
     func pull(_ branch: String) {

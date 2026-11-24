@@ -101,28 +101,57 @@ enum RefText {
     }
 
     private static func pill(_ name: String, kind: RefKind, font: NSFont) -> NSAttributedString {
-        let image = pillImage(name, kind: kind, font: font)
+        let metrics = PillMetrics(kind, like: font)
+        let image = pillImage(name, kind: kind, metrics: metrics)
         let attachment = NSTextAttachment()
         attachment.image = image
-        attachment.bounds = CGRect(x: 0, y: (font.capHeight - image.size.height) / 2, width: image.size.width, height: image.size.height)
+        attachment.bounds = CGRect(x: 0, y: -metrics.baselineFromBottom, width: image.size.width, height: image.size.height)
         return NSAttributedString(attachment: attachment)
+    }
+
+    /// One pill's measurements: its text has the size of the text around it, and height, glyph and padding follow from that size, so a pill in a menu, an alert or the command bar reads like its line.
+    @MainActor struct PillMetrics {
+        let textFont: NSFont
+        let lineHeight: CGFloat
+        let height: CGFloat
+        let glyph: CGFloat
+        let padding: CGFloat
+        let glyphGap: CGFloat
+        let trailingPadding: CGFloat
+
+        init(_ kind: RefKind, like font: NSFont) {
+            let size = font.pointSize
+            textFont = RefText.textFont(kind, like: font)
+            lineHeight = ceil(textFont.ascender - textFont.descender + textFont.leading)
+            height = lineHeight + ceil(size * M.extraHeight)
+            glyph = height - 2 * round(size * M.glyphInset)
+            padding = round(size * M.padding)
+            glyphGap = round(size * M.glyphGap)
+            trailingPadding = round(size * M.trailingPadding)
+        }
+
+        var textInset: CGFloat { padding + glyph + glyphGap }
+        /// Top of the text line inside a one-line pill.
+        var textTop: CGFloat { (height - lineHeight) / 2 }
+        /// The pill text's baseline above the pill's bottom edge; placing the pill this far below the line's baseline aligns both texts.
+        var baselineFromBottom: CGFloat { height - textTop - textFont.ascender }
     }
 
     /// A word such as "Default" in the muted pill of the settings lists, without a glyph, for a menu item's marker.
     static func marker(_ text: String, font: NSFont) -> NSAttributedString {
-        let textFont = NSFont.systemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
-        let attributes: [NSAttributedString.Key: Any] = [.font: textFont, .foregroundColor: Theme.ink]
-        let textSize = (text as NSString).size(withAttributes: attributes)
-        let size = CGSize(width: ceil(textSize.width) + 2 * M.trailingPadding, height: ceil(textSize.height) + M.extraHeight)
+        let metrics = PillMetrics(.branch, like: font)
+        let attributes: [NSAttributedString.Key: Any] = [.font: metrics.textFont, .foregroundColor: Theme.ink]
+        let textWidth = ceil((text as NSString).size(withAttributes: attributes).width)
+        let size = CGSize(width: textWidth + 2 * metrics.trailingPadding, height: metrics.height)
         let image = NSImage(size: size, flipped: true) { rect in
             Theme.inkMuted.mixed(into: Theme.surface0, fraction: Theme.Pill.tint.plain).setFill()
             NSBezierPath(roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2).fill()
-            (text as NSString).draw(at: CGPoint(x: M.trailingPadding, y: (rect.height - textSize.height) / 2), withAttributes: attributes)
+            (text as NSString).draw(at: CGPoint(x: metrics.trailingPadding, y: metrics.textTop), withAttributes: attributes)
             return true
         }
         let attachment = NSTextAttachment()
         attachment.image = image
-        attachment.bounds = CGRect(x: 0, y: (font.capHeight - size.height) / 2, width: size.width, height: size.height)
+        attachment.bounds = CGRect(x: 0, y: -metrics.baselineFromBottom, width: size.width, height: size.height)
         let result = NSMutableAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: M.hiddenSize), .foregroundColor: NSColor.clear])
         result.append(NSAttributedString(attachment: attachment))
         return result
@@ -130,8 +159,8 @@ enum RefText {
 
     static func textFont(_ kind: RefKind, like font: NSFont) -> NSFont {
         switch kind {
-        case .commit, .path: NSFont.monospacedSystemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
-        default: NSFont.systemFont(ofSize: font.pointSize - M.shrink, weight: .medium)
+        case .commit, .path: NSFont.monospacedSystemFont(ofSize: font.pointSize, weight: .medium)
+        default: NSFont.systemFont(ofSize: font.pointSize, weight: .medium)
         }
     }
 
@@ -145,22 +174,20 @@ enum RefText {
         }
     }
 
-    private static func pillImage(_ name: String, kind: RefKind, font: NSFont) -> NSImage {
-        let textFont = textFont(kind, like: font)
-        let text = truncatedMiddle(name, font: textFont)
-        let attributes: [NSAttributedString.Key: Any] = [.font: textFont, .foregroundColor: Theme.ink]
-        let textSize = (text as NSString).size(withAttributes: attributes)
-        let height = ceil(textSize.height) + M.extraHeight
-        let glyph = height - 2 * M.glyphInset
-        let size = CGSize(width: M.padding + glyph + M.glyphGap + ceil(textSize.width) + M.trailingPadding, height: height)
+    private static func pillImage(_ name: String, kind: RefKind, metrics: PillMetrics) -> NSImage {
+        let text = truncatedMiddle(name, font: metrics.textFont)
+        let attributes: [NSAttributedString.Key: Any] = [.font: metrics.textFont, .foregroundColor: Theme.ink]
+        let textWidth = ceil((text as NSString).size(withAttributes: attributes).width)
+        let glyph = metrics.glyph
+        let size = CGSize(width: metrics.textInset + textWidth + metrics.trailingPadding, height: metrics.height)
         // Drawn on demand, so the colours resolve for the appearance the pill is shown in.
         return NSImage(size: size, flipped: true) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
             color(kind).mixed(into: Theme.surface0, fraction: Theme.Pill.tint.plain).setFill()
             NSBezierPath(roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2).fill()
-            let glyphRect = CGRect(x: M.padding, y: (rect.height - glyph) / 2, width: glyph, height: glyph)
+            let glyphRect = CGRect(x: metrics.padding, y: (rect.height - glyph) / 2, width: glyph, height: glyph)
             drawGlyph(kind, in: glyphRect, context: context)
-            (text as NSString).draw(at: CGPoint(x: glyphRect.maxX + M.glyphGap, y: (rect.height - textSize.height) / 2), withAttributes: attributes)
+            (text as NSString).draw(at: CGPoint(x: metrics.textInset, y: metrics.textTop), withAttributes: attributes)
             return true
         }
     }

@@ -64,7 +64,7 @@ final class SidebarActionRunner {
             prompter.report(error, title: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module))
             return
         }
-        guard await confirm(LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "Delete unmerged Branch?", bundle: .module), names: RefString(marked: RefName.branch(name)), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module), destructive: true, style: .warning) else { return }
+        guard await confirm(LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "Delete unmerged Branch?", bundle: .module), names: RefString(marked: RefName.branch(name)), info: LocalizedStringResource("branch.deleteUnmerged.info", defaultValue: "The branch has commits that are not merged anywhere.", bundle: .module), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module), destructive: true, style: .warning) else { return }
         await run(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -D", undo: .branch(name)) { try await $0.deleteBranch(name, force: true) }
     }
 

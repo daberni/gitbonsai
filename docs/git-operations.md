@@ -174,7 +174,7 @@ Keep this file in step with `Sources/GitEngine`: a change that adds or changes a
 | Pull a branch checked out in another worktree | `git -C <worktree> pull --no-rebase --ff-only --autostash` | Through that worktree's own index queue, with `GIT_EDITOR=true`; a conflicting autostash is named in the toast and status line |
 | Diverged branch: counts | `git rev-list --left-right --count refs/heads/<b>...<b>@{upstream}` | After the refused attempt, which already fetched. Behind 0 is reported as up to date |
 | Diverged branch: reset to the upstream | `git rev-parse --verify <b>@{upstream}^{commit}`, `git update-ref -m "reset: moving to <b>@{upstream}" refs/heads/<b> <upstream sha> <old sha>` | Only for a branch checked out nowhere, chosen in the question about the diverged branch; Undo brings the local commits back. The old value guards against a branch that moved meanwhile |
-| Push to the upstream | `git push <remote> refs/heads/<b>:refs/heads/<upstream branch>` | |
+| Push to the upstream | `git push <remote> refs/heads/<b>:refs/heads/<upstream branch>` | From the toolbar for the current branch; from a branch's context menu ("Push <branch>") for any local branch with an upstream |
 | First push | `git push -u <remote> refs/heads/<b>:refs/heads/<name>` | Sets the upstream |
 | Push after a non-fast-forward rejection | `git push --force-with-lease <remote> refs/heads/<b>:refs/heads/<upstream branch>` | Only after a confirmation; never `--force`. When the lease is stale, `git fetch --no-prune <remote>` follows, so the history shows the remote's new commits |
 | Push tags | `git push <remote> --tags` | |

@@ -180,7 +180,7 @@ final class StashesController {
     func drop(_ id: String) {
         guard let stash = stash(id) else { return }
         Task {
-            guard await runner.confirm(LocalizedStringResource("stash.drop.title", defaultValue: "Drop Stash?", bundle: .module), names: RefString(marked: RefName.stash(stash.selector) + "\n" + stash.text), button: LocalizedStringResource("stash.drop.confirm", defaultValue: "Drop", bundle: .module, comment: "Button that deletes a stash.")) else { return }
+            guard await runner.confirm(LocalizedStringResource("stash.drop.title", defaultValue: "Drop Stash?", bundle: .module), names: RefString(marked: RefName.stash(stash.selector) + " " + stash.text), button: LocalizedStringResource("stash.drop.confirm", defaultValue: "Drop", bundle: .module, comment: "Button that deletes a stash.")) else { return }
             runner.run(failure: LocalizedStringResource("failure.stash.notDeleted", defaultValue: "Stash not deleted", bundle: .module), note: "git stash drop \(stash.selector)") { try await $0.dropStash(stash) }
         }
     }

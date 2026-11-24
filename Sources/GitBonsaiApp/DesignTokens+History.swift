@@ -57,18 +57,16 @@ extension Theme {
         static let border: (plain: CGFloat, head: CGFloat) = (0.55, 0.75)
     }
 
-    /// Names inside running text (menus, sheets, banner, toasts): the ref pill in miniature, sized from the surrounding font.
+    /// Names inside running text (menus, alerts, sheets, command bar, banner, toasts): the ref pill in miniature. Its text has the size of the text around it; height, glyph and padding are these shares of that size.
     enum RefText {
         /// Longest name before it is cut in the middle, so its prefix (feature/) and its distinguishing end stay readable.
         static let maxNameWidth: CGFloat = 220
-        /// The pill's text is this much smaller than the text around it.
-        static let shrink: CGFloat = 1
         /// Added to the pill text's line height.
-        static let extraHeight: CGFloat = 3
-        static let padding: CGFloat = 5
-        static let trailingPadding: CGFloat = 6
-        static let glyphInset: CGFloat = 3
-        static let glyphGap: CGFloat = 3
+        static let extraHeight: CGFloat = 0.3
+        static let padding: CGFloat = 0.5
+        static let trailingPadding: CGFloat = 0.6
+        static let glyphInset: CGFloat = 0.3
+        static let glyphGap: CGFloat = 0.3
         static let commitRing: CGFloat = 1.4
         /// Share of the glyph box the commit ring leaves free on each side.
         static let commitInset: CGFloat = 0.22

@@ -6,20 +6,22 @@ struct MenuSections {
     var refs: [NSMenuItem] = []
     /// Checkout, Switch to Worktree, Checkout Commit (detached).
     var goThere: [NSMenuItem] = []
+    /// Pull, Push, Push Tag.
+    var sync: [NSMenuItem] = []
     /// Moves or changes the current branch: Fast-Forward, Merge, Rebase, Cherry-Pick, Reset, Revert.
     var integrate: [NSMenuItem] = []
+    /// Delete, Delete Branches…, Drop Commit.
+    var remove: [NSMenuItem] = []
     /// Branch, Worktree, Tag.
     var create: [NSMenuItem] = []
-    /// Rename, Upstream, Pull, Push, Edit Message, Move up/down.
+    /// Rename, Upstream, Edit Message, Move up/down.
     var change: [NSMenuItem] = []
     /// Copy name, Copy SHA, Save Patch.
     var copy: [NSMenuItem] = []
-    /// Drop Commit, Delete.
-    var remove: [NSMenuItem] = []
 
-    var groups: [[NSMenuItem]] { [refs, goThere, integrate, create, change, copy, remove] }
+    var groups: [[NSMenuItem]] { [refs, goThere, sync, integrate, remove, create, change, copy] }
 
     static func + (lhs: MenuSections, rhs: MenuSections) -> MenuSections {
-        MenuSections(refs: lhs.refs + rhs.refs, goThere: lhs.goThere + rhs.goThere, integrate: lhs.integrate + rhs.integrate, create: lhs.create + rhs.create, change: lhs.change + rhs.change, copy: lhs.copy + rhs.copy, remove: lhs.remove + rhs.remove)
+        MenuSections(refs: lhs.refs + rhs.refs, goThere: lhs.goThere + rhs.goThere, sync: lhs.sync + rhs.sync, integrate: lhs.integrate + rhs.integrate, remove: lhs.remove + rhs.remove, create: lhs.create + rhs.create, change: lhs.change + rhs.change, copy: lhs.copy + rhs.copy)
     }
 }

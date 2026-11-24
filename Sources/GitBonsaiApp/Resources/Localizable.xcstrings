@@ -121,6 +121,23 @@
         }
       }
     },
+    "branch.deleteUnmerged.info" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The branch has commits that are not merged anywhere."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Branch hat Commits, die nirgends gemergt sind."
+          }
+        }
+      }
+    },
     "branch.deleteUnmerged.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -280,6 +297,23 @@
         }
       }
     },
+    "branch.menu.copyName" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Copy %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kopieren"
+          }
+        }
+      }
+    },
     "branch.menu.delete" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -361,6 +395,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Pull %@"
+          }
+        }
+      }
+    },
+    "branch.menu.push" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Push %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ pushen"
           }
         }
       }
@@ -3971,6 +4022,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Cherry-Pick onto %@"
+          }
+        }
+      }
+    },
+    "commit.menu.copySHA" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Copy %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kopieren"
           }
         }
       }
@@ -12929,6 +12997,40 @@
         }
       }
     },
+    "rebase.onto.note.ambiguousBase" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "ambiguous base"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basis nicht eindeutig"
+          }
+        }
+      }
+    },
+    "rebase.onto.note.findingBase" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "finding base…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basis wird gesucht …"
+          }
+        }
+      }
+    },
     "rebase.onto.thisCommit" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -12942,6 +13044,57 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "this commit"
+          }
+        }
+      }
+    },
+    "rebase.onto.variant.all" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "All commits (%lld)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Commits (%lld)"
+          }
+        }
+      }
+    },
+    "rebase.onto.variant.interactive" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Interactively…"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interaktiv …"
+          }
+        }
+      }
+    },
+    "rebase.onto.variant.own" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Only %1$@'s own commits (%2$@)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur die eigenen Commits von %1$@ (%2$@)"
           }
         }
       }
@@ -16172,6 +16325,23 @@
         }
       }
     },
+    "tag.menu.copyName" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Copy %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kopieren"
+          }
+        }
+      }
+    },
     "tag.menu.deleteOn" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -16246,13 +16416,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nach %@ pushen"
+            "value" : "%1$@ nach %2$@ pushen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Push to %@"
+            "value" : "Push %1$@ to %2$@"
           }
         }
       }

@@ -81,8 +81,6 @@ extension Theme {
         static let spacing = Space.m
         /// Between pills on one line, and between wrapped lines.
         static let pillGap = Space.xs
-        /// Above and below a pill's text.
-        static let pillInset: CGFloat = 2
         static let rowSpacing = Space.s
         static let shaWidth: CGFloat = 64
     }

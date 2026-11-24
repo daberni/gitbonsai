@@ -29,8 +29,7 @@ final class HistoryMenuController {
         let subjects = all.filter { !refSections($0.ref, commit: commit).groups.joinedWithSeparators.isEmpty }
         let leading: MenuSections
         if subjects.count == 1, case .branch = subjects[0].ref {
-            leading = refSections(subjects[0].ref, commit: commit)
-            return (leading + commitSections(commit, index: index, pills: all, subject: subjects[0].ref)).groups.joinedWithSeparators
+            return combined(refSections(subjects[0].ref, commit: commit), commit: commit, index: index, pills: all, subject: subjects[0].ref)
         }
         leading = MenuSections(refs: subjects.map { submenu(titled: Self.title(of: $0.ref), refSections($0.ref, commit: commit)) })
         return (leading + commitSections(commit, index: index, pills: all, subject: nil)).groups.joinedWithSeparators
@@ -38,7 +37,15 @@ final class HistoryMenuController {
 
     func pillMenu(forRow index: Int, ref: PillRef) -> [NSMenuItem] {
         guard let commit = commit(at: index) else { return [] }
-        return (refSections(ref, commit: commit) + commitSections(commit, index: index, pills: pills(of: commit), subject: ref)).groups.joinedWithSeparators
+        return combined(refSections(ref, commit: commit), commit: commit, index: index, pills: pills(of: commit), subject: ref)
+    }
+
+    /// The branch's own "Rebase main onto X" joins the commit section's rebase variants, which offer it as one entry with a submenu.
+    private func combined(_ ref: MenuSections, commit: Commit, index: Int, pills: [PillModel], subject: PillRef) -> [NSMenuItem] {
+        var ref = ref
+        let allCommits = ref.integrate.first { $0.identifier == RebaseOntoController.allCommitsItem }
+        ref.integrate.removeAll { $0 === allCommits }
+        return (ref + commitSections(commit, index: index, pills: pills, subject: subject, rebaseAllCommits: allCommits)).groups.joinedWithSeparators
     }
 
     // MARK: Sections
@@ -55,7 +62,11 @@ final class HistoryMenuController {
                 return ref.name == "\(remote)/\(name)"
             }
             if local == nil, remotes.count == 1, let remote = remotes.first { return branches.sections(for: remote, inHistory: true) }
-            let submenus = remotes.map { remote in submenu(titled: RefString(marked: RefName.remoteBranch(remote.name)), branches.sections(for: remote, inHistory: true)) }
+            let submenus = remotes.compactMap { remote -> NSMenuItem? in
+                let sections = branches.sections(for: remote, inHistory: true, counterpart: local != nil)
+                guard !sections.groups.joinedWithSeparators.isEmpty else { return nil }
+                return submenu(titled: RefString(marked: RefName.remoteBranch(remote.name)), sections)
+            }
             return MenuSections(refs: submenus) + (local.map { branches.sections(for: $0, inHistory: true) } ?? MenuSections())
         case .tag(let name):
             return tags.localTagSections(name, commit: commit.id, checkout: false)
@@ -69,14 +80,14 @@ final class HistoryMenuController {
 
     /// The fast-forward to the commit itself only shows where no branch pill already offers it by name.
     /// Create Worktree… preselects the menu's local branch (`subject`) when it can have a worktree; otherwise it starts from the commit.
-    private func commitSections(_ commit: Commit, index: Int, pills: [PillModel], subject: PillRef?) -> MenuSections {
+    private func commitSections(_ commit: Commit, index: Int, pills: [PillModel], subject: PillRef?, rebaseAllCommits: NSMenuItem? = nil) -> MenuSections {
         let named = pills.contains { if case .branch = $0.ref { true } else { false } }
         let moveHere = named ? nil : fastForward.item(to: .commit(commit.id))
         var worktreeForBranch: (() -> Void)?
         if case .branch(let name) = subject, let local = viewModel.refsByCommit[commit.id]?.first(where: { $0.kind == .localBranch && $0.name == name }), branches.canCreateWorktree(for: local) {
             worktreeForBranch = { [weak branches] in branches?.createWorktree(for: name) }
         }
-        var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch)
+        var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch, rebaseAllCommits: rebaseAllCommits)
         if let detached = checkout.detachedItem(forRow: index) { sections.goThere.append(detached) }
         return sections
     }
@@ -120,5 +131,10 @@ enum RefMenus {
         case .tag: RefName.tag(ref.name)
         default: RefName.commit(ref.target)
         }
+    }
+
+    /// "Copy <SHA>", copying the full SHA.
+    @MainActor static func copySHAItem(_ sha: String) -> NSMenuItem {
+        ActionMenuItem(LocalizedStringResource("commit.menu.copySHA", defaultValue: "Copy \(RefName.commit(sha))", bundle: .module)) { ActionRunner.copy(sha) }
     }
 }

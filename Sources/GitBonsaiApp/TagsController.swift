@@ -101,7 +101,7 @@ final class TagsController {
         guard let tag = tag(name) else {
             let fetches = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.fetchFrom", defaultValue: "Fetch from \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.fetch(name, from: remote) } }
             let deletes = rows.remotesOnlyHaving(name).map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) } }
-            let copy: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }]
+            let copy: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { ActionRunner.copy(name) }]
             return [fetches, deletes, copy].joinedWithSeparators
         }
         let jump: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }]
@@ -113,8 +113,8 @@ final class TagsController {
     func localTagSections(_ name: String, commit: String, checkout: Bool = true) -> MenuSections {
         var sections = MenuSections()
         if checkout { sections.goThere = [ActionMenuItem(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] }
-        sections.change = remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } }
-        sections.copy = [ActionMenuItem(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { ActionRunner.copy(name) }]
+        sections.sync = remotes.map { remote in ActionMenuItem(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push \(RefName.tag(name)) to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } }
+        sections.copy = [ActionMenuItem(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { ActionRunner.copy(name) }]
         sections.remove = [ActionMenuItem(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
             ActionMenuItem(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
         }
