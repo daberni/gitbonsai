@@ -262,8 +262,8 @@ extension ScreenshotHarness {
                 let row = rows[rowIndex]
                 let rect = row.actionRect(discardIndex)
                 let point = row.convert(CGPoint(x: rect.midX, y: rect.midY), to: nil)
-                // Tracking areas follow the real cursor only, so the move goes to the view under the point the way tracking would deliver it.
-                if let moved = mouseEvent(.mouseMoved, at: point, in: window) { window.contentView?.superview?.hitTest(point)?.mouseMoved(with: moved) }
+                // Tracking areas follow the real cursor only, so the move goes to the list's tracking the way it would deliver it.
+                trackingMove(to: point, in: window)
                 if environment["GITBONSAI_CLICK_FILE_DISCARD"] != nil { click(in: window, at: point) }
             }
         }

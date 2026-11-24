@@ -30,16 +30,20 @@ final class SidebarView: NSView {
     /// The repository whose collapsed sections `outline` holds; another one restores its own.
     private var outlinePath: String?
     var hovered: Int?
+    private lazy var pointer: ListHover = {
+        let hover = ListHover(view: self)
+        hover.onChange = { [weak self] in self?.pointerChanged($0) }
+        return hover
+    }()
     /// Bottom of the last row; taller than the visible area when the sidebar scrolls.
     private(set) var contentHeight: CGFloat = 0
     private(set) weak var model: GraphViewModel?
 
     override var isFlipped: Bool { true }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        pointer.attach()
     }
 
     override func viewDidMoveToSuperview() {
@@ -122,13 +126,10 @@ final class SidebarView: NSView {
         frames.firstIndex { $0.contains(point) }
     }
 
-    override func mouseMoved(with event: NSEvent) {
-        let new = index(at: convert(event.locationInWindow, from: nil))
+    /// Follows the pointer, also while the sidebar scrolls under a still pointer.
+    private func pointerChanged(_ point: CGPoint?) {
+        let new = point.flatMap(index(at:))
         if new != hovered { hovered = new; needsDisplay = true }
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        if hovered != nil { hovered = nil; needsDisplay = true }
     }
 
     /// Like Finder's sidebar, a click acts even when it also brings the window forward. Harness clicks rely on it: a background window never becomes key.

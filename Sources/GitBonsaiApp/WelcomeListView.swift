@@ -24,7 +24,11 @@ final class WelcomeListView: NSView {
 
     private(set) var selection: Int? { didSet { if selection != oldValue { needsDisplay = true } } }
     private var hovered: Int? { didSet { if hovered != oldValue { needsDisplay = true } } }
-    private var tracking: NSTrackingArea?
+    private lazy var pointer: ListHover = {
+        let hover = ListHover(view: self)
+        hover.onChange = { [weak self] point in self?.hovered = point.flatMap { self?.entry(at: $0) } }
+        return hover
+    }()
     private let settingsLink = NSButton(title: "", target: nil, action: nil)
 
     private typealias M = Theme.Welcome
@@ -175,12 +179,10 @@ final class WelcomeListView: NSView {
 
     // MARK: Mouse
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
-        addTrackingArea(area)
-        tracking = area
+    /// The hover follows the pointer, also while the list scrolls under a still pointer.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        pointer.attach()
     }
 
     private func entry(at point: CGPoint) -> Int? {
@@ -188,14 +190,6 @@ final class WelcomeListView: NSView {
             if case .entry(let index) = item { return index }
         }
         return nil
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        hovered = entry(at: convert(event.locationInWindow, from: nil))
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        hovered = nil
     }
 
     override func mouseDown(with event: NSEvent) {

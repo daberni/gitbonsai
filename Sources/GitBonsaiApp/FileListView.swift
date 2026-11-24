@@ -41,6 +41,7 @@ final class FileListView: NSView {
     private var tableRows: [Int] = []
     private var rowOfFile: [FileSelection: Int] = [:]
     private let table = FileTable()
+    private lazy var hover = ListHover(view: table, cursorUpdate: true)
     private lazy var heightConstraint = heightAnchor.constraint(equalToConstant: 0)
 
     init() {
@@ -64,6 +65,12 @@ final class FileListView: NSView {
         table.dataSource = self
         table.delegate = self
         addSubview(table)
+        hover.onChange = { [weak self] _ in self?.applyHover() }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hover.attach()
     }
 
     required init?(coder: NSCoder) { nil }
@@ -103,6 +110,25 @@ final class FileListView: NSView {
 
     private func headerHeight(_ section: Int) -> CGFloat {
         Theme.FileList.sectionHeight + (section > 0 ? Theme.FileList.sectionGap : 0)
+    }
+
+    // MARK: Hover
+
+    /// Only the row under the pointer shows its hover; the row itself keeps the arrow, only its bare action icons are link-like.
+    private func applyHover() {
+        var overAction = false
+        table.enumerateAvailableRowViews { rowView, row in
+            guard let cell = rowView.view(atColumn: 0) as? FileRowView else { return }
+            let state = hover(of: cell, at: row)
+            cell.setHover(state)
+            if state?.action != nil { overAction = true }
+        }
+        if hover.point != nil || !overAction { LinkCursor.set(overLink: overAction) }
+    }
+
+    private func hover(of cell: FileRowView, at row: Int) -> FileRowView.Hover? {
+        guard let point = hover.point, table.row(at: point) == row else { return nil }
+        return FileRowView.Hover(action: cell.action(at: cell.convert(point, from: table)))
     }
 
     // MARK: Selection
@@ -245,6 +271,7 @@ extension FileListView: NSTableViewDataSource, NSTableViewDelegate {
                 cell.identifier = FileRowView.identifier
             }
             cell.isSelected = selection.contains(model.selection)
+            cell.setHover(hover(of: cell, at: row))
             return cell
         }
     }

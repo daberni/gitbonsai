@@ -39,8 +39,17 @@ final class FileRowView: NSTableCellView {
         }
     }
     var isSelected = false { didSet { if isSelected != oldValue { needsDisplay = true } } }
-    private var isHovered = false { didSet { needsDisplay = true } }
-    private var hoveredAction: Action? { didSet { needsDisplay = true } }
+    /// The file list tracks the pointer for all rows and tells the one under it; nil while the pointer is elsewhere.
+    private(set) var hover: Hover? { didSet { if hover != oldValue { needsDisplay = true } } }
+    private var isHovered: Bool { hover != nil }
+    private var hoveredAction: Action? { hover?.action }
+
+    struct Hover: Equatable {
+        /// The action button under the pointer, if any.
+        var action: Action?
+    }
+
+    func setHover(_ hover: Hover?) { self.hover = hover }
 
     /// The action buttons take the place of the counts at the right end while the row is hovered, the first one outermost.
     func actionRect(_ index: Int) -> CGRect {
@@ -73,35 +82,10 @@ final class FileRowView: NSTableCellView {
 
     override var isFlipped: Bool { true }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeInKeyWindow, .inVisibleRect], owner: self))
-    }
-
-    override func mouseEntered(with event: NSEvent) { isHovered = true }
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        hoveredAction = nil
-        LinkCursor.set(overLink: false)
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        isHovered = true
-        hoveredAction = action(at: convert(event.locationInWindow, from: nil))
-        LinkCursor.set(overLink: hoveredAction != nil)
-    }
-
-    /// The row itself keeps the arrow like any list row; only its bare action icons are link-like.
-    override func cursorUpdate(with event: NSEvent) {
-        LinkCursor.set(overLink: action(at: convert(event.locationInWindow, from: nil)) != nil)
-    }
-
     /// A reused cell must not show the hover of the file it showed before.
     override func prepareForReuse() {
         super.prepareForReuse()
-        isHovered = false
-        hoveredAction = nil
+        hover = nil
     }
 
     override func draw(_ dirtyRect: NSRect) {
