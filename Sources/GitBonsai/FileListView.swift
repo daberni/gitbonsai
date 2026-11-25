@@ -6,7 +6,12 @@ import GitEngine
 /// The table has no scroll view of its own: it is as tall as its rows and scrolls with the detail panel, which still limits the views to the visible ones.
 final class FileListView: NSView {
     struct Section {
-        typealias Action = (title: String, perform: () -> Void)
+        /// A link on the right of the header; a destructive one reads in the warning colour.
+        struct Action {
+            let title: String
+            var isDestructive = false
+            let perform: () -> Void
+        }
         let title: String
         let rows: [FileRowView.Model]
         /// Links on the right, for instance "Discard all…" and "Stage all".
@@ -133,6 +138,8 @@ final class FileListView: NSView {
             cell.setHover(state)
             if state?.action != nil { overAction = true }
         }
+        // Links elsewhere in the table, such as a section's "Stage all", show the pointing hand too; without this the table's own updates would set the arrow over them.
+        if let point = hover.point, LinkCursor.isLink(at: point, in: table) { overAction = true }
         if hover.point != nil || !overAction { LinkCursor.set(overLink: overAction) }
     }
 
@@ -395,7 +402,7 @@ private final class FileSectionHeaderView: NSTableCellView {
         links.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for (index, link) in section.actions.prefix(Self.linksPerSection).enumerated() {
             let button = LinkButton(target: target, action: action)
-            button.attributedTitle = NSAttributedString(string: link.title, attributes: [.font: Theme.caption, .foregroundColor: Theme.moss])
+            button.attributedTitle = NSAttributedString(string: link.title, attributes: [.font: Theme.caption, .foregroundColor: link.isDestructive ? Theme.persimmon : Theme.moss])
             button.tag = tag * Self.linksPerSection + index
             links.addArrangedSubview(button)
         }

@@ -261,10 +261,10 @@ final class DetailView: NSView {
             }
             var result = [
                 FileListView.Section(title: String(localized: "detail.files.unstaged", defaultValue: "Unstaged  \(unstaged.count)", bundle: .module, comment: "File list section header with its count"), rows: unstagedRows, actions: unstaged.isEmpty ? [] : [
-                    (String(localized: "detail.files.discardAll", defaultValue: "Discard all…", bundle: .module, comment: "Link in the Unstaged section header"), { [weak self] in self?.onDiscardAll?(.unstaged) }),
-                    (String(localized: "detail.files.stageAll", defaultValue: "Stage all", bundle: .module, comment: "Link in the Unstaged section header"), { [weak self] in self?.onStage?(unstaged.map(\.path)) }),
+                    .init(title: String(localized: "detail.files.discardAll", defaultValue: "Discard all…", bundle: .module, comment: "Link in the Unstaged section header"), isDestructive: true) { [weak self] in self?.onDiscardAll?(.unstaged) },
+                    .init(title: String(localized: "detail.files.stageAll", defaultValue: "Stage all", bundle: .module, comment: "Link in the Unstaged section header")) { [weak self] in self?.onStage?(unstaged.map(\.path)) },
                 ]),
-                FileListView.Section(title: String(localized: "detail.files.staged", defaultValue: "Staged  \(staged.count)", bundle: .module, comment: "File list section header with its count"), rows: stagedRows, actions: staged.isEmpty ? [] : [(String(localized: "detail.files.unstageAll", defaultValue: "Unstage all", bundle: .module, comment: "Link in the Staged section header"), { [weak self] in self?.onUnstage?(staged.map(\.path)) })]),
+                FileListView.Section(title: String(localized: "detail.files.staged", defaultValue: "Staged  \(staged.count)", bundle: .module, comment: "File list section header with its count"), rows: stagedRows, actions: staged.isEmpty ? [] : [.init(title: String(localized: "detail.files.unstageAll", defaultValue: "Unstage all", bundle: .module, comment: "Link in the Staged section header")) { [weak self] in self?.onUnstage?(staged.map(\.path)) }]),
             ]
             if status.hasConflicts {
                 let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: String(localized: "files.state.conflict", defaultValue: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts"), state: .unmerged) }

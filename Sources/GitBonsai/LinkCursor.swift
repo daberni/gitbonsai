@@ -10,6 +10,17 @@ enum LinkCursor {
         NSTrackingArea(rect: .zero, options: [.cursorUpdate, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: owner)
     }
 
+    /// Whether a `LinkButton` lies under `point`, given in `view`'s coordinates; for views whose own pointer tracking sets the cursor over their subviews.
+    static func isLink(at point: NSPoint, in view: NSView) -> Bool {
+        guard let superview = view.superview else { return false }
+        var hit = view.hitTest(view.convert(point, to: superview))
+        while let current = hit, current !== view {
+            if current is LinkButton { return true }
+            hit = current.superview
+        }
+        return false
+    }
+
     static func set(overLink: Bool) {
         (overLink ? NSCursor.pointingHand : NSCursor.arrow).set()
     }
