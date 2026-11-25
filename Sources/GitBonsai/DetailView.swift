@@ -40,6 +40,8 @@ final class DetailView: NSView {
     private(set) var messageEditor: CommitMessageEditor?
     private(set) var editMessageButton: NSButton?
     var subjectLabel: NSTextField?
+    /// The title line: the title with the SHA at the left, the parent links at the right, before the button at the right of the title.
+    var titleRow: (lead: NSStackView, parents: NSStackView, end: NSLayoutConstraint)?
 
     override var isFlipped: Bool { true }
 
@@ -86,12 +88,35 @@ final class DetailView: NSView {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let header = label("", font: Theme.label, color: Theme.inkMuted)
         header.attributedStringValue = NSAttributedString(string: title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
+        // The title gives way first when the SHA and parents do not fit beside it.
+        header.lineBreakMode = .byTruncatingTail
+        header.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal)
+        func line(_ views: [NSView]) -> NSStackView {
+            let row = NSStackView(views: views)
+            row.orientation = .horizontal
+            row.alignment = .firstBaseline
+            row.spacing = Theme.Space.s
+            row.translatesAutoresizingMaskIntoConstraints = false
+            return row
+        }
+        let lead = line([header])
+        let parents = line([])
         let box = NSView()
         box.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(header)
-        header.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([box.heightAnchor.constraint(equalToConstant: M.headerHeight), header.centerYAnchor.constraint(equalTo: box.centerYAnchor), header.leadingAnchor.constraint(equalTo: box.leadingAnchor)])
+        box.addSubview(lead)
+        box.addSubview(parents)
+        let end = parents.trailingAnchor.constraint(equalTo: box.trailingAnchor)
+        NSLayoutConstraint.activate([
+            box.heightAnchor.constraint(equalToConstant: M.headerHeight),
+            lead.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            lead.leadingAnchor.constraint(equalTo: box.leadingAnchor),
+            parents.firstBaselineAnchor.constraint(equalTo: lead.firstBaselineAnchor),
+            parents.leadingAnchor.constraint(greaterThanOrEqualTo: lead.trailingAnchor, constant: Theme.Space.m),
+            end,
+        ])
         stack.addArrangedSubview(box)
+        box.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+        titleRow = (lead, parents, end)
         return box
     }
 
@@ -144,7 +169,7 @@ final class DetailView: NSView {
             button.widthAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
             button.heightAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
         ])
-        header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+        endTitleRow(before: button)
         editMessageButton = button
     }
 
@@ -166,7 +191,13 @@ final class DetailView: NSView {
             button.widthAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
             button.heightAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
         ])
-        header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+        endTitleRow(before: button)
+    }
+
+    private func endTitleRow(before button: NSView) {
+        guard let titleRow else { return }
+        titleRow.end.isActive = false
+        titleRow.parents.trailingAnchor.constraint(equalTo: button.leadingAnchor, constant: -Theme.Space.s).isActive = true
     }
 
     @objc private func discardAllPressed(_ sender: NSButton) {

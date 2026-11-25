@@ -110,35 +110,43 @@ extension DetailView {
 
     // MARK: Parts
 
-    /// The SHA and the parent links, right below the panel's title for every row, so the parent link sits in one place for commits, merges, stashes and the working directory, whose parent is HEAD.
+    /// The SHA beside the panel's title and the parent links at the right of its title line, so the parent link sits in one place for commits, merges, stashes and the working directory, whose parent is HEAD.
     func addMeta(commit: (id: String, shortID: String)?, parents: [String]) {
-        let meta = NSStackView()
-        meta.orientation = .horizontal
-        meta.spacing = Theme.Space.s
+        guard let row = titleRow?.lead, let parentRow = titleRow?.parents else { return }
+        if let title = row.arrangedSubviews.first { row.setCustomSpacing(Theme.Space.m, after: title) }
+        func keep(_ view: NSView, in row: NSStackView) {
+            view.setContentCompressionResistancePriority(.required, for: .horizontal)
+            view.setContentHuggingPriority(.required, for: .horizontal)
+            row.addArrangedSubview(view)
+        }
         if let commit {
-            meta.addArrangedSubview(label(String(localized: "detail.meta.commit", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"), font: Theme.caption, color: Theme.inkMuted))
             copySHA = (full: commit.id, short: commit.shortID)
             let copy = LinkButton(target: self, action: #selector(copyCommitSHA(_:)))
             copy.attributedTitle = NSAttributedString(string: commit.shortID, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.ink])
             copy.imagePosition = .imageTrailing
             showCopyIcon(on: copy, copied: false)
-            meta.addArrangedSubview(copy)
+            keep(copy, in: row)
             copyButton = copy
         } else {
             copyButton = nil
         }
         parentTargets = parents
         parentLinks = []
-        if !parents.isEmpty { meta.addArrangedSubview(label(parents.count == 1 ? String(localized: "detail.meta.parent", defaultValue: "Parent", bundle: .module, comment: "Label before the one parent SHA") : String(localized: "detail.meta.parents", defaultValue: "Parents", bundle: .module, comment: "Label before the parent SHAs of a merge"), font: Theme.caption, color: Theme.inkMuted)) }
+        if !parents.isEmpty {
+            // After the title, the word before the parents gives way; the SHAs stay readable.
+            let caption = label(parents.count == 1 ? String(localized: "detail.meta.parent", defaultValue: "Parent", bundle: .module, comment: "Label before the one parent SHA") : String(localized: "detail.meta.parents", defaultValue: "Parents", bundle: .module, comment: "Label before the parent SHAs of a merge"), font: Theme.caption, color: Theme.inkMuted)
+            caption.lineBreakMode = .byTruncatingTail
+            caption.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            parentRow.addArrangedSubview(caption)
+        }
         for (index, parent) in parents.enumerated() {
             let link = LinkButton(target: self, action: #selector(openParent(_:)))
             link.tag = index
             link.attributedTitle = NSAttributedString(string: String(parent.prefix(RefString.shortSHA)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
             link.toolTip = String(localized: "detail.meta.parentToolTip", defaultValue: "Jump to the parent commit in the graph", bundle: .module)
-            meta.addArrangedSubview(link)
+            keep(link, in: parentRow)
             parentLinks.append(link)
         }
-        add(meta, fill: false)
         add(divider())
     }
 

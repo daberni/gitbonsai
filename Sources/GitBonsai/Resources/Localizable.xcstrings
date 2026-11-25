@@ -6648,24 +6648,6 @@
         }
       }
     },
-    "detail.meta.commit" : {
-      "comment" : "Detail panel title for one commit",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Commit"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Commit"
-          }
-        }
-      }
-    },
     "detail.meta.copySHAToolTip" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {

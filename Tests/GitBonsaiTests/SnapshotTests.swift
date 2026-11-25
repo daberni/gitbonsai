@@ -156,6 +156,19 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// A merge names both parents in the title line beside its SHA.
+    func testMergeDetails() async throws {
+        let repo = try repository()
+        let merge = try repo.git(["rev-parse", "main"]).trimmingCharacters(in: .whitespacesAndNewlines)
+        for (name, look) in Self.looks {
+            let (fixture, controller, window) = try await tab(in: repo, appearance: look)
+            controller.history.select(row: try fixture.row(of: merge), scroll: true)
+            try await settle()
+            try Snapshot.assert(controller.view, named: "merge-\(name)")
+            window.close()
+        }
+    }
+
     /// A stash with staged, unstaged and untracked changes: two areas like the working directory, one parent, no helper commits in the history.
     func testStashDetails() async throws {
         let repo = try repository()
