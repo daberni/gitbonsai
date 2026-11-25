@@ -3,7 +3,7 @@ import GitEngine
 
 /// Checking out from the history: what a row offers, and running the checkout with the questions it may raise.
 @MainActor
-final class CheckoutController: NSObject {
+final class CheckoutUseCase: NSObject {
     struct Choice {
         let title: RefString
         let target: CheckoutTarget

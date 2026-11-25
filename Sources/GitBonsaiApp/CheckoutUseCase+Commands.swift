@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-extension CheckoutController: CommandProvider {
+extension CheckoutUseCase: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         [Command(.checkout, context: state.branch, blocker: CommandRules.checkout(state), action: .choose(placeholder: LocalizedStringResource("checkout.command.searchPlaceholder", defaultValue: "Search Branches", bundle: .module)) { [weak self] in self?.branchChoices() ?? [] })]
     }

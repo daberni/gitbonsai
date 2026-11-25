@@ -1,7 +1,7 @@
 import AppKit
 
 /// The commit header of the detail panel while its message is edited in place: subject and body in the commit form's style, Save and Cancel right under them, and one quiet line on what saving rewrites.
-/// It only shows and collects; `InlineRewordController` decides what happens.
+/// It only shows and collects; `RewordUseCase` decides what happens.
 final class CommitMessageEditor: NSView, NSTextViewDelegate {
     private typealias M = Theme.MessageEditor
 

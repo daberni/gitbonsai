@@ -3,16 +3,16 @@ import GitEngine
 
 /// Squashes the selected commits into one: the multi-selection's menu entry and command, the sheet with the combined message, and the run through the interactive rebase so commits above are replayed and Undo works.
 @MainActor
-final class SquashController {
+final class SquashUseCase {
     private let viewModel: GraphViewModel
     private let prompter: any Prompting
-    private let interactiveRebase: InteractiveRebaseController
+    private let interactiveRebase: InteractiveRebaseUseCase
     /// The commits selected in the history, in any order.
     var selectedCommitIDs: (() -> [String])?
     /// Beyond this many commits below HEAD the rule does not walk the history.
     private static let maximumDistance = 5000
 
-    init(context: RepositoryContext, interactiveRebase: InteractiveRebaseController) {
+    init(context: RepositoryContext, interactiveRebase: InteractiveRebaseUseCase) {
         viewModel = context.model
         prompter = context.prompter
         self.interactiveRebase = interactiveRebase
@@ -62,7 +62,7 @@ final class SquashController {
             do {
                 plan = try await repository.squashPlan(selected)
             } catch {
-                let reason = (error as? RebasePlanError).map(InteractiveRebaseController.describe)
+                let reason = (error as? RebasePlanError).map(InteractiveRebaseUseCase.describe)
                 prompter.report(reason.map { GitError(arguments: [], exitCode: 0, stderr: $0) } ?? error, title: LocalizedStringResource("failure.squash.notPossible", defaultValue: "Squash not possible", bundle: .module))
                 return
             }
@@ -76,7 +76,7 @@ final class SquashController {
             guard let values = await prompter.ask(form), let message = values.text[ActionForm.messageKey] else { return }
             plan.messages[oldest.id] = message.trimmingCharacters(in: .whitespacesAndNewlines)
             plan.autostash = hasLocalChanges
-            interactiveRebase.start(plan, note: CommitActionsController.note("git rebase -i (squash \(oldest.shortID) +\(count - 1))", hint))
+            interactiveRebase.start(plan, note: CommitActions.note("git rebase -i (squash \(oldest.shortID) +\(count - 1))", hint))
         }
     }
 
@@ -84,7 +84,7 @@ final class SquashController {
     private(set) var sheet: ActionForm?
 }
 
-extension SquashController: CommandProvider {
+extension SquashUseCase: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         let selected = selectedCommitIDs?() ?? []
         let blocker = state.operation.map { CommandBlocker.operationInProgress($0) } ?? blocker(for: selected)

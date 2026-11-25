@@ -26,11 +26,11 @@ extension RepositoryViewController {
     private func checkOut(_ target: RefJump.Target) {
         switch target.kind {
         case .localBranch:
-            checkoutController.perform(.localBranch(target.name), worktreePath: viewModel.branchesInOtherWorktrees["refs/heads/" + target.name]?.path)
+            checkoutUseCase.perform(.localBranch(target.name), worktreePath: viewModel.branchesInOtherWorktrees["refs/heads/" + target.name]?.path)
         case .remoteBranch(let remote):
-            checkoutController.perform(.remoteBranch(remote: remote, branch: String(target.name.dropFirst(remote.count + 1))), worktreePath: nil)
+            checkoutUseCase.perform(.remoteBranch(remote: remote, branch: String(target.name.dropFirst(remote.count + 1))), worktreePath: nil)
         case .tag:
-            if let commit = target.commit { checkoutController.perform(.commit(commit), worktreePath: nil) }
+            if let commit = target.commit { checkoutUseCase.perform(.commit(commit), worktreePath: nil) }
         case .worktree(let path, _):
             onSwitchWorktree?(path)
         case .stash:

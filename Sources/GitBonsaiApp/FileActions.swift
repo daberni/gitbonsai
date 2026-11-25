@@ -2,18 +2,18 @@ import AppKit
 import GitEngine
 
 /// The context menu of a file in the detail panel's lists, and running its entries with the questions they raise.
-/// Staging, unstaging and discarding stay with `StagingController`; the menu only offers them.
+/// Staging, unstaging and discarding stay with `StagingUseCase`; the menu only offers them.
 @MainActor
-final class FileActionsController {
+final class FileActions {
     private let prompter: any Prompting
     private let settings: AppSettings
     private let pasteboard: Pasteboard
     /// The working tree changed outside of git's index operations; open diffs need to read it again.
     var onChange: (() -> Void)?
     private let viewModel: GraphViewModel
-    private let staging: StagingController
+    private let staging: StagingUseCase
 
-    init(context: RepositoryContext, staging: StagingController) {
+    init(context: RepositoryContext, staging: StagingUseCase) {
         viewModel = context.model
         prompter = context.prompter
         settings = context.settings

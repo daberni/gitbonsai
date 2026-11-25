@@ -5,7 +5,7 @@ import GitEngine
 ///
 /// Matching runs off the main thread in chunks, so typing stays fluid and matches show up while a large history is still streaming in.
 @MainActor
-final class HistorySearchController {
+final class CommitSearchViewModel {
     /// Matches or the query changed: visible rows and the counter need a redraw.
     var onChange: (() -> Void)?
     /// A new query found the row to select, see `CommitSearchJump`.

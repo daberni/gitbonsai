@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-extension StagingController: CommandProvider {
+extension StagingUseCase: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         [
             Command(.stageAll, blocker: CommandRules.stageAll(state)) { [weak self] in

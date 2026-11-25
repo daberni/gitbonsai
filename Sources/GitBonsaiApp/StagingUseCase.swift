@@ -3,7 +3,7 @@ import GitEngine
 
 /// Moves changes between working tree and index, discards unstaged changes after asking, shows git's message when that fails, and refreshes the tab afterwards.
 @MainActor
-final class StagingController {
+final class StagingUseCase {
     /// The index or the working tree changed; open diffs need to read them again.
     var onChange: (() -> Void)?
     let viewModel: GraphViewModel

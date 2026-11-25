@@ -3,21 +3,23 @@ import GitEngine
 
 /// The context menu of a local or remote branch, in the sidebar and on its history pill, and running its actions.
 @MainActor
-final class BranchActionsController {
+final class BranchActions {
     private let runner: ActionRunner
     private let prompter: any Prompting
     private let pasteboard: Pasteboard
     private let checkout: (CheckoutTarget, _ worktreePath: String?) -> Void
-    private let branchPull: BranchPullController
-    private let fastForward: FastForwardController
+    private let pullUseCase: PullUseCase
+    private let pushUseCase: PushUseCase
+    private let fastForward: FastForwardUseCase
     private let viewModel: GraphViewModel
 
-    init(context: RepositoryContext, branchPull: BranchPullController, fastForward: FastForwardController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void) {
+    init(context: RepositoryContext, pull: PullUseCase, push: PushUseCase, fastForward: FastForwardUseCase, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void) {
         viewModel = context.model
         runner = context.runner
         prompter = context.prompter
         pasteboard = context.app.pasteboard
-        self.branchPull = branchPull
+        pullUseCase = pull
+        pushUseCase = push
         self.fastForward = fastForward
         self.checkout = checkout
     }
@@ -48,14 +50,14 @@ final class BranchActionsController {
             if let current = viewModel.currentBranch, !fastForward.canFastForwardCurrent(to: ref.target) {
                 sections.integrate.append(ActionMenuItem(LocalizedStringResource("branch.menu.merge", defaultValue: "Merge \(RefName.branch(name)) into \(RefName.branch(current))", bundle: .module)) { [weak self] in self?.merge(name, into: current) })
                 let rebase = ActionMenuItem(LocalizedStringResource("branch.menu.rebase", defaultValue: "Rebase \(RefName.branch(current)) onto \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.rebase(current, onto: name) }
-                rebase.identifier = RebaseOntoController.allCommitsItem
+                rebase.identifier = RebaseOntoUseCase.allCommitsItem
                 sections.integrate.append(rebase)
             }
             if createWorktree, canCreateWorktree(for: ref) {
                 sections.create.append(ActionMenuItem(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in self?.createWorktree(for: name) })
             }
         }
-        sections.sync = [branchPull.item(for: ref), branchPull.pushItem(for: ref)].compactMap { $0 }
+        sections.sync = [pullUseCase.item(for: ref), pushUseCase.pushItem(for: ref)].compactMap { $0 }
         sections.change = [
             ActionMenuItem(LocalizedStringResource("branch.menu.rename", defaultValue: "Rename…", bundle: .module)) { [weak self] in self?.rename(name) },
             ActionMenuItem(ref.upstream == nil ? LocalizedStringResource("branch.menu.setUpstream", defaultValue: "Set Upstream…", bundle: .module) : LocalizedStringResource("branch.menu.changeUpstream", defaultValue: "Change Upstream…", bundle: .module)) { [weak self] in self?.setUpstream(of: ref) },
@@ -77,7 +79,7 @@ final class BranchActionsController {
         }
         sections.integrate = fastForward.item(to: .ref(ref)).map { [$0] } ?? []
         guard !counterpart else { return sections }
-        sections.sync = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }.compactMap(branchPull.item(for:))
+        sections.sync = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }.compactMap(pullUseCase.item(for:))
         sections.copy = copyItems(ref, sha: copySHA)
         sections.remove = [ActionMenuItem(LocalizedStringResource("branch.menu.deleteRemote", defaultValue: "Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemote(branch, on: remote) }]
         return sections

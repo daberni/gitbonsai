@@ -2,14 +2,14 @@ import AppKit
 import GitEngine
 
 /// The commit section of the history menus beyond checking out, and running its actions with the questions they raise.
-/// Checkouts stay with `CheckoutController`; `HistoryMenuController` puts the sections together.
+/// Checkouts stay with `CheckoutUseCase`; `HistoryMenuController` puts the sections together.
 @MainActor
-final class CommitActionsController {
+final class CommitActions {
     private let prompter: any Prompting
     private let pasteboard: Pasteboard
-    let interactiveRebase: InteractiveRebaseController
-    let squash: SquashController
-    private lazy var rebaseOnto = RebaseOntoController(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
+    let interactiveRebase: InteractiveRebaseUseCase
+    let squash: SquashUseCase
+    private lazy var rebaseOnto = RebaseOntoUseCase(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
         self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, undo: .head, operation)
     }
     private let viewModel: GraphViewModel
@@ -24,8 +24,8 @@ final class CommitActionsController {
         viewModel = context.model
         prompter = context.prompter
         pasteboard = context.app.pasteboard
-        interactiveRebase = InteractiveRebaseController(context: context)
-        squash = SquashController(context: context, interactiveRebase: interactiveRebase)
+        interactiveRebase = InteractiveRebaseUseCase(context: context)
+        squash = SquashUseCase(context: context, interactiveRebase: interactiveRebase)
     }
 
     /// The commit section of the history menus beyond its checkout; `worktreeForBranch` replaces Create Worktree…'s own form with the branch's; `moveHere` is the fast-forward of the current branch to this commit, when a branch pill does not already offer it.

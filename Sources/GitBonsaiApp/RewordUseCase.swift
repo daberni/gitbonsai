@@ -4,10 +4,10 @@ import GitEngine
 /// Editing a commit's message in place in the detail panel, from the commit menu, a double click on the subject, the pencil or ⌘E.
 /// Saving rewords through `Repository.reword`: HEAD alone by `git commit --amend --only`, anything else by the one-step interactive rebase. Undo stays in the status line.
 @MainActor
-final class InlineRewordController {
+final class RewordUseCase {
     private let viewModel: GraphViewModel
     private let prompter: any Prompting
-    private let access: (Commit) -> InteractiveRebaseController.RewordAccess?
+    private let access: (Commit) -> InteractiveRebaseUseCase.RewordAccess?
     private weak var detail: DetailView?
     /// The editor while it is open, for the harness.
     private(set) var editor: CommitMessageEditor?
@@ -19,7 +19,7 @@ final class InlineRewordController {
     /// The editor closed, saved or cancelled; after saving the refresh is done and the panel shows whatever is selected now.
     var onClosed: (() -> Void)?
 
-    init(context: RepositoryContext, detail: DetailView, access: @escaping (Commit) -> InteractiveRebaseController.RewordAccess?) {
+    init(context: RepositoryContext, detail: DetailView, access: @escaping (Commit) -> InteractiveRebaseUseCase.RewordAccess?) {
         viewModel = context.model
         prompter = context.prompter
         self.detail = detail
@@ -63,12 +63,12 @@ final class InlineRewordController {
             let published = await repository.publishedCommitCount(rewrittenBy: plan.base)
             guard editor === self.editor else { return }
             self.plan = plan
-            hint = CommitActionsController.publishedHint(published, upstream: viewModel.status?.branch.upstream)
+            hint = CommitActions.publishedHint(published, upstream: viewModel.status?.branch.upstream)
             editor.showNote(Self.note(plan, published: published, upstream: viewModel.status?.branch.upstream, hasStaged: hasStaged))
             editor.canSave = true
         } catch {
             guard editor === self.editor else { return }
-            let reason = (error as? RebasePlanError).map(InteractiveRebaseController.describe) ?? "\(error)"
+            let reason = (error as? RebasePlanError).map(InteractiveRebaseUseCase.describe) ?? "\(error)"
             editor.showNote(RefString(verbatim: reason))
         }
     }
@@ -90,7 +90,7 @@ final class InlineRewordController {
         guard let editor, let commit, let plan, editor.saveButton.isEnabled else { return }
         let message = editor.message
         let command = plan.rewordsHeadAlone ? "git commit --amend --only" : "git rebase -i (reword \(commit.shortID))"
-        let note = CommitActionsController.note(command, hint)
+        let note = CommitActions.note(command, hint)
         editor.isSaving = true
         let repository = viewModel.repository
         Task { [weak self] in
@@ -113,7 +113,7 @@ final class InlineRewordController {
                 editor.isSaving = false
                 await viewModel.refresh(note: nil)
                 let planError = error as? RebasePlanError
-                prompter.report(planError.map { GitError(arguments: [], exitCode: 0, stderr: InteractiveRebaseController.describe($0)) } ?? error, title: LocalizedStringResource("failure.reword.failed", defaultValue: "Couldn’t Change Message", bundle: .module))
+                prompter.report(planError.map { GitError(arguments: [], exitCode: 0, stderr: InteractiveRebaseUseCase.describe($0)) } ?? error, title: LocalizedStringResource("failure.reword.failed", defaultValue: "Couldn’t Change Message", bundle: .module))
             }
         }
     }

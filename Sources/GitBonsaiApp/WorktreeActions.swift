@@ -3,7 +3,7 @@ import GitEngine
 
 /// The context menu of a worktree in the sidebar, and running its actions.
 @MainActor
-final class WorktreeActionsController {
+final class WorktreeActions {
     private let runner: ActionRunner
     private let prompter: any Prompting
     private let settings: AppSettings

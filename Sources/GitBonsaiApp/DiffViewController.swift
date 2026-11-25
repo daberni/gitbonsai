@@ -20,7 +20,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     var onClose: (() -> Void)?
     var selection: FileSelection?
 
-    private let staging: StagingController
+    private let staging: StagingUseCase
     let repository: () -> Repository
     let header = DiffHeaderView()
     let table = NSTableView()
@@ -60,7 +60,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     /// The read under way and what it does once it is in.
     var pending: PendingLoad?
 
-    init(staging: StagingController, repository: @escaping () -> Repository, preferences: DiffPreferences, trace: TraceSink, embedded: Bool = false) {
+    init(staging: StagingUseCase, repository: @escaping () -> Repository, preferences: DiffPreferences, trace: TraceSink, embedded: Bool = false) {
         self.staging = staging
         self.repository = repository
         self.preferences = preferences

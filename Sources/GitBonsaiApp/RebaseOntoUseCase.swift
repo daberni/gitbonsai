@@ -6,17 +6,17 @@ import Synchronization
 /// On a commit of the branch: the interactive sheet in place. Both forms share one detection and run through the interactive rebase engine, so the status line can undo them.
 /// Rewriting published commits only gets the hint in the status line, as everywhere else.
 @MainActor
-final class RebaseOntoController {
+final class RebaseOntoUseCase {
     /// Runs a rebase git cannot take as a todo list (a merge in the range, a fast-forward), with the status line's note.
     typealias Runner = (_ note: String, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> Void
 
     private let viewModel: GraphViewModel
-    private let interactive: InteractiveRebaseController
+    private let interactive: InteractiveRebaseUseCase
     private let runPlainRebase: Runner
     /// Detections of earlier menus by branch, HEAD and target: an open menu keeps its shape, so a result that would change it shows from the next open on.
     private var detections: [String: RebaseBaseDetection] = [:]
 
-    init(viewModel: GraphViewModel, interactive: InteractiveRebaseController, runPlainRebase: @escaping Runner) {
+    init(viewModel: GraphViewModel, interactive: InteractiveRebaseUseCase, runPlainRebase: @escaping Runner) {
         self.viewModel = viewModel
         self.interactive = interactive
         self.runPlainRebase = runPlainRebase
@@ -222,15 +222,15 @@ final class RebaseOntoController {
         do {
             let range = try await repository.rebaseRange(onto: target.id, detection: detection)
             let plan = RebasePlan(range: range, branches: await repository.stackedBranches(in: range.commits))
-            let hint = CommitActionsController.publishedHint(await repository.publishedCommitCount(rewrittenBy: range.base), upstream: upstream)
-            interactive.start(plan, note: CommitActionsController.note(InteractiveRebaseController.command(plan), hint))
+            let hint = CommitActions.publishedHint(await repository.publishedCommitCount(rewrittenBy: range.base), upstream: upstream)
+            interactive.start(plan, note: CommitActions.note(InteractiveRebaseUseCase.command(plan), hint))
         } catch {
             let base: String? = if case .detected(let found) = detection { found.commit } else { nil }
-            let hint = CommitActionsController.publishedHint(await repository.publishedCommitCount(rewrittenBy: base ?? target.id), upstream: upstream)
+            let hint = CommitActions.publishedHint(await repository.publishedCommitCount(rewrittenBy: base ?? target.id), upstream: upstream)
             if let base {
-                runPlainRebase(CommitActionsController.note("git rebase --onto \(target.id.prefix(RefString.shortSHA)) \(base.prefix(RefString.shortSHA))", hint)) { try await $0.rebase(onto: target.id, from: base, branch: branch) }
+                runPlainRebase(CommitActions.note("git rebase --onto \(target.id.prefix(RefString.shortSHA)) \(base.prefix(RefString.shortSHA))", hint)) { try await $0.rebase(onto: target.id, from: base, branch: branch) }
             } else {
-                runPlainRebase(CommitActionsController.note("git rebase", hint)) { try await $0.rebaseCurrentBranch(onto: target.id) }
+                runPlainRebase(CommitActions.note("git rebase", hint)) { try await $0.rebaseCurrentBranch(onto: target.id) }
             }
         }
     }

@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-extension FastForwardController: CommandProvider {
+extension FastForwardUseCase: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         [Command(.fastForward, context: state.branch, blocker: CommandRules.fastForward(state), action: .choose(placeholder: LocalizedStringResource("checkout.command.searchPlaceholder", defaultValue: "Search Branches", bundle: .module)) { [weak self] in self?.targetChoices() ?? [] })]
     }

@@ -3,7 +3,7 @@ import GitEngine
 
 /// The "New Branch" sheet of the Local header's plus and the toolbar's Branch button, and as "New Worktree" the sheet of the Worktrees header's plus: loads what the picker offers, shows the sheet and runs git with the answer.
 @MainActor
-final class NewBranchController {
+final class CreateBranchUseCase {
     private let runner: ActionRunner
     private let prompter: any Prompting
     private let viewModel: GraphViewModel

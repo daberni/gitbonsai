@@ -4,7 +4,7 @@ import GitEngine
 /// The Tags popover of the sidebar and what can be done with a tag: jump to its commit, check it out, push it, fetch one that is only on a remote, delete it here or on a remote, copy its name.
 /// Each tag is marked by where it exists, once the remotes answered; see `TagRows`.
 @MainActor
-final class TagsController {
+final class TagActions {
     /// Selects a commit in the history.
     var onNavigate: ((String) -> Void)?
     /// Checks a commit out through the tab's checkout flow, which deals with local changes.

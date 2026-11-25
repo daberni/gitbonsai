@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-extension FetchController: CommandProvider {
+extension FetchUseCase: CommandProvider {
     /// All remotes first, then each remote with and without prune, then the tags; the same variants as the Fetch button's menu.
     func commands(_ state: RepositoryCommandState) -> [Command] {
         let blocker = CommandRules.fetch(state)

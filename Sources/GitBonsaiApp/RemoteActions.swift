@@ -3,7 +3,7 @@ import GitEngine
 
 /// Adding a remote from the sidebar's "Add Remote…" and the menu of a remote's header: edit its name and URL, or remove it.
 @MainActor
-final class RemoteActionsController {
+final class RemoteActions {
     private let runner: ActionRunner
     private let prompter: any Prompting
     private let viewModel: GraphViewModel

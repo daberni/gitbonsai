@@ -3,7 +3,7 @@ import GitEngine
 
 /// The Fetch button's menu and running the chosen variant. The status line says what ran; a failure shows git's message.
 @MainActor
-final class FetchController {
+final class FetchUseCase {
     let prompter: any Prompting
     private let viewModel: GraphViewModel
     /// The configured remotes as of the last refresh; a menu has to be built without waiting for git.

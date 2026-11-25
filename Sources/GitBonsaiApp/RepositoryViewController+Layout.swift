@@ -20,7 +20,7 @@ extension RepositoryViewController {
         historyPane.setContentHuggingPriority(.defaultLow, for: .vertical)
         historyPane.show(history.view)
         // The commit form sits below the detail panel and only appears for the working directory.
-        rightColumn = ColumnWithBottomBar(content: detailScroll, bar: commitController.form)
+        rightColumn = ColumnWithBottomBar(content: detailScroll, bar: commitUseCase.form)
         split = PanelSplitView(sidebar: sidebarScroll, history: historyColumn, detail: rightColumn)
 
         let statusBar = BarView(edge: .top)

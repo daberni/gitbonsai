@@ -8,16 +8,16 @@ import GitEngine
 @MainActor
 final class HistoryMenuController {
     private let viewModel: GraphViewModel
-    private let checkout: CheckoutController
-    private let commitActions: CommitActionsController
-    private let branches: BranchActionsController
-    private let tags: TagsController
-    private let fastForward: FastForwardController
-    private let stashes: StashesController
+    private let checkout: CheckoutUseCase
+    private let commitActions: CommitActions
+    private let branches: BranchActions
+    private let tags: TagActions
+    private let fastForward: FastForwardUseCase
+    private let stashes: StashActions
 
     private let pasteboard: Pasteboard
 
-    init(context: RepositoryContext, checkout: CheckoutController, commitActions: CommitActionsController, branches: BranchActionsController, tags: TagsController, fastForward: FastForwardController, stashes: StashesController) {
+    init(context: RepositoryContext, checkout: CheckoutUseCase, commitActions: CommitActions, branches: BranchActions, tags: TagActions, fastForward: FastForwardUseCase, stashes: StashActions) {
         viewModel = context.model
         pasteboard = context.app.pasteboard
         self.checkout = checkout
@@ -49,7 +49,7 @@ final class HistoryMenuController {
     /// The branch's own "Rebase main onto X" joins the commit section's rebase variants, which offer it as one entry with a submenu.
     private func combined(_ ref: MenuSections, commit: Commit, index: Int, pills: [PillModel], subject: PillRef) -> [NSMenuItem] {
         var ref = ref
-        let allCommits = ref.integrate.first { $0.identifier == RebaseOntoController.allCommitsItem }
+        let allCommits = ref.integrate.first { $0.identifier == RebaseOntoUseCase.allCommitsItem }
         ref.integrate.removeAll { $0 === allCommits }
         return (ref + commitSections(commit, index: index, pills: pills, subject: subject, rebaseAllCommits: allCommits)).groups.joinedWithSeparators
     }

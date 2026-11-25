@@ -47,6 +47,6 @@ extension RepositoryViewController {
         guard let row = viewModel.currentRow else { return }
         history.select(row: row, scroll: true)
         rightColumn.showsBar = true
-        commitController.beginAmend()
+        commitUseCase.beginAmend()
     }
 }

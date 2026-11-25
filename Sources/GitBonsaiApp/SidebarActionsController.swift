@@ -4,17 +4,17 @@ import GitEngine
 /// The context menus of the sidebar and creating a branch: hands each subject to the controller of its kind and owns what they share.
 @MainActor
 final class SidebarActionsController {
-    let branches: BranchActionsController
-    let worktrees: WorktreeActionsController
-    let newBranch: NewBranchController
-    let remotes: RemoteActionsController
+    let branches: BranchActions
+    let worktrees: WorktreeActions
+    let newBranch: CreateBranchUseCase
+    let remotes: RemoteActions
 
     /// `checkout` runs a checkout from the sidebar (a branch checked out elsewhere passes its worktree); `switchWorktree` moves the tab like a double click.
-    init(context: RepositoryContext, branchPull: BranchPullController, fastForward: FastForwardController, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void, switchWorktree: @escaping (String) -> Void) {
-        branches = BranchActionsController(context: context, branchPull: branchPull, fastForward: fastForward, checkout: checkout)
-        worktrees = WorktreeActionsController(context: context, switchWorktree: switchWorktree)
-        newBranch = NewBranchController(context: context)
-        remotes = RemoteActionsController(context: context)
+    init(context: RepositoryContext, pull: PullUseCase, push: PushUseCase, fastForward: FastForwardUseCase, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void, switchWorktree: @escaping (String) -> Void) {
+        branches = BranchActions(context: context, pull: pull, push: push, fastForward: fastForward, checkout: checkout)
+        worktrees = WorktreeActions(context: context, switchWorktree: switchWorktree)
+        newBranch = CreateBranchUseCase(context: context)
+        remotes = RemoteActions(context: context)
     }
 
     func menuItems(for subject: SidebarMenuSubject) -> [NSMenuItem] {

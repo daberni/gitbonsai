@@ -4,7 +4,7 @@ import GitEngine
 /// Turns one row of the view model into what a history row draws.
 @MainActor
 enum HistoryRowModel {
-    static func make(row index: Int, in viewModel: GraphViewModel, avatars: AvatarStore, isSelected: Bool, columns: HistoryColumns, search: HistorySearchController) -> GraphRowView.Model {
+    static func make(row index: Int, in viewModel: GraphViewModel, avatars: AvatarStore, isSelected: Bool, columns: HistoryColumns, search: CommitSearchViewModel) -> GraphRowView.Model {
         let commit = viewModel.commits[index]
         let kind = viewModel.kinds[index]
         let refs = viewModel.refsByCommit[commit.id] ?? []

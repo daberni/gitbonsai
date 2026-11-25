@@ -205,10 +205,10 @@ extension ScreenshotHarness {
     /// `GITBONSAI_COMMIT_RUN=1` clicks the commit button, `GITBONSAI_COMMIT_RUN=amend-key` presses ⌥⌘⏎ and `all-key` ⇧⌘⏎ as real key events,
     /// `GITBONSAI_COMMIT_SHIFT=1` holds ⇧ through a real modifier event, so the button shows "Commit All".
     static func fillCommit(on tab: RepositoryViewController) {
-        let form = tab.commitController.form
+        let form = tab.commitUseCase.form
         if let coAuthor = environment["GITBONSAI_COMMIT_COAUTHOR"] {
             let person = CommitTrailer(key: CommitTrailer.coAuthorKey, value: coAuthor).person
-            tab.commitController.addCoAuthor(name: person.name, email: person.email)
+            tab.commitUseCase.addCoAuthor(name: person.name, email: person.email)
         }
         if environment["GITBONSAI_COMMIT_SIGNOFF"] == "1" { form.isSignOff = true }
         if environment["GITBONSAI_AMEND"] == "1" { form.pressAmend() }

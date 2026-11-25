@@ -9,7 +9,7 @@ extension ScreenshotHarness {
         toastTab = tab
         if let button = environment["GITBONSAI_TOOLBAR"] { clickToolbar(button, on: tab) }
         guard let name = environment["GITBONSAI_OPEN_PANEL"], let panel = SidebarPanel(rawValue: name) else { return }
-        let popover = panel == .tags ? tab.tagsController.popover : tab.stashesController.popover
+        let popover = panel == .tags ? tab.tagActions.popover : tab.stashActions.popover
         after(0.2) {
             clickSidebarRow(panel, on: tab)
             whenShown(popover, attempts: 20) { window in
@@ -17,7 +17,7 @@ extension ScreenshotHarness {
                     FileHandle.standardError.write(Data("panel \(name) did not open\n".utf8))
                     return
                 }
-                whenSettled(tab.tagsController, attempts: 150) { drivePanel(popover, in: window, on: tab, name: name) }
+                whenSettled(tab.tagActions, attempts: 150) { drivePanel(popover, in: window, on: tab, name: name) }
             }
         }
     }
@@ -57,7 +57,7 @@ extension ScreenshotHarness {
         }
         // The action refreshes the tab, and a fetch or push makes the tag list ask the remotes again.
         if environment["GITBONSAI_PANEL_BUTTON"] != nil || environment["GITBONSAI_PANEL_MENU"] != nil, name == SidebarPanel.tags.rawValue {
-            watchRefresh(of: tab.tagsController, samples: [], attempts: 600) {
+            watchRefresh(of: tab.tagActions, samples: [], attempts: 600) {
                 printRows(of: list, name: "\(name) after the action")
                 FileHandle.standardError.write(Data("panel still shown \(popover.isShown)\n".utf8))
                 if let shot = environment["GITBONSAI_PANEL_SHOT_AFTER"] { capturePanel(popover, to: shot) }
@@ -67,7 +67,7 @@ extension ScreenshotHarness {
 
     /// Samples the marks every few frames from the action until the remotes answered again. `GITBONSAI_PANEL_SHOT_DURING=<png>` renders the list once the refresh runs,
     /// and the samples show whether any tag lost its mark meanwhile.
-    private static func watchRefresh(of tags: TagsController, samples: [Int], attempts: Int, sawRefresh: Bool = false, then body: @escaping () -> Void) {
+    private static func watchRefresh(of tags: TagActions, samples: [Int], attempts: Int, sawRefresh: Bool = false, then body: @escaping () -> Void) {
         let list = tags.popover.list
         let marked = list.rows.filter { !$0.badges.isEmpty }.count
         let refreshing = !tags.isSettled
@@ -95,7 +95,7 @@ extension ScreenshotHarness {
     }
 
     /// The tag marks come from the remotes after the list opened; captures wait for their answers.
-    private static func whenSettled(_ tags: TagsController, attempts: Int, _ body: @escaping () -> Void) {
+    private static func whenSettled(_ tags: TagActions, attempts: Int, _ body: @escaping () -> Void) {
         if tags.isSettled || attempts == 0 { return body() }
         after(0.1) { whenSettled(tags, attempts: attempts - 1, body) }
     }

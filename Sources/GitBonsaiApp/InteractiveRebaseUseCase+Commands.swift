@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-extension InteractiveRebaseController: CommandProvider {
+extension InteractiveRebaseUseCase: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         [Command(.rebaseInteractive, context: state.branch, blocker: CommandRules.rebaseInteractive(state), action: .choose(placeholder: LocalizedStringResource("rebase.command.ontoPlaceholder", defaultValue: "Rebase onto branch or tag", bundle: .module)) { [weak self] in self?.targetChoices() ?? [] })]
     }

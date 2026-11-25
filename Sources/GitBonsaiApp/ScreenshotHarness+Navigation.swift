@@ -75,10 +75,10 @@ extension ScreenshotHarness {
             if parts[0] == "sidebar2" { send(click: point, flags: [], count: 2, in: window) }
         case "tags":
             // The popover opens beside the sidebar's top; the press on its row is real.
-            tab.tagsController.show(relativeTo: NSRect(x: 0, y: 0, width: tab.sidebar.bounds.width, height: Theme.Sidebar.rowHeight), of: tab.sidebar)
+            tab.tagActions.show(relativeTo: NSRect(x: 0, y: 0, width: tab.sidebar.bounds.width, height: Theme.Sidebar.rowHeight), of: tab.sidebar)
             after(0.6) {
-                let list = tab.tagsController.popover.list
-                guard let popoverWindow = tab.tagsController.popover.window, let row = Int(argument), row < list.tableView.numberOfRows else { return navigationLog("tag list not open or no row \(argument)") }
+                let list = tab.tagActions.popover.list
+                guard let popoverWindow = tab.tagActions.popover.window, let row = Int(argument), row < list.tableView.numberOfRows else { return navigationLog("tag list not open or no row \(argument)") }
                 let rect = list.tableView.rect(ofRow: row)
                 let point = list.tableView.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
                 guard let target = popoverWindow.contentView?.superview?.hitTest(point), let down = mouseEvent(.leftMouseDown, at: point, in: popoverWindow) else { return }

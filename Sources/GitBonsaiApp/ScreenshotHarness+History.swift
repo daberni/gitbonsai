@@ -15,7 +15,7 @@ extension ScreenshotHarness {
         guard !didRunOneTimeAction else { return false }
         if let branch = environment["GITBONSAI_CHECKOUT"] {
             didRunOneTimeAction = true
-            tab.checkoutController.checkout(.localBranch(branch))
+            tab.checkoutUseCase.checkout(.localBranch(branch))
             return true
         }
         if let folder = environment["GITBONSAI_SWITCH_WORKTREE"], let info = tab.viewModel.worktrees.first(where: { $0.worktree.path == folder || ($0.worktree.path as NSString).lastPathComponent == folder }) {
@@ -236,7 +236,7 @@ extension ScreenshotHarness {
                 let (name, argument) = step.firstIndex(of: ":").map { (String(step[..<$0]), String(step[step.index(after: $0)...])) } ?? (step, "")
                 FileHandle.standardError.write(Data("status step \(step)\n".utf8))
                 switch name {
-                case "fetch": tab.fetchController.fetch(.allRemotes)
+                case "fetch": tab.fetchUseCase.fetch(.allRemotes)
                 case "stage": tab.staging.stage([argument])
                 case "outside":
                     let process = Process()

@@ -1,6 +1,6 @@
 import AppKit
 
-/// Subject, body, co-authors and sign-off, the signing note, amend and the commit button. It only shows and collects; `CommitController` decides what happens.
+/// Subject, body, co-authors and sign-off, the signing note, amend and the commit button. It only shows and collects; `CommitUseCase` decides what happens.
 final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     private typealias M = Theme.CommitForm
 

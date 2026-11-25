@@ -11,7 +11,7 @@ final class RepositoryViewController: NSObject {
     var onLoaded: (() -> Void)?
     /// A worktree was chosen. The window decides whether this tab moves there or another tab already shows it.
     var onSwitchWorktree: ((String) -> Void)? {
-        didSet { checkoutController.onSwitchWorktree = onSwitchWorktree }
+        didSet { checkoutUseCase.onSwitchWorktree = onSwitchWorktree }
     }
     /// The shown worktree was removed outside the app and the tab moved to the main worktree.
     var onWorktreeReplaced: (() -> Void)?
@@ -22,26 +22,27 @@ final class RepositoryViewController: NSObject {
     let context: RepositoryContext
     let viewModel: GraphViewModel
     let history: HistoryViewController
-    let checkoutController: CheckoutController
-    let commitActions: CommitActionsController
-    let fetchController: FetchController
-    let pullPush: PullPushController
-    let branchPull: BranchPullController
+    let checkoutUseCase: CheckoutUseCase
+    let commitActions: CommitActions
+    let fetchUseCase: FetchUseCase
+    let upstreamStatus: UpstreamStatus
+    let pullUseCase: PullUseCase
+    let pushUseCase: PushUseCase
     let operationBanner: OperationBannerController
-    let undo: UndoController
+    let undo: UndoHistory
     var sidebarActions: SidebarActionsController!
     var historyMenu: HistoryMenuController!
-    let fastForward: FastForwardController
-    let staging: StagingController
-    let fileActions: FileActionsController
-    let commitController: CommitController
+    let fastForward: FastForwardUseCase
+    let staging: StagingUseCase
+    let fileActions: FileActions
+    let commitUseCase: CommitUseCase
     let diff: DiffViewController
     /// Takes the diff's place while several files are selected.
     let stackedDiff: StackedDiffController
     /// Takes the diff's place for a file with unresolved conflicts.
     var conflicts: ConflictViewController!
-    let tagsController: TagsController
-    let stashesController: StashesController
+    let tagActions: TagActions
+    let stashActions: StashActions
     /// The history column shows the graph, or the diff or conflict view of one file in its place.
     let historyPane = ContainerView()
     /// Detail panel, and below it the commit form for the working directory.
@@ -60,7 +61,7 @@ final class RepositoryViewController: NSObject {
     let toolbar = RepositoryToolbar()
     let sidebar: SidebarView
     let detail: DetailView
-    var inlineReword: InlineRewordController!
+    var inlineReword: RewordUseCase!
     let statusLabel = NSTextField(labelWithString: "")
     private var didReportLoaded = false
     private var shownSidebarRevision: Int?
@@ -77,19 +78,20 @@ final class RepositoryViewController: NSObject {
         sidebar = SidebarView(sessions: context.app.sessions)
         detail = DetailView(avatars: context.app.avatars, pasteboard: context.app.pasteboard)
         history = HistoryViewController(context: context)
-        checkoutController = CheckoutController(context: context)
-        commitActions = CommitActionsController(context: context)
-        fetchController = FetchController(context: context)
-        pullPush = PullPushController(context: context)
-        branchPull = BranchPullController(context: context, pullPush: pullPush)
-        fastForward = FastForwardController(context: context)
+        checkoutUseCase = CheckoutUseCase(context: context)
+        commitActions = CommitActions(context: context)
+        fetchUseCase = FetchUseCase(context: context)
+        upstreamStatus = UpstreamStatus(model: context.model)
+        pullUseCase = PullUseCase(context: context, status: upstreamStatus)
+        pushUseCase = PushUseCase(context: context, status: upstreamStatus, pull: pullUseCase)
+        fastForward = FastForwardUseCase(context: context)
         operationBanner = OperationBannerController(context: context)
-        undo = UndoController(context: context)
-        staging = StagingController(context: context)
-        fileActions = FileActionsController(context: context, staging: staging)
-        commitController = CommitController(context: context)
-        tagsController = TagsController(context: context)
-        stashesController = StashesController(context: context)
+        undo = UndoHistory(context: context)
+        staging = StagingUseCase(context: context)
+        fileActions = FileActions(context: context, staging: staging)
+        commitUseCase = CommitUseCase(context: context)
+        tagActions = TagActions(context: context)
+        stashActions = StashActions(context: context)
         let model = viewModel
         let preferences = DiffPreferences(defaults: context.app.persistence.defaults)
         diff = DiffViewController(staging: staging, repository: { model.repository }, preferences: preferences, trace: context.app.trace)
@@ -98,10 +100,10 @@ final class RepositoryViewController: NSObject {
         context.lifecycle.view = view
         conflicts = ConflictViewController(context: context) { [weak self] in self?.conflictSides() ?? ConflictSides(ours: "HEAD", theirs: "MERGE_HEAD") }
         let rebase = commitActions.interactiveRebase
-        inlineReword = InlineRewordController(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
-        let checkout = checkoutController
-        sidebarActions = SidebarActionsController(context: context, branchPull: branchPull, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
-        historyMenu = HistoryMenuController(context: context, checkout: checkoutController, commitActions: commitActions, branches: sidebarActions.branches, tags: tagsController, fastForward: fastForward, stashes: stashesController)
+        inlineReword = RewordUseCase(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
+        let checkout = checkoutUseCase
+        sidebarActions = SidebarActionsController(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
+        historyMenu = HistoryMenuController(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: sidebarActions.branches, tags: tagActions, fastForward: fastForward, stashes: stashActions)
         wire()
         layout()
         bind()
@@ -154,8 +156,8 @@ final class RepositoryViewController: NSObject {
     }
 
     private var fetchTarget: RepositoryToolbar.FetchTarget {
-        let remotes = fetchController.remotes
-        if let upstream = pullPush.upstream, remotes.isEmpty || remotes.contains(upstream.remote) { return .remote(upstream.remote) }
+        let remotes = fetchUseCase.remotes
+        if let upstream = upstreamStatus.upstream, remotes.isEmpty || remotes.contains(upstream.remote) { return .remote(upstream.remote) }
         if remotes.count > 1 { return .allRemotes }
         if let only = remotes.first { return .remote(only) }
         let hasRemoteBranch = viewModel.refs.contains { if case .remoteBranch = $0.kind { true } else { false } }
@@ -203,7 +205,7 @@ final class RepositoryViewController: NSObject {
             sidebar.reload(from: viewModel)
         }
         history.metadataChanged()
-        commitController.update(status: viewModel.status)
+        commitUseCase.update(status: viewModel.status)
         // The working directory lists follow every change of the status, for instance after staging.
         if let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)
@@ -213,17 +215,17 @@ final class RepositoryViewController: NSObject {
         // Worktree counters and the parts of a first load arrive on their own; git is asked about remotes, upstream and operations once per read of the repository.
         if viewModel.readRevision != shownReadRevision {
             shownReadRevision = viewModel.readRevision
-            fetchController.refreshRemotes()
-            pullPush.refresh()
+            fetchUseCase.refreshRemotes()
+            upstreamStatus.refresh()
             operationBanner.update()
             undo.update()
         }
         selectHeadIfLoaded()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
-        toolbar.stashMenu = hasChanges ? { [weak self] in self?.stashesController.stashMenu() ?? NSMenu() } : nil
-        toolbar.onPop = viewModel.stashes.isEmpty ? nil : { [weak self] in self?.stashesController.popNewest() }
-        tagsController.viewModelChanged()
-        stashesController.viewModelChanged()
+        toolbar.stashMenu = hasChanges ? { [weak self] in self?.stashActions.stashMenu() ?? NSMenu() } : nil
+        toolbar.onPop = viewModel.stashes.isEmpty ? nil : { [weak self] in self?.stashActions.popNewest() }
+        tagActions.viewModelChanged()
+        stashActions.viewModelChanged()
         reportLoadedOnce()
     }
 

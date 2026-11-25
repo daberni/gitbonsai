@@ -10,7 +10,7 @@ struct RemoteRequest: Equatable {
 }
 
 /// The "Add Remote" and "Edit Remote" sheet: name and URL with live validation and, when adding, whether to fetch afterwards.
-/// It validates and collects; `RemoteActionsController` runs git.
+/// It validates and collects; `RemoteActions` runs git.
 @MainActor
 final class RemoteSheet: NSViewController {
     private typealias R = Theme.RemoteForm

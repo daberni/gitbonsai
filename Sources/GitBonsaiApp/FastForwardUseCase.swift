@@ -4,7 +4,7 @@ import GitEngine
 /// Fast-forwarding the checked-out branch to a ref or commit, from the menus of refs and commits and from the command bar.
 /// An entry is offered only when the target contains the branch, as far as the loaded history tells; git still refuses anything but a fast-forward.
 @MainActor
-final class FastForwardController {
+final class FastForwardUseCase {
     enum Target {
         case ref(Ref)
         case commit(String)

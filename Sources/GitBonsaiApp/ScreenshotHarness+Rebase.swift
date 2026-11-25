@@ -247,7 +247,7 @@ extension ScreenshotHarness {
         guard !banner.amendButton.isHidden else { return }
         press(banner.amendButton)
         after(0.8) {
-            let form = tab.commitController.form
+            let form = tab.commitUseCase.form
             guard let window = form.window, let field = views(of: PlainTextField.self, in: window).first(where: { $0.isDescendant(of: form) }), let button = views(of: PrimaryButton.self, in: window).first(where: { $0.isDescendant(of: form) }) else {
                 return log("commit form not shown")
             }

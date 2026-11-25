@@ -13,7 +13,7 @@ final class StackedDiffController {
     private(set) var files: [FileSelection] = []
     private(set) var parts: [DiffViewController] = []
 
-    private let staging: StagingController
+    private let staging: StagingUseCase
     private let repository: () -> Repository
     let bar = StackedDiffBar()
     private let scroll = NSScrollView()
@@ -23,7 +23,7 @@ final class StackedDiffController {
     private let preferences: DiffPreferences
     private let trace: TraceSink
 
-    init(staging: StagingController, repository: @escaping () -> Repository, preferences: DiffPreferences, trace: TraceSink) {
+    init(staging: StagingUseCase, repository: @escaping () -> Repository, preferences: DiffPreferences, trace: TraceSink) {
         self.staging = staging
         self.repository = repository
         self.preferences = preferences

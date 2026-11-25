@@ -8,8 +8,8 @@ Decision: D2 without the highlight swap: inline mini pills with a hidden plain c
 
 Commits and SHAs follow the same style as refs (`\(commit: id)`). About 110 interpolations with German quotes „…“ in 26 files of `Sources/GitBonsaiApp`, plus about 30 with bare SHAs or names (for example `Checkout Commit \(id.prefix(7))`, `Create Branch at 1a2b3c4`, the toolbar's upstream text, `RebaseUndoController`).
 
-- Menus (≈45): `BranchActionsController`, `CheckoutController`, `CommitActionsController`, `RebaseOntoController`, `PullPushController`, `FetchController`, `TagsController`, `FileActionsController`, `WorktreeActionsController`.
-- Sheet titles and messages (≈45): the same controllers plus `SidebarActionsController`, `StagingController`, `StashesController`, `InteractiveRebaseController`/`Sheet`, `RebaseUndoController`. Most go through `NSAlert` (`ActionForm`, `ActionRunner.confirm`).
+- Menus (≈45): `BranchActions`, `CheckoutUseCase`, `CommitActions`, `RebaseOntoUseCase`, `PullUseCase`, `PushUseCase`, `FetchUseCase`, `TagActions`, `FileActions`, `WorktreeActions`.
+- Sheet titles and messages (≈45): the same controllers plus `SidebarActionsController`, `StagingUseCase`, `StashActions`, `InteractiveRebaseUseCase`/`Sheet`, `RebaseUndoController`. Most go through `NSAlert` (`ActionForm`, `ActionRunner.confirm`).
 - Banner: `OperationBanner.describe` (inconsistent at the time: "from „x“ onto y").
 - Tooltips and tag status: `TagRows`, `RemoteTagCache`, `RebaseUndoController`.
 - Field messages: `NewBranchViewController`, `RebaseBasePicker`, `GitSettingsViewController`.

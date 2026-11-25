@@ -68,7 +68,7 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's command, without opening it; `GITBONSAI_FETCH_PICK=<title>` chooses an entry and prints the status line once the fetch has finished.
     private static func runFetchMenu(on tab: RepositoryViewController) {
-        let menu = tab.fetchController.menu()
+        let menu = tab.fetchUseCase.menu()
         if environment["GITBONSAI_FETCH_MENU"] == "1" {
             let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.plainTitle) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
             FileHandle.standardError.write(Data("fetch menu: \(entries.joined(separator: "; "))\n".utf8))

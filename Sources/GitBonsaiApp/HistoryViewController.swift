@@ -39,7 +39,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     var headAfterReload = false
     /// A reload asked to bring the current row into view once it finished, since the action moved HEAD.
     var currentAfterReload = false
-    let search: HistorySearchController
+    let search: CommitSearchViewModel
     private(set) weak var searchField: CommitSearchField?
 
     /// The selection changed; empty when nothing is selected.
@@ -64,7 +64,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         viewModel = context.model
         avatars = context.app.avatars
         columnsController = HistoryColumnsController(header: header, table: tableView, guide: guide, store: ColumnStore(persistence: context.app.persistence), settings: context.settings)
-        search = HistorySearchController(viewModel: viewModel)
+        search = CommitSearchViewModel(viewModel: viewModel)
         refOverlay = RefOverlayController(table: tableView)
         super.init()
         tableView.onCancel = { [weak self] in self?.cancel() ?? false }

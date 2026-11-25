@@ -3,7 +3,7 @@ import GitEngine
 
 /// Runs the commit form: what the button may do, amend with the last message, the template, co-authors and sign-off, the commit itself and what follows it.
 @MainActor
-final class CommitController {
+final class CommitUseCase {
     let form = CommitFormView()
 
     private let viewModel: GraphViewModel

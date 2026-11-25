@@ -14,7 +14,7 @@ final class DetailView: NSView {
     /// The entries of the context menu for the files it acts on.
     var fileMenuItems: (([FileRowView.Model]) -> [NSMenuItem])?
     /// Whether the shown commit's message can be edited; nil offers nothing, for commits off the current branch's line.
-    var messageAccess: ((Commit) -> InteractiveRebaseController.RewordAccess?)?
+    var messageAccess: ((Commit) -> InteractiveRebaseUseCase.RewordAccess?)?
     /// The pencil or a double click on the subject asks to edit the shown commit's message.
     var onEditMessage: (() -> Void)?
     /// Kept across redraws of the same commit or working directory, cleared otherwise.
@@ -123,7 +123,7 @@ final class DetailView: NSView {
     // MARK: Message editing
 
     /// The pencil at the right of the panel's title; disabled with the reason as tooltip where the message cannot be edited.
-    func addEditButton(to header: NSView, access: InteractiveRebaseController.RewordAccess) {
+    func addEditButton(to header: NSView, access: InteractiveRebaseUseCase.RewordAccess) {
         let button = LinkButton(target: self, action: #selector(editMessagePressed(_:)))
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.MessageEditor.pencilSymbol, weight: .regular)
         button.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: String(localized: "commit.action.editMessage", defaultValue: "Edit Message", bundle: .module))?.withSymbolConfiguration(configuration)

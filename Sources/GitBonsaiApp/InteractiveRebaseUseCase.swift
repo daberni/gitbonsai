@@ -4,7 +4,7 @@ import GitEngine
 /// The commit menu's interactive rebase: the sheet onto any commit, and its one-step forms (edit message, drop, move up, move down) with their questions. Editing the message hands over to the detail panel.
 /// One-step entries are disabled, with the reason as tooltip, where git would have to flatten a merge, where there is no parent to start from, and for commits off the current branch's line.
 @MainActor
-final class InteractiveRebaseController {
+final class InteractiveRebaseUseCase {
     enum RewordAccess: Equatable {
         case allowed
         case disabled(String)
@@ -127,7 +127,7 @@ final class InteractiveRebaseController {
                     return await self.changeBase(of: model, to: revision, onto: target.id)
                 }
                 let sheet = InteractiveRebaseSheet(model: model, basePicker: picker, columnStore: ColumnStore(persistence: persistence))
-                sheet.publishedHint = { CommitActionsController.publishedHint($0, upstream: upstream) }
+                sheet.publishedHint = { CommitActions.publishedHint($0, upstream: upstream) }
                 guard let window = prompter.window else { return }
                 self.sheet = sheet
                 // harness: the harness drives this from outside through Accessibility and real events.
@@ -139,8 +139,8 @@ final class InteractiveRebaseController {
                     let confirmed = await runner.confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all Commits?", bundle: .module), names: RefString(marked: RefName.branch(branch) + " → " + RefName.commit(model.targetCommit.id) + " " + model.targetCommit.subject), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
                     guard confirmed else { return }
                 }
-                let hint = CommitActionsController.publishedHint(model.published, upstream: upstream)
-                start(plan, note: CommitActionsController.note(Self.command(plan), hint))
+                let hint = CommitActions.publishedHint(model.published, upstream: upstream)
+                start(plan, note: CommitActions.note(Self.command(plan), hint))
             } catch {
                 report(error, title: LocalizedStringResource("failure.rebase.interactiveNotPossible", defaultValue: "Interactive rebase not possible", bundle: .module))
             }
@@ -179,7 +179,7 @@ final class InteractiveRebaseController {
             case .plain: []
             }
             for base in bases {
-                if let commit = await repository.commitSummary(base.commit) { items.append(.commit(commit, note: RebaseOntoController.without(base.reason).plain)) }
+                if let commit = await repository.commitSummary(base.commit) { items.append(.commit(commit, note: RebaseOntoUseCase.without(base.reason).plain)) }
             }
             if let mergeBase = await repository.mergeBase(target, "HEAD"), !items.contains(where: { $0.revision == mergeBase }), let commit = await repository.commitSummary(mergeBase) {
                 items.append(.commit(commit, note: String(localized: "rebase.base.mergeBase", defaultValue: "merge base", bundle: .module, comment: "Why the base picker offers a commit: it is the merge base.")))
@@ -228,7 +228,7 @@ final class InteractiveRebaseController {
                 case .moveUp: String(localized: "rebase.move.up", defaultValue: "move up", bundle: .module, comment: "Status line, inside “git rebase -i (move up 1a2b3c4)”: the commit was moved up one step.")
                 default: String(localized: "rebase.move.down", defaultValue: "move down", bundle: .module, comment: "Status line, inside “git rebase -i (move down 1a2b3c4)”: the commit was moved down one step.")
                 }
-                start(plan, note: CommitActionsController.note("git rebase -i (\(verb) \(commit.shortID))", hint))
+                start(plan, note: CommitActions.note("git rebase -i (\(verb) \(commit.shortID))", hint))
             } catch {
                 report(error, title: LocalizedStringResource("failure.rebase.notPossible", defaultValue: "Rebase not possible", bundle: .module))
             }
@@ -236,7 +236,7 @@ final class InteractiveRebaseController {
     }
 
     func publishedHint(_ plan: RebasePlan) async -> RefString? {
-        CommitActionsController.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: plan.base), upstream: viewModel.status?.branch.upstream)
+        CommitActions.publishedHint(await viewModel.repository.publishedCommitCount(rewrittenBy: plan.base), upstream: viewModel.status?.branch.upstream)
     }
 
     // MARK: Running

@@ -4,11 +4,11 @@ import GitEngine
 /// The commands of a repository tab: those its controllers register, and the ones that belong to the tab as a whole (commit form, worktree, search, opening the folder elsewhere).
 extension RepositoryViewController: CommandProvider {
     var commandState: RepositoryCommandState {
-        RepositoryCommandState(status: viewModel.status, remotes: fetchController.remotes, stashCount: viewModel.stashes.count, operation: operationBanner.progress?.kind)
+        RepositoryCommandState(status: viewModel.status, remotes: fetchUseCase.remotes, stashCount: viewModel.stashes.count, operation: operationBanner.progress?.kind)
     }
 
     var commandProviders: [CommandProvider] {
-        [fetchController, pullPush, checkoutController, fastForward, sidebarActions, stashesController, staging, commitActions.interactiveRebase, commitActions.squash, operationBanner, conflicts]
+        [fetchUseCase, pullUseCase, pushUseCase, checkoutUseCase, fastForward, sidebarActions, stashActions, staging, commitActions.interactiveRebase, commitActions.squash, operationBanner, conflicts]
     }
 
     /// Every repository command, in the order the empty bar lists them.
@@ -51,10 +51,10 @@ extension RepositoryViewController: CommandProvider {
     func showCommitForm(amend: Bool) {
         if let row = viewModel.currentRow { history.select(row: row, scroll: true) }
         if amend {
-            commitController.beginAmend()
+            commitUseCase.beginAmend()
             rightColumn.showsBar = showsCommitForm(at: singleSelectedRow)
         }
-        commitController.form.focusSubject()
+        commitUseCase.form.focusSubject()
     }
 
     // MARK: Worktrees and search

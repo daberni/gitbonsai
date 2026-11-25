@@ -3,7 +3,7 @@ import GitEngine
 
 /// The form of the "New Branch" sheet: name with live validation, start point in a ref picker, and either a new worktree or whether to switch here.
 /// As "New Worktree" it always creates a worktree: from the picked local branch when the name stays empty, otherwise from a new branch starting there.
-/// It validates and collects; `NewBranchController` runs git.
+/// It validates and collects; `CreateBranchUseCase` runs git.
 @MainActor
 final class NewBranchViewController: NSViewController {
     private typealias N = Theme.NewBranch
@@ -274,7 +274,7 @@ final class NewBranchViewController: NSViewController {
         guard createButton.isEnabled, let start = picker.selection?.revision else { return }
         let path = (pathInput.stringValue as NSString).expandingTildeInPath
         let follow: NewBranchRequest.Follow = worktreeBox.isOn ? .worktree(path) : checkoutBox.isOn ? .checkout : .stay
-        // An empty name takes the picked local branch as it is; `NewBranchController` checks it out instead of creating one.
+        // An empty name takes the picked local branch as it is; `CreateBranchUseCase` checks it out instead of creating one.
         onFinish?(NewBranchRequest(name: reusedBranch == nil ? name : "", start: start, follow: follow))
     }
 

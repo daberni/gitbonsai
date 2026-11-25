@@ -3,7 +3,7 @@ import GitEngine
 
 /// The Stashes popover of the sidebar and the toolbar's Stash and Pop: making a stash, taking it back, and showing, applying, popping, dropping or branching one.
 @MainActor
-final class StashesController {
+final class StashActions {
     /// Selects a commit in the history.
     var onNavigate: ((String) -> Void)?
     /// Shows a stash's changes: the stash selected in the history with the diff of its first file.

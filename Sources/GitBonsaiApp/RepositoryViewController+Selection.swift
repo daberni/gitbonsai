@@ -101,7 +101,7 @@ extension RepositoryViewController {
         guard let row, viewModel.kinds.indices.contains(row) else { return false }
         let isHead = viewModel.commits[row].id == viewModel.headSHA
         // Amending with nothing changed shows the form under HEAD, as at an edit stop.
-        return viewModel.kinds[row] == .wip || isHead && (operationBanner.isEditStop || commitController.form.isAmend)
+        return viewModel.kinds[row] == .wip || isHead && (operationBanner.isEditStop || commitUseCase.form.isAmend)
     }
 
     /// The one rule for every way the history selection moves: a click or arrow key, ⌘- or ⇧-click, the parent link, the sidebar, tags and stashes, the search,

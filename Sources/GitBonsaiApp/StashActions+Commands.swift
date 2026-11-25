@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-extension StashesController: CommandProvider {
+extension StashActions: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         [
             Command(.stash, blocker: CommandRules.stash(state)) { [weak self] in self?.stashNow(.includingUntracked) },

@@ -51,7 +51,7 @@ extension GraphViewModel {
 /// "Undo" in the status line after a local operation that lost no commits: a rebase, cherry-pick, revert, merge, reset, checkout or branch deletion, and an interactive rebase of the app.
 /// Local operations run without asking, because this puts the refs back; it is offered only while HEAD and the refs are still where the operation left them.
 @MainActor
-final class UndoController {
+final class UndoHistory {
     private enum Pending {
         case point(UndoOffer)
         case rebase(RebaseUndo)
