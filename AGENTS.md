@@ -65,6 +65,7 @@ GitBonsai is a native macOS Git client with a graph-centric UX. The app is AppKi
 ## Task intake and backlog
 
 - The backlog is GitHub issues in this repository: one issue per independently shippable task with the problem and the desired behavior, labelled `bug` or `enhancement` and `priority: high`, `priority: medium` or `priority: low`. The coordinating session creates and updates issues with the user's approval; task briefs quote the issue and name its number. The commit that completes an issue ends its body with `Closes #<n>`. There are no pull requests yet.
+- Analyse first: reproduce a report or read the code before recording it. Small findings are collected and fixed in the next session without an issue; an issue is opened only for a real task (own session, or work that waits), with the analysis in its body.
 - Treat feedback about the current work as steering for that work. Put unrelated requests into the backlog instead of starting them on the spot, unless the user makes them the current work.
 - Keep implemented, verified and integrated distinct. A task is done once it is merged into local `main` and verified there.
 
