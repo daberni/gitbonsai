@@ -21,7 +21,6 @@ final class StashActions {
         let list = popover.list
         list.onSelect = { [weak self] id in self?.onNavigate?(id) }
         list.onActivate = { [weak self] id in self?.showDiff(id) }
-        list.menuItems = { [weak self] id in self?.menuItems(for: id) ?? [] }
         list.actions = [
             PanelAction(LocalizedStringResource("stash.action.showDiff", defaultValue: "Show Diff", bundle: .module)) { [weak self] id in self?.showDiff(id) },
             PanelAction(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] id in self?.apply(id) },
@@ -56,16 +55,16 @@ final class StashActions {
 
     // MARK: Menu
 
-    func menuItems(for id: String) -> [NSMenuItem] {
-        [
-            ActionMenuItem(LocalizedStringResource("stash.action.showDiff", defaultValue: "Show Diff", bundle: .module)) { [weak self] in self?.showDiff(id) },
-            .separator(),
-            ActionMenuItem(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] in self?.apply(id) },
-            ActionMenuItem(LocalizedStringResource("stash.action.pop", defaultValue: "Pop", bundle: .module)) { [weak self] in self?.pop(id) },
-            ActionMenuItem(LocalizedStringResource("stash.menu.createBranch", defaultValue: "Create Branch from Stash…", bundle: .module)) { [weak self] in self?.createBranch(id) },
-            .separator(),
-            ActionMenuItem(LocalizedStringResource("stash.action.drop", defaultValue: "Drop…", bundle: .module)) { [weak self] in self?.drop(id) },
+    /// A stash's menu: show, take back, drop.
+    func groups(for id: String) -> (show: [MenuEntry], takeBack: [MenuEntry], drop: [MenuEntry]) {
+        let show = [MenuEntry(LocalizedStringResource("stash.action.showDiff", defaultValue: "Show Diff", bundle: .module)) { [weak self] in self?.showDiff(id) }]
+        let takeBack = [
+            MenuEntry(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] in self?.apply(id) },
+            MenuEntry(LocalizedStringResource("stash.action.pop", defaultValue: "Pop", bundle: .module)) { [weak self] in self?.pop(id) },
+            MenuEntry(LocalizedStringResource("stash.menu.createBranch", defaultValue: "Create Branch from Stash…", bundle: .module)) { [weak self] in self?.createBranch(id) },
         ]
+        let drop = [MenuEntry(LocalizedStringResource("stash.action.drop", defaultValue: "Drop…", bundle: .module)) { [weak self] in self?.drop(id) }]
+        return (show, takeBack, drop)
     }
 
     // MARK: Toolbar

@@ -78,13 +78,9 @@ final class CheckoutUseCase: NSObject {
     }
 
     /// "Checkout Commit 1a2b3c4 (Detached HEAD)", the checkout that leads the commit section of the history menus; nil where HEAD already is that commit, detached.
-    func detachedItem(forRow index: Int) -> NSMenuItem? {
+    func detachedEntry(forRow index: Int) -> MenuEntry? {
         guard let choice = choices(forRow: index).last, case .commit = choice.target else { return nil }
-        let item = NSMenuItem(title: "", action: #selector(performFromMenu(_:)), keyEquivalent: "")
-        item.setTitle(choice.title)
-        item.target = self
-        item.representedObject = MenuChoice(choice)
-        return item
+        return MenuEntry(choice.title) { [weak self] in self?.perform(choice) }
     }
 
     /// Branches from the sidebar come in here too.
@@ -124,11 +120,6 @@ final class CheckoutUseCase: NSObject {
         }
     }
 
-    @objc private func performFromMenu(_ sender: NSMenuItem) {
-        guard let choice = (sender.representedObject as? MenuChoice)?.choice else { return }
-        perform(choice)
-    }
-
     func checkout(_ target: CheckoutTarget) {
         Task { [weak self] in
             guard let self else { return }
@@ -164,12 +155,6 @@ final class CheckoutUseCase: NSObject {
         }
         alert.applyRefText()
         alert.beginSheetModal(for: window) { response in completion(response) }
-    }
-
-    /// Menu items carry objects; this boxes a choice for one.
-    private final class MenuChoice: NSObject {
-        let choice: Choice
-        init(_ choice: Choice) { self.choice = choice }
     }
 }
 

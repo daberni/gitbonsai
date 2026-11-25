@@ -21,16 +21,10 @@ final class SquashUseCase {
     private static var title: LocalizedStringResource { LocalizedStringResource("rebase.squash.menu.title", defaultValue: "Squash Commits…", bundle: .module) }
 
     /// The entry for the menu of a row that belongs to a selection of several commits; nil otherwise.
-    func menuItem(for commit: Commit) -> NSMenuItem? {
+    func entry(for commit: Commit) -> MenuEntry? {
         let selected = selectedCommitIDs?() ?? []
         guard selected.count > 1, selected.contains(commit.id) else { return nil }
-        if let blocker = blocker(for: selected) {
-            let item = NSMenuItem(title: Self.title.text, action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            item.toolTip = blocker.reason.text
-            return item
-        }
-        return ActionMenuItem(Self.title) { [weak self] in self?.squash(selected) }
+        return .action(Self.title, disabledBecause: blocker(for: selected)?.reason.text) { [weak self] in self?.squash(selected) }
     }
 
     func blocker(for selected: [String]) -> CommandBlocker? {

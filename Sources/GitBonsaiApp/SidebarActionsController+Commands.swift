@@ -1,8 +1,0 @@
-import AppKit
-import GitEngine
-
-extension SidebarActionsController: CommandProvider {
-    func commands(_ state: RepositoryCommandState) -> [Command] {
-        [Command(.newBranch, blocker: CommandRules.newBranch(state)) { [weak self] in self?.newBranch.show() }]
-    }
-}

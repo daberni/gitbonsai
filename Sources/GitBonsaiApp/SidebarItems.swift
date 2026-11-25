@@ -70,6 +70,14 @@ enum SidebarMenuSubject {
     /// A remote's header.
     case remote(String)
 
+    var menuSubject: MenuSubject {
+        switch self {
+        case .branch(let ref): .branch(ref)
+        case .worktree(let info, let isCurrent): .worktree(info, isCurrent: isCurrent)
+        case .remote(let name): .remote(name)
+        }
+    }
+
     /// How the harness names a subject: `branch:<name>` for local and remote branches (`branch:origin/main`), `worktree:<folder>`, `remote:<name>`.
     var harnessName: String {
         switch self {

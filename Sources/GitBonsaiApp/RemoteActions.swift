@@ -17,10 +17,10 @@ final class RemoteActions {
         prompter = context.prompter
     }
 
-    func menuGroups(for remote: String) -> [[NSMenuItem]] {
-        let edit = ActionMenuItem(LocalizedStringResource("sidebar.remote.menu.edit", defaultValue: "Edit Remote…", bundle: .module)) { [weak self] in self?.showEdit(remote) }
+    func groups(for remote: String) -> [[MenuEntry]] {
+        var edit = MenuEntry(LocalizedStringResource("sidebar.remote.menu.edit", defaultValue: "Edit Remote…", bundle: .module)) { [weak self] in self?.showEdit(remote) }
         edit.toolTip = "git remote rename / git remote set-url"
-        let remove = ActionMenuItem(LocalizedStringResource("sidebar.remote.menu.remove", defaultValue: "Remove Remote…", bundle: .module)) { [weak self] in self?.remove(remote) }
+        var remove = MenuEntry(LocalizedStringResource("sidebar.remote.menu.remove", defaultValue: "Remove Remote…", bundle: .module)) { [weak self] in self?.remove(remote) }
         remove.toolTip = "git remote remove \(remote)"
         return [[edit], [remove]]
     }

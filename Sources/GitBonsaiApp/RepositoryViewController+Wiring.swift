@@ -43,21 +43,24 @@ extension RepositoryViewController {
         tagActions.onCheckout = { [weak self] target in self?.checkoutUseCase.perform(target, worktreePath: nil) }
         stashActions.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
         stashActions.onShowDiff = { [weak self] stash in self?.showStash(stash) }
-        sidebar.menuItems = { [weak self] subject in self?.sidebarActions.menuItems(for: subject) ?? [] }
-        sidebar.onNewBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
-        sidebar.onNewWorktree = { [weak self] in self?.sidebarActions.newBranch.show(worktree: true) }
-        sidebar.onAddRemote = { [weak self] in self?.sidebarActions.remotes.showAdd() }
-        toolbar.onBranch = { [weak self] in self?.sidebarActions.newBranch.show() }
+        sidebar.menuItems = { [weak self] subject in MenuAdapter.items(self?.menuBuilder.menu(for: subject.menuSubject, in: .sidebar) ?? []) }
+        tagActions.popover.list.menuItems = { [weak self] name in MenuAdapter.items(self?.menuBuilder.menu(for: .tag(name), in: .sidebar) ?? []) }
+        stashActions.popover.list.menuItems = { [weak self] id in MenuAdapter.items(self?.menuBuilder.menu(for: .stash(id), in: .sidebar) ?? []) }
+        worktreeActions.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
+        sidebar.onNewBranch = { [weak self] in self?.createBranch.show() }
+        sidebar.onNewWorktree = { [weak self] in self?.createBranch.show(worktree: true) }
+        sidebar.onAddRemote = { [weak self] in self?.remoteActions.showAdd() }
+        toolbar.onBranch = { [weak self] in self?.createBranch.show() }
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row, pill in self?.checkoutUseCase.activate(row: row, pill: pill) }
-        history.menuItems = { [weak self] row in self?.historyMenu.rowMenu(forRow: row) ?? [] }
+        history.menuItems = { [weak self] row in MenuAdapter.items(self?.menuBuilder.rowMenu(forRow: row) ?? []) }
         commitActions.squash.selectedCommitIDs = { [weak self] in
             guard let self else { return [] }
             return history.selectedRows.filter { self.viewModel.commits.indices.contains($0) && (self.viewModel.kinds[$0] == .commit || self.viewModel.kinds[$0] == .merge) }.map { self.viewModel.commits[$0].id }
         }
         history.tableView.onRelative = { [weak self] parent in self?.goToRelative(parent ? .parent : .child) }
-        history.pillMenuItems = { [weak self] row, ref in self?.historyMenu.pillMenu(forRow: row, ref: ref) ?? [] }
+        history.pillMenuItems = { [weak self] row, ref in MenuAdapter.items(self?.menuBuilder.pillMenu(forRow: row, ref: ref) ?? []) }
 
         detail.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }
         detail.onSelectFiles = { [weak self] files in self?.showDiff(files) }
@@ -89,7 +92,7 @@ extension RepositoryViewController {
         operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
-        commitActions.onNewBranch = { [weak self] commit in self?.sidebarActions.newBranch.show(commit: commit) }
+        commitActions.onNewBranch = { [weak self] commit in self?.createBranch.show(commit: commit) }
         pullUseCase.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
         context.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
         operationBanner.onStateChange = { [weak self] in

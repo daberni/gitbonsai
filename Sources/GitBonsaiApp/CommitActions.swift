@@ -2,7 +2,7 @@ import AppKit
 import GitEngine
 
 /// The commit section of the history menus beyond checking out, and running its actions with the questions they raise.
-/// Checkouts stay with `CheckoutUseCase`; `HistoryMenuController` puts the sections together.
+/// Checkouts stay with `CheckoutUseCase`; `MenuBuilder` puts the sections together.
 @MainActor
 final class CommitActions {
     private let prompter: any Prompting
@@ -30,23 +30,23 @@ final class CommitActions {
 
     /// The commit section of the history menus beyond its checkout; `worktreeForBranch` replaces Create Worktree…'s own form with the branch's; `moveHere` is the fast-forward of the current branch to this commit, when a branch pill does not already offer it.
     /// `rebaseAllCommits` is a branch's plain rebase onto this commit, offered next to the detected variants.
-    func sections(for commit: Commit, moveHere: NSMenuItem?, worktreeForBranch: (() -> Void)? = nil, rebaseAllCommits: NSMenuItem? = nil) -> MenuSections {
-        let rewrite = interactiveRebase.menuItems(for: commit)
+    func sections(for commit: Commit, moveHere: MenuEntry?, worktreeForBranch: (() -> Void)? = nil, rebaseAllCommits: MenuEntry? = nil) -> MenuSections {
+        let rewrite = interactiveRebase.entries(for: commit)
         var sections = MenuSections()
         sections.integrate = integrateItems(commit, moveHere: moveHere, rebaseAllCommits: rebaseAllCommits)
         sections.create = [
-            ActionMenuItem(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] in self?.createBranch(at: commit) },
-            ActionMenuItem(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in if let worktreeForBranch { worktreeForBranch() } else { self?.createWorktree(from: commit) } },
-            ActionMenuItem(LocalizedStringResource("commit.menu.createTag", defaultValue: "Create Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: false) },
-            ActionMenuItem(LocalizedStringResource("commit.menu.createAnnotatedTag", defaultValue: "Create annotated Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: true) },
+            MenuEntry(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] in self?.createBranch(at: commit) },
+            MenuEntry(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in if let worktreeForBranch { worktreeForBranch() } else { self?.createWorktree(from: commit) } },
+            MenuEntry(LocalizedStringResource("commit.menu.createTag", defaultValue: "Create Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: false) },
+            MenuEntry(LocalizedStringResource("commit.menu.createAnnotatedTag", defaultValue: "Create annotated Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: true) },
         ]
         // Edit Message and Move up/down change the commit; Drop Commit removes it.
         sections.change = Array(rewrite.dropLast())
         sections.remove = Array(rewrite.suffix(1))
-        sections.copy = [RefMenus.copySHAItem(commit.id, to: pasteboard)]
+        sections.copy = [.copySHA(commit.id, to: pasteboard)]
         // A merge has no patch of its own; format-patch writes nothing for it.
         if commit.parents.count <= 1 {
-            sections.copy.append(ActionMenuItem(LocalizedStringResource("commit.menu.savePatch", defaultValue: "Save Patch…", bundle: .module)) { [weak self] in self?.savePatch(commit) })
+            sections.copy.append(MenuEntry(LocalizedStringResource("commit.menu.savePatch", defaultValue: "Save Patch…", bundle: .module)) { [weak self] in self?.savePatch(commit) })
         }
         return sections
     }
@@ -54,28 +54,22 @@ final class CommitActions {
     // MARK: Menu
 
     /// Entries that move the current branch are left out in detached HEAD, and where git would have nothing to do.
-    private func integrateItems(_ commit: Commit, moveHere: NSMenuItem?, rebaseAllCommits: NSMenuItem?) -> [NSMenuItem] {
-        var items: [NSMenuItem] = moveHere.map { [$0] } ?? []
+    private func integrateItems(_ commit: Commit, moveHere: MenuEntry?, rebaseAllCommits: MenuEntry?) -> [MenuEntry] {
+        var items: [MenuEntry] = moveHere.map { [$0] } ?? []
         guard let branch = viewModel.currentBranch else { return items + (rebaseAllCommits.map { [$0] } ?? []) }
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
-        items += rebaseOnto.items(branch: branch, commit: commit, allCommits: rebaseAllCommits)
+        items += rebaseOnto.entries(branch: branch, commit: commit, allCommits: rebaseAllCommits)
         if !inBranch {
-            items.append(ActionMenuItem(LocalizedStringResource("commit.menu.cherryPick", defaultValue: "Cherry-Pick onto \(RefName.branch(branch))", bundle: .module)) { [weak self] in self?.cherryPick(commit) })
+            items.append(MenuEntry(LocalizedStringResource("commit.menu.cherryPick", defaultValue: "Cherry-Pick onto \(RefName.branch(branch))", bundle: .module)) { [weak self] in self?.cherryPick(commit) })
         }
         if !isHead {
-            let reset = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            reset.setTitle(LocalizedStringResource("commit.menu.reset", defaultValue: "Reset \(RefName.branch(branch)) to here", bundle: .module))
-            let submenu = NSMenu()
             let modes: [(ResetMode, LocalizedStringResource)] = [(.soft, LocalizedStringResource("commit.menu.resetSoft", defaultValue: "Soft – keep changes staged", bundle: .module)), (.mixed, LocalizedStringResource("commit.menu.resetMixed", defaultValue: "Mixed – keep changes in working directory", bundle: .module)), (.hard, LocalizedStringResource("commit.menu.resetHard", defaultValue: "Hard – discard changes…", bundle: .module))]
-            for (mode, title) in modes {
-                submenu.addItem(ActionMenuItem(title) { [weak self] in self?.reset(branch, to: commit, mode: mode) })
-            }
-            reset.submenu = submenu
-            items.append(reset)
+            let entries = modes.map { mode, title in MenuEntry(title) { [weak self] in self?.reset(branch, to: commit, mode: mode) } }
+            items.append(MenuEntry(LocalizedStringResource("commit.menu.reset", defaultValue: "Reset \(RefName.branch(branch)) to here", bundle: .module), submenu: [entries]))
         }
         if inBranch {
-            items.append(ActionMenuItem(LocalizedStringResource("commit.menu.revert", defaultValue: "Revert Commit", bundle: .module)) { [weak self] in self?.revert(commit) })
+            items.append(MenuEntry(LocalizedStringResource("commit.menu.revert", defaultValue: "Revert Commit", bundle: .module)) { [weak self] in self?.revert(commit) })
         }
         return items
     }

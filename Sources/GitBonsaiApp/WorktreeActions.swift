@@ -1,44 +1,44 @@
 import AppKit
 import GitEngine
 
-/// The context menu of a worktree in the sidebar, and running its actions.
+/// What the menu of a worktree in the sidebar offers, and running it.
 @MainActor
 final class WorktreeActions {
     private let runner: ActionRunner
     private let prompter: any Prompting
     private let settings: AppSettings
-    private let switchWorktree: (String) -> Void
+    /// Moves the tab to another worktree, like a double click on it in the sidebar.
+    var onSwitchWorktree: ((String) -> Void)?
 
-    init(context: RepositoryContext, switchWorktree: @escaping (String) -> Void) {
+    init(context: RepositoryContext) {
         runner = context.runner
         prompter = context.prompter
         settings = context.settings
-        self.switchWorktree = switchWorktree
     }
 
     /// The worktree shown in this tab is not removed from here: the tab would lose its folder. The main worktree cannot be locked or removed.
-    func menuGroups(for info: WorktreeInfo, isCurrent: Bool) -> [[NSMenuItem]] {
+    func groups(for info: WorktreeInfo, isCurrent: Bool) -> [[MenuEntry]] {
         let worktree = info.worktree
         let path = worktree.path
         let exists = !worktree.isPrunable
-        var switchGroup: [NSMenuItem] = []
+        var switchGroup: [MenuEntry] = []
         if !isCurrent, exists, !worktree.isBare {
-            switchGroup.append(ActionMenuItem(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.switchWorktree(path) })
+            switchGroup.append(MenuEntry(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.onSwitchWorktree?(path) })
         }
-        let openGroup: [NSMenuItem] = exists ? [
-            ActionMenuItem(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) },
-            ActionMenuItem(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) },
+        let openGroup: [MenuEntry] = exists ? [
+            MenuEntry(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) },
+            MenuEntry(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) },
         ] : []
-        var manageGroup: [NSMenuItem] = []
+        var manageGroup: [MenuEntry] = []
         if !worktree.isMain {
             manageGroup.append(worktree.isLocked
-                ? ActionMenuItem(LocalizedStringResource("worktree.menu.unlock", defaultValue: "Unlock", bundle: .module)) { [weak self] in self?.unlock(path) }
-                : ActionMenuItem(LocalizedStringResource("worktree.menu.lock", defaultValue: "Lock…", bundle: .module)) { [weak self] in self?.lock(path) })
+                ? MenuEntry(LocalizedStringResource("worktree.menu.unlock", defaultValue: "Unlock", bundle: .module)) { [weak self] in self?.unlock(path) }
+                : MenuEntry(LocalizedStringResource("worktree.menu.lock", defaultValue: "Lock…", bundle: .module)) { [weak self] in self?.lock(path) })
             if !isCurrent {
-                manageGroup.append(ActionMenuItem(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module)) { [weak self] in self?.remove(worktree) })
+                manageGroup.append(MenuEntry(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module)) { [weak self] in self?.remove(worktree) })
             }
         }
-        let pruneGroup: [NSMenuItem] = [ActionMenuItem(LocalizedStringResource("worktree.menu.prune", defaultValue: "Prune missing Worktrees", bundle: .module)) { [weak self] in self?.prune() }]
+        let pruneGroup: [MenuEntry] = [MenuEntry(LocalizedStringResource("worktree.menu.prune", defaultValue: "Prune missing Worktrees", bundle: .module)) { [weak self] in self?.prune() }]
         return [switchGroup, openGroup, manageGroup, pruneGroup]
     }
 

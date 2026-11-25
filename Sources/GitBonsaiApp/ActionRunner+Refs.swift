@@ -1,39 +1,6 @@
 import AppKit
 import GitEngine
 
-/// The context menus of the sidebar and creating a branch: hands each subject to the controller of its kind and owns what they share.
-@MainActor
-final class SidebarActionsController {
-    let branches: BranchActions
-    let worktrees: WorktreeActions
-    let newBranch: CreateBranchUseCase
-    let remotes: RemoteActions
-
-    /// `checkout` runs a checkout from the sidebar (a branch checked out elsewhere passes its worktree); `switchWorktree` moves the tab like a double click.
-    init(context: RepositoryContext, pull: PullUseCase, push: PushUseCase, fastForward: FastForwardUseCase, checkout: @escaping (CheckoutTarget, _ worktreePath: String?) -> Void, switchWorktree: @escaping (String) -> Void) {
-        branches = BranchActions(context: context, pull: pull, push: push, fastForward: fastForward, checkout: checkout)
-        worktrees = WorktreeActions(context: context, switchWorktree: switchWorktree)
-        newBranch = CreateBranchUseCase(context: context)
-        remotes = RemoteActions(context: context)
-    }
-
-    func menuItems(for subject: SidebarMenuSubject) -> [NSMenuItem] {
-        let groups = switch subject {
-        case .branch(let ref): branches.sections(for: ref).groups
-        case .worktree(let info, let isCurrent): worktrees.menuGroups(for: info, isCurrent: isCurrent)
-        case .remote(let name): remotes.menuGroups(for: name)
-        }
-        return groups.joinedWithSeparators
-    }
-}
-
-extension Array where Element == [NSMenuItem] {
-    /// The non-empty groups in order, with a separator between neighbours.
-    var joinedWithSeparators: [NSMenuItem] {
-        filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
-    }
-}
-
 extension ActionRunner {
     /// Deletes a local branch without asking, undoable from the status line; when git refuses it as unmerged, asks before deleting it anyway.
     func deleteBranch(_ name: String) async {

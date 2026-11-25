@@ -30,8 +30,11 @@ final class RepositoryViewController: NSObject {
     let pushUseCase: PushUseCase
     let operationBanner: OperationBannerController
     let undo: UndoHistory
-    var sidebarActions: SidebarActionsController!
-    var historyMenu: HistoryMenuController!
+    var branchActions: BranchActions!
+    let worktreeActions: WorktreeActions
+    let remoteActions: RemoteActions
+    let createBranch: CreateBranchUseCase
+    var menuBuilder: MenuBuilder!
     let fastForward: FastForwardUseCase
     let staging: StagingUseCase
     let fileActions: FileActions
@@ -92,6 +95,9 @@ final class RepositoryViewController: NSObject {
         commitUseCase = CommitUseCase(context: context)
         tagActions = TagActions(context: context)
         stashActions = StashActions(context: context)
+        remoteActions = RemoteActions(context: context)
+        createBranch = CreateBranchUseCase(context: context)
+        worktreeActions = WorktreeActions(context: context)
         let model = viewModel
         let preferences = DiffPreferences(defaults: context.app.persistence.defaults)
         diff = DiffViewController(staging: staging, repository: { model.repository }, preferences: preferences, trace: context.app.trace)
@@ -102,8 +108,8 @@ final class RepositoryViewController: NSObject {
         let rebase = commitActions.interactiveRebase
         inlineReword = RewordUseCase(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutUseCase
-        sidebarActions = SidebarActionsController(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward, checkout: { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }, switchWorktree: { [weak self] path in self?.onSwitchWorktree?(path) })
-        historyMenu = HistoryMenuController(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: sidebarActions.branches, tags: tagActions, fastForward: fastForward, stashes: stashActions)
+        branchActions = BranchActions(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward) { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }
+        menuBuilder = MenuBuilder(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: branchActions, tags: tagActions, fastForward: fastForward, stashes: stashActions, worktrees: worktreeActions, remotes: remoteActions)
         wire()
         layout()
         bind()

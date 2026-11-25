@@ -47,11 +47,11 @@ final class PushUseCase {
     }
 
     /// "Push <branch>" to its upstream for a local branch with an upstream on a known remote, nil for anything else. A rejected push offers the same ways out as the toolbar's.
-    func pushItem(for ref: Ref) -> NSMenuItem? {
+    func entry(for ref: Ref) -> MenuEntry? {
         guard ref.kind == .localBranch, let upstream = ref.upstream, let remote = status.remote(ofUpstream: upstream) else { return nil }
         let name = ref.name
         let remoteBranch = String(upstream.dropFirst(remote.count + 1))
-        return ActionMenuItem(LocalizedStringResource("branch.menu.push", defaultValue: "Push \(RefName.branch(name))", bundle: .module)) { [weak self] in
+        return MenuEntry(LocalizedStringResource("branch.menu.push", defaultValue: "Push \(RefName.branch(name))", bundle: .module)) { [weak self] in
             self?.push(.branch(name, remote: remote, remoteBranch: remoteBranch, setUpstream: false, forceWithLease: false), upstream: upstream)
         }
     }

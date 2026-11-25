@@ -34,7 +34,7 @@ final class InteractiveRebaseUseCase {
 
     // MARK: Menu
 
-    func menuItems(for commit: Commit) -> [NSMenuItem] {
+    func entries(for commit: Commit) -> [MenuEntry] {
         guard let branch = viewModel.currentBranch, viewModel.headSHA != nil else { return [] }
         let line = firstParentLine(to: commit.id)
         let reason = line == nil ? Self.offLineReason(branch) : nil
@@ -46,14 +46,13 @@ final class InteractiveRebaseUseCase {
         let up = ownStep ?? (isHead ? String(localized: "rebase.disabled.topmost", defaultValue: "Already the topmost commit", bundle: .module) : nil)
         let down = ownStep ?? (parent == nil ? String(localized: "rebase.disabled.belowNotLoaded", defaultValue: "The commit below is not loaded", bundle: .module) : parent!.parents.isEmpty ? String(localized: "rebase.disabled.onlyRootBelow", defaultValue: "Only the repository’s first commit lies below", bundle: .module) : parent!.parents.count > 1 ? Self.mergeReason : nil)
 
-        let reword = item(LocalizedStringResource("commit.action.editMessage", defaultValue: "Edit Message", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.onReword?(commit) }
-        reword.keyEquivalent = CommandShortcut.editMessage.key
-        reword.keyEquivalentModifierMask = CommandShortcut.editMessage.modifiers
+        var reword = MenuEntry.action(LocalizedStringResource("commit.action.editMessage", defaultValue: "Edit Message", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.onReword?(commit) }
+        reword.shortcut = .editMessage
         return [
             reword,
-            item(LocalizedStringResource("rebase.menu.moveUp", defaultValue: "Move up", bundle: .module), disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
-            item(LocalizedStringResource("rebase.menu.moveDown", defaultValue: "Move down", bundle: .module), disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
-            item(LocalizedStringResource("rebase.menu.drop", defaultValue: "Drop Commit…", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
+            .action(LocalizedStringResource("rebase.menu.moveUp", defaultValue: "Move up", bundle: .module), disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
+            .action(LocalizedStringResource("rebase.menu.moveDown", defaultValue: "Move down", bundle: .module), disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
+            .action(LocalizedStringResource("rebase.menu.drop", defaultValue: "Drop Commit…", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
         ]
     }
 
@@ -79,13 +78,6 @@ final class InteractiveRebaseUseCase {
         String(localized: "rebase.disabled.notOnLine", defaultValue: "Not on the line of \(branch)", bundle: .module, comment: "Tooltip of a disabled rebase entry: the commit is not on the first-parent line of this branch.")
     }
 
-    private func item(_ title: LocalizedStringResource, disabledBecause reason: String?, _ handler: @escaping () -> Void) -> NSMenuItem {
-        guard let reason else { return ActionMenuItem(title, handler: handler) }
-        let item = NSMenuItem(title: title.text, action: nil, keyEquivalent: "")
-        item.isEnabled = false
-        item.toolTip = reason
-        return item
-    }
 
     /// HEAD and its first parents down to `target`, both included; nil when `target` is not on that line within reach of the loaded history.
     private func firstParentLine(to target: String) -> [Commit]? {

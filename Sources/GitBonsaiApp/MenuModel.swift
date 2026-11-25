@@ -1,0 +1,172 @@
+import AppKit
+
+/// One entry of a context menu as data: what it says, whether and why it is disabled, and what it runs or opens. `MenuAdapter` turns entries into `NSMenuItem`s; tests read them directly.
+struct MenuEntry {
+    enum Content {
+        case action(@MainActor () -> Void)
+        case submenu([[MenuEntry]])
+        /// A disabled line that names what the menu is about.
+        case header
+    }
+
+    var title: RefString
+    /// Shown after the title as a pill, such as "Default".
+    var marker: String?
+    var toolTip: String?
+    /// Why the entry cannot run now; a disabled entry shows it as its tooltip.
+    var disabledReason: String?
+    /// Disabled without a reason of its own, such as an entry that waits for a choice elsewhere.
+    var isDisabled = false
+    var shortcut: CommandShortcut?
+    /// Marks an entry that a later step of the builder looks for, such as a branch's plain rebase.
+    var role: Role?
+    /// A title that changes while the menu is open, such as a rebase entry whose base is still searched.
+    var liveTitle: LiveMenuTitle?
+    var content: Content
+
+    enum Role {
+        case rebaseAllCommits
+    }
+
+    init(_ title: LocalizedStringResource, action: @escaping @MainActor () -> Void) {
+        self.init(RefString(title), action: action)
+    }
+
+    init(_ title: RefString, action: @escaping @MainActor () -> Void) {
+        self.title = title
+        content = .action(action)
+    }
+
+    init(_ title: RefString, submenu groups: [[MenuEntry]]) {
+        self.title = title
+        content = .submenu(groups)
+    }
+
+    init(_ title: LocalizedStringResource, submenu groups: [[MenuEntry]]) {
+        self.init(RefString(title), submenu: groups)
+    }
+
+    static func header(_ title: LocalizedStringResource) -> MenuEntry {
+        var entry = MenuEntry(RefString(title), submenu: [])
+        entry.content = .header
+        return entry
+    }
+
+    /// An entry that shows why it cannot run, or runs `action` when `reason` is nil.
+    static func action(_ title: LocalizedStringResource, disabledBecause reason: String?, action: @escaping @MainActor () -> Void) -> MenuEntry {
+        var entry = MenuEntry(title, action: action)
+        entry.disabledReason = reason
+        return entry
+    }
+
+    var isEnabled: Bool {
+        if case .header = content { return false }
+        return disabledReason == nil && !isDisabled
+    }
+
+    /// The title as a person reads it, without the pills' marks; what tests and the harness match entries by.
+    @MainActor var plainTitle: String { liveTitle?.current.plain ?? title.plain }
+
+    var submenu: [[MenuEntry]]? {
+        if case .submenu(let groups) = content { groups } else { nil }
+    }
+}
+
+/// A title that a running search updates while its menu is open; the menu item shows each new value.
+@MainActor
+final class LiveMenuTitle {
+    private(set) var current: RefString
+    fileprivate var onChange: ((RefString) -> Void)?
+
+    init(_ title: RefString) {
+        current = title
+    }
+
+    func update(_ title: RefString) {
+        current = title
+        onChange?(title)
+    }
+}
+
+/// Where a context menu opens. It decides what a subject's menu leaves to its neighbours: in the history the commit section offers Copy SHA, Create Worktree… and the detached checkout.
+enum MenuContext: Equatable {
+    case sidebar
+    /// The menu of one ref pill of a history row.
+    case historyPill
+    /// The menu of a whole history row; `refs` are the pills it shows.
+    case historyRow(refs: [PillRef])
+
+    var isHistory: Bool { self != .sidebar }
+}
+
+/// The groups every ref and commit menu shares, in the order they show. Ref and commit sections fill the same groups, so a combined menu zips them by meaning instead of stacking one section above the other.
+struct MenuSections {
+    /// Other refs of the row, each as a pill submenu; they lead the menu.
+    var refs: [MenuEntry] = []
+    /// Checkout, Switch to Worktree, Checkout Commit (detached).
+    var goThere: [MenuEntry] = []
+    /// Pull, Push, Push Tag.
+    var sync: [MenuEntry] = []
+    /// Moves or changes the current branch: Fast-Forward, Merge, Rebase, Cherry-Pick, Reset, Revert.
+    var integrate: [MenuEntry] = []
+    /// Delete, Delete Branches…, Drop Commit.
+    var remove: [MenuEntry] = []
+    /// Branch, Worktree, Tag.
+    var create: [MenuEntry] = []
+    /// Rename, Upstream, Edit Message, Move up/down.
+    var change: [MenuEntry] = []
+    /// Copy name, Copy SHA, Save Patch.
+    var copy: [MenuEntry] = []
+
+    var groups: [[MenuEntry]] { [refs, goThere, sync, integrate, remove, create, change, copy] }
+
+    var isEmpty: Bool { groups.allSatisfy(\.isEmpty) }
+
+    static func + (lhs: MenuSections, rhs: MenuSections) -> MenuSections {
+        MenuSections(refs: lhs.refs + rhs.refs, goThere: lhs.goThere + rhs.goThere, sync: lhs.sync + rhs.sync, integrate: lhs.integrate + rhs.integrate, remove: lhs.remove + rhs.remove, create: lhs.create + rhs.create, change: lhs.change + rhs.change, copy: lhs.copy + rhs.copy)
+    }
+}
+
+/// Turns menu data into `NSMenuItem`s: non-empty groups with a separator between neighbours.
+@MainActor
+enum MenuAdapter {
+    static func items(_ groups: [[MenuEntry]]) -> [NSMenuItem] {
+        groups.filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group.map(item) }
+    }
+
+    static func item(_ entry: MenuEntry) -> NSMenuItem {
+        let item: NSMenuItem
+        switch entry.content {
+        case .action(let action):
+            item = entry.isEnabled ? ActionMenuItem(entry.title, handler: action) : NSMenuItem(title: entry.title.plain, action: nil, keyEquivalent: "")
+        case .submenu(let groups):
+            item = NSMenuItem(title: entry.title.plain, action: nil, keyEquivalent: "")
+            let submenu = NSMenu()
+            items(groups).forEach(submenu.addItem)
+            item.submenu = submenu
+        case .header:
+            item = NSMenuItem(title: entry.title.plain, action: nil, keyEquivalent: "")
+        }
+        if let marker = entry.marker { item.setTitle(entry.title, marker: marker) } else { item.setTitle(entry.title) }
+        item.isEnabled = entry.isEnabled
+        item.toolTip = entry.disabledReason ?? entry.toolTip
+        if let shortcut = entry.shortcut {
+            item.keyEquivalent = shortcut.key
+            item.keyEquivalentModifierMask = shortcut.modifiers
+        }
+        if let live = entry.liveTitle {
+            item.setTitle(live.current)
+            // The item keeps the title source alive; the search only holds it weakly.
+            item.representedObject = live
+            live.onChange = { [weak item] title in item?.setTitle(title) }
+        }
+        return item
+    }
+}
+
+/// "Copy <SHA>", copying the full SHA.
+extension MenuEntry {
+    @MainActor static func copySHA(_ sha: String, to pasteboard: Pasteboard) -> MenuEntry {
+        MenuEntry(LocalizedStringResource("commit.menu.copySHA", defaultValue: "Copy \(RefName.commit(sha))", bundle: .module)) { pasteboard.copy(sha) }
+    }
+}

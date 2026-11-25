@@ -97,8 +97,8 @@ extension ScreenshotHarness {
             after(0.5) { runRewordSteps(steps[...], on: tab) }
         }
         for row in (environment["GITBONSAI_REBASE_MENU"] ?? "").split(separator: ",").compactMap({ Int($0) }) where tab.viewModel.commits.indices.contains(row) {
-            let items = tab.commitActions.interactiveRebase.menuItems(for: tab.viewModel.commits[row])
-            log("rebase menu \(row): " + items.map { $0.action == nil ? "\($0.plainTitle) (aus: \($0.toolTip ?? ""))" : $0.plainTitle }.joined(separator: "; "))
+            let items = tab.commitActions.interactiveRebase.entries(for: tab.viewModel.commits[row])
+            log("rebase menu \(row): " + items.map { $0.isEnabled ? $0.plainTitle : "\($0.plainTitle) (aus: \($0.disabledReason ?? ""))" }.joined(separator: "; "))
         }
         if let subject = environment["GITBONSAI_EDIT_AMEND"] {
             after(0.6) { amendAtEditStop(on: tab, subject: subject) }

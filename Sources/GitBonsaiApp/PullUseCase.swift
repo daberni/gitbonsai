@@ -59,10 +59,10 @@ final class PullUseCase {
     }
 
     /// "Pull <branch>" for a local branch with an upstream, nil for anything else.
-    func item(for ref: Ref) -> NSMenuItem? {
+    func entry(for ref: Ref) -> MenuEntry? {
         guard ref.kind == .localBranch, let upstream = ref.upstream else { return nil }
         let name = ref.name
-        let item = ActionMenuItem(LocalizedStringResource("branch.menu.pull", defaultValue: "Pull \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.pull(name) }
+        var item = MenuEntry(LocalizedStringResource("branch.menu.pull", defaultValue: "Pull \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.pull(name) }
         item.toolTip = String(localized: "branch.pull.toolTip", defaultValue: "Fetches \(upstream) and fast-forwards \(name) when that works without a merge.", bundle: .module)
         return item
     }

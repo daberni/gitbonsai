@@ -24,12 +24,9 @@ final class RebaseOntoUseCase {
 
     // MARK: Menu
 
-    /// Marks a branch's plain "Rebase main onto X", which `items` takes in as the "All commits" variant.
-    static let allCommitsItem = NSUserInterfaceItemIdentifier("rebase.allCommits")
-
     /// Nothing on a descendant of HEAD: the rebase would only fast-forward, which the menu's Fast-Forward entry offers.
     /// With a branch's plain rebase (`allCommits`) next to the detected one there are several variants; they go into one entry with a submenu: all commits, only the branch's own, interactively.
-    func items(branch: String, commit: Commit, allCommits: NSMenuItem? = nil) -> [NSMenuItem] {
+    func entries(branch: String, commit: Commit, allCommits: MenuEntry? = nil) -> [MenuEntry] {
         let plain = allCommits.map { [$0] } ?? []
         if let head = viewModel.headSHA, head != commit.id, viewModel.history.reachable(from: commit.id).contains(head) { return plain }
         let place = placeName(of: commit)
@@ -39,7 +36,7 @@ final class RebaseOntoUseCase {
         let targetName = place ?? RefString(LocalizedStringResource("rebase.onto.thisCommit", defaultValue: "this commit", bundle: .module))
         guard !viewModel.isReachableFromHead(commit.id) else {
             if let reason = interactive.inPlaceReason(for: commit) { return plain + [Self.disabled(RefString(interactiveTitle), reason)] }
-            return plain + [ActionMenuItem(interactiveTitle) { [weak self] in self?.interactive.openSheet(branch: branch, onto: commit, targetName: targetName, detection: .plain(moving: 0)) }]
+            return plain + [MenuEntry(interactiveTitle) { [weak self] in self?.interactive.openSheet(branch: branch, onto: commit, targetName: targetName, detection: .plain(moving: 0)) }]
         }
         let repository = viewModel.repository
         let targetRef = branchRef(at: commit)
@@ -54,10 +51,10 @@ final class RebaseOntoUseCase {
             return result
         }
         let searchingTitle: LocalizedStringResource = if let place { LocalizedStringResource("rebase.onto.finding", defaultValue: "Rebase \(name) onto \(place.marked) (finding base…)", bundle: .module) } else { LocalizedStringResource("rebase.onto.findingHere", defaultValue: "Rebase \(name) onto this Commit (finding base…)", bundle: .module) }
-        let oneClick = ActionMenuItem(searchingTitle) { [weak self] in
+        var oneClick = MenuEntry(searchingTitle) { [weak self] in
             Task { await self?.rebase(branch, onto: commit, targetName: targetName, detection: detection.value) }
         }
-        let sheet = ActionMenuItem(interactiveTitle) { [weak self] in
+        var sheet = MenuEntry(interactiveTitle) { [weak self] in
             Task {
                 let result = await detection.value
                 self?.interactive.openSheet(branch: branch, onto: commit, targetName: targetName, detection: result)
@@ -70,24 +67,29 @@ final class RebaseOntoUseCase {
             detections[key] = known
             return [allCommits, sheet]
         }
-        let grouped = allCommits.map { variants($0, oneClick: oneClick, sheet: sheet, commit: commit, branch: branch) }
+        if allCommits != nil {
+            oneClick.title = Self.ownCommits(branch: branch, notes: [RefString(LocalizedStringResource("rebase.onto.note.findingBase", defaultValue: "finding base…", bundle: .module))])
+            sheet.title = RefString(LocalizedStringResource("rebase.onto.variant.interactive", defaultValue: "Interactively…", bundle: .module))
+        }
+        let live = LiveMenuTitle(oneClick.title)
+        oneClick.liveTitle = live
+        let grouped = allCommits.map { variants($0, oneClick: oneClick, sheet: sheet, commit: commit) }
         // The timer fires on the main run loop; storing the result only crosses into its closure.
         nonisolated(unsafe) let remember: (RebaseBaseDetection) -> Void = { [weak self] result in self?.detections[key] = result }
         // An open menu runs its own tracking loop, which serves no main-actor tasks; a timer in the common modes still fires and updates the entry in place.
         let started = Date()
         // harness: the harness waits for the Accessibility state instead of holding the capture.
         let releaseCapture = ScreenshotHarness.hold()
-        // The timer fires on the main run loop; the entry only crosses into its closure.
-        nonisolated(unsafe) weak let entry = oneClick
-        let poll = Timer(timeInterval: 0.05, repeats: true) { timer in
+        // The timer fires on the main run loop; an item that closed takes the title along.
+        let poll = Timer(timeInterval: 0.05, repeats: true) { [weak live] timer in
             let finished = MainActor.assumeIsolated {
-                guard let entry, Date().timeIntervalSince(started) < Self.searchTimeout else { return true }
+                guard let entry = live, Date().timeIntervalSince(started) < Self.searchTimeout else { return true }
                 guard let result = found.value else { return false }
                 if isVariant {
                     remember(result)
-                    entry.setTitle(Self.ownCommitsTitle(branch: branch, place: place, detection: result) ?? Self.allOwn(branch: branch, result))
+                    entry.update(Self.ownCommitsTitle(branch: branch, place: place, detection: result) ?? Self.allOwn(branch: branch, result))
                 } else {
-                    entry.setTitle(Self.title(branch: branch, place: place, detection: result))
+                    entry.update(Self.title(branch: branch, place: place, detection: result))
                 }
                 return true
             }
@@ -101,19 +103,12 @@ final class RebaseOntoUseCase {
     }
 
     /// The branch's rebase entry keeps its title and gets the variants as its submenu.
-    private func variants(_ allCommits: NSMenuItem, oneClick: NSMenuItem, sheet: NSMenuItem, commit: Commit, branch: String) -> NSMenuItem {
-        oneClick.setTitle(Self.ownCommits(branch: branch, notes: [RefString(LocalizedStringResource("rebase.onto.note.findingBase", defaultValue: "finding base…", bundle: .module))]))
-        let parent = NSMenuItem(title: allCommits.title, action: nil, keyEquivalent: "")
-        parent.attributedTitle = allCommits.attributedTitle
-        parent.setAccessibilityLabel(allCommits.accessibilityLabel())
+    private func variants(_ allCommits: MenuEntry, oneClick: MenuEntry, sheet: MenuEntry, commit: Commit) -> MenuEntry {
         let moving = viewModel.headSHA.map { viewModel.history.reachable(from: $0).subtracting(viewModel.history.reachable(from: commit.id)).count } ?? 0
-        allCommits.identifier = nil
-        allCommits.setTitle(LocalizedStringResource("rebase.onto.variant.all", defaultValue: "All commits (\(moving))", bundle: .module))
-        sheet.setTitle(LocalizedStringResource("rebase.onto.variant.interactive", defaultValue: "Interactively…", bundle: .module))
-        let submenu = NSMenu()
-        [allCommits, oneClick, sheet].forEach(submenu.addItem)
-        parent.submenu = submenu
-        return parent
+        var all = allCommits
+        all.role = nil
+        all.title = RefString(LocalizedStringResource("rebase.onto.variant.all", defaultValue: "All commits (\(moving))", bundle: .module))
+        return MenuEntry(allCommits.title, submenu: [[all, oneClick, sheet]])
     }
 
     /// "Only main's own commits (1 commit, without feature/a)"; nil when the detection leaves nothing out, so the variant equals all commits.
@@ -150,12 +145,10 @@ final class RebaseOntoUseCase {
     /// After this many seconds an open menu stops waiting for the detected base; choosing the entry still waits for it.
     private static let searchTimeout: TimeInterval = 30
 
-    private static func disabled(_ title: RefString, _ reason: String) -> NSMenuItem {
-        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        item.setTitle(title)
-        item.isEnabled = false
-        item.toolTip = reason
-        return item
+    private static func disabled(_ title: RefString, _ reason: String) -> MenuEntry {
+        var entry = MenuEntry(title) {}
+        entry.disabledReason = reason
+        return entry
     }
 
     /// "Rebase feature/b onto main (3 commits, without feature/a)", or with the commit count alone when the merge base is all there is. `place` nil is a commit without a branch or tag.

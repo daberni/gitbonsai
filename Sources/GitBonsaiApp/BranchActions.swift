@@ -24,13 +24,17 @@ final class BranchActions {
         self.checkout = checkout
     }
 
-    /// The sidebar's menu of a branch. In a history menu (`inHistory`) the commit section offers Copy SHA and Create Worktree… instead, the latter preselecting the branch.
-    /// A remote branch shown as the `counterpart` of a local branch in the same menu keeps only what the local branch's entries do not cover: Delete Branches…, Pull and the copy group already reach it.
-    func sections(for ref: Ref, inHistory: Bool = false, counterpart: Bool = false) -> MenuSections {
+    /// The menu of a local or remote branch. In the history the commit section offers Copy SHA and Create Worktree… instead, the latter preselecting the branch.
+    /// In the history a remote branch whose local branch of the same name sits on the same commit is shown with it; it keeps only what the local branch's entries do not cover: Delete Branches…, Pull and the copy group already reach it.
+    func sections(for ref: Ref, in context: MenuContext) -> MenuSections {
+        let inHistory = context.isHistory
         switch ref.kind {
-        case .localBranch: localSections(ref, copySHA: !inHistory, createWorktree: !inHistory)
-        case .remoteBranch(let remote): remoteSections(ref, remote: remote, branch: String(ref.name.dropFirst(remote.count + 1)), copySHA: !inHistory, counterpart: counterpart)
-        default: MenuSections()
+        case .localBranch: return localSections(ref, copySHA: !inHistory, createWorktree: !inHistory)
+        case .remoteBranch(let remote):
+            let branch = String(ref.name.dropFirst(remote.count + 1))
+            let counterpart = inHistory && (viewModel.refsByCommit[ref.target] ?? []).contains { $0.kind == .localBranch && $0.name == branch }
+            return remoteSections(ref, remote: remote, branch: branch, copySHA: !inHistory, counterpart: counterpart)
+        default: return MenuSections()
         }
     }
 
@@ -42,29 +46,29 @@ final class BranchActions {
         let worktree = viewModel.branchesInOtherWorktrees[ref.fullName]
         let worktreeName = worktree.map { ($0.path as NSString).lastPathComponent }
         var sections = MenuSections()
-        sections.integrate = [fastForward.item(to: .ref(ref)), fastForward.toHeadItem(for: ref)].compactMap { $0 }
+        sections.integrate = [fastForward.entry(to: .ref(ref)), fastForward.toHeadEntry(for: ref)].compactMap { $0 }
         if !ref.isHead {
             let title: LocalizedStringResource = worktreeName.map { folder -> LocalizedStringResource in LocalizedStringResource("worktree.action.switchTo", defaultValue: "Switch to Worktree \(RefName.worktree(folder))", bundle: .module) } ?? LocalizedStringResource("checkout.action.branch", defaultValue: "Checkout \(RefName.branch(name))", bundle: .module)
-            sections.goThere.append(ActionMenuItem(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })
+            sections.goThere.append(MenuEntry(title) { [weak self] in self?.checkout(.localBranch(name), worktree?.path) })
             // Merging or rebasing onto a descendant would only fast-forward, which the entry above does.
             if let current = viewModel.currentBranch, !fastForward.canFastForwardCurrent(to: ref.target) {
-                sections.integrate.append(ActionMenuItem(LocalizedStringResource("branch.menu.merge", defaultValue: "Merge \(RefName.branch(name)) into \(RefName.branch(current))", bundle: .module)) { [weak self] in self?.merge(name, into: current) })
-                let rebase = ActionMenuItem(LocalizedStringResource("branch.menu.rebase", defaultValue: "Rebase \(RefName.branch(current)) onto \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.rebase(current, onto: name) }
-                rebase.identifier = RebaseOntoUseCase.allCommitsItem
+                sections.integrate.append(MenuEntry(LocalizedStringResource("branch.menu.merge", defaultValue: "Merge \(RefName.branch(name)) into \(RefName.branch(current))", bundle: .module)) { [weak self] in self?.merge(name, into: current) })
+                var rebase = MenuEntry(LocalizedStringResource("branch.menu.rebase", defaultValue: "Rebase \(RefName.branch(current)) onto \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.rebase(current, onto: name) }
+                rebase.role = .rebaseAllCommits
                 sections.integrate.append(rebase)
             }
             if createWorktree, canCreateWorktree(for: ref) {
-                sections.create.append(ActionMenuItem(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in self?.createWorktree(for: name) })
+                sections.create.append(MenuEntry(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in self?.createWorktree(for: name) })
             }
         }
-        sections.sync = [pullUseCase.item(for: ref), pushUseCase.pushItem(for: ref)].compactMap { $0 }
+        sections.sync = [pullUseCase.entry(for: ref), pushUseCase.entry(for: ref)].compactMap { $0 }
         sections.change = [
-            ActionMenuItem(LocalizedStringResource("branch.menu.rename", defaultValue: "Rename…", bundle: .module)) { [weak self] in self?.rename(name) },
-            ActionMenuItem(ref.upstream == nil ? LocalizedStringResource("branch.menu.setUpstream", defaultValue: "Set Upstream…", bundle: .module) : LocalizedStringResource("branch.menu.changeUpstream", defaultValue: "Change Upstream…", bundle: .module)) { [weak self] in self?.setUpstream(of: ref) },
+            MenuEntry(LocalizedStringResource("branch.menu.rename", defaultValue: "Rename…", bundle: .module)) { [weak self] in self?.rename(name) },
+            MenuEntry(ref.upstream == nil ? LocalizedStringResource("branch.menu.setUpstream", defaultValue: "Set Upstream…", bundle: .module) : LocalizedStringResource("branch.menu.changeUpstream", defaultValue: "Change Upstream…", bundle: .module)) { [weak self] in self?.setUpstream(of: ref) },
         ]
         sections.copy = copyItems(ref, sha: copySHA)
         if !ref.isHead {
-            sections.remove.append(ActionMenuItem(LocalizedStringResource("branch.menu.delete", defaultValue: "Delete \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.delete(name, worktree: worktree) })
+            sections.remove.append(MenuEntry(LocalizedStringResource("branch.menu.delete", defaultValue: "Delete \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.delete(name, worktree: worktree) })
             if worktree == nil, hasRemoteCounterpart(ref) { sections.remove.append(deleteEverywhereItem(name)) }
         }
         return sections
@@ -75,13 +79,13 @@ final class BranchActions {
         let hasLocal = viewModel.refs.contains { $0.kind == .localBranch && $0.name == branch }
         var sections = MenuSections()
         if !hasLocal {
-            sections.goThere = [ActionMenuItem(LocalizedStringResource("checkout.action.asLocalBranch", defaultValue: "Checkout \(RefName.remoteBranch(ref.name)) as local Branch", bundle: .module)) { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
+            sections.goThere = [MenuEntry(LocalizedStringResource("checkout.action.asLocalBranch", defaultValue: "Checkout \(RefName.remoteBranch(ref.name)) as local Branch", bundle: .module)) { [weak self] in self?.checkout(.remoteBranch(remote: remote, branch: branch), nil) }]
         }
-        sections.integrate = fastForward.item(to: .ref(ref)).map { [$0] } ?? []
+        sections.integrate = fastForward.entry(to: .ref(ref)).map { [$0] } ?? []
         guard !counterpart else { return sections }
-        sections.sync = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }.compactMap(pullUseCase.item(for:))
+        sections.sync = viewModel.refs.filter { $0.kind == .localBranch && $0.upstream == ref.name }.compactMap(pullUseCase.entry(for:))
         sections.copy = copyItems(ref, sha: copySHA)
-        sections.remove = [ActionMenuItem(LocalizedStringResource("branch.menu.deleteRemote", defaultValue: "Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemote(branch, on: remote) }]
+        sections.remove = [MenuEntry(LocalizedStringResource("branch.menu.deleteRemote", defaultValue: "Delete \(RefName.remoteBranch(branch)) from \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemote(branch, on: remote) }]
         return sections
     }
 
@@ -98,29 +102,25 @@ final class BranchActions {
         }
     }
 
-    func deleteEverywhereItem(_ name: String) -> NSMenuItem {
-        ActionMenuItem(LocalizedStringResource("branch.menu.deleteBranches", defaultValue: "Delete Branches…", bundle: .module)) { [weak self] in self?.deleteEverywhere(name) }
+    func deleteEverywhereItem(_ name: String) -> MenuEntry {
+        MenuEntry(LocalizedStringResource("branch.menu.deleteBranches", defaultValue: "Delete Branches…", bundle: .module)) { [weak self] in self?.deleteEverywhere(name) }
     }
 
     /// "Copy <branch>"; a local branch with same-named branches on remotes gets a submenu with each name as a pill.
-    private func copyItems(_ ref: Ref, sha: Bool) -> [NSMenuItem] {
+    private func copyItems(_ ref: Ref, sha: Bool) -> [MenuEntry] {
         let pill = RefMenus.pillName(of: ref)
         let counterparts = ref.kind == .localBranch ? viewModel.refs.filter { candidate in
             guard case .remoteBranch(let remote) = candidate.kind else { return false }
             return candidate.name == "\(remote)/\(ref.name)"
         } : []
-        var name: NSMenuItem = ActionMenuItem(LocalizedStringResource("branch.menu.copyName", defaultValue: "Copy \(pill)", bundle: .module)) { [pasteboard] in pasteboard.copy(ref.name) }
-        if !counterparts.isEmpty {
-            name = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            name.setTitle(LocalizedStringResource("branch.menu.copyName", defaultValue: "Copy \(pill)", bundle: .module))
-            let submenu = NSMenu()
-            for each in [ref] + counterparts {
-                submenu.addItem(ActionMenuItem(RefString(marked: RefMenus.pillName(of: each))) { [pasteboard] in pasteboard.copy(each.name) })
-            }
-            name.submenu = submenu
+        let title = LocalizedStringResource("branch.menu.copyName", defaultValue: "Copy \(pill)", bundle: .module)
+        let name = if counterparts.isEmpty {
+            MenuEntry(title) { [pasteboard] in pasteboard.copy(ref.name) }
+        } else {
+            MenuEntry(title, submenu: [([ref] + counterparts).map { each in MenuEntry(RefString(marked: RefMenus.pillName(of: each))) { [pasteboard] in pasteboard.copy(each.name) } }])
         }
         guard sha else { return [name] }
-        return [name, RefMenus.copySHAItem(ref.target, to: pasteboard)]
+        return [name, .copySHA(ref.target, to: pasteboard)]
     }
 
     // MARK: Actions

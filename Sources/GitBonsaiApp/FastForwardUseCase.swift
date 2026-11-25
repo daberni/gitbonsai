@@ -21,21 +21,21 @@ final class FastForwardUseCase {
     // MARK: Menu
 
     /// "Fast-Forward main to dev" for the checked-out branch, when the target contains it. Other branches are not offered: they move with their Pull entry or after a checkout.
-    func item(to target: Target) -> NSMenuItem? {
+    func entry(to target: Target) -> MenuEntry? {
         guard let current = viewModel.currentBranch, canFastForwardCurrent(to: Self.sha(of: target)) else { return nil }
         let title: LocalizedStringResource = switch target {
         case .ref: LocalizedStringResource("checkout.choice.fastForward", defaultValue: "Fast-Forward \(RefName.branch(current)) to \(Self.name(of: target).marked)", bundle: .module)
         case .commit: LocalizedStringResource("commit.menu.fastForward", defaultValue: "Fast-Forward \(RefName.branch(current)) to this Commit", bundle: .module)
         }
-        return ActionMenuItem(title) { [weak self] in self?.fastForward(to: target) }
+        return MenuEntry(title) { [weak self] in self?.fastForward(to: target) }
     }
 
     /// "Fast-Forward old to main" for another local branch that HEAD's history contains: the one move of a branch that is not checked out here, always to HEAD.
-    func toHeadItem(for ref: Ref) -> NSMenuItem? {
+    func toHeadEntry(for ref: Ref) -> MenuEntry? {
         guard ref.kind == .localBranch, !ref.isHead, let current = viewModel.currentBranch, let head = viewModel.headSHA else { return nil }
         guard CommandRules.fastForwardToHead(branch: ref.name, currentBranch: current, branchHead: ref.target, head: head, reachableFromHead: reachable(from: head)) == nil else { return nil }
         let title = LocalizedStringResource("branch.menu.fastForwardToHead", defaultValue: "Fast-Forward \(RefName.branch(ref.name)) to \(RefName.branch(current))", bundle: .module)
-        return ActionMenuItem(title) { [weak self] in self?.fastForwardToHead(ref.name, current: current) }
+        return MenuEntry(title) { [weak self] in self?.fastForwardToHead(ref.name, current: current) }
     }
 
     /// Whether the checked-out branch is a strict ancestor of `sha`; merging or rebasing onto it would only fast-forward then.
