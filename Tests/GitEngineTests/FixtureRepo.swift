@@ -51,10 +51,13 @@ final class FixtureRepo {
         let stderr = Pipe()
         process.standardOutput = stdout
         process.standardError = stderr
+        // `waitUntilExit` polls the run loop and adds about 65 ms to every command; the termination handler reports the exit at once.
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         try process.run()
         let output = stdout.fileHandleForReading.readDataToEndOfFile()
         let errorOutput = stderr.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        exited.wait()
         guard process.terminationStatus == 0 else {
             throw FixtureError(command: arguments.joined(separator: " "), stderr: String(decoding: errorOutput, as: UTF8.self))
         }
