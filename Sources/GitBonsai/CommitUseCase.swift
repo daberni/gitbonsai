@@ -21,9 +21,6 @@ final class CommitUseCase {
     private var amendToggles = 0
     /// The body `commit.template` prefills into an empty form.
     private var template: String?
-    private var coAuthors: [KnownAuthor] = []
-    /// Loaded when the co-author menu first opens.
-    private var knownAuthors: [KnownAuthor]?
 
     /// Gives the window that questions are shown on.
     private let prompter: any Prompting
@@ -38,7 +35,6 @@ final class CommitUseCase {
         form.onAmendCommit = { [weak self] in self?.commit(amend: true) }
         form.onCommitAll = { [weak self] in self?.commitAll() }
         form.onShiftChanged = { [weak self] in self?.updateButton() }
-        form.onCoAuthorMenu = { [weak self] anchor in self?.showCoAuthorMenu(at: anchor) }
         Task { [weak self] in
             guard let self else { return }
             signing = await viewModel.repository.signingFormat()
@@ -61,14 +57,10 @@ final class CommitUseCase {
         return body.isEmpty ? subject : subject + "\n\n" + body
     }
 
-    private var trailers: [CommitTrailer] {
-        coAuthors.map { CommitTrailer(key: CommitTrailer.coAuthorKey, value: $0.identity) }
-    }
-
     /// Commit needs a subject and something staged; amend needs a subject and either staged changes or a changed message.
     private func canCommit(amend: Bool) -> Bool {
         guard !isCommitting, !form.subjectText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return amend ? stagedCount > 0 || message != amendedMessage || !trailers.isEmpty || form.isSignOff : stagedCount > 0
+        return amend ? stagedCount > 0 || message != amendedMessage || form.isSignOff : stagedCount > 0
     }
 
     /// Commit all needs a subject and any change, but no unresolved conflict: staging would mark it resolved.
@@ -135,7 +127,6 @@ final class CommitUseCase {
 
     private func run(amend: Bool, all: Bool = false) {
         let message = message
-        let trailers = trailers
         let signOff = form.isSignOff
         let repository = viewModel.repository
         let model = viewModel
@@ -144,11 +135,11 @@ final class CommitUseCase {
         Task { [weak self] in
             do {
                 if all {
-                    try await repository.commitAll(message: message, trailers: trailers, signOff: signOff)
+                    try await repository.commitAll(message: message, trailers: [], signOff: signOff)
                 } else {
                     // An amend runs without asking, also when the commit is pushed: the status line's Undo resets softly to the commit before.
                     let scope: UndoScope? = amend ? .reset(.soft) : nil
-                    try await model.withUndoPoint(scope: scope, operation: "git commit --amend") { try await repository.commit(message: message, amend: amend, trailers: trailers, signOff: signOff) }
+                    try await model.withUndoPoint(scope: scope, operation: "git commit --amend") { try await repository.commit(message: message, amend: amend, trailers: [], signOff: signOff) }
                 }
                 self?.clear()
             } catch {
@@ -170,42 +161,7 @@ final class CommitUseCase {
         form.isAmend = false
         draft = nil
         amendedMessage = ""
-        coAuthors = []
-        form.show(coAuthors: [])
         applyTemplate()
-    }
-
-    // MARK: Co-authors
-
-    private func showCoAuthorMenu(at anchor: NSView) {
-        Task { [weak self] in
-            guard let self else { return }
-            if knownAuthors == nil { knownAuthors = await viewModel.repository.knownAuthors() }
-            let menu = NSMenu()
-            for author in knownAuthors ?? [] {
-                let item = NSMenuItem(title: author.name, action: #selector(CoAuthorTarget.toggle(_:)), keyEquivalent: "")
-                item.target = coAuthorTarget
-                item.representedObject = author.identity
-                item.toolTip = author.email
-                item.state = coAuthors.contains(author) ? .on : .off
-                menu.addItem(item)
-            }
-            if menu.items.isEmpty {
-                let none = NSMenuItem(title: String(localized: "commit.form.noAuthors", defaultValue: "No authors yet", bundle: .module), action: nil, keyEquivalent: "")
-                none.isEnabled = false
-                menu.addItem(none)
-            }
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.maxY), in: anchor)
-        }
-    }
-
-    private lazy var coAuthorTarget = CoAuthorTarget { [weak self] identity in self?.toggleCoAuthor(identity) }
-
-    private func toggleCoAuthor(_ identity: String) {
-        guard let author = knownAuthors?.first(where: { $0.identity == identity }) else { return }
-        if let index = coAuthors.firstIndex(of: author) { coAuthors.remove(at: index) } else { coAuthors.append(author) }
-        form.show(coAuthors: coAuthors.map(\.name))
-        updateButton()
     }
 
     private func present(_ alert: NSAlert, completion: @escaping @MainActor (NSApplication.ModalResponse) -> Void) {
@@ -215,20 +171,5 @@ final class CommitUseCase {
             return
         }
         alert.beginSheetModal(for: window) { response in completion(response) }
-    }
-}
-
-/// The menu items' target: `NSMenuItem` needs an Objective-C object to call.
-@MainActor
-private final class CoAuthorTarget: NSObject {
-    private let action: (String) -> Void
-
-    init(action: @escaping (String) -> Void) {
-        self.action = action
-    }
-
-    @objc func toggle(_ sender: NSMenuItem) {
-        guard let identity = sender.representedObject as? String else { return }
-        action(identity)
     }
 }

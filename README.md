@@ -30,7 +30,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 
 - Staged and unstaged changes in separate lists, with the working directory as the first row of the history.
 - Stage, unstage or discard single files, several selected files, single hunks or everything. "Discard all" in the working directory's title takes back staged and unstaged changes, and can move untracked files to the Trash. Several selected files show their diffs one below the other.
-- A commit form with subject and body, amend, sign-off and co-authors. **Commit** ⌘⏎, **Commit all** (stages everything first) ⇧⌘⏎, **Amend** ⌥⌘⏎.
+- A commit form with subject and body, amend and sign-off. **Commit** ⌘⏎, **Commit all** (stages everything first) ⇧⌘⏎, **Amend** ⌥⌘⏎.
 - Stash ⇧⌘S and pop ⌥⇧⌘S, with Undo right after stashing.
 
 ### Diff

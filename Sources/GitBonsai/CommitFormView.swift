@@ -14,7 +14,6 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     private(set) var isShiftHeld = false
     private var flagsMonitor: Any?
     /// The co-author button was pressed; the controller shows the menu of known authors.
-    var onCoAuthorMenu: ((NSView) -> Void)?
     var onAmendChanged: ((Bool) -> Void)?
     /// Typing changed subject or body.
     var onEdit: (() -> Void)?
@@ -27,8 +26,6 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     private let body = PlainTextView()
     private let signing = NSTextField(labelWithString: "")
     private let amend = LabeledCheckbox(title: String(localized: "commit.form.amend", defaultValue: "Amend", bundle: .module, comment: "Checkbox: amend the last commit instead of making a new one."))
-    private let coAuthorButton = LinkButton(frame: .zero)
-    private let coAuthorList = NSTextField(labelWithString: "")
     private let signOff = LabeledCheckbox(title: String(localized: "commit.form.signOff", defaultValue: "Sign off", bundle: .module, comment: "Checkbox: add a Signed-off-by trailer with the committer's name."))
     private let commit = PrimaryButton(title: String(localized: "commit.form.commit", defaultValue: "Commit", bundle: .module, comment: "Button that commits."))
 
@@ -46,8 +43,8 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         commit.action = #selector(commitPressed(_:))
         commit.respondsToCommandReturn = true
         commit.toolTip = String(localized: "commit.form.commitToolTip", defaultValue: "Commit (⌘⏎), commit all changes (⇧⌘⏎), amend the last Commit with this message (⌥⌘⏎)", bundle: .module, comment: "Tooltip of the commit button with its shortcuts.")
-        buildTrailers()
-        layout(views: [subjectBox, bodyBox, coAuthorButton, coAuthorList, signOff, signing, amend, commit])
+        buildSignOff()
+        layout(views: [subjectBox, bodyBox, signOff, signing, amend, commit])
         updateCounter()
     }
 
@@ -107,22 +104,13 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
         ])
     }
 
-    private func buildTrailers() {
-        coAuthorButton.isBordered = false
-        coAuthorButton.target = self
-        coAuthorButton.action = #selector(coAuthorPressed(_:))
-        coAuthorButton.attributedTitle = NSAttributedString(string: String(localized: "commit.form.addCoAuthor", defaultValue: "Add Co-Author…", bundle: .module, comment: "Link that opens the list of the repository's authors to add as co-author."), attributes: [.font: Theme.caption, .foregroundColor: Theme.moss])
-        coAuthorButton.setAccessibilityIdentifier("commit.form.coAuthor")
-        coAuthorList.font = Theme.caption
-        coAuthorList.textColor = Theme.inkMuted
-        coAuthorList.lineBreakMode = .byTruncatingTail
-        coAuthorList.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    private func buildSignOff() {
         signOff.setAccessibilityIdentifier("commit.form.signOff")
         signOff.target = self
         signOff.action = #selector(signOffChanged(_:))
     }
 
-    /// Subject, body, the co-author and sign-off row, then one row: the signing note on the left, amend and the button on the right.
+    /// Subject, body, the sign-off row, then one row: the signing note on the left, amend and the button on the right.
     private func layout(views: [NSView]) {
         for view in views {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -139,11 +127,6 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
             bodyBox.heightAnchor.constraint(equalToConstant: M.bodyHeight),
             signOff.topAnchor.constraint(equalTo: bodyBox.bottomAnchor, constant: M.spacing),
             signOff.trailingAnchor.constraint(equalTo: subjectBox.trailingAnchor),
-            coAuthorButton.leadingAnchor.constraint(equalTo: subjectBox.leadingAnchor),
-            coAuthorButton.centerYAnchor.constraint(equalTo: signOff.centerYAnchor),
-            coAuthorList.leadingAnchor.constraint(equalTo: coAuthorButton.trailingAnchor, constant: Theme.Space.s),
-            coAuthorList.centerYAnchor.constraint(equalTo: signOff.centerYAnchor),
-            coAuthorList.trailingAnchor.constraint(lessThanOrEqualTo: signOff.leadingAnchor, constant: -Theme.Space.s),
             commit.topAnchor.constraint(equalTo: signOff.bottomAnchor, constant: M.spacing),
             commit.trailingAnchor.constraint(equalTo: subjectBox.trailingAnchor),
             commit.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -M.padding),
@@ -175,12 +158,6 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
     var isSignOff: Bool {
         get { signOff.isOn }
         set { signOff.isOn = newValue }
-    }
-
-    /// The names of the chosen co-authors beside the add link.
-    func show(coAuthors names: [String]) {
-        coAuthorList.stringValue = names.isEmpty ? "" : String(localized: "commit.form.coAuthors", defaultValue: "With \(names.formatted(.list(type: .and).locale(AppLanguage.locale)))", bundle: .module, comment: "The co-authors chosen for the next commit, as a list of names.")
-        coAuthorList.toolTip = names.joined(separator: "\n")
     }
 
     func show(signing format: String?, canCommit: Bool, buttonTitle: LocalizedStringResource) {
@@ -241,10 +218,6 @@ final class CommitFormView: BarView, NSTextFieldDelegate, NSTextViewDelegate {
 
     @objc private func signOffChanged(_ sender: Any?) {
         onEdit?()
-    }
-
-    @objc private func coAuthorPressed(_ sender: NSView) {
-        onCoAuthorMenu?(sender)
     }
 
     /// ⇧⌘⏎ and ⌥⌘⏎ anywhere in the window while the form shows; ⌘⏎ belongs to the commit button.

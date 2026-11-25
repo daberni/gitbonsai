@@ -3944,24 +3944,6 @@
         }
       }
     },
-    "commit.form.addCoAuthor" : {
-      "comment" : "Link that opens the list of the repository's authors to add as co-author.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Co-Author hinzufügen…"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Add Co-Author…"
-          }
-        }
-      }
-    },
     "commit.form.amend" : {
       "comment" : "Button that amends the last commit.\nCheckbox: amend the last commit instead of making a new one.",
       "extractionState" : "extracted_with_value",
@@ -3976,24 +3958,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Amend"
-          }
-        }
-      }
-    },
-    "commit.form.coAuthors" : {
-      "comment" : "The co-authors chosen for the next commit, as a list of names.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mit %@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "With %@"
           }
         }
       }
@@ -4048,23 +4012,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Commit (⌘⏎), commit all changes (⇧⌘⏎), amend the last Commit with this message (⌥⌘⏎)"
-          }
-        }
-      }
-    },
-    "commit.form.noAuthors" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Noch keine Autoren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "No authors yet"
           }
         }
       }

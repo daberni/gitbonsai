@@ -48,12 +48,6 @@ extension Repository {
         return TrailerParser.parse(result.stdoutString)
     }
 
-    /// Everyone who authored a commit on any ref, most commits first, for the co-author picker; the mailmap applies.
-    public func knownAuthors() async -> [KnownAuthor] {
-        guard let result = try? await runner.run(["shortlog", "-sne", "--all"]) else { return [] }
-        return KnownAuthor.parseShortlog(result.stdoutString)
-    }
-
     /// The full message of HEAD, or nil before the first commit.
     public func lastCommitMessage() async -> String? {
         guard let result = try? await runner.run(["log", "-1", "--format=%B"]) else { return nil }

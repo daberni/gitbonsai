@@ -53,27 +53,3 @@ public enum TrailerParser {
         }
     }
 }
-
-/// A person who authored commits in the repository, as `git shortlog -sne` lists them, most commits first.
-public struct KnownAuthor: Sendable, Hashable {
-    public let name: String
-    public let email: String
-
-    public init(name: String, email: String) {
-        self.name = name
-        self.email = email
-    }
-
-    /// `Name <email>`, the value of a co-author trailer.
-    public var identity: String { "\(name) <\(email)>" }
-
-    /// Parses lines such as `    12\tAda Lovelace <ada@example.com>`.
-    public static func parseShortlog(_ output: String) -> [KnownAuthor] {
-        output.split(whereSeparator: \.isNewline).compactMap { line in
-            guard let tab = line.firstIndex(of: "\t") else { return nil }
-            let trailer = CommitTrailer(key: CommitTrailer.coAuthorKey, value: String(line[line.index(after: tab)...]))
-            let person = trailer.person
-            return person.email.isEmpty ? nil : KnownAuthor(name: person.name, email: person.email)
-        }
-    }
-}

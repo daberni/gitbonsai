@@ -67,10 +67,4 @@ final class TrailerTests: XCTestCase {
         let missing = await repository.commitTemplate()
         XCTAssertNil(missing)
     }
-
-    func testKnownAuthorsFromShortlog() {
-        let authors = KnownAuthor.parseShortlog("    12\tAda Lovelace <ada@example.com>\n     1\tZoë <zoe@example.com>\n")
-        XCTAssertEqual(authors, [KnownAuthor(name: "Ada Lovelace", email: "ada@example.com"), KnownAuthor(name: "Zoë", email: "zoe@example.com")])
-        XCTAssertEqual(authors[0].identity, "Ada Lovelace <ada@example.com>")
-    }
 }
