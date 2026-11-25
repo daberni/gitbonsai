@@ -16,30 +16,32 @@ final class WorktreeActions {
         settings = context.settings
     }
 
+    /// In the shared group order: go there (switch, Finder, terminal) | remove | change (lock); Prune comes last on its own, since it acts on all worktrees.
     /// The worktree shown in this tab is not removed from here: the tab would lose its folder. The main worktree cannot be locked or removed.
     func groups(for info: WorktreeInfo, isCurrent: Bool) -> [[MenuEntry]] {
         let worktree = info.worktree
         let path = worktree.path
         let exists = !worktree.isPrunable
-        var switchGroup: [MenuEntry] = []
+        var goThere: [MenuEntry] = []
         if !isCurrent, exists, !worktree.isBare {
-            switchGroup.append(MenuEntry(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.onSwitchWorktree?(path) })
+            goThere.append(MenuEntry(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.onSwitchWorktree?(path) })
         }
-        let openGroup: [MenuEntry] = exists ? [
-            MenuEntry(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) },
-            MenuEntry(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) },
-        ] : []
-        var manageGroup: [MenuEntry] = []
+        if exists {
+            goThere.append(MenuEntry(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) })
+            goThere.append(MenuEntry(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) })
+        }
+        var remove: [MenuEntry] = []
+        var change: [MenuEntry] = []
         if !worktree.isMain {
-            manageGroup.append(worktree.isLocked
+            if !isCurrent {
+                remove.append(MenuEntry(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module)) { [weak self] in self?.remove(worktree) })
+            }
+            change.append(worktree.isLocked
                 ? MenuEntry(LocalizedStringResource("worktree.menu.unlock", defaultValue: "Unlock", bundle: .module)) { [weak self] in self?.unlock(path) }
                 : MenuEntry(LocalizedStringResource("worktree.menu.lock", defaultValue: "Lock…", bundle: .module)) { [weak self] in self?.lock(path) })
-            if !isCurrent {
-                manageGroup.append(MenuEntry(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module)) { [weak self] in self?.remove(worktree) })
-            }
         }
         let pruneGroup: [MenuEntry] = [MenuEntry(LocalizedStringResource("worktree.menu.prune", defaultValue: "Prune missing Worktrees", bundle: .module)) { [weak self] in self?.prune() }]
-        return [switchGroup, openGroup, manageGroup, pruneGroup]
+        return [goThere, remove, change, pruneGroup]
     }
 
     // MARK: Actions

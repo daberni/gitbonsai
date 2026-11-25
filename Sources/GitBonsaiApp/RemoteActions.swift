@@ -17,6 +17,7 @@ final class RemoteActions {
         prompter = context.prompter
     }
 
+    /// Edit before Remove, against the shared group order: a two-entry menu should not lead with the destructive one.
     func groups(for remote: String) -> [[MenuEntry]] {
         var edit = MenuEntry(LocalizedStringResource("sidebar.remote.menu.edit", defaultValue: "Edit Remote…", bundle: .module)) { [weak self] in self?.showEdit(remote) }
         edit.toolTip = "git remote rename / git remote set-url"

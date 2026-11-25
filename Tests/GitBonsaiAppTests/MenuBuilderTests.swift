@@ -75,15 +75,13 @@ final class MenuBuilderTests: XCTestCase {
         XCTAssertNotNil(leading[1].submenu?.entry("Switch to Worktree wt"))
     }
 
-    /// The history's stash row adds Copy SHA right before Drop; the Stashes list does not.
-    func testStashRowAddsCopySHABeforeDrop() throws {
+    /// Stash menus follow the shared group order; the history's stash row adds Copy SHA at the end, the Stashes list does not.
+    func testStashMenusFollowTheGroupOrder() throws {
         let stash = try XCTUnwrap(tab.model.stashes.first).commitID
         let row = try XCTUnwrap(tab.model.kinds.firstIndex(of: .stash))
-        let expected = [["Show Diff"], ["Apply Stash", "Pop", "Create Branch from Stash…"], ["Drop…"]]
+        let expected = [["Show Diff"], ["Apply Stash", "Pop"], ["Drop…"], ["Create Branch from Stash…"]]
         XCTAssertEqual(tab.menus.menu(for: .stash(stash), in: .sidebar).outline, expected)
-        var withCopy = expected
-        withCopy.insert(["Copy \(short(stash))"], at: 2)
-        XCTAssertEqual(tab.menus.rowMenu(forRow: row).outline, withCopy)
+        XCTAssertEqual(tab.menus.rowMenu(forRow: row).outline, expected + [["Copy \(short(stash))"]])
     }
 
     /// The Tags list leads with the jump and checks out detached; on a pill the commit's own checkout covers that.
@@ -111,7 +109,7 @@ final class MenuBuilderTests: XCTestCase {
         let main = try XCTUnwrap(tab.model.worktrees.first { $0.worktree.isMain })
         let other = try XCTUnwrap(tab.model.worktrees.first { !$0.worktree.isMain })
         XCTAssertEqual(tab.menus.menu(for: .worktree(main, isCurrent: true), in: .sidebar).outline, [["Show in Finder", "Open in terminal"], ["Prune missing Worktrees"]])
-        XCTAssertEqual(tab.menus.menu(for: .worktree(other, isCurrent: false), in: .sidebar).outline, [["Switch to this Worktree"], ["Show in Finder", "Open in terminal"], ["Lock…", "Remove…"], ["Prune missing Worktrees"]])
+        XCTAssertEqual(tab.menus.menu(for: .worktree(other, isCurrent: false), in: .sidebar).outline, [["Switch to this Worktree", "Show in Finder", "Open in terminal"], ["Remove…"], ["Lock…"], ["Prune missing Worktrees"]])
     }
 
     func testRemoteMenuNamesItsGitCommands() {

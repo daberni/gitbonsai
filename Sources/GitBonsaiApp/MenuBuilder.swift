@@ -102,11 +102,11 @@ final class MenuBuilder {
         return (ref + commitSections(commit, index: index, pills: pills, subject: subject, rebaseAllCommits: allCommits)).groups
     }
 
-    /// The Stashes list's menu; the history's stash row adds Copy SHA right before Drop.
+    /// The Stashes list's menu; the history's stash row adds Copy SHA at the end, in the copy group.
     private func stashMenu(_ id: String, in context: MenuContext) -> [[MenuEntry]] {
         let groups = stashes.groups(for: id)
         let copy = context.isHistory ? [MenuEntry.copySHA(id, to: pasteboard)] : []
-        return [groups.show, groups.takeBack, copy, groups.drop]
+        return [groups.show, groups.takeBack, groups.drop, groups.create, copy]
     }
 
     /// The menu of a toolbar split button; its first enabled entry is what a click on the button's main part runs.

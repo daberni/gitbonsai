@@ -55,16 +55,16 @@ final class StashActions {
 
     // MARK: Menu
 
-    /// A stash's menu: show, take back, drop.
-    func groups(for id: String) -> (show: [MenuEntry], takeBack: [MenuEntry], drop: [MenuEntry]) {
+    /// A stash's menu in the shared group order: go there (show) | integrate (apply, pop) | remove (drop) | create (branch).
+    func groups(for id: String) -> (show: [MenuEntry], takeBack: [MenuEntry], drop: [MenuEntry], create: [MenuEntry]) {
         let show = [MenuEntry(LocalizedStringResource("stash.action.showDiff", defaultValue: "Show Diff", bundle: .module)) { [weak self] in self?.showDiff(id) }]
         let takeBack = [
             MenuEntry(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] in self?.apply(id) },
             MenuEntry(LocalizedStringResource("stash.action.pop", defaultValue: "Pop", bundle: .module)) { [weak self] in self?.pop(id) },
-            MenuEntry(LocalizedStringResource("stash.menu.createBranch", defaultValue: "Create Branch from Stash…", bundle: .module)) { [weak self] in self?.createBranch(id) },
         ]
+        let create = [MenuEntry(LocalizedStringResource("stash.menu.createBranch", defaultValue: "Create Branch from Stash…", bundle: .module)) { [weak self] in self?.createBranch(id) }]
         let drop = [MenuEntry(LocalizedStringResource("stash.action.drop", defaultValue: "Drop…", bundle: .module)) { [weak self] in self?.drop(id) }]
-        return (show, takeBack, drop)
+        return (show, takeBack, drop, create)
     }
 
     // MARK: Toolbar
