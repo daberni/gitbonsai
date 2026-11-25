@@ -11,14 +11,6 @@ extension ScreenshotHarness {
     /// `GITBONSAI_PRINT_OPENERS=1` first prints how every known terminal and editor would open the tab's folder. Returns false when there is nothing to drive.
     static func driveCommandBar(in window: NSWindow, host: MainWindowController) -> Bool {
         if environment["GITBONSAI_PRINT_OPENERS"] == "1" { printOpeners(for: host.activeRepository?.repositoryPath) }
-        // The tab reads its remotes and pull settings right after loading; the menu is printed once they are in.
-        if environment["GITBONSAI_PRINT_MENU"] == "1", environment["GITBONSAI_COMMAND_BAR"] == nil {
-            after(1) {
-                printMainMenu()
-                captureAndQuit(window: window)
-            }
-            return true
-        }
         guard let script = environment["GITBONSAI_COMMAND_BAR"] else { return false }
         let steps = script.split(separator: ";").map(String.init)
         // Each run starts without recently used commands, so lists and captures do not depend on earlier runs.

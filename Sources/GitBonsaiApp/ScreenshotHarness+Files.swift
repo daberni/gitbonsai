@@ -43,7 +43,6 @@ extension ScreenshotHarness {
         }
         driveDiffHeader(on: tab)
         driveImageDiff(on: tab)
-        pickDiffOption(on: tab)
         scrollDiffThenOpenFile(on: tab)
         if environment["GITBONSAI_PRINT_DIFF_HEADER"] == "1" {
             after(0.6) { FileHandle.standardError.write(Data("diff header: \(tab.diff.header.summary)\n".utf8)) }
@@ -76,29 +75,6 @@ extension ScreenshotHarness {
     }
 
     // MARK: Diff mode
-
-    /// `GITBONSAI_DIFF_OPTION=<title>` prints the entries of the diff options menu with their state, chooses one without opening the menu on screen, and prints the entries again.
-    static func pickDiffOption(on tab: RepositoryViewController) {
-        guard let title = environment["GITBONSAI_DIFF_OPTION"] else { return }
-        after(0.6) {
-            let button = tab.diff.header.optionsButton
-            guard let menu = button.menu, !button.isHidden else {
-                FileHandle.standardError.write(Data("no diff options menu\n".utf8))
-                return
-            }
-            func report(_ step: String) {
-                let entries = menu.items.dropFirst().map { "\($0.state == .on ? "✓" : " ") \($0.title)" }
-                FileHandle.standardError.write(Data("diff options \(step): \(entries.joined(separator: " | "))\n".utf8))
-            }
-            report("before")
-            guard let index = menu.items.firstIndex(where: { $0.title == title }) else {
-                FileHandle.standardError.write(Data("no diff option \(title)\n".utf8))
-                return
-            }
-            menu.performActionForItem(at: index)
-            report("after")
-        }
-    }
 
     /// `GITBONSAI_CLICK_DIFF_CLOSE=1` clicks the diff's close button with a real click and prints whether the graph is back.
     static func clickDiffClose(on tab: RepositoryViewController) {
@@ -387,30 +363,4 @@ extension ScreenshotHarness {
         if let down = event(.leftMouseDown) { press(down, in: window) }
     }
 
-    // MARK: File context menu
-
-    /// `GITBONSAI_FILE_MENU=<n>` asks file row n for the menu a right click would open and prints its entries, ⌥ alternates marked, without showing it on screen.
-    /// `GITBONSAI_FILE_MENU_PICK=<title>` then chooses an entry; confirmations are answered by `GITBONSAI_CONFIRM` and rendered by `GITBONSAI_SHEET_SHOT`.
-    static func fileMenu(on tab: RepositoryViewController, attempt: Int = 0) {
-        guard let index = environment["GITBONSAI_FILE_MENU"].flatMap(Int.init) else { return }
-        after(0.4) {
-            guard let window = tab.view.window else { return }
-            // A commit's file list loads asynchronously; try again until the row is there.
-            let rows = fileRows(in: window)
-            guard rows.indices.contains(index) else {
-                if attempt < 10 { return fileMenu(on: tab, attempt: attempt + 1) }
-                FileHandle.standardError.write(Data("only \(rows.count) file rows\n".utf8))
-                return
-            }
-            let row = rows[index]
-            let point = row.convert(CGPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
-            guard let event = NSEvent.mouseEvent(with: .rightMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1), let menu = fileMenu(of: row, for: event) else {
-                FileHandle.standardError.write(Data("file row \(index) has no menu\n".utf8))
-                return
-            }
-            let entries = menu.items.map { item in item.isSeparatorItem ? "|" : item.isAlternate ? "⌥ \(item.plainTitle)" : item.plainTitle }
-            FileHandle.standardError.write(Data("file menu \(row.model.selection.path): \(entries.joined(separator: "; "))\n".utf8))
-            if let pick = environment["GITBONSAI_FILE_MENU_PICK"] { choose(pick, in: menu) }
-        }
-    }
 }

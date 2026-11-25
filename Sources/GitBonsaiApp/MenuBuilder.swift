@@ -13,7 +13,12 @@ enum MenuSubject {
     case commit(row: Int)
 }
 
-/// Assembles every context menu of the sidebar, its Tags and Stashes lists and the history as data, from the sections each subject's actions offer.
+/// The toolbar's split buttons that open a menu.
+enum ToolbarMenu {
+    case fetch, pull, push, stash
+}
+
+/// Assembles every context menu of the sidebar, its Tags and Stashes lists, the history and the file lists, and the menus of the toolbar's split buttons, as data from what each subject's actions offer.
 /// A history menu zips a ref section with the commit section, so a combined menu orders its entries by meaning: go there, sync, integrate with the current branch, remove, create, change, copy.
 /// A pill's menu zips its ref section with the commit section. A row's menu does the same when the commit has a single branch pill; with several pills each pill becomes a submenu at the top, and the commit section follows.
 /// The commit section alone offers Copy SHA; ref sections add only Copy name.
@@ -29,8 +34,12 @@ final class MenuBuilder {
     private let stashes: StashActions
     private let worktrees: WorktreeActions
     private let remotes: RemoteActions
+    private let fetch: FetchUseCase
+    private let pull: PullUseCase
+    private let push: PushUseCase
+    private let files: FileActions
 
-    init(context: RepositoryContext, checkout: CheckoutUseCase, commitActions: CommitActions, branches: BranchActions, tags: TagActions, fastForward: FastForwardUseCase, stashes: StashActions, worktrees: WorktreeActions, remotes: RemoteActions) {
+    init(context: RepositoryContext, checkout: CheckoutUseCase, commitActions: CommitActions, branches: BranchActions, tags: TagActions, fastForward: FastForwardUseCase, stashes: StashActions, worktrees: WorktreeActions, remotes: RemoteActions, fetch: FetchUseCase, pull: PullUseCase, push: PushUseCase, files: FileActions) {
         viewModel = context.model
         pasteboard = context.app.pasteboard
         self.checkout = checkout
@@ -41,6 +50,10 @@ final class MenuBuilder {
         self.stashes = stashes
         self.worktrees = worktrees
         self.remotes = remotes
+        self.fetch = fetch
+        self.pull = pull
+        self.push = push
+        self.files = files
     }
 
     // MARK: Menus
@@ -94,6 +107,38 @@ final class MenuBuilder {
         let groups = stashes.groups(for: id)
         let copy = context.isHistory ? [MenuEntry.copySHA(id, to: pasteboard)] : []
         return [groups.show, groups.takeBack, copy, groups.drop]
+    }
+
+    /// The menu of a toolbar split button; its first enabled entry is what a click on the button's main part runs.
+    func toolbarMenu(_ menu: ToolbarMenu) -> [[MenuEntry]] {
+        switch menu {
+        case .fetch: fetch.groups()
+        case .pull: pull.groups()
+        case .push: push.groups()
+        case .stash: stashes.toolbarGroups()
+        }
+    }
+
+    /// The menu of the files selected in a file list: index operations, external apps, copying, and what rewrites the files.
+    func fileMenu(for selected: [FileRowView.Model]) -> [[MenuEntry]] {
+        files.groups(for: selected)
+    }
+
+    /// The diff's options with their current states; `change` edits the options when an entry is chosen.
+    /// Ignoring all whitespace and only its amount exclude each other.
+    static func diffOptions(_ options: DiffOptions, change: @escaping @MainActor (_ edit: (inout DiffOptions) -> Void) -> Void) -> [[MenuEntry]] {
+        func option(_ title: String, isOn: Bool, toolTip: String?, _ edit: @escaping (inout DiffOptions) -> Void) -> MenuEntry {
+            var entry = MenuEntry(RefString(verbatim: title)) { change(edit) }
+            entry.isChecked = isOn
+            entry.toolTip = toolTip
+            return entry
+        }
+        let invisibles = option(String(localized: "diff.options.invisibles", defaultValue: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), isOn: options.showsInvisibles, toolTip: nil) { $0.showsInvisibles.toggle() }
+        let words = option(String(localized: "diff.options.wordDiff", defaultValue: "Word Diff", bundle: .module, comment: "Diff option: mark changed words within a line instead of whole lines"), isOn: options.wordDiff, toolTip: "git diff --word-diff") { $0.wordDiff.toggle() }
+        let ignoreAll = option(String(localized: "diff.options.ignoreWhitespace", defaultValue: "Ignore Whitespace", bundle: .module, comment: "Diff option: leave out every whitespace difference, git diff -w"), isOn: options.whitespace.ignoring == .all, toolTip: "git diff -w --ignore-cr-at-eol") { $0.whitespace.ignoring = $0.whitespace.ignoring == .all ? .nothing : .all }
+        let ignoreAmount = option(String(localized: "diff.options.ignoreWhitespaceAmount", defaultValue: "Ignore Whitespace amount", bundle: .module, comment: "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b"), isOn: options.whitespace.ignoring == .changes, toolTip: "git diff -b --ignore-cr-at-eol") { $0.whitespace.ignoring = $0.whitespace.ignoring == .changes ? .nothing : .changes }
+        let blankLines = option(String(localized: "diff.options.ignoreBlankLines", defaultValue: "Ignore blank Lines", bundle: .module, comment: "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines"), isOn: options.whitespace.ignoresBlankLines, toolTip: "git diff --ignore-blank-lines") { $0.whitespace.ignoresBlankLines.toggle() }
+        return [[invisibles], [words], [ignoreAll, ignoreAmount, blankLines]]
     }
 
     // MARK: Sections

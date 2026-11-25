@@ -23,24 +23,21 @@ final class PullUseCase {
     // MARK: Menus
 
     /// With an upstream: the three modes, the default marked and first; every mode carries local changes. Without one: setting it.
-    func pullMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
+    func groups() -> [[MenuEntry]] {
         guard let branch, let upstream else {
-            menu.addItem(header(branch.map { name -> LocalizedStringResource in LocalizedStringResource("pull.menu.noUpstream", defaultValue: "\(RefName.branch(name)) has no upstream", bundle: .module) } ?? LocalizedStringResource("pull.menu.headNoUpstream", defaultValue: "HEAD has no upstream", bundle: .module)))
-            let set = ActionMenuItem(LocalizedStringResource("pull.action.setUpstreamAndPull", defaultValue: "Set Upstream and Pull…", bundle: .module)) { [weak self] in self?.setUpstreamAndPull() }
-            set.isEnabled = branch != nil && !remoteBranches().isEmpty
-            menu.addItem(set)
-            return menu
+            let header = MenuEntry.header(branch.map { name -> LocalizedStringResource in LocalizedStringResource("pull.menu.noUpstream", defaultValue: "\(RefName.branch(name)) has no upstream", bundle: .module) } ?? LocalizedStringResource("pull.menu.headNoUpstream", defaultValue: "HEAD has no upstream", bundle: .module))
+            var set = MenuEntry(LocalizedStringResource("pull.action.setUpstreamAndPull", defaultValue: "Set Upstream and Pull…", bundle: .module)) { [weak self] in self?.setUpstreamAndPull() }
+            set.isDisabled = branch == nil || remoteBranches().isEmpty
+            return [[header, set]]
         }
-        menu.addItem(header(LocalizedStringResource("pull.menu.header", defaultValue: "Pull \(RefName.remoteBranch(upstream.name)) into \(RefName.branch(branch))", bundle: .module)))
+        let header = MenuEntry.header(LocalizedStringResource("pull.menu.header", defaultValue: "Pull \(RefName.remoteBranch(upstream.name)) into \(RefName.branch(branch))", bundle: .module))
         let modes = [defaultMode] + PullMode.allCases.filter { $0 != defaultMode }
-        for mode in modes {
-            let item = pullItem(Self.title(of: mode), PullVariant(mode: mode))
-            if mode == defaultMode { item.setTitle(RefString(Self.title(of: mode)), marker: String(localized: "common.default", defaultValue: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals.")) }
-            menu.addItem(item)
+        let entries = modes.map { mode in
+            var entry = pullEntry(Self.title(of: mode), PullVariant(mode: mode))
+            if mode == defaultMode { entry.marker = String(localized: "common.default", defaultValue: "Default", bundle: .module, comment: "Marks the default app in the list of editors or terminals.") }
+            return entry
         }
-        return menu
+        return [[header] + entries]
     }
 
     private static func title(of mode: PullMode) -> LocalizedStringResource {
@@ -49,13 +46,6 @@ final class PullUseCase {
         case .merge: LocalizedStringResource("pull.mode.merge", defaultValue: "Merge", bundle: .module, comment: "Pull mode.")
         case .rebase: LocalizedStringResource("pull.mode.rebase", defaultValue: "Rebase", bundle: .module, comment: "Pull mode.")
         }
-    }
-
-    private func header(_ title: LocalizedStringResource) -> NSMenuItem {
-        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        item.setTitle(title)
-        item.isEnabled = false
-        return item
     }
 
     /// "Pull <branch>" for a local branch with an upstream, nil for anything else.
@@ -67,10 +57,10 @@ final class PullUseCase {
         return item
     }
 
-    private func pullItem(_ title: LocalizedStringResource, _ variant: PullVariant) -> NSMenuItem {
-        let item = ActionMenuItem(title) { [weak self] in self?.pull(variant) }
-        item.toolTip = variant.commandLine
-        return item
+    private func pullEntry(_ title: LocalizedStringResource, _ variant: PullVariant) -> MenuEntry {
+        var entry = MenuEntry(title) { [weak self] in self?.pull(variant) }
+        entry.toolTip = variant.commandLine
+        return entry
     }
 
     // MARK: Current branch

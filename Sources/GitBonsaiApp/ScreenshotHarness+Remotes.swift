@@ -12,7 +12,6 @@ extension ScreenshotHarness {
         after(0.4) {
             if environment["GITBONSAI_BANNER_CLICK"] != nil { printBanner(of: tab, when: "loaded") }
             printToolbarLayout(of: tab)
-            runFetchMenu(on: tab)
             runPullOrPush(on: tab)
             runToolbarDefault(on: tab)
             runMenuEntry(on: tab)
@@ -64,18 +63,6 @@ extension ScreenshotHarness {
     private static func printToolbarLayout(of tab: RepositoryViewController) {
         guard environment["GITBONSAI_TOOLBAR_LAYOUT"] == "1" else { return }
         FileHandle.standardError.write(Data("toolbar counts: \(tab.toolbar.upstreamCounts)\n\(tab.toolbar.actionLayout)\n".utf8))
-    }
-
-    /// `GITBONSAI_FETCH_MENU=1` prints the Fetch button's menu with each entry's command, without opening it; `GITBONSAI_FETCH_PICK=<title>` chooses an entry and prints the status line once the fetch has finished.
-    private static func runFetchMenu(on tab: RepositoryViewController) {
-        let menu = tab.fetchUseCase.menu()
-        if environment["GITBONSAI_FETCH_MENU"] == "1" {
-            let entries = menu.items.map { $0.isSeparatorItem ? "|" : "\($0.plainTitle) (\($0.toolTip ?? ""))\($0.isEnabled ? "" : " disabled")" }
-            FileHandle.standardError.write(Data("fetch menu: \(entries.joined(separator: "; "))\n".utf8))
-        }
-        guard let pick = environment["GITBONSAI_FETCH_PICK"] else { return }
-        choose(pick, in: menu)
-        printStatus(of: tab, after: 1.5)
     }
 
     /// `GITBONSAI_FETCH=<title>`, `GITBONSAI_PULL=<title>`, `GITBONSAI_PUSH=<title>` or `GITBONSAI_STASH=<title>` clicks the chevron of that toolbar button with a real click, prints the menu it opens (`GITBONSAI_MENU_SHOT=<png>` renders it) and closes it again, then chooses the entry and prints

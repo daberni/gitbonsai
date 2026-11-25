@@ -23,27 +23,23 @@ final class PushUseCase {
     // MARK: Menus
 
     /// Pushing the branch to its upstream, or the first push that sets one; then the tags for each remote.
-    func pushMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
+    func groups() -> [[MenuEntry]] {
+        var branchEntry: MenuEntry
         if let branch, let upstream {
             let variant = PushVariant.branch(branch, remote: upstream.remote, remoteBranch: upstream.branch, setUpstream: false, forceWithLease: false)
-            let item = ActionMenuItem(LocalizedStringResource("push.menu.branch", defaultValue: "Push \(RefName.branch(branch)) to \(RefName.remoteBranch(upstream.name))", bundle: .module)) { [weak self] in self?.push(variant, upstream: upstream.name) }
-            item.toolTip = variant.commandLine
-            menu.addItem(item)
+            branchEntry = MenuEntry(LocalizedStringResource("push.menu.branch", defaultValue: "Push \(RefName.branch(branch)) to \(RefName.remoteBranch(upstream.name))", bundle: .module)) { [weak self] in self?.push(variant, upstream: upstream.name) }
+            branchEntry.toolTip = variant.commandLine
         } else {
-            let item = ActionMenuItem(branch.map { name -> LocalizedStringResource in LocalizedStringResource("push.menu.setUpstream", defaultValue: "Push \(RefName.branch(name)) and Set Upstream…", bundle: .module) } ?? LocalizedStringResource("push.menu.headSetUpstream", defaultValue: "Push HEAD and Set Upstream…", bundle: .module)) { [weak self] in self?.firstPush() }
-            item.isEnabled = branch != nil
-            menu.addItem(item)
+            branchEntry = MenuEntry(branch.map { name -> LocalizedStringResource in LocalizedStringResource("push.menu.setUpstream", defaultValue: "Push \(RefName.branch(name)) and Set Upstream…", bundle: .module) } ?? LocalizedStringResource("push.menu.headSetUpstream", defaultValue: "Push HEAD and Set Upstream…", bundle: .module)) { [weak self] in self?.firstPush() }
+            branchEntry.isDisabled = branch == nil
         }
-        menu.addItem(.separator())
-        for remote in remotes {
+        let tags = remotes.map { remote in
             let variant = PushVariant.tags(remote: remote)
-            let item = ActionMenuItem(LocalizedStringResource("push.menu.tags", defaultValue: "Push Tags to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.pushTags(variant) }
-            item.toolTip = variant.commandLine
-            menu.addItem(item)
+            var entry = MenuEntry(LocalizedStringResource("push.menu.tags", defaultValue: "Push Tags to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.pushTags(variant) }
+            entry.toolTip = variant.commandLine
+            return entry
         }
-        return menu
+        return [[branchEntry], tags]
     }
 
     /// "Push <branch>" to its upstream for a local branch with an upstream on a known remote, nil for anything else. A rejected push offers the same ways out as the toolbar's.

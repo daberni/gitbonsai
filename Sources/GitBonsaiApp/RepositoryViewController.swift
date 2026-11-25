@@ -109,7 +109,7 @@ final class RepositoryViewController: NSObject {
         inlineReword = RewordUseCase(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutUseCase
         branchActions = BranchActions(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward) { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }
-        menuBuilder = MenuBuilder(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: branchActions, tags: tagActions, fastForward: fastForward, stashes: stashActions, worktrees: worktreeActions, remotes: remoteActions)
+        menuBuilder = MenuBuilder(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: branchActions, tags: tagActions, fastForward: fastForward, stashes: stashActions, worktrees: worktreeActions, remotes: remoteActions, fetch: fetchUseCase, pull: pullUseCase, push: pushUseCase, files: fileActions)
         wire()
         layout()
         bind()
@@ -228,7 +228,7 @@ final class RepositoryViewController: NSObject {
         }
         selectHeadIfLoaded()
         let hasChanges = !(viewModel.status?.entries.isEmpty ?? true)
-        toolbar.stashMenu = hasChanges ? { [weak self] in self?.stashActions.stashMenu() ?? NSMenu() } : nil
+        toolbar.stashMenu = hasChanges ? { [weak self] in MenuAdapter.menu(self?.menuBuilder.toolbarMenu(.stash) ?? []) } : nil
         toolbar.onPop = viewModel.stashes.isEmpty ? nil : { [weak self] in self?.stashActions.popNewest() }
         tagActions.viewModelChanged()
         stashActions.viewModelChanged()

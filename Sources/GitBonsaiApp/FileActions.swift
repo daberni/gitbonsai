@@ -23,16 +23,15 @@ final class FileActions {
 
     /// The entries in groups: index operations (working directory only), external apps, copying, and what rewrites the files.
     /// Every entry acts on all `files` at once. For one file, entries that need it on disk are left out when it is not there; for several, an entry that does not fit every file stays visible, disabled, with the reason as its tooltip.
-    func menuItems(for files: [FileRowView.Model]) -> [NSMenuItem] {
+    func groups(for files: [FileRowView.Model]) -> [[MenuEntry]] {
         guard !files.isEmpty else { return [] }
-        let groups = [indexItems(files), openItems(files), copyItems(files.map(\.selection)), rewriteItems(files)].filter { !$0.isEmpty }
-        return groups.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group }
+        return [indexItems(files), openItems(files), copyItems(files.map(\.selection)), rewriteItems(files)]
     }
 
     // MARK: Menu
 
     /// Untracked files alone are not offered the permanent discard here; moving them to the Trash does the same and can be undone.
-    private func indexItems(_ files: [FileRowView.Model]) -> [NSMenuItem] {
+    private func indexItems(_ files: [FileRowView.Model]) -> [MenuEntry] {
         let selections = files.map(\.selection)
         let paths = selections.map(\.path)
         let conflicts = files.contains { $0.state == .unmerged }
@@ -43,9 +42,9 @@ final class FileActions {
         guard isWorking else { return [] }
         if files.count == 1 {
             guard !conflicts else { return [] }
-            if unstageable { return [ActionMenuItem(LocalizedStringResource("files.menu.unstage", defaultValue: "Unstage", bundle: .module)) { [weak self] in self?.staging.unstage(paths) }] }
-            var items = [ActionMenuItem(LocalizedStringResource("files.menu.stage", defaultValue: "Stage", bundle: .module)) { [weak self] in self?.staging.stage(paths) }]
-            if tracked { items.append(ActionMenuItem(LocalizedStringResource("files.menu.discard", defaultValue: "Discard changes…", bundle: .module)) { [weak self] in self?.staging.discard(selections) }) }
+            if unstageable { return [MenuEntry(LocalizedStringResource("files.menu.unstage", defaultValue: "Unstage", bundle: .module)) { [weak self] in self?.staging.unstage(paths) }] }
+            var items = [MenuEntry(LocalizedStringResource("files.menu.stage", defaultValue: "Stage", bundle: .module)) { [weak self] in self?.staging.stage(paths) }]
+            if tracked { items.append(MenuEntry(LocalizedStringResource("files.menu.discard", defaultValue: "Discard changes…", bundle: .module)) { [weak self] in self?.staging.discard(selections) }) }
             return items
         }
         let reason = conflicts ? Self.conflictReason : nil
@@ -56,14 +55,14 @@ final class FileActions {
         ]
     }
 
-    private func openItems(_ files: [FileRowView.Model]) -> [NSMenuItem] {
+    private func openItems(_ files: [FileRowView.Model]) -> [MenuEntry] {
         let selections = files.map(\.selection)
         let urls = selections.map(url(of:))
         let onDisk = urls.allSatisfy { FileManager.default.fileExists(atPath: $0.path) }
         let conflicts = files.contains { $0.state == .unmerged }
-        var items: [NSMenuItem] = []
+        var items: [MenuEntry] = []
         if let only = selections.first, files.count == 1 {
-            if !conflicts { items.append(ActionMenuItem(LocalizedStringResource("files.menu.openDiffTool", defaultValue: "Open in diff tool", bundle: .module)) { [weak self] in self?.openDiffTool(only) }) }
+            if !conflicts { items.append(MenuEntry(LocalizedStringResource("files.menu.openDiffTool", defaultValue: "Open in diff tool", bundle: .module)) { [weak self] in self?.openDiffTool(only) }) }
             guard onDisk else { return items }
         } else {
             items.append(Self.item(LocalizedStringResource("files.menu.openDiffTool", defaultValue: "Open in diff tool", bundle: .module), disabledBy: LocalizedStringResource("files.menu.oneAtATime", defaultValue: "The diff tool opens one file at a time", bundle: .module)) {})
@@ -78,19 +77,17 @@ final class FileActions {
     }
 
     /// ⌥ turns "Copy path" into "Copy full path"; several paths go to the pasteboard one per line.
-    private func copyItems(_ selections: [FileSelection]) -> [NSMenuItem] {
-        let relative = ActionMenuItem(LocalizedStringResource("files.menu.copyPath", defaultValue: "Copy path", bundle: .module)) { [pasteboard] in pasteboard.copy(selections.map(\.path).joined(separator: "\n")) }
-        relative.keyEquivalentModifierMask = []
-        let full = ActionMenuItem(LocalizedStringResource("files.menu.copyFullPath", defaultValue: "Copy full path", bundle: .module)) { [weak self] in
+    private func copyItems(_ selections: [FileSelection]) -> [MenuEntry] {
+        let relative = MenuEntry(LocalizedStringResource("files.menu.copyPath", defaultValue: "Copy path", bundle: .module)) { [pasteboard] in pasteboard.copy(selections.map(\.path).joined(separator: "\n")) }
+        var full = MenuEntry(LocalizedStringResource("files.menu.copyFullPath", defaultValue: "Copy full path", bundle: .module)) { [weak self] in
             guard let self else { return }
             self.pasteboard.copy(selections.map { self.url(of: $0).path }.joined(separator: "\n"))
         }
-        full.keyEquivalentModifierMask = .option
-        full.isAlternate = true
+        full.alternateModifiers = .option
         return [relative, full]
     }
 
-    private func rewriteItems(_ files: [FileRowView.Model]) -> [NSMenuItem] {
+    private func rewriteItems(_ files: [FileRowView.Model]) -> [MenuEntry] {
         let selections = files.map(\.selection)
         let commits = selections.compactMap { selection -> Commit? in if case .commit(let commit) = selection.source { commit } else { nil } }
         if let commit = commits.first {
@@ -114,14 +111,9 @@ final class FileActions {
 
     private static let conflictReason = LocalizedStringResource("files.menu.hasConflicts", defaultValue: "Some selected files have unresolved conflicts", bundle: .module)
 
-    /// An entry that is shown but cannot be chosen says why in its tooltip; the menu does not enable items on its own.
-    private static func item(_ title: LocalizedStringResource, disabledBy reason: LocalizedStringResource?, handler: @escaping () -> Void) -> NSMenuItem {
-        let item = ActionMenuItem(title, handler: handler)
-        if let reason {
-            item.isEnabled = false
-            item.toolTip = reason.text
-        }
-        return item
+    /// An entry that is shown but cannot be chosen says why in its tooltip.
+    private static func item(_ title: LocalizedStringResource, disabledBy reason: LocalizedStringResource?, handler: @escaping @MainActor () -> Void) -> MenuEntry {
+        .action(title, disabledBecause: reason?.text, action: handler)
     }
 
     // MARK: Actions

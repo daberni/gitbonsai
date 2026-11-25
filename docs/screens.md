@@ -126,7 +126,7 @@ A floating panel centered under the toolbar: a search field and up to ten rows. 
 
 ## 6. Shortcuts
 
-The menu bar (GitBonsai, File, Edit, View, Repository, Branch, Window, Help) is built from the same commands as the command bar (`CommandCatalog`, `MainMenu`): same titles, shortcuts and enabled rules. This table is the menu as `GITBONSAI_PRINT_MENU=1` prints it.
+The menu bar (GitBonsai, File, Edit, View, Repository, Branch, Window, Help) is built from the same commands as the command bar (`CommandCatalog`, `MainMenu`): same titles, shortcuts and enabled rules. `MainMenuTests` checks this table against the menu bar the app builds.
 
 | Shortcut | Command |
 |---|---|

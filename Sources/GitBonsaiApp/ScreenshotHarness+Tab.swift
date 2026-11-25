@@ -16,7 +16,6 @@ extension ScreenshotHarness {
         pressFileKeys(on: tab)
         fillCommit(on: tab)
         discard(on: tab)
-        fileMenu(on: tab)
         driveFileSelection(on: tab)
         scrollSidebar(tab.sidebar)
         openCommitMenu(on: tab)

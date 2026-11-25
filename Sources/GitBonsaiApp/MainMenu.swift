@@ -219,54 +219,84 @@ final class MainMenu: NSObject, NSMenuDelegate {
         return nil
     }
 
-    // MARK: Items
+    // MARK: Entries
 
-    private func items(for section: Section, commands: [String: Command], order: [String]) -> [NSMenuItem] {
-        var items: [NSMenuItem] = []
+    /// A section's entries as data, in groups between its separators: commands with the tab's current titles, shortcuts and disabled reasons; families and optional entries only as far as the tab offers them.
+    static func groups(for section: Section, commands: [String: Command], order: [String]) -> [[MenuEntry]] {
+        var groups: [[MenuEntry]] = [[]]
+        func add(_ entry: MenuEntry) { groups[groups.count - 1].append(entry) }
         for entry in section.entries {
             switch entry {
             case .command(let spec):
-                items.append(commands[spec.id].map(item(for:)) ?? item(title: spec.title.text, id: spec.id, shortcut: spec.shortcut))
+                add(commands[spec.id].map(Self.entry(for:)) ?? Self.entry(title: spec.title.text, id: spec.id, shortcut: spec.shortcut))
             case .ifPresent(let spec):
-                if let command = commands[spec.id] { items.append(item(for: command)) }
+                if let command = commands[spec.id] { add(Self.entry(for: command)) }
             case .family(let prefix):
-                items += order.filter { $0.hasPrefix(prefix) && !Self.placedIDs.contains($0) }.compactMap { commands[$0] }.map(item(for:))
+                order.filter { $0.hasPrefix(prefix) && !Self.placedIDs.contains($0) }.compactMap { commands[$0] }.forEach { add(Self.entry(for: $0)) }
             case .standard(let title, let action, let shortcut):
-                let entry = NSMenuItem(title: title.text, action: action, keyEquivalent: shortcut?.key ?? "")
-                entry.keyEquivalentModifierMask = shortcut?.modifiers ?? []
-                items.append(entry)
+                var item = MenuEntry(RefString(title), content: .selector(action))
+                item.shortcut = shortcut
+                add(item)
             case .separator:
-                items.append(.separator())
+                groups.append([])
             case .recent:
-                let holder = NSMenuItem(title: recentMenu.title, action: nil, keyEquivalent: "")
-                holder.submenu = recentMenu
-                items.append(holder)
+                add(MenuEntry(RefString(verbatim: String(localized: "menu.file.openRecent", defaultValue: "Open Recent", bundle: .module)), content: .system(.recent)))
             case .services:
-                let services = NSMenu(title: String(localized: "menu.app.services", defaultValue: "Services", bundle: .module, comment: "The Services submenu of the app menu."))
-                NSApp.servicesMenu = services
-                let holder = NSMenuItem(title: services.title, action: nil, keyEquivalent: "")
-                holder.submenu = services
-                items.append(holder)
+                add(MenuEntry(RefString(verbatim: String(localized: "menu.app.services", defaultValue: "Services", bundle: .module, comment: "The Services submenu of the app menu.")), content: .system(.services)))
             case .commandBar:
-                let entry = NSMenuItem(title: String(localized: "menu.view.commandBar", defaultValue: "Command bar…", bundle: .module), action: commandBarAction, keyEquivalent: CommandShortcut.commandBar.key)
-                entry.keyEquivalentModifierMask = CommandShortcut.commandBar.modifiers
-                entry.target = target
-                items.append(entry)
+                var item = MenuEntry(RefString(verbatim: String(localized: "menu.view.commandBar", defaultValue: "Command bar…", bundle: .module)), content: .system(.commandBar))
+                item.shortcut = .commandBar
+                add(item)
             }
         }
-        return Self.trimmedSeparators(items)
+        return groups.filter { !$0.isEmpty }
     }
 
-    private func item(for command: Command) -> NSMenuItem {
-        item(title: command.title, id: command.id, shortcut: command.shortcut, toolTip: command.disabledReason)
+    private static func entry(for command: Command) -> MenuEntry {
+        var item = entry(title: command.title, id: command.id, shortcut: command.shortcut)
+        item.disabledReason = command.disabledReason
+        return item
     }
 
-    private func item(title: String, id: String, shortcut: CommandShortcut?, toolTip: String? = nil) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: runAction, keyEquivalent: shortcut?.key ?? "")
-        item.keyEquivalentModifierMask = shortcut?.modifiers ?? []
-        item.target = target
-        item.representedObject = id
-        item.toolTip = toolTip
+    private static func entry(title: String, id: String, shortcut: CommandShortcut?) -> MenuEntry {
+        var item = MenuEntry(RefString(verbatim: title), content: .command(id))
+        item.shortcut = shortcut
+        return item
+    }
+
+    // MARK: Items
+
+    /// Commands go to `target`, which enables them in `validateMenuItem`; AppKit's own entries go along the responder chain.
+    private func items(for section: Section, commands: [String: Command], order: [String]) -> [NSMenuItem] {
+        Self.groups(for: section, commands: commands, order: order).enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group.map(item(for:)) }
+    }
+
+    private func item(for entry: MenuEntry) -> NSMenuItem {
+        let item: NSMenuItem
+        switch entry.content {
+        case .command(let id):
+            item = NSMenuItem(title: entry.title.plain, action: runAction, keyEquivalent: "")
+            item.target = target
+            item.representedObject = id
+            item.toolTip = entry.disabledReason
+        case .selector(let action):
+            item = NSMenuItem(title: entry.title.plain, action: action, keyEquivalent: "")
+        case .system(.recent):
+            item = NSMenuItem(title: recentMenu.title, action: nil, keyEquivalent: "")
+            item.submenu = recentMenu
+        case .system(.services):
+            let services = NSMenu(title: entry.title.plain)
+            NSApp.servicesMenu = services
+            item = NSMenuItem(title: services.title, action: nil, keyEquivalent: "")
+            item.submenu = services
+        case .system(.commandBar):
+            item = NSMenuItem(title: entry.title.plain, action: commandBarAction, keyEquivalent: "")
+            item.target = target
+        case .action, .submenu, .header:
+            return MenuAdapter.item(entry)
+        }
+        item.keyEquivalent = entry.shortcut?.key ?? ""
+        item.keyEquivalentModifierMask = entry.shortcut?.modifiers ?? []
         return item
     }
 
@@ -278,17 +308,6 @@ final class MainMenu: NSObject, NSMenuDelegate {
             }
         }
         return nil
-    }
-
-    /// No separator at either end or twice in a row, as happens when a family or an optional entry is empty.
-    static func trimmedSeparators(_ items: [NSMenuItem]) -> [NSMenuItem] {
-        var result: [NSMenuItem] = []
-        for item in items {
-            if item.isSeparatorItem, result.last?.isSeparatorItem ?? true { continue }
-            result.append(item)
-        }
-        while result.last?.isSeparatorItem == true { result.removeLast() }
-        return result
     }
 
     private func fillRecents() {

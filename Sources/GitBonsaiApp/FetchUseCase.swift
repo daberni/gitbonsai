@@ -27,18 +27,16 @@ final class FetchUseCase {
     }
 
     /// All remotes first, then each remote with and without prune, then tags. Each entry shows its git command as tooltip.
-    func menu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.addItem(item(LocalizedStringResource("fetch.action.all", defaultValue: "Fetch all Remotes", bundle: .module), .allRemotes))
-        if !remotes.isEmpty { menu.addItem(.separator()) }
-        for remote in remotes {
-            menu.addItem(item(LocalizedStringResource("fetch.action.remote", defaultValue: "Fetch \(RefName.remote(remote))", bundle: .module), .remote(remote, prune: false)))
-            menu.addItem(item(LocalizedStringResource("fetch.action.remotePrune", defaultValue: "Fetch \(RefName.remote(remote)) and Prune deleted Branches", bundle: .module), .remote(remote, prune: true)))
+    func groups() -> [[MenuEntry]] {
+        let all = [entry(LocalizedStringResource("fetch.action.all", defaultValue: "Fetch all Remotes", bundle: .module), .allRemotes)]
+        let each = remotes.flatMap { remote in
+            [
+                entry(LocalizedStringResource("fetch.action.remote", defaultValue: "Fetch \(RefName.remote(remote))", bundle: .module), .remote(remote, prune: false)),
+                entry(LocalizedStringResource("fetch.action.remotePrune", defaultValue: "Fetch \(RefName.remote(remote)) and Prune deleted Branches", bundle: .module), .remote(remote, prune: true)),
+            ]
         }
-        menu.addItem(.separator())
-        menu.addItem(item(LocalizedStringResource("fetch.action.tags", defaultValue: "Fetch Tags from all Remotes", bundle: .module), .tags))
-        return menu
+        let tags = [entry(LocalizedStringResource("fetch.action.tags", defaultValue: "Fetch Tags from all Remotes", bundle: .module), .tags)]
+        return [all, each, tags]
     }
 
     func fetch(_ variant: FetchVariant) {
@@ -49,10 +47,10 @@ final class FetchUseCase {
         }
     }
 
-    private func item(_ title: LocalizedStringResource, _ variant: FetchVariant) -> NSMenuItem {
-        let item = ActionMenuItem(title) { [weak self] in self?.fetch(variant) }
-        item.toolTip = variant.commandLine
-        item.isEnabled = !remotes.isEmpty
-        return item
+    private func entry(_ title: LocalizedStringResource, _ variant: FetchVariant) -> MenuEntry {
+        var entry = MenuEntry(title) { [weak self] in self?.fetch(variant) }
+        entry.toolTip = variant.commandLine
+        entry.isDisabled = remotes.isEmpty
+        return entry
     }
 }

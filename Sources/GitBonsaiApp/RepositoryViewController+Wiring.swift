@@ -7,15 +7,15 @@ extension RepositoryViewController {
 
     func wire() {
         toolbar.onFetch = { [weak self] in self?.fetchUseCase.fetch(.allRemotes) }
-        toolbar.fetchMenu = { [weak self] in self?.fetchUseCase.menu() ?? NSMenu() }
+        toolbar.fetchMenu = { [weak self] in MenuAdapter.menu(self?.menuBuilder.toolbarMenu(.fetch) ?? []) }
         fetchUseCase.onRemotesChanged = { [weak self] in
             guard let self else { return }
             showFetchState()
             sidebar.remotes = fetchUseCase.remotes
             sidebar.reload(from: viewModel)
         }
-        toolbar.pullMenu = { [weak self] in self?.pullUseCase.pullMenu() ?? NSMenu() }
-        toolbar.pushMenu = { [weak self] in self?.pushUseCase.pushMenu() ?? NSMenu() }
+        toolbar.pullMenu = { [weak self] in MenuAdapter.menu(self?.menuBuilder.toolbarMenu(.pull) ?? []) }
+        toolbar.pushMenu = { [weak self] in MenuAdapter.menu(self?.menuBuilder.toolbarMenu(.push) ?? []) }
         upstreamStatus.onChange = { [weak self] in
             guard let self else { return }
             toolbar.showUpstream(canPull: upstreamStatus.canPull, canPush: upstreamStatus.canPush, upstream: upstreamStatus.upstream, lacksUpstream: upstreamStatus.lacksUpstream)
@@ -67,7 +67,7 @@ extension RepositoryViewController {
         detail.onStage = { [weak self] paths in self?.staging.stage(paths) }
         detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
         detail.onDiscard = { [weak self] files in self?.staging.discard(files) }
-        detail.fileMenuItems = { [weak self] files in self?.fileActions.menuItems(for: files) ?? [] }
+        detail.fileMenuItems = { [weak self] files in MenuAdapter.items(self?.menuBuilder.fileMenu(for: files) ?? []) }
         detail.messageAccess = { [weak self] commit in self?.commitActions.interactiveRebase.rewordAccess(for: commit) }
         detail.onEditMessage = { [weak self] in self?.editSelectedCommitMessage() }
         commitActions.interactiveRebase.onReword = { [weak self] commit in self?.editMessage(of: commit) }

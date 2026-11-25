@@ -7,6 +7,16 @@ struct MenuEntry {
         case submenu([[MenuEntry]])
         /// A disabled line that names what the menu is about.
         case header
+        /// A menu bar entry that runs the command of that id; the menu bar enables it from the tab's commands.
+        case command(String)
+        /// A menu bar entry AppKit implements, sent along the responder chain.
+        case selector(Selector)
+        /// A menu bar entry AppKit or the window fills: Open Recent, Services, the command bar.
+        case system(SystemEntry)
+    }
+
+    enum SystemEntry: Equatable {
+        case recent, services, commandBar
     }
 
     var title: RefString
@@ -18,6 +28,10 @@ struct MenuEntry {
     /// Disabled without a reason of its own, such as an entry that waits for a choice elsewhere.
     var isDisabled = false
     var shortcut: CommandShortcut?
+    /// Shows a checkmark, as an option that is on.
+    var isChecked = false
+    /// Replaces the entry before it while these modifier keys are held, as "Copy full path" for "Copy path" with ⌥.
+    var alternateModifiers: NSEvent.ModifierFlags?
     /// Marks an entry that a later step of the builder looks for, such as a branch's plain rebase.
     var role: Role?
     /// A title that changes while the menu is open, such as a rebase entry whose base is still searched.
@@ -44,6 +58,11 @@ struct MenuEntry {
 
     init(_ title: LocalizedStringResource, submenu groups: [[MenuEntry]]) {
         self.init(RefString(title), submenu: groups)
+    }
+
+    init(_ title: RefString, content: Content) {
+        self.title = title
+        self.content = content
     }
 
     static func header(_ title: LocalizedStringResource) -> MenuEntry {
@@ -131,7 +150,15 @@ struct MenuSections {
 @MainActor
 enum MenuAdapter {
     static func items(_ groups: [[MenuEntry]]) -> [NSMenuItem] {
-        groups.filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group.map(item) }
+        groups.filter { !$0.isEmpty }.enumerated().flatMap { offset, group in (offset > 0 ? [NSMenuItem.separator()] : []) + group.map(item) }.pairingAlternates()
+    }
+
+    /// A menu that keeps the entries' own enabled state instead of asking targets.
+    static func menu(_ groups: [[MenuEntry]]) -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        items(groups).forEach(menu.addItem)
+        return menu
     }
 
     static func item(_ entry: MenuEntry) -> NSMenuItem {
@@ -144,7 +171,8 @@ enum MenuAdapter {
             let submenu = NSMenu()
             items(groups).forEach(submenu.addItem)
             item.submenu = submenu
-        case .header:
+        case .header, .command, .selector, .system:
+            // Menu bar entries need the menu bar's target; `MainMenu` makes those.
             item = NSMenuItem(title: entry.title.plain, action: nil, keyEquivalent: "")
         }
         if let marker = entry.marker { item.setTitle(entry.title, marker: marker) } else { item.setTitle(entry.title) }
@@ -153,6 +181,11 @@ enum MenuAdapter {
         if let shortcut = entry.shortcut {
             item.keyEquivalent = shortcut.key
             item.keyEquivalentModifierMask = shortcut.modifiers
+        }
+        if entry.isChecked { item.state = .on }
+        if let modifiers = entry.alternateModifiers {
+            item.keyEquivalentModifierMask = modifiers
+            item.isAlternate = true
         }
         if let live = entry.liveTitle {
             item.setTitle(live.current)
@@ -168,5 +201,15 @@ enum MenuAdapter {
 extension MenuEntry {
     @MainActor static func copySHA(_ sha: String, to pasteboard: Pasteboard) -> MenuEntry {
         MenuEntry(LocalizedStringResource("commit.menu.copySHA", defaultValue: "Copy \(RefName.commit(sha))", bundle: .module)) { pasteboard.copy(sha) }
+    }
+}
+
+private extension Array where Element == NSMenuItem {
+    /// AppKit pairs an alternate with the item before it only when that item's modifiers differ, so the plain one gets none.
+    func pairingAlternates() -> [NSMenuItem] {
+        for (index, item) in enumerated() where item.isAlternate && index > 0 {
+            self[index - 1].keyEquivalentModifierMask = []
+        }
+        return self
     }
 }

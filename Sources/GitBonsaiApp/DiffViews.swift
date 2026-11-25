@@ -28,11 +28,6 @@ final class DiffHeaderView: BarView {
     private(set) var offeredImageModes: [ImageDiffMode] = []
     /// Options of how a diff is shown: invisible characters, word diff and which whitespace differences are left out.
     let optionsButton = NSPopUpButton(frame: .zero, pullsDown: true)
-    private let invisiblesItem = NSMenuItem(title: String(localized: "diff.options.invisibles", defaultValue: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), action: nil, keyEquivalent: "")
-    private let wordDiffItem = NSMenuItem(title: String(localized: "diff.options.wordDiff", defaultValue: "Word Diff", bundle: .module, comment: "Diff option: mark changed words within a line instead of whole lines"), action: nil, keyEquivalent: "")
-    private let ignoreAllItem = NSMenuItem(title: String(localized: "diff.options.ignoreWhitespace", defaultValue: "Ignore Whitespace", bundle: .module, comment: "Diff option: leave out every whitespace difference, git diff -w"), action: nil, keyEquivalent: "")
-    private let ignoreChangesItem = NSMenuItem(title: String(localized: "diff.options.ignoreWhitespaceAmount", defaultValue: "Ignore Whitespace amount", bundle: .module, comment: "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b"), action: nil, keyEquivalent: "")
-    private let ignoreBlankLinesItem = NSMenuItem(title: String(localized: "diff.options.ignoreBlankLines", defaultValue: "Ignore blank Lines", bundle: .module, comment: "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines"), action: nil, keyEquivalent: "")
     private var options = DiffOptions()
     private let previous = NSButton()
     let next = NSButton()
@@ -102,34 +97,18 @@ final class DiffHeaderView: BarView {
         optionsButton.bezelStyle = .rounded
         optionsButton.imagePosition = .imageOnly
         optionsButton.toolTip = String(localized: "diff.toolbar.options", defaultValue: "Diff Options", bundle: .module, comment: "Tooltip of the menu with options of how a diff is shown")
-        let face = NSMenuItem()
-        face.image = NSImage(systemSymbolName: "slider.horizontal.3", accessibilityDescription: optionsButton.toolTip)
-        optionsButton.menu?.addItem(face)
-        let entries: [(NSMenuItem, Selector)] = [
-            (invisiblesItem, #selector(toggleInvisibles(_:))),
-            (wordDiffItem, #selector(toggleWordDiff(_:))),
-            (ignoreAllItem, #selector(toggleIgnoreAll(_:))),
-            (ignoreChangesItem, #selector(toggleIgnoreChanges(_:))),
-            (ignoreBlankLinesItem, #selector(toggleIgnoreBlankLines(_:))),
-        ]
-        for (item, action) in entries {
-            item.target = self
-            item.action = action
-            if item === wordDiffItem || item === ignoreAllItem { optionsButton.menu?.addItem(.separator()) }
-            optionsButton.menu?.addItem(item)
-        }
-        ignoreAllItem.toolTip = "git diff -w --ignore-cr-at-eol"
-        ignoreChangesItem.toolTip = "git diff -b --ignore-cr-at-eol"
-        ignoreBlankLinesItem.toolTip = "git diff --ignore-blank-lines"
-        wordDiffItem.toolTip = "git diff --word-diff"
+        showOptionStates()
     }
 
+    /// The pull-down's first item is its face; the options follow from their data, with the current states.
     private func showOptionStates() {
-        invisiblesItem.state = options.showsInvisibles ? .on : .off
-        wordDiffItem.state = options.wordDiff ? .on : .off
-        ignoreAllItem.state = options.whitespace.ignoring == .all ? .on : .off
-        ignoreChangesItem.state = options.whitespace.ignoring == .changes ? .on : .off
-        ignoreBlankLinesItem.state = options.whitespace.ignoresBlankLines ? .on : .off
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let face = NSMenuItem()
+        face.image = NSImage(systemSymbolName: "slider.horizontal.3", accessibilityDescription: optionsButton.toolTip)
+        menu.addItem(face)
+        MenuAdapter.items(MenuBuilder.diffOptions(options) { [weak self] edit in self?.change(edit) }).forEach(menu.addItem)
+        optionsButton.menu = menu
     }
 
     private func change(_ edit: (inout DiffOptions) -> Void) {
@@ -208,12 +187,6 @@ final class DiffHeaderView: BarView {
         guard offeredImageModes.indices.contains(imageModes.selectedSegment) else { return }
         onImageModeChange?(offeredImageModes[imageModes.selectedSegment])
     }
-    @objc private func toggleInvisibles(_ sender: Any?) { change { $0.showsInvisibles.toggle() } }
-    @objc private func toggleWordDiff(_ sender: Any?) { change { $0.wordDiff.toggle() } }
-    /// Ignoring all whitespace and only its amount exclude each other.
-    @objc private func toggleIgnoreAll(_ sender: Any?) { change { $0.whitespace.ignoring = $0.whitespace.ignoring == .all ? .nothing : .all } }
-    @objc private func toggleIgnoreChanges(_ sender: Any?) { change { $0.whitespace.ignoring = $0.whitespace.ignoring == .changes ? .nothing : .changes } }
-    @objc private func toggleIgnoreBlankLines(_ sender: Any?) { change { $0.whitespace.ignoresBlankLines.toggle() } }
     @objc private func goPrevious(_ sender: Any?) { onPrevious?() }
     @objc private func goNext(_ sender: Any?) { onNext?() }
     @objc private func runFileAction(_ sender: Any?) { onFileAction?() }

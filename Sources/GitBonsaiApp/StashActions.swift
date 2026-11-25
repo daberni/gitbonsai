@@ -70,18 +70,14 @@ final class StashActions {
     // MARK: Toolbar
 
     /// The toolbar's Stash menu: stashing everything at once is its default; the others ask for a message or take only the staged changes.
-    func stashMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        let all = ActionMenuItem(LocalizedStringResource("stash.menu.all", defaultValue: "Stash all changes", bundle: .module)) { [weak self] in self?.stashNow(.includingUntracked) }
+    func toolbarGroups() -> [[MenuEntry]] {
+        var all = MenuEntry(LocalizedStringResource("stash.menu.all", defaultValue: "Stash all changes", bundle: .module)) { [weak self] in self?.stashNow(.includingUntracked) }
         all.toolTip = String(localized: "stash.menu.allToolTip", defaultValue: "\(StashScope.includingUntracked.commandLine) -m “WIP on <branch>: <HEAD>”", bundle: .module, comment: "Tooltip: the git command with the message it writes; <branch> and <HEAD> are placeholders.")
-        menu.addItem(all)
-        menu.addItem(ActionMenuItem(LocalizedStringResource("stash.action.withMessage", defaultValue: "Stash with Message…", bundle: .module)) { [weak self] in self?.stashWithMessage() })
-        let staged = ActionMenuItem(LocalizedStringResource("stash.action.stagedOnly", defaultValue: "Stash staged changes only", bundle: .module)) { [weak self] in self?.stashNow(.staged) }
+        let message = MenuEntry(LocalizedStringResource("stash.action.withMessage", defaultValue: "Stash with Message…", bundle: .module)) { [weak self] in self?.stashWithMessage() }
+        var staged = MenuEntry(LocalizedStringResource("stash.action.stagedOnly", defaultValue: "Stash staged changes only", bundle: .module)) { [weak self] in self?.stashNow(.staged) }
         staged.toolTip = StashScope.staged.commandLine
-        staged.isEnabled = hasStagedChanges
-        menu.addItem(staged)
-        return menu
+        staged.isDisabled = !hasStagedChanges
+        return [[all, message, staged]]
     }
 
     var hasStagedChanges: Bool { !(viewModel.status?.staged.isEmpty ?? true) }
