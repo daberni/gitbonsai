@@ -165,7 +165,7 @@ final class DetailView: NSView {
         return button
     }
 
-    /// The subject with the pencil at the right, centred on its first line; the editor replaces both.
+    /// The subject with the pencil at the right, centred on the capitals of its first line; the editor replaces both.
     func subjectRow(_ subject: NSTextField, edit button: NSButton) -> NSView {
         let row = NSView()
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -173,14 +173,13 @@ final class DetailView: NSView {
             view.translatesAutoresizingMaskIntoConstraints = false
             row.addSubview(view)
         }
-        let firstLineMiddle = NSLayoutManager().defaultLineHeight(for: Theme.title) / 2
         NSLayoutConstraint.activate([
             subject.leadingAnchor.constraint(equalTo: row.leadingAnchor),
             subject.topAnchor.constraint(equalTo: row.topAnchor),
             subject.bottomAnchor.constraint(equalTo: row.bottomAnchor),
             subject.trailingAnchor.constraint(lessThanOrEqualTo: button.leadingAnchor, constant: -Theme.Space.s),
             button.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            button.centerYAnchor.constraint(equalTo: subject.topAnchor, constant: firstLineMiddle),
+            button.centerYAnchor.constraint(equalTo: subject.firstBaselineAnchor, constant: -Theme.title.capHeight / 2),
             button.widthAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
             button.heightAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
         ])
@@ -189,7 +188,7 @@ final class DetailView: NSView {
 
     /// The trash beside the working directory's title: discards staged and unstaged changes after asking.
     private func addDiscardAllButton() {
-        guard let lead = titleRow?.lead else { return }
+        guard let lead = titleRow?.lead, let titleLabel = lead.arrangedSubviews.first, let box = lead.superview else { return }
         let button = LinkButton(target: self, action: #selector(discardAllPressed(_:)))
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.Detail.DiscardAll.symbol, weight: .regular)
         let title = String(localized: "detail.workingDirectory.discardAll", defaultValue: "Discard all Changes…", bundle: .module, comment: "Tooltip of the trash in the working directory's title")
@@ -199,11 +198,15 @@ final class DetailView: NSView {
         button.toolTip = title
         button.setAccessibilityIdentifier("detail.discardAll")
         button.translatesAutoresizingMaskIntoConstraints = false
+        // Centred on the title's capitals rather than on its baseline, which would sit the icon low.
+        box.addSubview(button)
         NSLayoutConstraint.activate([
+            button.leadingAnchor.constraint(equalTo: lead.trailingAnchor, constant: Theme.Space.s),
+            button.centerYAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor, constant: -Theme.label.capHeight / 2),
             button.widthAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
             button.heightAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
         ])
-        lead.addArrangedSubview(button)
+        titleRow?.parents.leadingAnchor.constraint(greaterThanOrEqualTo: button.trailingAnchor, constant: Theme.Space.m).isActive = true
     }
 
     @objc private func discardAllPressed(_ sender: NSButton) {
