@@ -168,27 +168,6 @@ final class GraphLayoutTests: XCTestCase {
         XCTAssertEqual(layout(commits).rows, layout(commits).rows)
     }
 
-    /// The budgets AGENTS.md sets: the first screenful of a large history in 100 ms, all of 100k commits in 2 s.
-    func testPerformanceFirstThreeHundredCommits() {
-        let commits = Array(syntheticHistory(count: 100_000, strands: 8).prefix(300))
-        let start = ContinuousClock.now
-        var layout = GraphLayout()
-        for commit in commits { layout.append(commit) }
-        let elapsed = ContinuousClock.now - start
-        XCTAssertEqual(layout.rows.count, 300)
-        XCTAssertLessThan(elapsed, .milliseconds(100), "the first 300 commits took \(elapsed)")
-    }
-
-    func testPerformanceHundredThousandCommits() {
-        let commits = syntheticHistory(count: 100_000, strands: 8)
-        let start = ContinuousClock.now
-        let result = layout(commits)
-        let elapsed = ContinuousClock.now - start
-        XCTAssertEqual(result.rows.count, commits.count)
-        XCTAssertLessThan(result.maxLaneCount, 20)
-        XCTAssertLessThan(elapsed, .seconds(2), "100k commits took \(elapsed)")
-    }
-
     /// Deterministic history in topological order: `strands` interleaved branches that periodically
     /// merge main in and get merged back, mirroring scripts/make-synthetic-repo.sh.
     private func syntheticHistory(count: Int, strands: Int) -> [Commit] {

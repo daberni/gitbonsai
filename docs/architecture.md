@@ -9,9 +9,10 @@ See also: [Feature overview](feature-overview.md) · [Screens](screens.md) · [F
 | Engine | `GitEngine` | Foundation | Process runner, models, parsers, the `Repository` facade, file watching, command rules, commit search |
 | Layout | `GraphLayout` | `GitEngine` | Incremental lane layout of the commit graph, row diffs for in-place refreshes; pure functions over `Commit` values |
 | Avatars | `Avatars` | Foundation | Author avatars from the remote host (GitHub, GitLab) or Gravatar, with memory and disk caches |
-| App | `GitBonsaiApp` | all three, AppKit | Windows and tabs, history, diff, sidebar, sheets, settings, command bar, and `ScreenshotHarness` for verification |
+| App | `GitBonsai` | all three, AppKit | Windows and tabs, history, diff, sidebar, sheets, settings, command bar; the string catalog and assets; `main.swift` builds the `AppContext` |
+| Benchmarks | `Benchmarks` | `GitEngine`, `GraphLayout` | The performance budgets: engine work in process, the app's paths from its signposts in a launched app |
 
-Rules: `GitEngine`, `GraphLayout` and `Avatars` import neither AppKit nor SwiftUI. Every repository read and write is a `git` command run by `GitRunner`; nothing is reimplemented that git itself provides. [git-operations.md](git-operations.md) lists the command behind every operation.
+Rules: `GitEngine`, `GraphLayout` and `Avatars` import neither AppKit nor SwiftUI. Tests reach the app through `@testable import GitBonsai`; nothing links the app. Every repository read and write is a `git` command run by `GitRunner`; nothing is reimplemented that git itself provides. [git-operations.md](git-operations.md) lists the command behind every operation.
 
 The app is AppKit with SwiftUI for self-contained forms and panels; section 1.1 states the rule.
 
@@ -19,7 +20,7 @@ The app is AppKit with SwiftUI for self-contained forms and panels; section 1.1 
 
 Decided after the settings spike (`docs/spikes/settings-swiftui.md`).
 
-**AppKit** for the main window and everything inside it: window, tab row in the title bar, toolbar, sidebar, history table and graph, detail panel and file lists, diff and conflict views, popovers with custom rows, the command bar and the interactive rebase sheet. These need custom CoreGraphics drawing, virtualized lists of up to 100k rows, precise focus, key and click handling, and the harness's real-event driving. The main window is expected to stay AppKit.
+**AppKit** for the main window and everything inside it: window, tab row in the title bar, toolbar, sidebar, history table and graph, detail panel and file lists, diff and conflict views, popovers with custom rows, the command bar and the interactive rebase sheet. These need custom CoreGraphics drawing, virtualized lists of up to 100k rows, precise focus, key and click handling. The main window is expected to stay AppKit.
 
 **SwiftUI**, hosted in AppKit through `NSHostingController`, for self-contained forms and panels that are mostly standard controls: the settings window today; candidates are the welcome page, form sheets (clone, new branch, failure) and future side panels.
 
@@ -28,7 +29,7 @@ Rules for SwiftUI surfaces:
 - State goes through a small `@Observable` model that reads and writes the existing stores (`AppSettings`, controllers); no second copy of state.
 - Design tokens come from `DesignTokens+SwiftUI.swift`; no literal sizes or colours, as in AppKit.
 - Text is `LocalizedStringResource("key", defaultValue: "…", bundle: .module, comment: …)` with semantic keys.
-- Every interactive control has an accessibility identifier, so `ScreenshotHarness` can find and click it through the accessibility tree.
+- Every interactive control has an accessibility identifier, so GUI tools can find and press it through the accessibility tree.
 - Content-sized windows measure the form (`onScrollGeometryChange`) and cap the height.
 
 Never mix the two inside one surface beyond a hosted view; a SwiftUI view per commit or per list row in the main window is ruled out.
@@ -52,7 +53,6 @@ Dependencies are passed by initializer, never looked up: there is no shared inst
 - `TabLifecycle` owns visibility and the end of a tab: it holds the file watcher's `TabReconciler` and the `AutoFetchScheduler`, and `close()` stops both, the view model's loading and observers, and answers every waiting question with no window.
 - Names say what a type owns. `…Controller` (and `…ViewController`, `…WindowController`) owns views or windows. `…UseCase` runs one git operation with the questions it asks (`FastForwardUseCase`, `PullUseCase`, `PushUseCase`, `CheckoutUseCase`). `…Actions` runs the actions of one menu subject (`BranchActions`, `CommitActions`, `FileActions`, `WorktreeActions`, `RemoteActions`, `TagActions`, `StashActions`). `…ViewModel` holds state that views show (`GraphViewModel`, `CommitSearchViewModel`); a plain noun holds shared state (`UpstreamStatus`, `UndoHistory`).
 - Menus are data. Each subject's actions return their entries (`MenuEntry`: title, disabled reason, checkmark, ⌥ alternate, action or submenu) in the shared groups of `MenuSections`; `MenuBuilder` assembles every sidebar, list and history menu from them by `MenuSubject` (branch, tag, worktree, stash, remote, commit) and `MenuContext` (`.sidebar`, `.historyPill`, `.historyRow(refs:)`), as well as the toolbar's split-button menus (`ToolbarMenu`), the file lists' menu and the diff options, and `MenuAdapter` makes the `NSMenuItem`s. `MainMenu.groups(for:commands:order:)` gives the menu bar's sections as entries too, whose commands it routes to its target. Tests read the data without a window.
-- Production code reaches `ScreenshotHarness` only at call sites marked `// harness:`, each saying what the out-of-process harness will do instead.
 
 ## 2. GitRunner
 
@@ -145,20 +145,27 @@ Operations are `Task`s; streams are cancelled when a tab closes or switches work
 
 ## 8. Performance
 
-Budgets that are tests (`swift test --filter Performance`):
+Budgets are benchmarks, not tests: `swift run -c release Benchmarks` (see the README).
 
-| Measure | Test |
-|---|---|
-| `GraphLayout` over 100k synthetic commits | `GraphLayoutTests.testPerformanceHundredThousandCommits`, under 3 s |
-| Commit search over 100k commits | `CommitSearchTests.testPerformanceHundredThousandCommits` |
+| Measure | Benchmark | Where | Budget |
+|---|---|---|---|
+| Opening a 100k-commit repository until 300 history rows are laid out | `history.open300` | app, signpost `repository.open` | 100 ms |
+| `GraphLayout` over 100k synthetic commits | `layout.100k` | in process | 2 s |
+| A commit search that matches nothing in 100k commits | `search.100k.miss` | in process | 300 ms |
+| The file list handed 10,000 rows until it draws them | `files.10k.firstRows` | app, signpost `files.load` | 100 ms |
+
+The app cases launch `GitBonsai Dev.app` isolated through `scripts/launch-dev.sh` once per iteration and read the interval from `log stream --signpost`; they include a real launch's cold caches.
+
+Long-running work emits signpost intervals through `Signposts` (subsystem `app.gitbonsai`, Points of Interest): `repository.open` (until the first 300 rows), `history.load`, `history.refresh`, `diff.load`, `files.load` (until the list draws), `fetch`, `pull`, `push`, `clone`, `rebase`, `rebase.interactive`, `search`, `discovery`, `avatar.lookup`, `commitGraph.write`. They are production telemetry for Instruments and the benchmarks; details that name paths or refs are private. `GitRunner` writes one unified-log line per git call (category `git`).
+
+`Benchmarks/baseline.json` holds medians from a developer machine; `--compare` checks against it only locally, while CI measures and uploads its JSON.
 
 `scripts/make-synthetic-repo.sh <folder> 100000` creates a 100k-commit repository with branches and merges for checks by hand in the app.
 
 ## 9. Verification
 
-UI work is verified in the running app, without a human, through `ScreenshotHarness`:
+The app holds no code for verification; checks reach it through its ordinary dependencies or from outside.
 
-- `GITBONSAI_SCREENSHOT=<png> swift run GitBonsaiApp <repo>` renders the window to a PNG once loading has finished and quits. Harness runs stay in the background, keep their session in their own defaults domain (`app.gitbonsai.harness`) and never fetch or load avatars unless asked.
-- Further `GITBONSAI_*` switches drive the app with real mouse and key events through the window (clicks, drags, menus, sheets, the command bar) and print its state as text: the history, the selection, menus with their enabled state, toolbar badges, the status line. The README lists every switch by area.
-- Each area's switches live in their own `ScreenshotHarness+<Area>.swift` extension; `ScreenshotHarness.swift` holds the shared helpers.
+- Use cases, menus and loading are unit tests against fixture repositories; a tab built without a window answers its questions through an injected `Prompting` (`TabFixture`).
+- Changes are checked in the real app with a GUI tool (Accessibility tree, screenshots) against an isolated launch from `scripts/launch-dev.sh`: a copy of the dev bundle with its own defaults domain, a throwaway home and a fixture repository, in the background by default. The app's traces are in the unified log (subsystem `app.gitbonsai`, `TraceSink`).
 - Engine and layout logic is covered by XCTest against fixture repositories that `Tests/GitEngineTests/FixtureRepo.swift` builds with git in a temporary folder.

@@ -1,0 +1,38 @@
+{
+  "date" : "2026-11-25T16:33:25Z",
+  "machine" : "Apple M1 Pro, macOS Version 27.2.1 (Build 26B131)",
+  "results" : [
+    {
+      "budgetMs" : 100,
+      "iterations" : 5,
+      "maxMs" : 218.835416,
+      "medianMs" : 197.116166,
+      "minMs" : 124.041,
+      "name" : "history.open300"
+    },
+    {
+      "budgetMs" : 2000,
+      "iterations" : 5,
+      "maxMs" : 97.167458,
+      "medianMs" : 91.832625,
+      "minMs" : 91.561916,
+      "name" : "layout.100k"
+    },
+    {
+      "budgetMs" : 300,
+      "iterations" : 5,
+      "maxMs" : 6.725,
+      "medianMs" : 6.671917,
+      "minMs" : 6.619292,
+      "name" : "search.100k.miss"
+    },
+    {
+      "budgetMs" : 100,
+      "iterations" : 5,
+      "maxMs" : 16.76675,
+      "medianMs" : 15.692458,
+      "minMs" : 14.162625,
+      "name" : "files.10k.firstRows"
+    }
+  ]
+}

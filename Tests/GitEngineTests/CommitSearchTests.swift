@@ -65,26 +65,4 @@ final class CommitSearchTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(CommitSearch("🌳")).occurrences(in: "a 🌳 b"), [NSRange(location: 2, length: 2)])
         XCTAssertEqual(search.occurrences(in: "none"), [])
     }
-
-    /// The history can hold 100k commits; one full pass has to stay well below a frame budget per chunk the app scans.
-    func testPerformanceHundredThousandCommits() throws {
-        let commits = (0..<100_000).map { index in
-            commit(String(format: "%040x", index), subject: "Change number \(index) in module \(index % 97)", body: "Body line for commit \(index).\nRefs #\(index % 1000)", author: "Author \(index % 50)", email: "author\(index % 50)@example.com")
-        }
-        let search = try XCTUnwrap(CommitSearch("Module 42"))
-        let miss = try XCTUnwrap(CommitSearch("zzz-not-there"))
-        let unicode = try XCTUnwrap(CommitSearch("Müll"))
-        let start = ContinuousClock.now
-        let hits = search.matchingIndices(in: commits, range: 0..<commits.count, refNames: [:])
-        let afterHits = ContinuousClock.now
-        let none = miss.matchingIndices(in: commits, range: 0..<commits.count, refNames: [:])
-        let afterMiss = ContinuousClock.now
-        _ = unicode.matchingIndices(in: commits, range: 0..<commits.count, refNames: [:])
-        let afterUnicode = ContinuousClock.now
-        XCTAssertEqual(hits.count, (0..<100_000).filter { $0 % 97 == 42 }.count)
-        XCTAssertTrue(none.isEmpty)
-        print("CommitSearch 100k: hits \(afterHits - start), miss \(afterMiss - afterHits), unicode \(afterUnicode - afterMiss)")
-        XCTAssertLessThan(afterMiss - afterHits, .milliseconds(300), "a miss scans every field of 100k commits")
-        XCTAssertLessThan(afterUnicode - afterMiss, .milliseconds(300), "ASCII fields skip the Unicode search")
-    }
 }

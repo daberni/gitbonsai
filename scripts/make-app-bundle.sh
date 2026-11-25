@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds the app bundle: release binary, its resource bundle with the compiled String Catalog, Info.plist, the compiled app icon (Assets.car plus a classic .icns) and a signature.
+# Builds the app bundle from the `GitBonsai` product: release binary, its resource bundle with the compiled String Catalog, Info.plist, the compiled app icon (Assets.car plus a classic .icns) and a signature.
 # Usage: scripts/make-app-bundle.sh [--release] [output directory, default .build/app]
 #   Without --release it builds "GitBonsai Dev.app" with bundle id app.gitbonsai.dev, so a bundle built for trying out never shares defaults, open tabs or settings with an installed release.
 #   --release builds GitBonsai.app with bundle id app.gitbonsai.
@@ -34,15 +34,15 @@ work=$(mktemp -d)
 trap 'rm -rf $work' EXIT
 
 echo "› $name $version ($build), $bundle_id"
-echo "› swift build -c release --product GitBonsaiApp"
-swift build --package-path $root -c release --product GitBonsaiApp
+echo "› swift build -c release --product GitBonsai"
+swift build --package-path $root -c release --product GitBonsai
 bin=$(swift build --package-path $root -c release --show-bin-path)
 
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp $bin/GitBonsaiApp "$app/Contents/MacOS/GitBonsai"
+cp $bin/GitBonsai "$app/Contents/MacOS/GitBonsai"
 # Bundle.module looks for SwiftPM's resource bundle in Contents/Resources; it holds en.lproj and de.lproj compiled from Localizable.xcstrings.
-cp -R $bin/GitBonsai_GitBonsaiApp.bundle "$app/Contents/Resources/"
+cp -R $bin/GitBonsai_GitBonsai.bundle "$app/Contents/Resources/"
 
 # actool turns the layered Icon Composer document into Assets.car, which macOS 26 renders in every appearance.
 echo "› actool AppIcon.icon"
@@ -61,7 +61,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 	<string>GitBonsai</string>
 	<key>CFBundleLocalizations</key>
 	<array>
-$(for lproj in "$app"/Contents/Resources/GitBonsai_GitBonsaiApp.bundle/Contents/Resources/*.lproj; do echo "		<string>${lproj:t:r}</string>"; done)
+$(for lproj in "$app"/Contents/Resources/GitBonsai_GitBonsai.bundle/Contents/Resources/*.lproj; do echo "		<string>${lproj:t:r}</string>"; done)
 	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>

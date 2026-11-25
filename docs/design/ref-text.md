@@ -6,7 +6,7 @@ Decision: D2 without the highlight swap: inline mini pills with a hidden plain c
 
 ## Inventory
 
-Commits and SHAs follow the same style as refs (`\(commit: id)`). About 110 interpolations with German quotes „…“ in 26 files of `Sources/GitBonsaiApp`, plus about 30 with bare SHAs or names (for example `Checkout Commit \(id.prefix(7))`, `Create Branch at 1a2b3c4`, the toolbar's upstream text, `RebaseUndoController`).
+Commits and SHAs follow the same style as refs (`\(commit: id)`). About 110 interpolations with German quotes „…“ in 26 files of `Sources/GitBonsai`, plus about 30 with bare SHAs or names (for example `Checkout Commit \(id.prefix(7))`, `Create Branch at 1a2b3c4`, the toolbar's upstream text, `RebaseUndoController`).
 
 - Menus (≈45): `BranchActions`, `CheckoutUseCase`, `CommitActions`, `RebaseOntoUseCase`, `PullUseCase`, `PushUseCase`, `FetchUseCase`, `TagActions`, `FileActions`, `WorktreeActions`.
 - Sheet titles and messages (≈45): the same controllers plus `SidebarActionsController`, `StagingUseCase`, `StashActions`, `InteractiveRebaseUseCase`/`Sheet`, `RebaseUndoController`. Most go through `NSAlert` (`ActionForm`, `ActionRunner.confirm`).

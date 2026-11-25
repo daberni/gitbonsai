@@ -2,7 +2,7 @@
 
 GitBonsai is a native macOS git client. Its design follows the bonsai: calm, warm, crafted, patient. Nothing blinks, nothing pushes. The graph is the plant, the interface is the bowl.
 
-Token names below refer to [tokens.json](tokens.json), which `Sources/GitBonsaiApp/DesignTokens.swift` mirrors.
+Token names below refer to [tokens.json](tokens.json), which `Sources/GitBonsai/DesignTokens.swift` mirrors.
 
 ## Principles
 

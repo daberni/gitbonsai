@@ -5,7 +5,7 @@ import XCTest
 /// The literal scan is a heuristic over the source text (no type information); `LiteralScanner` lists what it can and cannot see.
 final class LocalizationTests: XCTestCase {
     private static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    private static let appSources = root.appendingPathComponent("Sources/GitBonsaiApp")
+    private static let appSources = root.appendingPathComponent("Sources/GitBonsai")
     private static let catalogURL = appSources.appendingPathComponent("Resources/Localizable.xcstrings")
 
     func testKeysFollowTheScheme() throws {
@@ -40,7 +40,7 @@ final class LocalizationTests: XCTestCase {
     /// Compares the catalog with what the compiler extracted in the last build. Skips when no build output is there, for example on a clean checkout that only built the tests.
     func testCatalogMatchesTheKeysTheCodeUses() throws {
         let extracted = try ExtractedKeys.load(root: Self.root)
-        guard !extracted.isEmpty else { throw XCTSkip("No .stringsdata of GitBonsaiApp under .build/out; build the app first.") }
+        guard !extracted.isEmpty else { throw XCTSkip("No .stringsdata of GitBonsai under .build/out; build the app first.") }
         let catalog = try Catalog(url: Self.catalogURL)
         let used = Set(extracted.keys)
         let missing = used.subtracting(catalog.entries.keys).sorted()
@@ -52,7 +52,7 @@ final class LocalizationTests: XCTestCase {
     /// The `defaultValue` in the code is what a reader takes for the English text, so it has to be the catalog's English; a plural key matches its `other` variant.
     func testEnglishInTheCodeMatchesTheCatalog() throws {
         let extracted = try ExtractedKeys.load(root: Self.root)
-        guard !extracted.isEmpty else { throw XCTSkip("No .stringsdata of GitBonsaiApp under .build/out; build the app first.") }
+        guard !extracted.isEmpty else { throw XCTSkip("No .stringsdata of GitBonsai under .build/out; build the app first.") }
         let catalog = try Catalog(url: Self.catalogURL)
         var problems: [String] = []
         for (key, values) in extracted.sorted(by: { $0.key < $1.key }) {
@@ -226,7 +226,7 @@ enum ExtractedKeys {
         let intermediates = root.appendingPathComponent(".build/out/Intermediates.noindex/GitBonsai.build")
         guard let enumerator = FileManager.default.enumerator(at: intermediates, includingPropertiesForKeys: nil) else { return [:] }
         var keys: [String: [String?]] = [:]
-        for case let url as URL in enumerator where url.pathExtension == "stringsdata" && url.path.contains("/GitBonsaiApp") && url.path.contains("/Debug/") {
+        for case let url as URL in enumerator where url.pathExtension == "stringsdata" && url.path.contains(/\/GitBonsai-[a-z]+\.build\//) && url.path.contains("/Debug/") {
             // The build writes them as JSON; xcstringstool may write binary property lists.
             let data = try Data(contentsOf: url)
             let plist = try (try? JSONSerialization.jsonObject(with: data)) ?? PropertyListSerialization.propertyList(from: data, format: nil)
@@ -269,14 +269,12 @@ enum LiteralScanner {
 
     static func findings(in file: URL) throws -> [String] {
         let lines = try String(contentsOf: file, encoding: .utf8).components(separatedBy: "\n")
-        // The harness's reports are diagnostics for whoever runs it, not interface text; its comparisons with titles still have to be localized.
-        let diagnostics = file.lastPathComponent.hasPrefix("ScreenshotHarness")
         return lines.enumerated().flatMap { index, line in
-            findings(inLine: line, diagnostics: diagnostics).map { "\(file.lastPathComponent):\(index + 1): \($0)" }
+            findings(inLine: line).map { "\(file.lastPathComponent):\(index + 1): \($0)" }
         }
     }
 
-    static func findings(inLine rawLine: String, diagnostics: Bool = false) -> [String] {
+    static func findings(inLine rawLine: String) -> [String] {
         let line = codePart(of: rawLine)
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("print(") || trimmed.contains("FileHandle.standardError") || trimmed.hasPrefix("///") { return [] }
@@ -288,7 +286,7 @@ enum LiteralScanner {
         for (literal, prefix) in literals(in: line) {
             if allowed.contains(literal) { continue }
             let localized = prefix.contains("String(localized:") || prefix.contains("LocalizedStringResource(")
-            if looksGerman(literal) && !diagnostics {
+            if looksGerman(literal) {
                 result.append("German-looking literal \"\(literal)\"")
             } else if !localized, looksLikeCopy(literal), let sink = sinks.first(where: { prefix.hasSuffix($0) || prefix.hasSuffix($0 + " ") }) {
                 result.append("literal \"\(literal)\" passed to \(sink)")

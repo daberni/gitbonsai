@@ -2,9 +2,11 @@
 import Foundation
 import PackageDescription
 
-// A bare executable (swift run, harness runs) has no Info.plist, and without CFBundleLocalizations in the main bundle macOS shows every resource bundle in the development language.
+// A bare executable (swift run) has no Info.plist, and without CFBundleLocalizations in the main bundle macOS shows every resource bundle in the development language.
 // The linker embeds this one; GitBonsai.app carries the same keys in its own Info.plist, which takes precedence.
-let embeddedInfoPlist = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Sources/GitBonsaiApp/Support/Info.plist").path
+let embeddedInfoPlist = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Sources/GitBonsai/Support/Info.plist").path
+
+let embedInfoPlist: [LinkerSetting] = [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", embeddedInfoPlist])]
 
 let package = Package(
     name: "GitBonsai",
@@ -15,24 +17,21 @@ let package = Package(
         .library(name: "GitEngine", targets: ["GitEngine"]),
         .library(name: "GraphLayout", targets: ["GraphLayout"]),
         .library(name: "Avatars", targets: ["Avatars"]),
-        .executable(name: "GitBonsaiApp", targets: ["GitBonsaiApp"]),
+        .executable(name: "GitBonsai", targets: ["GitBonsai"]),
     ],
     targets: [
         .target(name: "GitEngine"),
         .target(name: "GraphLayout", dependencies: ["GitEngine"]),
         .target(name: "Avatars"),
-        .executableTarget(
-            name: "GitBonsaiApp",
-            dependencies: ["GitEngine", "GraphLayout", "Avatars"],
-            exclude: ["Support"],
-            resources: [.process("Resources")],
-            linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", embeddedInfoPlist])]
-        ),
+        // The app; tests reach it through `@testable import GitBonsai`.
+        .executableTarget(name: "GitBonsai", dependencies: ["GitEngine", "GraphLayout", "Avatars"], exclude: ["Support"], resources: [.process("Resources")], linkerSettings: embedInfoPlist),
+        // Performance budgets: `swift run -c release Benchmarks`, kept out of `swift test`. Engine work runs in process; the app's own paths are measured from outside through its signposts.
+        .executableTarget(name: "Benchmarks", dependencies: ["GitEngine", "GraphLayout"], path: "Benchmarks", exclude: ["baseline.json"]),
         .testTarget(name: "GitEngineTests", dependencies: ["GitEngine", "GraphLayout"]),
         .testTarget(name: "GraphLayoutTests", dependencies: ["GraphLayout", "GitEngine"]),
         .testTarget(name: "AvatarsTests", dependencies: ["Avatars"]),
         .testTarget(name: "LocalizationTests"),
-        .testTarget(name: "GitBonsaiAppTests", dependencies: ["GitBonsaiApp", "GitEngine", "Avatars"]),
+        .testTarget(name: "GitBonsaiTests", dependencies: ["GitBonsai", "GitEngine", "Avatars"]),
     ],
     swiftLanguageModes: [.v6]
 )

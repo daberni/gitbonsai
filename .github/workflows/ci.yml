@@ -5,13 +5,17 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Nightly benchmarks; the build-and-test job skips scheduled runs.
+    - cron: "17 2 * * *"
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-and-test:
+    if: github.event_name != 'schedule'
     # The code needs Swift 6.4 (Xcode 27); the macos-26 image's Xcode 26 cannot compile it. See docs/release.md.
     runs-on: xcode-27
     timeout-minutes: 45
@@ -30,3 +34,23 @@ jobs:
         run: swift build -c release -Xswiftc -warnings-as-errors
       - name: Tests
         run: swift test
+
+  benchmarks:
+    # Medians on a shared virtualised Mac vary with its neighbours and are not comparable with the baseline from a developer machine, so this job only measures and keeps the JSON.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_27.2.app
+      - name: Benchmarks
+        # The runner has no window server, so the benchmarks that launch the app stay local.
+        run: swift run -c release Benchmarks --engine-only --json benchmarks.json
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: benchmarks.json
+          if-no-files-found: ignore

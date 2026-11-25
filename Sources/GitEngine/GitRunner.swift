@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Synchronization
 
 public struct GitError: Error, Sendable, CustomStringConvertible {
@@ -234,6 +235,7 @@ public actor GitRunner {
     public static let commandLogOutputLimit = 16 * 1024
 
     private func record(_ result: GitCommandResult, startedAt: Date) {
+        GitCommandTrace.write(result, in: repositoryPath)
         log.append(GitCommandLogEntry(startedAt: startedAt, result: result.truncated(to: Self.commandLogOutputLimit)))
         if log.count > Self.commandLogCapacity {
             log.removeFirst(log.count - Self.commandLogCapacity)
@@ -311,6 +313,50 @@ actor IndexLockQueue {
             busy = false
         } else {
             waiting.removeFirst().continuation.resume()
+        }
+    }
+}
+
+/// One line per git invocation in the unified log (subsystem `app.gitbonsai`, category `git`): the subcommand, duration and exit code in the clear, the arguments, the folder and on failure the start of stderr as private, credentials in URLs removed.
+enum GitCommandTrace {
+    private static let logger = Logger(subsystem: "app.gitbonsai", category: "git")
+    private static let stderrExcerpt = 500
+
+    static func write(_ result: GitCommandResult, in folder: String) {
+        let subcommand = subcommand(of: result.arguments)
+        let arguments = redacted(result.arguments).joined(separator: " ")
+        let milliseconds = Int(result.duration * 1_000)
+        if result.exitCode == 0 {
+            logger.debug("git \(subcommand, privacy: .public) [\(arguments, privacy: .private)] in \(folder, privacy: .private): exit 0, \(milliseconds, privacy: .public) ms")
+        } else {
+            let excerpt = String(result.stderr.prefix(stderrExcerpt))
+            logger.error("git \(subcommand, privacy: .public) [\(arguments, privacy: .private)] in \(folder, privacy: .private): exit \(result.exitCode, privacy: .public), \(milliseconds, privacy: .public) ms: \(excerpt, privacy: .private)")
+        }
+    }
+
+    /// The first argument that is no option and no option's value: `-c` and `-C` take one.
+    static func subcommand(of arguments: [String]) -> String {
+        var index = arguments.startIndex
+        while index < arguments.endIndex {
+            let argument = arguments[index]
+            if argument == "-c" || argument == "-C" {
+                index += 2
+            } else if argument.hasPrefix("-") {
+                index += 1
+            } else {
+                return argument
+            }
+        }
+        return "git"
+    }
+
+    /// Arguments with the user and password of URLs (`https://user:token@host/…`) replaced, so a credential typed into a remote URL never reaches the log.
+    static func redacted(_ arguments: [String]) -> [String] {
+        arguments.map { argument in
+            guard let scheme = argument.range(of: "://"), let at = argument[scheme.upperBound...].firstIndex(of: "@") else { return argument }
+            let authority = argument[scheme.upperBound..<at]
+            guard !authority.contains("/") else { return argument }
+            return argument.replacingCharacters(in: scheme.upperBound..<at, with: "***")
         }
     }
 }

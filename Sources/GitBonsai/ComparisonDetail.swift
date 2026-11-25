@@ -1,0 +1,152 @@
+import AppKit
+import GitEngine
+
+/// The detail panel while several commits are selected: what is compared, the git command behind it and the files that differ.
+/// Two commits compare directly, or from their merge base when they sit on different branches; a run on one line is combined like a squash; anything else lists each commit on its own.
+@MainActor
+final class ComparisonDetail: NSObject {
+    let commits: [Commit]
+    let headline: NSTextField
+    let command: NSTextField
+    let note: NSTextField
+    let baseSwitch = LabeledCheckbox(title: String(localized: "detail.comparison.sinceBase", defaultValue: "since common base", bundle: .module, comment: "Checkbox: compare two commits from their merge base"))
+    let filesHeader: NSTextField
+    var list: FileListView?
+    /// The file list was replaced after the base switch changed; an open diff follows its file.
+    var onFilesReplaced: (([FileRowView.Model]) -> Void)?
+    private(set) var comparison: CommitComparison?
+    private(set) var sinceMergeBase = false
+    private let repository: Repository
+    private var loadTask: Task<Void, Never>?
+
+    init(commits: [Commit], repository: Repository, label: (_ font: NSFont, _ color: NSColor) -> NSTextField) {
+        self.commits = commits
+        self.repository = repository
+        headline = label(Theme.title, Theme.ink)
+        command = label(Theme.monoSmall, Theme.inkMuted)
+        note = label(Theme.caption, Theme.inkMuted)
+        filesHeader = label(Theme.caption, Theme.inkMuted)
+        super.init()
+        headline.stringValue = String(localized: "common.commitCount", defaultValue: "\(commits.count) commits", bundle: .module)
+        note.isHidden = true
+        baseSwitch.isHidden = true
+        baseSwitch.target = self
+        baseSwitch.action = #selector(toggleBase(_:))
+        baseSwitch.toolTip = String(localized: "detail.comparison.sinceBaseToolTip", defaultValue: "Only the changes of the newer commit since the common ancestor (git diff <a>...<b>)", bundle: .module)
+    }
+
+    func load() {
+        loadTask?.cancel()
+        let repository = repository
+        let commits = commits
+        loadTask = Task { [weak self] in
+            let comparison = await repository.comparison(of: commits)
+            guard let self, !Task.isCancelled else { return }
+            self.comparison = comparison
+            describe()
+            await loadFiles(replacing: false)
+        }
+    }
+
+    func cancel() {
+        loadTask?.cancel()
+    }
+
+    @objc private func toggleBase(_ sender: LabeledCheckbox) {
+        sinceMergeBase = sender.isOn
+        describe()
+        loadTask?.cancel()
+        loadTask = Task { [weak self] in await self?.loadFiles(replacing: true) }
+    }
+
+    // MARK: Text
+
+    private func describe() {
+        guard let comparison else { return }
+        switch comparison {
+        case .pair(let older, let newer, let base):
+            headline.stringValue = "\(older.shortID) → \(newer.shortID) · " + String(localized: "common.commitCount", defaultValue: "\(2) commits", bundle: .module)
+            command.stringValue = sinceMergeBase ? "git diff \(older.shortID)...\(newer.shortID)" : "git diff \(older.shortID) \(newer.shortID)"
+            baseSwitch.isHidden = base == nil
+            note.isHidden = base == nil
+            if let base {
+                let text: LocalizedStringResource = sinceMergeBase ? LocalizedStringResource("detail.comparison.sinceBaseNote", defaultValue: "Only what \(RefName.commit(newer.id)) changed since the common base \(RefName.commit(base)).", bundle: .module) : LocalizedStringResource("detail.comparison.differentBranches", defaultValue: "The commits are on different branches; the diff also contains what only \(RefName.commit(older.id)) has.", bundle: .module)
+                note.setText(text)
+            }
+        case .run(let run):
+            let oldest = run[run.count - 1]
+            headline.stringValue = "\(oldest.shortID) → \(run[0].shortID) · " + String(localized: "common.commitCount", defaultValue: "\(run.count) commits", bundle: .module)
+            command.stringValue = oldest.parents.isEmpty ? "git diff " + String(localized: "detail.comparison.emptyTree", defaultValue: "<empty tree>", bundle: .module, comment: "Stands for git's empty tree in a shown git command") + " \(run[0].shortID)" : "git diff \(oldest.shortID)^ \(run[0].shortID)"
+            note.stringValue = String(localized: "detail.comparison.combined", defaultValue: "Combined like a squash.", bundle: .module)
+            note.isHidden = false
+        case .separate(let commits):
+            headline.stringValue = commits.reversed().map(\.shortID).joined(separator: ", ") + " · " + String(localized: "common.commitCount", defaultValue: "\(commits.count) commits", bundle: .module)
+            command.stringValue = "git show " + commits.map(\.shortID).joined(separator: " ")
+            note.stringValue = String(localized: "detail.comparison.notCombined", defaultValue: "No combined diff: the commits don’t follow each other directly on one line, so a single diff would also show the changes in between. Each commit stands on its own.", bundle: .module)
+            note.isHidden = false
+        }
+    }
+
+    // MARK: Files
+
+    private func loadFiles(replacing: Bool) async {
+        guard let comparison else { return }
+        var sections: [FileListView.Section] = []
+        var all: [ChangedFile] = []
+        switch comparison {
+        case .pair(let older, let newer, let base):
+            let from = sinceMergeBase ? base ?? older.id : older.id
+            let files = (try? await repository.changedFiles(from: from, to: newer.id)) ?? []
+            all = files
+            sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: newer.id)) }, action: nil)]
+        case .run(let run):
+            guard let oldest = run.last, let from = try? await repository.base(before: oldest) else { return }
+            let files = (try? await repository.changedFiles(from: from, to: run[0].id)) ?? []
+            all = files
+            sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: run[0].id)) }, action: nil)]
+        case .separate(let commits):
+            let repository = repository
+            let perCommit = await withTaskGroup(of: (Int, [ChangedFile]).self) { group in
+                for (index, commit) in commits.enumerated() {
+                    group.addTask { (index, (try? await repository.changedFiles(of: commit)) ?? []) }
+                }
+                var result = [[ChangedFile]](repeating: [], count: commits.count)
+                for await (index, files) in group { result[index] = files }
+                return result
+            }
+            all = perCommit.flatMap { $0 }
+            sections = zip(commits, perCommit).map { commit, files in
+                FileListView.Section(title: "\(commit.shortID)  \(commit.subject)", rows: files.map { Self.row($0, source: .commit(commit)) }, action: nil)
+            }
+        }
+        guard !Task.isCancelled, let list else { return }
+        let total = all.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
+        let summary = NSMutableAttributedString(string: String(localized: "detail.files.count", defaultValue: "\(all.count) files", bundle: .module) + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
+        summary.append(FileRowView.statText(total))
+        filesHeader.attributedStringValue = summary
+        list.show(sections)
+        if replacing { onFilesReplaced?(list.models) }
+    }
+
+    private static func row(_ file: ChangedFile, source: DiffSource) -> FileRowView.Model {
+        FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: source), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "detail.files.binary", defaultValue: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
+    }
+
+}
+
+extension DetailView {
+    /// Several selected commits: what they compare and the files that differ.
+    func showComparison(of commits: [Commit], repository: Repository) -> ComparisonDetail {
+        reset(title: String(localized: "detail.comparison.title", defaultValue: "Comparison", bundle: .module, comment: "Detail panel title while several commits are selected"))
+        let panel = ComparisonDetail(commits: commits, repository: repository) { [unowned self] font, color in label("", font: font, color: color, wraps: true) }
+        add(panel.headline)
+        add(panel.command)
+        add(panel.note)
+        add(panel.baseSwitch, fill: false)
+        add(divider())
+        add(panel.filesHeader)
+        panel.list = makeFileList()
+        panel.load()
+        return panel
+    }
+}
