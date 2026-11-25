@@ -117,7 +117,7 @@ git log (stream) ─▶ LogParser.feed ─▶ GraphLayout ─▶ LogLoader batch
 
 1. `Repository` streams `git log`; `LogParser` yields `Commit` values as soon as a record is complete.
 2. `GraphLayout` keeps only the active lanes and returns a row per commit with its lane, colour and edges to the next row. Memory per row is constant. A lane keeps its colour from fork to merge.
-3. `LogLoader` hands rows over in batches: the first at once, later ones after 500 commits or 100 ms. The table inserts them and asks only for visible rows.
+3. `LogLoader` hands rows over in batches: the first after a screenful (300 commits) or 50 ms, later ones after 500 commits or 100 ms. On opening, status, stashes and the log start off the main actor while the window is still being built. The table inserts them and asks only for visible rows.
 4. `GraphRowView` draws lanes, edges, nodes, ref pills and text directly. There is never one view per commit.
 5. Refs, avatars and worktree HEADs come from separate queries and are merged into the rows by commit.
 6. The working directory row is a synthetic first row with HEAD as parent; it appears only when `git status` reports changes. Stashes appear as nodes on the commit they were made on.

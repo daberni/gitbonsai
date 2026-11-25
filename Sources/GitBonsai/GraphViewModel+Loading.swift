@@ -24,16 +24,38 @@ extension GraphViewModel {
         let path = repository.path
         let load = Signposts.begin("history.load", path)
         let opening = Signposts.begin("repository.open", path)
+        // The log waits for HEAD and the stashes. Reading them and starting the log off the main actor lets git and the layout run while the window is still being built.
+        let read = repository
+        let order = historyOrder
+        let prelude = Task.detached { () -> Prelude in
+            async let status = try? read.status()
+            async let stashes = RefLoader.stashes(of: read)
+            let (readStatus, readStashes) = await (status, stashes)
+            let log = LogLoader(repository: read, stashesByCommit: readStashes?.byCommit ?? [:], head: readStatus?.branch.headSHA, order: order).start()
+            return Prelude(status: readStatus, stashes: readStashes, log: log)
+        }
         loadTask = Task { [weak self] in
-            guard let self else { return }
+            let started = await prelude.value
+            guard let self else { started.log.producer.cancel(); return }
             defer { load.end(Task.isCancelled ? "cancelled" : "finished") }
             await replaceRemovedWorktree()
-            status = try? await repository.status()
+            var log: LogLoader.Running?
+            if Task.isCancelled {
+                started.log.producer.cancel()
+                return
+            } else if repository.path == read.path {
+                status = started.status
+                if let readStashes = started.stashes { (stashes, stashesByCommit) = readStashes }
+                log = started.log
+            } else {
+                started.log.producer.cancel()
+                status = try? await repository.status()
+                await loadStashes()
+            }
             layoutHead = headSHA
-            await loadStashes()
             async let sidebarTask: Void = loadSidebarContent()
             async let fetchTask: Void = loadLastFetch()
-            await streamLog(opening: opening)
+            await streamLog(log, opening: opening)
             _ = await (sidebarTask, fetchTask)
             // A reload that started meanwhile owns the state now.
             if Task.isCancelled { return }
@@ -50,9 +72,6 @@ extension GraphViewModel {
             }
         }
     }
-
-    /// The rows the first look at a repository needs; `repository.open` ends when they are laid out.
-    static let firstScreenful = 300
 
     enum Reconciliation {
         /// The first load or a reload is under way and reads everything anyway.
@@ -211,19 +230,26 @@ extension GraphViewModel {
         return diff
     }
 
+    /// What `load` reads off the main actor before the history arrives: status and stashes, and the log already streaming from them.
+    struct Prelude: Sendable {
+        let status: RepositoryStatus?
+        let stashes: (stashes: [Stash], byCommit: [String: Stash])?
+        let log: LogLoader.Running
+    }
+
     /// `opening` ends once the first screenful of rows is laid out, or with the load when the history is shorter.
-    private func streamLog(opening: Signposts.Interval) async {
+    private func streamLog(_ started: LogLoader.Running?, opening: Signposts.Interval) async {
         let start = ContinuousClock.now
         var opened = false
         defer { if !opened { opening.end("whole history") } }
-        let loader = LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: layoutHead, order: historyOrder)
-        let outcome = await loader.stream(onBatch: { batch in
+        let running = started ?? LogLoader(repository: repository, stashesByCommit: stashesByCommit, head: layoutHead, order: historyOrder).start()
+        let outcome = await LogLoader.stream(running, onBatch: { batch in
             let range = history.append(batch.commits, rows: batch.rows, kinds: batch.kinds)
             maxLaneCount = batch.maxLaneCount
             onRowsAppended?(range)
-            if !opened, history.commitCount >= Self.firstScreenful {
+            if !opened, history.commitCount >= LogLoader.firstScreenful {
                 opened = true
-                opening.end("\(Self.firstScreenful) rows")
+                opening.end("\(LogLoader.firstScreenful) rows")
             }
             // HEAD arrived in this batch: the new first row shifts every row that is already on screen.
             if history.wipRow == nil, insertWipRow(into: &history, status: status) { onRowsShifted?() }

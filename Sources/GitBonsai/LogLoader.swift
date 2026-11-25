@@ -4,7 +4,7 @@ import GraphLayout
 
 /// Streams `git log` and lays every commit out as it arrives, handing the rows over in batches so the table inserts a few hundred at a time.
 ///
-/// Reading and laying out run off the main actor; only the batches reach it. The first batch is handed over immediately, later ones after 500 commits or 100 ms.
+/// Reading and laying out run off the main actor; only the batches reach it. The first batch is handed over after a screenful of commits or 50 ms, later ones after 500 commits or 100 ms.
 struct LogLoader: Sendable {
     enum Outcome: Sendable {
         case finished
@@ -21,10 +21,13 @@ struct LogLoader: Sendable {
         let maxLaneCount: Int
     }
 
-    private enum Event: Sendable {
+    fileprivate enum Event: Sendable {
         case batch(Batch, isProgress: Bool)
         case end(Outcome)
     }
+
+    /// The rows the first look at a repository needs; `repository.open` ends when they are laid out.
+    static let firstScreenful = 300
 
     let repository: Repository
     let stashesByCommit: [String: Stash]
@@ -32,16 +35,32 @@ struct LogLoader: Sendable {
     let head: String?
     let order: HistoryOrder
 
-    /// `onBatch` receives every batch; `onProgress` follows the batches handed over while the log is still streaming.
-    @MainActor
-    func stream(onBatch: (Batch) -> Void, onProgress: () -> Void) async -> Outcome {
+    /// A log that streams and lays out on its own; `stream(_:onBatch:onProgress:)` hands its batches over. Cancelling `producer` stops git.
+    struct Running: Sendable {
+        fileprivate let events: AsyncStream<Event>
+        let producer: Task<Void, Never>
+    }
+
+    /// Starts git and the layout without waiting for anyone to take the batches; they queue until `stream` takes them.
+    func start() -> Running {
         let (events, continuation) = AsyncStream.makeStream(of: Event.self)
         let producer = Task.detached { [self] in
             continuation.yield(.end(await produce(into: continuation)))
             continuation.finish()
         }
-        return await withTaskCancellationHandler {
-            for await event in events {
+        return Running(events: events, producer: producer)
+    }
+
+    /// `onBatch` receives every batch; `onProgress` follows the batches handed over while the log is still streaming.
+    @MainActor
+    func stream(onBatch: (Batch) -> Void, onProgress: () -> Void) async -> Outcome {
+        await Self.stream(start(), onBatch: onBatch, onProgress: onProgress)
+    }
+
+    @MainActor
+    static func stream(_ running: Running, onBatch: (Batch) -> Void, onProgress: () -> Void) async -> Outcome {
+        await withTaskCancellationHandler {
+            for await event in running.events {
                 if Task.isCancelled { break }
                 switch event {
                 case .batch(let batch, let isProgress):
@@ -53,7 +72,7 @@ struct LogLoader: Sendable {
             }
             return .cancelled
         } onCancel: {
-            producer.cancel()
+            running.producer.cancel()
         }
     }
 
@@ -77,8 +96,10 @@ struct LogLoader: Sendable {
             var options = LogOptions()
             options.order = order
             options.extraArguments = stashesByCommit.keys.sorted()
+            var firstCommit = ContinuousClock.now
             for try await commit in repository.log(options) {
                 if Task.isCancelled { return .cancelled }
+                if pending.isEmpty, !flushedFirst { firstCommit = .now }
                 // Index and untracked helper commits of stashes come after their stash in every order, since they are its parents, and are skipped.
                 if hiddenCommitIDs.contains(commit.id) { continue }
                 let isStash = stashesByCommit[commit.id] != nil
@@ -86,7 +107,9 @@ struct LogLoader: Sendable {
                 pendingRows.append(layout.append(Self.layoutCommit(for: commit, stashesByCommit: stashesByCommit), isSideStrand: isStash))
                 pending.append(commit)
                 pendingKinds.append(isStash ? .stash : commit.isMerge ? .merge : .commit)
-                if !flushedFirst || pending.count >= 500 || lastFlush.duration(to: .now) > .milliseconds(100) {
+                // The first batch fills the first screen, so the table is first laid out and drawn with it rather than with a single row; a slow log hands over what it has after 50 ms.
+                let due = flushedFirst ? pending.count >= 500 || lastFlush.duration(to: .now) > .milliseconds(100) : pending.count >= Self.firstScreenful || firstCommit.duration(to: .now) > .milliseconds(50)
+                if due {
                     flush(isProgress: true)
                     flushedFirst = true
                     lastFlush = .now

@@ -1,37 +1,37 @@
 {
-  "date" : "2026-11-25T16:33:25Z",
+  "date" : "2026-11-25T19:38:41Z",
   "machine" : "Apple M1 Pro, macOS Version 27.2.1 (Build 26B131)",
   "results" : [
     {
       "budgetMs" : 100,
       "iterations" : 5,
-      "maxMs" : 218.835416,
-      "medianMs" : 197.116166,
-      "minMs" : 124.041,
+      "maxMs" : 83.740125,
+      "medianMs" : 72.39025,
+      "minMs" : 46.001833,
       "name" : "history.open300"
     },
     {
       "budgetMs" : 2000,
       "iterations" : 5,
-      "maxMs" : 97.167458,
-      "medianMs" : 91.832625,
-      "minMs" : 91.561916,
+      "maxMs" : 111.142958,
+      "medianMs" : 89.805,
+      "minMs" : 89.075292,
       "name" : "layout.100k"
     },
     {
       "budgetMs" : 300,
       "iterations" : 5,
-      "maxMs" : 6.725,
-      "medianMs" : 6.671917,
-      "minMs" : 6.619292,
+      "maxMs" : 6.866458,
+      "medianMs" : 6.8365,
+      "minMs" : 6.69675,
       "name" : "search.100k.miss"
     },
     {
       "budgetMs" : 100,
       "iterations" : 5,
-      "maxMs" : 16.76675,
-      "medianMs" : 15.692458,
-      "minMs" : 14.162625,
+      "maxMs" : 15.5535,
+      "medianMs" : 14.548041,
+      "minMs" : 14.087666,
       "name" : "files.10k.firstRows"
     }
   ]
