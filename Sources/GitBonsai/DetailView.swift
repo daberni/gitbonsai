@@ -205,7 +205,8 @@ final class DetailView: NSView {
 
     /// The file list appears with its line counts; shown again for a changed status, the panel stays and the list is replaced once the new counts are known, in one step.
     func showWorkingDirectory(status: RepositoryStatus, repository: Repository) {
-        let isUpdate = isShowingWorkingDirectory && fileList != nil
+        let head = status.branch.headSHA
+        let isUpdate = isShowingWorkingDirectory && fileList != nil && parentTargets == (head.map { [$0] } ?? [])
         let list: FileListView
         if isUpdate, let fileList {
             list = fileList
@@ -213,6 +214,7 @@ final class DetailView: NSView {
             let header = reset(title: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"))
             addDiscardAllButton(to: header)
             isShowingWorkingDirectory = true
+            addMeta(commit: nil, parents: head.map { [$0] } ?? [])
             list = makeFileList()
         }
         let unstaged = status.unstaged

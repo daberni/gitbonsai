@@ -76,6 +76,8 @@ extension Repository {
             arguments = ["difftool", "--no-prompt", "--cached", "-M", "--"] + paths
         case .untracked:
             arguments = ["difftool", "--no-prompt", "--no-index", "--", "/dev/null", path]
+        case .added(let commit):
+            arguments = ["difftool", "--no-prompt", try await emptyTree(), commit, "--"] + paths
         }
         // `--no-index` exits with 1 when the files differ, like `git diff`.
         _ = try await runner.run(arguments, accepting: source == .untracked ? [0, 1] : [0])

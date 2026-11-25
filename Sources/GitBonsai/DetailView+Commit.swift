@@ -8,11 +8,13 @@ extension DetailView {
     // MARK: Commit
 
     /// The header is known at once and replaces the old one; the file list and its stats line follow together once git has answered.
-    func show(commit: Commit, strand: NSColor, repository: Repository) {
+    /// A stash lists its files like the working directory it was taken from, staged and unstaged, and names only the commit it was made on as its parent.
+    func show(commit: Commit, strand: NSColor, repository: Repository, isStash: Bool = false) {
         let previous = commitFiles
         let header = reset(title: String(localized: "detail.commit.title", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"))
         let access = messageAccess?(commit)
         if let access { addEditButton(to: header, access: access) }
+        addMeta(commit: (commit.id, commit.shortID), parents: isStash ? Array(commit.parents.prefix(1)) : commit.parents)
         let subject = SubjectLabel(wrappingLabelWithString: commit.subject)
         subject.font = Theme.title
         subject.textColor = Theme.ink
@@ -56,30 +58,6 @@ extension DetailView {
         }
 
         add(divider())
-        let meta = NSStackView()
-        meta.orientation = .horizontal
-        meta.spacing = Theme.Space.s
-        meta.addArrangedSubview(label(String(localized: "detail.meta.commit", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"), font: Theme.caption, color: Theme.inkMuted))
-        copySHA = (full: commit.id, short: commit.shortID)
-        let copy = LinkButton(target: self, action: #selector(copyCommitSHA(_:)))
-        copy.attributedTitle = NSAttributedString(string: commit.shortID, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.ink])
-        copy.imagePosition = .imageTrailing
-        showCopyIcon(on: copy, copied: false)
-        meta.addArrangedSubview(copy)
-        copyButton = copy
-        parentTargets = commit.parents
-        parentLinks = []
-        if !commit.parents.isEmpty { meta.addArrangedSubview(label(commit.parents.count == 1 ? String(localized: "detail.meta.parent", defaultValue: "Parent", bundle: .module, comment: "Label before the one parent SHA") : String(localized: "detail.meta.parents", defaultValue: "Parents", bundle: .module, comment: "Label before the parent SHAs of a merge"), font: Theme.caption, color: Theme.inkMuted)) }
-        for (index, parent) in commit.parents.enumerated() {
-            let link = LinkButton(target: self, action: #selector(openParent(_:)))
-            link.tag = index
-            link.attributedTitle = NSAttributedString(string: String(parent.prefix(RefString.shortSHA)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
-            link.toolTip = String(localized: "detail.meta.parentToolTip", defaultValue: "Jump to the parent commit in the graph", bundle: .module)
-            meta.addArrangedSubview(link)
-            parentLinks.append(link)
-        }
-        add(meta, fill: false)
-        add(divider())
 
         let filesHeader: NSTextField
         let list: FileListView
@@ -102,17 +80,23 @@ extension DetailView {
         commitFiles = (commit.id, filesHeader, list)
         if previous?.commitID != commit.id { scroll(.zero) }
         loadTask = Task { [weak self] in
-            let files = (try? await repository.changedFiles(of: commit)) ?? []
+            let sections: [FileListView.Section]
+            let all: [ChangedFile]
+            if isStash {
+                let changes = (try? await repository.stashChanges(of: commit)) ?? StashChanges(staged: [], unstaged: [], untracked: [], untrackedCommit: nil)
+                sections = Self.stashSections(changes, of: commit)
+                all = changes.staged + changes.unstaged + changes.untracked
+            } else {
+                all = (try? await repository.changedFiles(of: commit)) ?? []
+                sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: all.map { Self.row($0, source: .commit(commit)) })]
+            }
             guard let self, !Task.isCancelled else { return }
             loadingNoteTask?.cancel()
-            let total = files.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
-            let summary = NSMutableAttributedString(string: String(localized: "detail.files.count", defaultValue: "\(files.count) files", bundle: .module) + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
+            let total = all.compactMap(\.stat).reduce(DiffStat(added: 0, removed: 0)) { DiffStat(added: $0.added + $1.added, removed: $0.removed + $1.removed) }
+            let summary = NSMutableAttributedString(string: String(localized: "detail.files.count", defaultValue: "\(all.count) files", bundle: .module) + " · ", attributes: [.font: Theme.caption, .foregroundColor: Theme.inkMuted])
             summary.append(FileRowView.statText(total))
-            let rows = files.map { file in
-                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "detail.files.binary", defaultValue: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
-            }
             filesHeader.attributedStringValue = summary
-            list.show([FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: rows)])
+            list.show(sections)
         }
         // A quick answer swaps the lists without anything in between; a slow one gets a note in place, at the old height.
         let deadline = filesOutdatedSince + M.loadingDelay
@@ -125,6 +109,59 @@ extension DetailView {
     }
 
     // MARK: Parts
+
+    /// The SHA and the parent links, right below the panel's title for every row, so the parent link sits in one place for commits, merges, stashes and the working directory, whose parent is HEAD.
+    func addMeta(commit: (id: String, shortID: String)?, parents: [String]) {
+        let meta = NSStackView()
+        meta.orientation = .horizontal
+        meta.spacing = Theme.Space.s
+        if let commit {
+            meta.addArrangedSubview(label(String(localized: "detail.meta.commit", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"), font: Theme.caption, color: Theme.inkMuted))
+            copySHA = (full: commit.id, short: commit.shortID)
+            let copy = LinkButton(target: self, action: #selector(copyCommitSHA(_:)))
+            copy.attributedTitle = NSAttributedString(string: commit.shortID, attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.ink])
+            copy.imagePosition = .imageTrailing
+            showCopyIcon(on: copy, copied: false)
+            meta.addArrangedSubview(copy)
+            copyButton = copy
+        } else {
+            copyButton = nil
+        }
+        parentTargets = parents
+        parentLinks = []
+        if !parents.isEmpty { meta.addArrangedSubview(label(parents.count == 1 ? String(localized: "detail.meta.parent", defaultValue: "Parent", bundle: .module, comment: "Label before the one parent SHA") : String(localized: "detail.meta.parents", defaultValue: "Parents", bundle: .module, comment: "Label before the parent SHAs of a merge"), font: Theme.caption, color: Theme.inkMuted)) }
+        for (index, parent) in parents.enumerated() {
+            let link = LinkButton(target: self, action: #selector(openParent(_:)))
+            link.tag = index
+            link.attributedTitle = NSAttributedString(string: String(parent.prefix(RefString.shortSHA)), attributes: [.font: Theme.monoSmall, .foregroundColor: Theme.moss, .underlineStyle: NSUnderlineStyle.single.rawValue])
+            link.toolTip = String(localized: "detail.meta.parentToolTip", defaultValue: "Jump to the parent commit in the graph", bundle: .module)
+            meta.addArrangedSubview(link)
+            parentLinks.append(link)
+        }
+        add(meta, fill: false)
+        add(divider())
+    }
+
+    private static func row(_ file: ChangedFile, source: DiffSource) -> FileRowView.Model {
+        FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: source), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "detail.files.binary", defaultValue: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
+    }
+
+    /// The areas of the working directory in its order: the working tree's changes with the untracked files, then the index. Files are only looked at, not staged.
+    private static func stashSections(_ changes: StashChanges, of stash: Commit) -> [FileListView.Section] {
+        let base = stash.parents[0]
+        let index = stash.parents.count > 1 ? stash.parents[1] : base
+        var unstaged = changes.unstaged.map { row($0, source: .revisions(base: index, target: stash.id)) }
+        if let untrackedCommit = changes.untrackedCommit {
+            unstaged += changes.untracked.map { file in
+                FileRowView.Model(selection: FileSelection(path: file.path, originalPath: nil, source: .added(commit: untrackedCommit)), letter: "?", color: Theme.inkMuted, stat: file.stat, note: String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet"), state: nil)
+            }
+        }
+        let staged = changes.staged.map { row($0, source: .revisions(base: base, target: index)) }
+        return [
+            FileListView.Section(title: String(localized: "detail.files.unstaged", defaultValue: "Unstaged  \(unstaged.count)", bundle: .module, comment: "File list section header with its count"), rows: unstaged),
+            FileListView.Section(title: String(localized: "detail.files.staged", defaultValue: "Staged  \(staged.count)", bundle: .module, comment: "File list section header with its count"), rows: staged),
+        ]
+    }
 
     /// `date` is nil for a co-author, whose trailer has none.
     private func person(_ name: String, role: String, date: Date?, ring: NSColor, avatar source: AvatarView.Source) -> NSView {

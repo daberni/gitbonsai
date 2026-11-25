@@ -26,6 +26,7 @@ struct DiffLoadTrace {
         case .unstaged: source = "unstaged"
         case .staged: source = "staged"
         case .untracked: source = "untracked"
+        case .added(let commit): source = "root..\(commit.prefix(7))"
         }
     }
 

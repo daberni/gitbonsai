@@ -45,7 +45,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 The sidebar is ordered by how often you need things:
 
 - **Worktrees** — every worktree with its branch and how many changes it has; click shows its HEAD in the history, double-click switches to it. The + creates a new worktree.
-- **Tags** and **Stashes** — lists in a popover with a filter, to jump to, check out, push, apply, pop or drop.
+- **Tags** and **Stashes** — lists in a popover with a filter, to jump to, check out, push, apply, pop or drop. A stash shows its staged and unstaged changes, untracked files included.
 - **Local** — your branches with ahead/behind counts, grouped into folders by their prefix (`feature/`, `fix/`, …). A branch checked out in another worktree is marked. Click shows the branch, double-click checks it out. The + creates a branch.
 - **One section per remote** — its branches, likewise in folders, plus **Add Remote…**.
 

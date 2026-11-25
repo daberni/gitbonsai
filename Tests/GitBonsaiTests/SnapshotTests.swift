@@ -131,6 +131,35 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// A stash with staged, unstaged and untracked changes: two areas like the working directory, one parent, no helper commits in the history.
+    func testStashDetails() async throws {
+        let repo = try repository()
+        try repo.write("README.md", "# Bonsai\n\nA small tree, staged.\n")
+        _ = try repo.git(["add", "README.md"])
+        try repo.write("README.md", "# Bonsai\n\nA small tree, staged and edited.\n")
+        try repo.write("Notes.txt", "untracked\n")
+        _ = try repo.git(["stash", "push", "-u", "-q", "-m", "Half a tree"], date: "2024-01-01T08:00:00+0000")
+        for (name, look) in Self.looks {
+            let (fixture, controller, window) = try await tab(in: repo, appearance: look)
+            let stash = try XCTUnwrap(fixture.model.stashes.first)
+            controller.history.select(row: try fixture.row(of: stash.commitID), scroll: true)
+            try await settle()
+            try Snapshot.assert(controller.view, named: "stash-\(name)")
+            window.close()
+        }
+    }
+
+    /// The working directory with its parent link in the place a commit has it.
+    func testWorkingDirectoryDetails() async throws {
+        let repo = try repository()
+        try repo.write("README.md", "# Bonsai\n\nA small tree, edited.\n")
+        for (name, look) in Self.looks {
+            let (_, controller, window) = try await tab(in: repo, appearance: look)
+            try Snapshot.assert(controller.view, named: "workdir-\(name)")
+            window.close()
+        }
+    }
+
     /// The New Branch sheet starting at HEAD.
     func testNewBranchSheet() async throws {
         let repo = try repository()

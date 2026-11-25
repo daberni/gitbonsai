@@ -11,9 +11,13 @@ struct DiffChange {
     let description: String
 
     @MainActor init(selection: FileSelection, diff: FileDiff?) {
-        let state: FileState? = selection.source == .untracked ? nil : diff?.change ?? (selection.originalPath == nil ? nil : .renamed)
+        let isUntracked = switch selection.source {
+        case .untracked, .added: true
+        default: false
+        }
+        let state: FileState? = isUntracked ? nil : diff?.change ?? (selection.originalPath == nil ? nil : .renamed)
         oldPath = diff?.oldPath ?? selection.originalPath
-        if selection.source == .untracked {
+        if isUntracked {
             letter = "?"
             color = Theme.inkMuted
             word = String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")

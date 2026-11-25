@@ -142,6 +142,19 @@ public final class Repository: Sendable {
         return try await changedFiles(from: parent, to: commit.id)
     }
 
+    /// What a stash holds, split like the working directory it was taken from: the index against its base, the working tree against the index, and the untracked files of `git stash -u` (its third parent).
+    /// `stash` is the stash commit with all of its parents, as `log` reads it.
+    public func stashChanges(of stash: Commit) async throws -> StashChanges {
+        guard stash.parents.count >= 2 else { return StashChanges(staged: [], unstaged: try await changedFiles(of: stash), untracked: [], untrackedCommit: nil) }
+        let base = stash.parents[0]
+        let index = stash.parents[1]
+        let untrackedCommit = stash.parents.count > 2 ? stash.parents[2] : nil
+        async let staged = changedFiles(from: base, to: index)
+        async let unstaged = changedFiles(from: index, to: stash.id)
+        let untracked = if let untrackedCommit { try await changedFiles(command: ["diff-tree", "-r", "--root", "--no-commit-id"], revisions: [untrackedCommit]) } else { [ChangedFile]() }
+        return StashChanges(staged: try await staged, unstaged: try await unstaged, untracked: untracked, untrackedCommit: untrackedCommit)
+    }
+
     /// Files that differ between two revisions, with their line counts.
     public func changedFiles(from base: String, to target: String) async throws -> [ChangedFile] {
         try await changedFiles(command: ["diff"], revisions: [base, target])

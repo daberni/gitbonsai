@@ -34,3 +34,22 @@ public struct Stash: Sendable, Hashable, Identifiable {
         return (message[..<separator.lowerBound], String(message[separator.upperBound...]))
     }
 }
+
+/// The changes one stash holds, in the areas of the working directory it was taken from.
+public struct StashChanges: Sendable, Equatable {
+    /// The index against the commit the stash was made on.
+    public let staged: [ChangedFile]
+    /// The working tree against the index.
+    public let unstaged: [ChangedFile]
+    /// Files git did not track, kept by `git stash -u` or `-a` in a commit of their own.
+    public let untracked: [ChangedFile]
+    /// That commit, nil for a stash made without untracked files.
+    public let untrackedCommit: String?
+
+    public init(staged: [ChangedFile], unstaged: [ChangedFile], untracked: [ChangedFile], untrackedCommit: String?) {
+        self.staged = staged
+        self.unstaged = unstaged
+        self.untracked = untracked
+        self.untrackedCommit = untrackedCommit
+    }
+}

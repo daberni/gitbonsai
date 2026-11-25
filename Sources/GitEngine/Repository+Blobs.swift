@@ -61,6 +61,9 @@ extension Repository {
         case .untracked:
             old = nil
             new = .workingTree(newPath)
+        case .added(let commit):
+            old = nil
+            new = .object("\(commit):\(newPath)")
         }
         return BlobSides(old: diff.isNew ? nil : old, new: diff.isDeleted ? nil : new)
     }

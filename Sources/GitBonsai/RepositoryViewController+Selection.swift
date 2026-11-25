@@ -151,7 +151,7 @@ extension RepositoryViewController {
             shownStatus = status
             detail.showWorkingDirectory(status: status, repository: viewModel.repository)
         } else {
-            detail.show(commit: viewModel.commits[row], strand: Theme.strand(viewModel.rows[row].color), repository: viewModel.repository)
+            detail.show(commit: viewModel.commits[row], strand: Theme.strand(viewModel.rows[row].color), repository: viewModel.repository, isStash: viewModel.kinds[row] == .stash)
         }
     }
 }

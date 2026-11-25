@@ -12,6 +12,8 @@ public enum DiffSource: Sendable, Hashable {
     case staged
     /// A file git does not track yet, shown as entirely added.
     case untracked
+    /// A commit without parents read as entirely added, such as the commit that holds a stash's untracked files: `git diff-tree --root <commit>`.
+    case added(commit: String)
 }
 
 extension Repository {
@@ -37,6 +39,8 @@ extension Repository {
             }
         case .revisions(let base, let target):
             result = try await runner.run(["diff"] + diffOptions + [base, target, "--"] + paths)
+        case .added(let commit):
+            result = try await runner.run(["diff-tree", "-r", "--root", "--no-commit-id"] + diffOptions + [commit, "--"] + paths)
         case .unstaged:
             result = try await runner.runRefreshingIndex(["diff"] + diffOptions + ["--"] + paths)
         case .staged:

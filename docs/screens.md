@@ -73,10 +73,10 @@ Sections collapse; headers carry a chevron, a glyph, the title and a count, and 
 
 Follows the selection:
 
-- **Commit**: SHA with copy button, subject and body (editable in place with ⌘E or a double-click on the subject; ⌘↩ saves, Esc cancels), author and committer with dates, parents as links, changed files with line counts. A file opens its diff in the history column.
-- **Working directory**: unstaged and staged files with counts, stage, unstage and discard buttons on hover, ↑↓ through both lists; below them the commit form with subject, body, Amend and the commit button (⌘↩).
+- **Commit**: SHA with copy button and parents as links right below the panel title, subject and body (editable in place with ⌘E or a double-click on the subject; ⌘↩ saves, Esc cancels), author and committer with dates, changed files with line counts. A file opens its diff in the history column.
+- **Working directory**: the parent link to HEAD in the same place as a commit's, unstaged and staged files with counts, stage, unstage and discard buttons on hover, ↑↓ through both lists; below them the commit form with subject, body, Amend and the commit button (⌘↩).
 - **Comparison**: the files changed between the selected commits; for two commits on different branches a switch "since common base".
-- **Stash**: its files, from the Stashes popover.
+- **Stash**: its files split like the working directory it came from: unstaged (working tree changes and the untracked files of `stash -u`) and staged (the index); its one parent is the commit it was made on. Its index and untracked helper commits never show in the history.
 
 File context menu: open, show in Finder, open in the external diff tool, restore from this commit, copy path; in the working directory stage, unstage and discard. File history and blame are *planned*.
 

@@ -137,7 +137,7 @@ final class DiffHeaderView: BarView {
         case .revisions(let base, let target): badge.text = "\(base.prefix(RefString.shortSHA)) → \(target.prefix(RefString.shortSHA))"
         case .unstaged: badge.text = String(localized: "files.state.unstaged", defaultValue: "unstaged", bundle: .module, comment: "Badge on a diff of unstaged changes")
         case .staged: badge.text = String(localized: "files.state.staged", defaultValue: "staged", bundle: .module, comment: "Badge on a diff of staged changes")
-        case .untracked: badge.text = String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
+        case .untracked, .added: badge.text = String(localized: "files.state.untracked", defaultValue: "untracked", bundle: .module, comment: "Note on a file row: a file git does not track yet")
         }
         stat.attributedStringValue = diff.map { FileRowView.statText($0.stat) } ?? NSAttributedString()
         // Binary files and files without changes have nothing to show in full.

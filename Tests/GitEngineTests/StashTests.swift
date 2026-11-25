@@ -15,6 +15,36 @@ final class StashTests: XCTestCase {
         FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent(file).path)
     }
 
+    func testStashChangesSplitIndexWorkingTreeAndUntrackedFiles() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", contents: "base\n")
+        try fixture.commit("other", file: "other.txt", contents: "other\n")
+        try fixture.write("file.txt", "staged\n")
+        _ = try fixture.git("add", "file.txt")
+        try fixture.write("file.txt", "staged then edited\n")
+        try fixture.write("other.txt", "edited\n")
+        try fixture.write("new.txt", "untracked\n")
+        let repo = fixture.repository
+        try await repo.stash(message: "mixed", scope: .includingUntracked)
+        let stash = try await newest(repo)
+        var options = LogOptions()
+        options.extraArguments = [stash.commitID]
+        var commits: [Commit] = []
+        for try await commit in repo.log(options) { commits.append(commit) }
+        let commit = try XCTUnwrap(commits.first { $0.id == stash.commitID })
+
+        let changes = try await repo.stashChanges(of: commit)
+        XCTAssertEqual(changes.staged.map(\.path), ["file.txt"])
+        XCTAssertEqual(Set(changes.unstaged.map(\.path)), ["file.txt", "other.txt"])
+        XCTAssertEqual(changes.untracked.map(\.path), ["new.txt"])
+        XCTAssertEqual(changes.untrackedCommit, commit.parents[2])
+        let staged = try await repo.diff(of: "file.txt", in: .revisions(base: commit.parents[0], target: commit.parents[1]))
+        XCTAssertEqual(staged?.hunks.first?.lines.filter { $0.kind == .added }.map(\.text), ["staged"])
+        let untracked = try await repo.diff(of: "new.txt", in: .added(commit: commit.parents[2]))
+        XCTAssertEqual(untracked?.isNew, true)
+    }
+
     func testPushWithUntrackedAndPopRestoresEverything() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
