@@ -42,10 +42,17 @@ final class PushUseCase {
         return [[branchEntry], tags]
     }
 
-    /// "Push <branch>" to its upstream for a local branch with an upstream on a known remote, nil for anything else. A rejected push offers the same ways out as the toolbar's.
+    /// "Push <branch>" to its upstream for a local branch with an upstream on a known remote, "Push <branch>…" with the first-push sheet for one without upstream, nil for anything else. A rejected push offers the same ways out as the toolbar's.
     func entry(for ref: Ref) -> MenuEntry? {
-        guard ref.kind == .localBranch, let upstream = ref.upstream, let remote = status.remote(ofUpstream: upstream) else { return nil }
+        guard ref.kind == .localBranch else { return nil }
         let name = ref.name
+        guard let upstream = ref.upstream else {
+            guard !remotes.isEmpty else { return nil }
+            var entry = MenuEntry(LocalizedStringResource("branch.menu.pushSetUpstream", defaultValue: "Push \(RefName.branch(name))…", bundle: .module)) { [weak self] in self?.firstPush(of: name) }
+            entry.toolTip = "git push -u"
+            return entry
+        }
+        guard let remote = status.remote(ofUpstream: upstream) else { return nil }
         let remoteBranch = String(upstream.dropFirst(remote.count + 1))
         return MenuEntry(LocalizedStringResource("branch.menu.push", defaultValue: "Push \(RefName.branch(name))", bundle: .module)) { [weak self] in
             self?.push(.branch(name, remote: remote, remoteBranch: remoteBranch, setUpstream: false, forceWithLease: false), upstream: upstream)
@@ -86,9 +93,9 @@ final class PushUseCase {
         }
     }
 
-    /// The sheet of the first push: the remote (origin when there is one) and the branch's name there; the push sets the upstream.
-    func firstPush() {
-        guard let branch, !remotes.isEmpty else { return }
+    /// The sheet of the first push of `branch`, the checked-out one by default: the remote (origin when there is one) and the branch's name there; the push sets the upstream.
+    func firstPush(of branch: String? = nil) {
+        guard let branch = branch ?? self.branch, !remotes.isEmpty else { return }
         let form = ActionForm(title: LocalizedStringResource("push.setUpstream.title", defaultValue: "Push \(RefName.branch(branch))", bundle: .module), confirm: LocalizedStringResource("push.setUpstream.confirm", defaultValue: "Push Branch", bundle: .module))
         form.addChoice(key: "remote", label: LocalizedStringResource("push.setUpstream.remote", defaultValue: "Remote", bundle: .module, comment: "Field label: the remote to push to."), options: remotes.map { ($0, .verbatim($0)) }, selected: remotes.contains("origin") ? "origin" : remotes[0])
         form.addField(key: "name", label: LocalizedStringResource("push.setUpstream.remoteName", defaultValue: "Branch on the remote", bundle: .module), value: branch)

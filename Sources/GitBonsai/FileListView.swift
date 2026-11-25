@@ -6,15 +6,16 @@ import GitEngine
 /// The table has no scroll view of its own: it is as tall as its rows and scrolls with the detail panel, which still limits the views to the visible ones.
 final class FileListView: NSView {
     struct Section {
+        typealias Action = (title: String, perform: () -> Void)
         let title: String
         let rows: [FileRowView.Model]
-        /// For instance "Stage all".
-        let action: (title: String, perform: () -> Void)?
+        /// Links on the right, for instance "Discard all…" and "Stage all".
+        let actions: [Action]
 
-        init(title: String, rows: [FileRowView.Model], action: (title: String, perform: () -> Void)?) {
+        init(title: String, rows: [FileRowView.Model], actions: [Action] = []) {
             self.title = title
             self.rows = rows
-            self.action = action
+            self.actions = actions
         }
     }
 
@@ -247,9 +248,11 @@ final class FileListView: NSView {
         return all.allSatisfy { $0.actions.contains(action) } ? all : [model]
     }
 
+    /// The tag holds the section and the link within it.
     @objc fileprivate func runAction(_ sender: NSButton) {
-        guard sections.indices.contains(sender.tag) else { return }
-        sections[sender.tag].action?.perform()
+        let section = sender.tag / FileSectionHeaderView.linksPerSection, link = sender.tag % FileSectionHeaderView.linksPerSection
+        guard sections.indices.contains(section), sections[section].actions.indices.contains(link) else { return }
+        sections[section].actions[link].perform()
     }
 }
 
@@ -361,24 +364,27 @@ private final class FileTable: NSTableView {
     }
 }
 
-/// A section's caption in capitals with its optional action link on the right, at the bottom of its row; the room above it is the gap to the previous section.
+/// A section's caption in capitals with its action links on the right, at the bottom of its row; the room above it is the gap to the previous section.
 private final class FileSectionHeaderView: NSTableCellView {
     static let identifier = NSUserInterfaceItemIdentifier("fileSection")
+    static let linksPerSection = 4
     private let title = NSTextField(labelWithString: "")
-    private let button = LinkButton(target: nil, action: #selector(FileListView.runAction(_:)))
+    private let links = NSStackView()
 
     init() {
         super.init(frame: .zero)
         identifier = Self.identifier
-        for view in [title, button] as [NSView] {
+        links.orientation = .horizontal
+        links.spacing = Theme.Space.m
+        for view in [title, links] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Theme.Space.xs),
             title.centerYAnchor.constraint(equalTo: bottomAnchor, constant: -Theme.FileList.sectionHeight / 2),
-            button.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Space.xs),
-            button.centerYAnchor.constraint(equalTo: title.centerYAnchor),
+            links.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Theme.Space.xs),
+            links.centerYAnchor.constraint(equalTo: title.centerYAnchor),
         ])
     }
 
@@ -386,12 +392,12 @@ private final class FileSectionHeaderView: NSTableCellView {
 
     func show(_ section: FileListView.Section, tag: Int, target: AnyObject, action: Selector) {
         title.attributedStringValue = NSAttributedString(string: section.title.uppercased(with: AppLanguage.locale), attributes: [.font: Theme.label, .foregroundColor: Theme.inkMuted, .kern: Theme.labelKern])
-        button.isHidden = section.action == nil
-        if let link = section.action {
+        links.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for (index, link) in section.actions.prefix(Self.linksPerSection).enumerated() {
+            let button = LinkButton(target: target, action: action)
             button.attributedTitle = NSAttributedString(string: link.title, attributes: [.font: Theme.caption, .foregroundColor: Theme.moss])
-            button.tag = tag
-            button.target = target
-            button.action = action
+            button.tag = tag * Self.linksPerSection + index
+            links.addArrangedSubview(button)
         }
     }
 }

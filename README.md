@@ -13,7 +13,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 - **You see what it runs.** The status line names the git command of the last action, how long it took or why it failed; a failure opens git's own output on request.
 - **Worktrees are first class.** Every worktree of a repository is in the sidebar, one click away.
 - **Fast on large histories.** The history streams in as git delivers it and is laid out in one pass; a repository with 100,000 commits shows its first rows almost at once.
-- **Local actions just run, and can be undone.** Checkout, reset, merge, rebase, cherry-pick, revert and deleting a local branch run without asking and offer Undo in the status line as long as nothing moved since. Actions that lose work or touch a remote ask first.
+- **Local actions just run, and can be undone.** Checkout, reset, merge, rebase, cherry-pick, revert, amend, dropping commits, deleting a local branch or tag and removing a remote run without asking and offer Undo in the status line as long as nothing moved since. Actions that lose work or touch a remote ask first.
 
 ## Features
 
@@ -29,7 +29,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 ### Index and working tree
 
 - Staged and unstaged changes in separate lists, with the working directory as the first row of the history.
-- Stage, unstage or discard single files, several selected files, single hunks or everything. Several selected files show their diffs one below the other.
+- Stage, unstage or discard single files, several selected files, single hunks or everything. "Discard all" in the working directory's title takes back staged and unstaged changes, and can move untracked files to the Trash. Several selected files show their diffs one below the other.
 - A commit form with subject and body, amend, sign-off and co-authors. **Commit** ⌘⏎, **Commit all** (stages everything first) ⇧⌘⏎, **Amend** ⌥⌘⏎.
 - Stash ⇧⌘S and pop ⌥⇧⌘S, with Undo right after stashing.
 
@@ -55,7 +55,7 @@ Every row has a context menu with what it offers: fast-forward, checkout, merge,
 
 - Fetch all remotes ⇧⌘F, one remote, with pruning, or tags only; optional automatic fetching when the app becomes active and periodically, less often on battery and never in Low Power Mode.
 - Pull ⇧⌘L as configured, fast-forward only, merge or rebase; pull a branch that is not checked out.
-- Push ⇧⌘U, push and set the upstream, push tags. A rejected push offers to pull and push again or to overwrite with `--force-with-lease`.
+- Push ⇧⌘U, push and set the upstream — also for a branch that is not checked out, from its menu — push tags. A rejected push offers to pull and push again or to overwrite with `--force-with-lease`.
 - Fast-forward any local branch to its upstream or to HEAD without checking it out.
 - **Delete Branches…** removes a branch everywhere at once, locally and on its remotes, and shows whether its commits exist anywhere else.
 - Add, edit and remove remotes.
@@ -68,7 +68,8 @@ Every row has a context menu with what it offers: fast-forward, checkout, merge,
 - **Edit Commit Message** (⌘E) in place, **Squash Commits…**, **Move up/down**, **Drop Commit…**, reset (soft, mixed, hard), cherry-pick onto the current branch and revert from the commit menu.
 - A banner for a running rebase, merge, cherry-pick or revert with its step, its conflicts and Continue, Skip, Abort or Amend Commit.
 - A **conflict view** that steps through changes (⌥⌘↑/⌥⌘↓), merges simple conflicts by itself, resolves the remaining ones as ours, theirs or both in either order, shows the base, and marks files resolved — or a **merge window** to resolve side by side, or your own merge tool.
-- **Undo** in the status line for checkout, reset, merge, rebase, cherry-pick, revert, branch deletion and interactive rebases.
+- Conflicted files in the file list, one or several at once, and all of them from the banner's "Resolve all": accept the version of a branch by its name, keep or delete a file one side deleted, mark as resolved or bring the conflict markers back, compare against the base or either side, and list the commits behind the conflict.
+- **Undo** in the status line for checkout, reset, merge, rebase, cherry-pick, revert, amend, branch and tag deletion, removing a remote and interactive rebases.
 
 ### Worktrees
 

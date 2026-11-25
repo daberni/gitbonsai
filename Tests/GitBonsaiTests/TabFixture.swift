@@ -67,6 +67,7 @@ final class TabFixture {
     let pull: PullUseCase
     let push: PushUseCase
     let files: FileActions
+    let conflicts: ConflictActions
 
     var model: GraphViewModel { context.model }
 
@@ -85,7 +86,9 @@ final class TabFixture {
         pull = PullUseCase(context: context, status: upstream)
         push = PushUseCase(context: context, status: upstream, pull: pull)
         fetch = FetchUseCase(context: context)
-        files = FileActions(context: context, staging: StagingUseCase(context: context))
+        let staging = StagingUseCase(context: context)
+        conflicts = ConflictActions(context: context)
+        files = FileActions(context: context, staging: staging, conflicts: conflicts)
         let fastForward = FastForwardUseCase(context: context)
         let checkout = checkout
         let pull = pull
@@ -94,7 +97,7 @@ final class TabFixture {
         tags = TagActions(context: context)
         stashes = StashActions(context: context)
         worktrees = WorktreeActions(context: context)
-        menus = MenuBuilder(context: context, checkout: checkout, commitActions: commitActions, branches: branches, tags: tags, fastForward: fastForward, stashes: stashes, worktrees: worktrees, remotes: RemoteActions(context: context), fetch: fetch, pull: pull, push: push, files: files)
+        menus = MenuBuilder(context: context, checkout: checkout, commitActions: commitActions, branches: branches, tags: tags, fastForward: fastForward, stashes: stashes, worktrees: worktrees, remotes: RemoteActions(context: context), fetch: fetch, pull: pull, push: push, files: files, staging: staging)
     }
 
     /// Loads the tab, the upstream state the branch menus read and the tags with their remotes, as the tab does once it shows.

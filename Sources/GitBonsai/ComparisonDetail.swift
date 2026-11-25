@@ -98,12 +98,12 @@ final class ComparisonDetail: NSObject {
             let from = sinceMergeBase ? base ?? older.id : older.id
             let files = (try? await repository.changedFiles(from: from, to: newer.id)) ?? []
             all = files
-            sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: newer.id)) }, action: nil)]
+            sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: newer.id)) })]
         case .run(let run):
             guard let oldest = run.last, let from = try? await repository.base(before: oldest) else { return }
             let files = (try? await repository.changedFiles(from: from, to: run[0].id)) ?? []
             all = files
-            sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: run[0].id)) }, action: nil)]
+            sections = [FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: files.map { Self.row($0, source: .revisions(base: from, target: run[0].id)) })]
         case .separate(let commits):
             let repository = repository
             let perCommit = await withTaskGroup(of: (Int, [ChangedFile]).self) { group in
@@ -116,7 +116,7 @@ final class ComparisonDetail: NSObject {
             }
             all = perCommit.flatMap { $0 }
             sections = zip(commits, perCommit).map { commit, files in
-                FileListView.Section(title: "\(commit.shortID)  \(commit.subject)", rows: files.map { Self.row($0, source: .commit(commit)) }, action: nil)
+                FileListView.Section(title: "\(commit.shortID)  \(commit.subject)", rows: files.map { Self.row($0, source: .commit(commit)) })
             }
         }
         guard !Task.isCancelled, let list else { return }

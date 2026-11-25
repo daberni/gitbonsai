@@ -259,8 +259,8 @@ final class ConflictViewController: NSObject {
     func perform(_ action: ConflictFileAction) {
         guard let path else { return }
         switch action {
-        case .take(let side): run(path) { try await $0.resolveConflict(path, taking: side) }
-        case .delete: run(path) { try await $0.resolveConflictByDeleting(path) }
+        case .take(let side): run(path) { try await $0.resolveConflicts([path], taking: side) }
+        case .delete: run(path) { try await $0.resolveConflictsByDeleting([path]) }
         }
     }
 

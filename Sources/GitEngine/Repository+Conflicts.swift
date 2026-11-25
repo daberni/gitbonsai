@@ -17,6 +17,17 @@ extension Repository {
         return ConflictParser.parseStages(result.stdout)
     }
 
+    /// The unmerged paths whose two sides git takes for binary, so that only whole sides are offered for them: `git diff --numstat` of the two blobs counts no lines.
+    public func binaryConflictPaths() async throws -> Set<String> {
+        var binary: Set<String> = []
+        for (path, stages) in try await conflictStages() {
+            guard let ours = stages.ours, let theirs = stages.theirs else { continue }
+            let numstat = try await runner.run(["diff", "--numstat", "--no-ext-diff", "--no-textconv", ours.oid, theirs.oid]).stdoutString
+            if numstat.hasPrefix("-\t-\t") { binary.insert(path) }
+        }
+        return binary
+    }
+
     /// One unmerged path with its stages and its content: for text on both sides the three-way merge of the stages, aligned from `git diff` of each side against the base, independent of what the working tree holds now.
     /// Throws `NoConflict` when the path is not unmerged.
     public func conflict(at path: String) async throws -> Conflict {
@@ -100,15 +111,59 @@ extension Repository {
         _ = try await runner.runWrite(["add", "--", path])
     }
 
-    /// Takes one whole side into the working tree and stages it.
-    public func resolveConflict(_ path: String, taking side: ConflictSide) async throws {
-        _ = try await runner.runWrite(["checkout", side == .ours ? "--ours" : "--theirs", "--", path])
-        _ = try await runner.runWrite(["add", "--", path])
+    /// Takes one whole side of each path into the working tree and stages it; where that side deleted the file, the file goes.
+    public func resolveConflicts(_ paths: [String], taking side: ConflictSide) async throws {
+        guard !paths.isEmpty else { return }
+        let stages = try await conflictStages()
+        let present = paths.filter { stages[$0]?.blob(side) != nil }
+        let absent = paths.filter { stages[$0] != nil && stages[$0]?.blob(side) == nil }
+        if !present.isEmpty {
+            _ = try await runner.runWrite(["checkout", side == .ours ? "--ours" : "--theirs", "--"] + present)
+            _ = try await runner.runWrite(["add", "--"] + present)
+        }
+        try await resolveConflictsByDeleting(absent)
     }
 
-    /// Resolves the conflict by removing the file from the index and the working tree, as for a file one side deleted.
-    public func resolveConflictByDeleting(_ path: String) async throws {
-        _ = try await runner.runWrite(["rm", "-q", "-f", "--", path])
+    /// Keeps the file where only one side still has it, as for a file the other side deleted: that side's version is taken and staged.
+    public func keepConflictedFiles(_ paths: [String]) async throws {
+        let stages = try await conflictStages()
+        let ours = paths.filter { stages[$0]?.ours != nil }
+        let theirs = paths.filter { stages[$0]?.ours == nil && stages[$0]?.theirs != nil }
+        try await resolveConflicts(ours, taking: .ours)
+        try await resolveConflicts(theirs, taking: .theirs)
+    }
+
+    /// Resolves the conflicts by removing the files from the index and the working tree, as for a file one side deleted.
+    public func resolveConflictsByDeleting(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        _ = try await runner.runWrite(["rm", "-q", "-f", "--"] + paths)
+    }
+
+    /// Stages the files as they are in the working tree, which marks their conflicts resolved; a file deleted there is staged as deleted.
+    public func markConflictsResolved(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        _ = try await runner.runWrite(["add", "-A", "--"] + paths)
+    }
+
+    /// Writes the files with conflict markers again and makes them unmerged, also after they were marked resolved: git keeps the stages of a resolution until the operation ends.
+    public func restoreConflictMarkers(_ paths: [String]) async throws {
+        guard !paths.isEmpty else { return }
+        _ = try await runner.runWrite(["checkout", "-m", "--"] + paths)
+    }
+
+    /// The commits of both sides that touch the conflicted paths, newest first: `git log --merge`. Empty outside a merge-like operation.
+    public func conflictCommits(touching paths: [String]) async throws -> [ConflictCommit] {
+        let result = try await runner.run(["log", "--merge", "--format=%H%x00%an%x00%s", "--"] + paths)
+        return result.stdoutString.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "\0", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 3 else { return nil }
+            return ConflictCommit(id: parts[0], author: parts[1], subject: parts[2])
+        }
+    }
+
+    /// Opens the working tree file of an unmerged path in the diff tool against one stage, and returns once the tool has closed.
+    public func openDiffTool(forConflict path: String, against stage: ConflictStage) async throws {
+        _ = try await runner.run(["difftool", "--no-prompt", "--\(stage.rawValue)", "--", path])
     }
 
     // MARK: Merge tool
@@ -130,6 +185,18 @@ extension Repository {
         let result = try await runner.run(["mergetool", "--gui", "--no-prompt", "--", path], accepting: [0, 1])
         return result.exitCode == 0
     }
+}
+
+/// One commit of `git log --merge`.
+public struct ConflictCommit: Sendable, Equatable {
+    public let id: String
+    public let author: String
+    public let subject: String
+}
+
+/// The stage of an unmerged path that the working tree file is compared with: `git diff --base`, `--ours` or `--theirs`.
+public enum ConflictStage: String, Sendable {
+    case base, ours, theirs
 }
 
 /// A folder for the files a git command compares or merges, removed afterwards.

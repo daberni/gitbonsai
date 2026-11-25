@@ -182,13 +182,13 @@ final class ConflictTests: XCTestCase {
         let conflict = try await kept.repository.conflict(at: "d.txt")
         XCTAssertEqual(conflict.kind, .deletedByThem)
         XCTAssertEqual(conflict.content, .oneSided(remaining: "changed\n"))
-        try await kept.repository.resolveConflict("d.txt", taking: .ours)
+        try await kept.repository.resolveConflicts(["d.txt"], taking: .ours)
         XCTAssertEqual(try unmerged(kept), "")
         XCTAssertEqual(try kept.git("show", ":d.txt"), "changed")
 
         let deleted = try makeFixture()
         defer { deleted.remove() }
-        try await deleted.repository.resolveConflictByDeleting("d.txt")
+        try await deleted.repository.resolveConflictsByDeleting(["d.txt"])
         XCTAssertEqual(try unmerged(deleted), "")
         XCTAssertFalse(exists(deleted, "d.txt"))
         XCTAssertEqual(try deleted.git("ls-files", "--", "d.txt"), "")
@@ -203,9 +203,63 @@ final class ConflictTests: XCTestCase {
 
         let conflict = try await fixture.repository.conflict(at: "d.txt")
         XCTAssertEqual(conflict.kind, .deletedByUs)
-        try await fixture.repository.resolveConflict("d.txt", taking: .theirs)
+        try await fixture.repository.resolveConflicts(["d.txt"], taking: .theirs)
         XCTAssertEqual(try unmerged(fixture), "")
         XCTAssertEqual(try String(decoding: readData(fixture, "d.txt"), as: UTF8.self), "changed in feature\n")
+    }
+
+    // MARK: Several files at once
+
+    /// "Accept <branch>" over a selection: a file that side changed takes its version, a file that side deleted goes; "Keep" takes whichever side still has the file.
+    func testAcceptingOneSideForSeveralFilesTakesOrDeletesEach() async throws {
+        let setup: (FixtureRepo) throws -> Void = { try $0.write("both.txt", "base\n"); try $0.write("gone.txt", "keep\n"); try $0.write("kept.txt", "keep\n") }
+        let fixture = try merge(
+            base: setup,
+            feature: { try $0.write("both.txt", "feature\n"); try $0.write("gone.txt", "changed in feature\n"); try FileManager.default.removeItem(at: $0.url.appendingPathComponent("kept.txt")) },
+            main: { try $0.write("both.txt", "main\n"); try FileManager.default.removeItem(at: $0.url.appendingPathComponent("gone.txt")); try $0.write("kept.txt", "changed in main\n") })
+        defer { fixture.remove() }
+        let repo = fixture.repository
+
+        try await repo.resolveConflicts(["both.txt", "gone.txt"], taking: .ours)
+        try await repo.keepConflictedFiles(["kept.txt"])
+
+        XCTAssertEqual(try unmerged(fixture), "")
+        XCTAssertEqual(try fixture.git("show", ":both.txt"), "main")
+        XCTAssertFalse(exists(fixture, "gone.txt"), "main deleted it")
+        XCTAssertEqual(try fixture.git("show", ":kept.txt"), "changed in main")
+    }
+
+    /// Marking resolved stages the edited file; restoring the markers makes it unmerged again with both sides in the file, as long as the merge runs.
+    func testMarkingResolvedAndRestoringTheMarkers() async throws {
+        let fixture = try merge(
+            base: { try $0.write("f.txt", "base\n") },
+            feature: { try $0.write("f.txt", "feature\n") },
+            main: { try $0.write("f.txt", "main\n") })
+        defer { fixture.remove() }
+        let repo = fixture.repository
+        try fixture.write("f.txt", "edited by hand\n")
+
+        try await repo.markConflictsResolved(["f.txt"])
+        XCTAssertEqual(try unmerged(fixture), "")
+        XCTAssertEqual(try fixture.git("show", ":f.txt"), "edited by hand")
+
+        try await repo.restoreConflictMarkers(["f.txt"])
+        let stages = try await repo.conflictStages()
+        XCTAssertEqual(stages["f.txt"]?.kind, .bothModified)
+        let text = try String(decoding: readData(fixture, "f.txt"), as: UTF8.self)
+        XCTAssertTrue(text.contains("main") && text.contains("feature") && text.contains("======="), text)
+    }
+
+    func testCommitsTouchingTheConflictComeFromBothSides() async throws {
+        let fixture = try merge(
+            base: { try $0.write("f.txt", "base\n") },
+            feature: { try $0.write("f.txt", "feature\n") },
+            main: { try $0.write("f.txt", "main\n") })
+        defer { fixture.remove() }
+
+        let commits = try await fixture.repository.conflictCommits(touching: ["f.txt"])
+
+        XCTAssertEqual(Set(commits.map(\.id)), Set([try fixture.git("rev-parse", "HEAD"), try fixture.git("rev-parse", "MERGE_HEAD")]))
     }
 
     // MARK: Renames
@@ -230,10 +284,10 @@ final class ConflictTests: XCTestCase {
         let renamed = try await repo.conflict(at: "a-main.txt")
         XCTAssertEqual(renamed.content, .oneSided(remaining: lines))
 
-        try await repo.resolveConflictByDeleting("a.txt")
-        try await repo.resolveConflict("a-main.txt", taking: .ours)
-        try await repo.resolveConflictByDeleting("a-feature.txt")
-        try await repo.resolveConflictByDeleting("r-feature.txt")
+        try await repo.resolveConflictsByDeleting(["a.txt"])
+        try await repo.resolveConflicts(["a-main.txt"], taking: .ours)
+        try await repo.resolveConflictsByDeleting(["a-feature.txt"])
+        try await repo.resolveConflictsByDeleting(["r-feature.txt"])
         XCTAssertEqual(try unmerged(fixture), "")
         XCTAssertEqual(try fixture.git("ls-files"), "a-main.txt")
     }
@@ -243,16 +297,18 @@ final class ConflictTests: XCTestCase {
     func testBinaryConflictOffersWholeSides() async throws {
         let fixture = try merge(
             base: { try self.writeData($0, "b.bin", Data([0, 1, 2])) },
-            feature: { try self.writeData($0, "b.bin", Data([0, 1, 3])) },
-            main: { try self.writeData($0, "b.bin", Data([0, 1, 4])) })
+            feature: { try self.writeData($0, "b.bin", Data([0, 1, 3])); try $0.write("t.txt", "feature\n") },
+            main: { try self.writeData($0, "b.bin", Data([0, 1, 4])); try $0.write("t.txt", "main\n") })
         defer { fixture.remove() }
         let repo = fixture.repository
+        let binary = try await repo.binaryConflictPaths()
+        XCTAssertEqual(binary, ["b.bin"])
 
         let conflict = try await repo.conflict(at: "b.bin")
         XCTAssertEqual(conflict.kind, .bothModified)
         XCTAssertEqual(conflict.content, .binary)
-        try await repo.resolveConflict("b.bin", taking: .theirs)
-        XCTAssertEqual(try unmerged(fixture), "")
+        try await repo.resolveConflicts(["b.bin"], taking: .theirs)
+        XCTAssertEqual(try unmerged(fixture), "t.txt", "the text conflict stays open")
         XCTAssertEqual(try readData(fixture, "b.bin"), Data([0, 1, 3]))
     }
 

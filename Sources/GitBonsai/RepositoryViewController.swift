@@ -37,6 +37,7 @@ final class RepositoryViewController: NSObject {
     var menuBuilder: MenuBuilder!
     let fastForward: FastForwardUseCase
     let staging: StagingUseCase
+    let conflictActions: ConflictActions
     let fileActions: FileActions
     let commitUseCase: CommitUseCase
     let diff: DiffViewController
@@ -91,7 +92,8 @@ final class RepositoryViewController: NSObject {
         operationBanner = OperationBannerController(context: context)
         undo = UndoHistory(context: context)
         staging = StagingUseCase(context: context)
-        fileActions = FileActions(context: context, staging: staging)
+        conflictActions = ConflictActions(context: context)
+        fileActions = FileActions(context: context, staging: staging, conflicts: conflictActions)
         commitUseCase = CommitUseCase(context: context)
         tagActions = TagActions(context: context)
         stashActions = StashActions(context: context)
@@ -109,7 +111,7 @@ final class RepositoryViewController: NSObject {
         inlineReword = RewordUseCase(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutUseCase
         branchActions = BranchActions(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward) { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }
-        menuBuilder = MenuBuilder(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: branchActions, tags: tagActions, fastForward: fastForward, stashes: stashActions, worktrees: worktreeActions, remotes: remoteActions, fetch: fetchUseCase, pull: pullUseCase, push: pushUseCase, files: fileActions)
+        menuBuilder = MenuBuilder(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: branchActions, tags: tagActions, fastForward: fastForward, stashes: stashActions, worktrees: worktreeActions, remotes: remoteActions, fetch: fetchUseCase, pull: pullUseCase, push: pushUseCase, files: fileActions, staging: staging)
         wire()
         layout()
         bind()
@@ -212,6 +214,7 @@ final class RepositoryViewController: NSObject {
         }
         history.metadataChanged()
         commitUseCase.update(status: viewModel.status)
+        if viewModel.status != shownStatus { conflictActions.update() }
         // The working directory lists follow every change of the status, for instance after staging.
         if let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)

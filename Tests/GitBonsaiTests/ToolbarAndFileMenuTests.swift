@@ -68,6 +68,38 @@ final class ToolbarAndFileMenuTests: XCTestCase {
         XCTAssertEqual(firstEnabled(tab.menus.toolbarMenu(.push)), "Push main and Set Upstream…")
     }
 
+    /// A local branch without upstream, checked out or not, is pushed from its menu through the sheet that sets one.
+    func testBranchWithoutUpstreamOffersAFirstPush() async throws {
+        try fixture.repo.git("branch", "--unset-upstream", "feature")
+        await tab.model.refresh(note: nil)
+        await tab.upstream.refresh().value
+        let menu = tab.menus.menu(for: .branch(try tab.ref("feature")), in: .sidebar)
+        XCTAssertEqual(menu.entry("Push feature…")?.toolTip, "git push -u")
+        XCTAssertNil(menu.entry("Push feature"))
+    }
+
+    /// Conflicted files get the conflict entries named after the branches, never ours and theirs; "Keep File" only where one side deleted the file.
+    func testConflictedFilesOfferTheSidesByName() async throws {
+        let repo = fixture.repo
+        try repo.commit("base", file: "gone.txt", contents: "x\n")
+        try repo.git("switch", "-q", "-c", "side")
+        try repo.commit("side", file: "c.txt", contents: "side\n")
+        try repo.git("rm", "-q", "gone.txt")
+        try repo.git("commit", "-q", "-m", "delete")
+        try repo.git("switch", "-q", "main")
+        try repo.commit("main", file: "c.txt", contents: "main\n")
+        try repo.commit("main gone", file: "gone.txt", contents: "y\n")
+        XCTAssertThrowsError(try repo.git("merge", "side"))
+        await tab.model.refresh(note: nil)
+        tab.conflicts.sides = { ConflictSides(ours: RefName.branch("main"), theirs: RefName.branch("side")) }
+
+        let both = tab.conflicts.groups(for: ["c.txt"])
+        XCTAssertEqual(both.first?.map(\.plainTitle), ["Accept side", "Accept main", "Delete File", "Mark as resolved", "Restore Conflict Markers"])
+        let deleted = tab.conflicts.groups(for: ["gone.txt", "c.txt"])
+        XCTAssertNil(deleted.joined().first { $0.plainTitle == "Keep File" }, "c.txt has both sides")
+        XCTAssertNotNil(tab.conflicts.groups(for: ["gone.txt"]).joined().first { $0.plainTitle == "Keep File" })
+    }
+
     /// Stashing only staged changes needs some; stashing everything stays the main part's action.
     func testStashMenuOffersStagedOnlyWithStagedChanges() async throws {
         try fixture.repo.write("one.txt", "edited\n")

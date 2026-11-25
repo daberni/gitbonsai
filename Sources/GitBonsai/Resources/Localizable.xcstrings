@@ -433,6 +433,23 @@
         }
       }
     },
+    "branch.menu.pushSetUpstream" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ pushen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Push %@…"
+          }
+        }
+      }
+    },
     "branch.menu.rebase" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -5565,6 +5582,63 @@
         }
       }
     },
+    "conflict.log.summary" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commit beider Seiten berührt die Dateien im Konflikt (git log --merge)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commits beider Seiten berühren die Dateien im Konflikt (git log --merge)."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commit of both sides touches the conflicted files (git log --merge)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commits of both sides touch the conflicted files (git log --merge)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "conflict.log.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commits hinter dem Konflikt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Commits behind the Conflict"
+          }
+        }
+      }
+    },
     "conflict.markResolved" : {
       "comment" : "Button that writes the result of a conflicted file and stages it",
       "localizations" : {
@@ -5595,6 +5669,250 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Decide every conflict first"
+          }
+        }
+      }
+    },
+    "conflict.menu.accept" : {
+      "comment" : "Takes one side's whole file; the argument is the branch or commit it comes from.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Accept %@"
+          }
+        }
+      }
+    },
+    "conflict.menu.binaryReason" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bei Binärdateien lässt sich nur eine Seite übernehmen oder die Datei löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Binary files can only take one side or be deleted"
+          }
+        }
+      }
+    },
+    "conflict.menu.compare" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Diff-Tool vergleichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Compare in Diff Tool"
+          }
+        }
+      }
+    },
+    "conflict.menu.compareBase" : {
+      "comment" : "Entry of the Compare submenu: the working file against the merge base.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mit der gemeinsamen Basis"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "with the common Base"
+          }
+        }
+      }
+    },
+    "conflict.menu.compareSide" : {
+      "comment" : "Entry of the Compare submenu; the argument is the branch or commit of one side.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mit %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "with %@"
+          }
+        }
+      }
+    },
+    "conflict.menu.deleteFile" : {
+      "comment" : "Resolves a conflict by deleting the file.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete File"
+          }
+        }
+      }
+    },
+    "conflict.menu.keepFile" : {
+      "comment" : "Resolves a conflict where one side deleted the file by keeping the other side's file.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei behalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Keep File"
+          }
+        }
+      }
+    },
+    "conflict.menu.log" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commits hinter dem Konflikt zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Show Commits behind the Conflict"
+          }
+        }
+      }
+    },
+    "conflict.menu.markResolved" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als gelöst markieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Mark as resolved"
+          }
+        }
+      }
+    },
+    "conflict.menu.oneAtATime" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet jeweils eine Datei"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Opens one file at a time"
+          }
+        }
+      }
+    },
+    "conflict.menu.openConflictView" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Konfliktansicht öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open in Conflict View"
+          }
+        }
+      }
+    },
+    "conflict.menu.openMergeTool" : {
+      "comment" : "Opens the conflicted file in git's merge tool; the argument is git's name of the tool",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In %@ öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open in %@"
+          }
+        }
+      }
+    },
+    "conflict.menu.openMergeToolDefault" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Merge-Tool öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open in Merge Tool"
+          }
+        }
+      }
+    },
+    "conflict.menu.restoreMarkers" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konfliktmarkierungen wiederherstellen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Restore Conflict Markers"
           }
         }
       }
@@ -6275,6 +6593,24 @@
         }
       }
     },
+    "detail.files.discardAll" : {
+      "comment" : "Link in the Unstaged section header",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle verwerfen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Discard all…"
+          }
+        }
+      }
+    },
     "detail.files.loading" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -6484,6 +6820,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Selection"
+          }
+        }
+      }
+    },
+    "detail.workingDirectory.discardAll" : {
+      "comment" : "Tooltip of the trash in the working directory's title",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Änderungen verwerfen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Discard all Changes…"
           }
         }
       }
@@ -7829,6 +8183,23 @@
         }
       }
     },
+    "failure.conflict.logFailed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commits nicht aufgelistet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Commits not listed"
+          }
+        }
+      }
+    },
     "failure.conflict.mergeToolFailed" : {
       "localizations" : {
         "de" : {
@@ -7841,6 +8212,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Merge tool failed"
+          }
+        }
+      }
+    },
+    "failure.conflict.mergeToolNotStarted" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge-Tool konnte nicht gestartet werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn’t Start Merge Tool"
           }
         }
       }
@@ -9239,7 +9627,7 @@
         }
       }
     },
-    "files.discardAll.info" : {
+    "files.discardAll.includeUntracked" : {
       "localizations" : {
         "de" : {
           "variations" : {
@@ -9247,13 +9635,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Nicht gestagte Änderungen an %lld Datei werden verworfen."
+                  "value" : "Auch %lld ungetrackte Datei in den Papierkorb legen"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Nicht gestagte Änderungen an %lld Dateien werden verworfen."
+                  "value" : "Auch %lld ungetrackte Dateien in den Papierkorb legen"
                 }
               }
             }
@@ -9265,13 +9653,53 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Unstaged changes to %lld file are lost."
+                  "value" : "Also move %lld untracked file to the Trash"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Unstaged changes to %lld files are lost."
+                  "value" : "Also move %lld untracked files to the Trash"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "files.discardAll.info" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Gestagte und nicht gestagte Änderungen an %lld Datei werden verworfen."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Gestagte und nicht gestagte Änderungen an %lld Dateien werden verworfen."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Staged and unstaged changes to %lld file are lost."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Staged and unstaged changes to %lld files are lost."
                 }
               }
             }
@@ -9365,6 +9793,63 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discard Changes to several Files?"
+          }
+        }
+      }
+    },
+    "files.discardUnstaged.info" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nicht gestagte Änderungen an %lld Datei werden verworfen; gestagte bleiben."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nicht gestagte Änderungen an %lld Dateien werden verworfen; gestagte bleiben."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Unstaged changes to %lld file are lost; staged changes stay."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Unstaged changes to %lld files are lost; staged changes stay."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "files.discardUnstaged.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle nicht gestagten Änderungen verwerfen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Discard all unstaged Changes?"
           }
         }
       }
@@ -11274,6 +11759,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ onto %2$@"
+          }
+        }
+      }
+    },
+    "operation.banner.resolveAll" : {
+      "comment" : "Opens a menu that resolves every open conflict at once.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle lösen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Resolve all"
           }
         }
       }
@@ -16417,23 +16920,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Copy Tag name"
-          }
-        }
-      }
-    },
-    "tag.action.delete" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Löschen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Delete"
           }
         }
       }

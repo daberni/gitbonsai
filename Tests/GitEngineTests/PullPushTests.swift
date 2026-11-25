@@ -186,6 +186,24 @@ final class PullPushTests: XCTestCase {
         XCTAssertEqual(mode, .merge)
     }
 
+    /// The branch menu pushes a branch that is not checked out; the upstream goes to that branch, not to HEAD's.
+    func testFirstPushOfABranchNotCheckedOutSetsItsUpstream() async throws {
+        let setup = try setUpRemote()
+        defer { setup.remove() }
+        let repo = setup.local.repository
+        try setup.local.git("switch", "-q", "-c", "feature")
+        let tip = try setup.local.commit("feature work", file: "feature.txt")
+        try setup.local.git("switch", "-q", "-c", "elsewhere")
+
+        try await repo.push(.branch("feature", remote: "origin", remoteBranch: "remote-feature", setUpstream: true, forceWithLease: false))
+
+        XCTAssertEqual(try remoteHead(setup, "remote-feature"), tip)
+        let pushed = await repo.upstream(of: "feature")
+        XCTAssertEqual(pushed, Upstream(remote: "origin", branch: "remote-feature", ahead: 0, behind: 0))
+        let current = await repo.upstream(of: "elsewhere")
+        XCTAssertNil(current)
+    }
+
     func testFirstPushSetsTheUpstreamAndCountsFollowCommits() async throws {
         let setup = try setUpRemote()
         defer { setup.remove() }

@@ -19,6 +19,12 @@ extension Theme {
         static let copiedFeedback: TimeInterval = 1
         /// How long a commit's file list may take before the previous one gives way to a loading note.
         static let loadingDelay: Duration = .milliseconds(150)
+
+        /// The trash at the right of the working directory's title, and the point size of its symbol; as large as the commit title's pencil.
+        enum DiscardAll {
+            static let button = MessageEditor.pencil
+            static let symbol = MessageEditor.pencilSymbol
+        }
     }
 
     /// File lists in the detail panel.

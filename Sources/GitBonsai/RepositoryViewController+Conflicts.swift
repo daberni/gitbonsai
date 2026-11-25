@@ -43,5 +43,15 @@ extension RepositoryViewController {
     func wireConflicts() {
         conflicts.onClose = { [weak self] in self?.showGraph() }
         conflicts.onResolved = { [weak self] path in self?.conflictResolved(path) }
+        conflictActions.sides = { [weak self] in self?.conflictSides() ?? ConflictSides(ours: "HEAD", theirs: "MERGE_HEAD") }
+        conflictActions.onOpen = { [weak self] path in
+            self?.detail.selectedFiles = [FileSelection(path: path, originalPath: nil, source: .unstaged)]
+            self?.showConflict(path)
+        }
+        conflictActions.onChange = { [weak self] in
+            self?.reloadDiffs()
+            self?.refreshWorkingDirectoryCounts()
+        }
+        operationBanner.resolveMenu = { [weak self] in MenuAdapter.menu(self?.conflictActions.bannerGroups() ?? []) }
     }
 }

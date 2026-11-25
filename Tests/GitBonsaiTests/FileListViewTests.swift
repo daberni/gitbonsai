@@ -26,7 +26,7 @@ final class FileListViewTests: XCTestCase {
         let rows = (0..<fileCount).map { index in
             FileRowView.Model(selection: FileSelection(path: "Sources/File\(index).swift", originalPath: nil, source: .unstaged), letter: "M", color: Theme.ochre, stat: DiffStat(added: 1, removed: 0), note: nil)
         }
-        list.show([FileListView.Section(title: "Files", rows: rows, action: nil)])
+        list.show([FileListView.Section(title: "Files", rows: rows)])
         scroll.layoutSubtreeIfNeeded()
         scroll.displayIfNeeded()
         XCTAssertEqual(list.models.count, fileCount)

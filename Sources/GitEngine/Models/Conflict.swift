@@ -23,6 +23,11 @@ public struct ConflictStages: Sendable, Hashable {
         self.theirs = theirs
     }
 
+    /// The blob one side has at the path, nil where that side deleted it.
+    public func blob(_ side: ConflictSide) -> ConflictBlob? {
+        side == .ours ? ours : theirs
+    }
+
     /// What happened on each side, in the terms of `git status`.
     public var kind: ConflictKind {
         switch (base != nil, ours != nil, theirs != nil) {

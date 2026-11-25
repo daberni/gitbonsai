@@ -115,6 +115,12 @@ extension Repository {
         _ = try await runner.runWrite(["restore", "--worktree", "--"] + paths)
     }
 
+    /// Puts every tracked file back to HEAD in the index and the working tree: staged and unstaged changes go, files only added to the index are deleted, untracked files stay.
+    /// Unlike `git reset --hard` it leaves a merge, cherry-pick or revert in progress where it is.
+    public func discardAllChanges() async throws {
+        _ = try await runner.runWrite(["restore", "--source=HEAD", "--staged", "--worktree", "--", ":/"])
+    }
+
     /// Deletes untracked files. Ignored files are left alone.
     public func removeUntracked(_ paths: [String]) async throws {
         guard !paths.isEmpty else { return }

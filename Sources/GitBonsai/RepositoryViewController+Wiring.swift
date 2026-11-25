@@ -67,6 +67,7 @@ extension RepositoryViewController {
         detail.onStage = { [weak self] paths in self?.staging.stage(paths) }
         detail.onUnstage = { [weak self] paths in self?.staging.unstage(paths) }
         detail.onDiscard = { [weak self] files in self?.staging.discard(files) }
+        detail.onDiscardAll = { [weak self] scope in self?.staging.discardAll(scope) }
         detail.fileMenuItems = { [weak self] files in MenuAdapter.items(self?.menuBuilder.fileMenu(for: files) ?? []) }
         detail.messageAccess = { [weak self] commit in self?.commitActions.interactiveRebase.rewordAccess(for: commit) }
         detail.onEditMessage = { [weak self] in self?.editSelectedCommitMessage() }

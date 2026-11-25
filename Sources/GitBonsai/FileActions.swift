@@ -12,20 +12,25 @@ final class FileActions {
     var onChange: (() -> Void)?
     private let viewModel: GraphViewModel
     private let staging: StagingUseCase
+    private let conflicts: ConflictActions
 
-
-    init(context: RepositoryContext, staging: StagingUseCase) {
+    init(context: RepositoryContext, staging: StagingUseCase, conflicts: ConflictActions) {
         viewModel = context.model
         prompter = context.prompter
         settings = context.settings
         pasteboard = context.app.pasteboard
         self.staging = staging
+        self.conflicts = conflicts
     }
 
     /// The entries in groups: index operations (working directory only), external apps, copying, and what rewrites the files.
     /// Every entry acts on all `files` at once. For one file, entries that need it on disk are left out when it is not there; for several, an entry that does not fit every file stays visible, disabled, with the reason as its tooltip.
+    /// Conflicted files alone get the conflict entries in place of the index operations.
     func groups(for files: [FileRowView.Model]) -> [[MenuEntry]] {
         guard !files.isEmpty else { return [] }
+        if files.allSatisfy({ $0.state == .unmerged }) {
+            return conflicts.groups(for: files.map(\.selection.path)) + [openItems(files), copyItems(files.map(\.selection)), rewriteItems(files)]
+        }
         return [indexItems(files), openItems(files), copyItems(files.map(\.selection)), rewriteItems(files)]
     }
 
@@ -103,7 +108,9 @@ final class FileActions {
             ]
         }
         let working = selections.filter { $0.isStageable || $0.isUnstageable }
-        guard !working.isEmpty, working.count == selections.count, !files.contains(where: { $0.state == .unmerged }) else { return [] }
+        // A mix of conflicted and other files offers neither; conflicted files alone may go to the Trash, which leaves them unmerged until resolved.
+        let unmerged = files.filter { $0.state == .unmerged }.count
+        guard !working.isEmpty, working.count == selections.count, unmerged == 0 || unmerged == files.count else { return [] }
         let urls = working.map(url(of:))
         let onDisk = urls.allSatisfy { FileManager.default.fileExists(atPath: $0.path) }
         if files.count == 1 && !onDisk { return [] }

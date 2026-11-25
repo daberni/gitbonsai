@@ -38,8 +38,9 @@ final class MenuBuilder {
     private let pull: PullUseCase
     private let push: PushUseCase
     private let files: FileActions
+    private let staging: StagingUseCase
 
-    init(context: RepositoryContext, checkout: CheckoutUseCase, commitActions: CommitActions, branches: BranchActions, tags: TagActions, fastForward: FastForwardUseCase, stashes: StashActions, worktrees: WorktreeActions, remotes: RemoteActions, fetch: FetchUseCase, pull: PullUseCase, push: PushUseCase, files: FileActions) {
+    init(context: RepositoryContext, checkout: CheckoutUseCase, commitActions: CommitActions, branches: BranchActions, tags: TagActions, fastForward: FastForwardUseCase, stashes: StashActions, worktrees: WorktreeActions, remotes: RemoteActions, fetch: FetchUseCase, pull: PullUseCase, push: PushUseCase, files: FileActions, staging: StagingUseCase) {
         viewModel = context.model
         pasteboard = context.app.pasteboard
         self.checkout = checkout
@@ -54,6 +55,7 @@ final class MenuBuilder {
         self.pull = pull
         self.push = push
         self.files = files
+        self.staging = staging
     }
 
     // MARK: Menus
@@ -70,9 +72,14 @@ final class MenuBuilder {
         }
     }
 
-    /// The menu of a history row: a stash row gets the stash menu, a commit row its refs and the commit section.
+    /// The menu of a history row: a stash row gets the stash menu, the working directory's row "Discard all Changes…", a commit row its refs and the commit section.
     func rowMenu(forRow index: Int) -> [[MenuEntry]] {
         if let stash = stashID(at: index) { return menu(for: .stash(stash), in: .historyRow(refs: [])) }
+        if viewModel.kinds.indices.contains(index), viewModel.kinds[index] == .wip {
+            var discard = MenuEntry(LocalizedStringResource("detail.workingDirectory.discardAll", defaultValue: "Discard all Changes…", bundle: .module, comment: "Tooltip of the trash in the working directory's title")) { [weak self] in self?.staging.discardAll(.everything) }
+            discard.toolTip = "git restore --source=HEAD --staged --worktree -- :/"
+            return [[discard]]
+        }
         guard let commit = commit(at: index) else { return [] }
         return menu(for: .commit(row: index), in: .historyRow(refs: pills(of: commit).map(\.ref)))
     }

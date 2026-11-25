@@ -11,6 +11,8 @@ final class DetailView: NSView {
     var onUnstage: (([String]) -> Void)?
     /// Discard the unstaged changes of files, or delete them when they are untracked.
     var onDiscard: (([FileSelection]) -> Void)?
+    /// "Discard all": the trash in the working directory's title, or the Unstaged header's link.
+    var onDiscardAll: ((StagingUseCase.DiscardScope) -> Void)?
     /// The entries of the context menu for the files it acts on.
     var fileMenuItems: (([FileRowView.Model]) -> [NSMenuItem])?
     /// Whether the shown commit's message can be edited; nil offers nothing, for commits off the current branch's line.
@@ -146,6 +148,31 @@ final class DetailView: NSView {
         editMessageButton = button
     }
 
+    /// The trash at the right of the working directory's title: discards staged and unstaged changes after asking.
+    private func addDiscardAllButton(to header: NSView) {
+        let button = LinkButton(target: self, action: #selector(discardAllPressed(_:)))
+        let configuration = NSImage.SymbolConfiguration(pointSize: Theme.Detail.DiscardAll.symbol, weight: .regular)
+        let title = String(localized: "detail.workingDirectory.discardAll", defaultValue: "Discard all Changes…", bundle: .module, comment: "Tooltip of the trash in the working directory's title")
+        button.image = NSImage(systemSymbolName: "trash", accessibilityDescription: title)?.withSymbolConfiguration(configuration)
+        button.imagePosition = .imageOnly
+        button.contentTintColor = Theme.inkMuted
+        button.toolTip = title
+        button.setAccessibilityIdentifier("detail.discardAll")
+        button.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.trailingAnchor.constraint(equalTo: header.trailingAnchor),
+            button.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            button.widthAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
+            button.heightAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
+        ])
+        header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
+    }
+
+    @objc private func discardAllPressed(_ sender: NSButton) {
+        onDiscardAll?(.everything)
+    }
+
     @objc private func editMessagePressed(_ sender: NSButton) {
         onEditMessage?()
     }
@@ -183,7 +210,8 @@ final class DetailView: NSView {
         if isUpdate, let fileList {
             list = fileList
         } else {
-            reset(title: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"))
+            let header = reset(title: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"))
+            addDiscardAllButton(to: header)
             isShowingWorkingDirectory = true
             list = makeFileList()
         }
@@ -199,12 +227,15 @@ final class DetailView: NSView {
                 FileRowView.Model(selection: FileSelection(path: entry.path, originalPath: entry.originalPath, source: .staged), letter: String(entry.indexState.rawValue), color: entry.indexState.tint, stat: stagedStats[entry.path], note: nil, actions: [.unstage], state: entry.indexState)
             }
             var result = [
-                FileListView.Section(title: String(localized: "detail.files.unstaged", defaultValue: "Unstaged  \(unstaged.count)", bundle: .module, comment: "File list section header with its count"), rows: unstagedRows, action: unstaged.isEmpty ? nil : (String(localized: "detail.files.stageAll", defaultValue: "Stage all", bundle: .module, comment: "Link in the Unstaged section header"), { [weak self] in self?.onStage?(unstaged.map(\.path)) })),
-                FileListView.Section(title: String(localized: "detail.files.staged", defaultValue: "Staged  \(staged.count)", bundle: .module, comment: "File list section header with its count"), rows: stagedRows, action: staged.isEmpty ? nil : (String(localized: "detail.files.unstageAll", defaultValue: "Unstage all", bundle: .module, comment: "Link in the Staged section header"), { [weak self] in self?.onUnstage?(staged.map(\.path)) })),
+                FileListView.Section(title: String(localized: "detail.files.unstaged", defaultValue: "Unstaged  \(unstaged.count)", bundle: .module, comment: "File list section header with its count"), rows: unstagedRows, actions: unstaged.isEmpty ? [] : [
+                    (String(localized: "detail.files.discardAll", defaultValue: "Discard all…", bundle: .module, comment: "Link in the Unstaged section header"), { [weak self] in self?.onDiscardAll?(.unstaged) }),
+                    (String(localized: "detail.files.stageAll", defaultValue: "Stage all", bundle: .module, comment: "Link in the Unstaged section header"), { [weak self] in self?.onStage?(unstaged.map(\.path)) }),
+                ]),
+                FileListView.Section(title: String(localized: "detail.files.staged", defaultValue: "Staged  \(staged.count)", bundle: .module, comment: "File list section header with its count"), rows: stagedRows, actions: staged.isEmpty ? [] : [(String(localized: "detail.files.unstageAll", defaultValue: "Unstage all", bundle: .module, comment: "Link in the Staged section header"), { [weak self] in self?.onUnstage?(staged.map(\.path)) })]),
             ]
             if status.hasConflicts {
                 let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: String(localized: "files.state.conflict", defaultValue: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts"), state: .unmerged) }
-                result.append(FileListView.Section(title: String(localized: "detail.files.conflicts", defaultValue: "Conflicts  \(conflictRows.count)", bundle: .module, comment: "File list section header with its count"), rows: conflictRows, action: nil))
+                result.append(FileListView.Section(title: String(localized: "detail.files.conflicts", defaultValue: "Conflicts  \(conflictRows.count)", bundle: .module, comment: "File list section header with its count"), rows: conflictRows))
             }
             return result
         }

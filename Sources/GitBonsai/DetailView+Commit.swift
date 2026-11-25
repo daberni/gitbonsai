@@ -112,7 +112,7 @@ extension DetailView {
                 FileRowView.Model(selection: FileSelection(path: file.path, originalPath: file.originalPath, source: .commit(commit)), letter: String(file.state.rawValue), color: file.state.tint, stat: file.stat, note: file.stat == nil && file.state != .deleted ? String(localized: "detail.files.binary", defaultValue: "binary", bundle: .module, comment: "Note on a file row: a binary file without line counts") : nil, state: file.state)
             }
             filesHeader.attributedStringValue = summary
-            list.show([FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: rows, action: nil)])
+            list.show([FileListView.Section(title: String(localized: "detail.files.title", defaultValue: "Files", bundle: .module, comment: "Section header of a file list"), rows: rows)])
         }
         // A quick answer swaps the lists without anything in between; a slow one gets a note in place, at the old height.
         let deadline = filesOutdatedSince + M.loadingDelay

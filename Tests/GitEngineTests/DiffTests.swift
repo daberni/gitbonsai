@@ -261,6 +261,35 @@ final class DiffTests: XCTestCase {
         XCTAssertEqual(staged.hunks.flatMap(\.lines).filter { $0.kind == .added }.map(\.text), ["line two"])
     }
 
+    /// Staged and unstaged edits, a staged new file and a rename all go back to HEAD; untracked files and a merge in progress stay.
+    func testDiscardingAllChangesRestoresHeadAndKeepsUntrackedFilesAndTheMerge() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base", file: "a.txt", contents: "a\n")
+        try fixture.commit("more", file: "sub dir/b.txt", contents: "b\n")
+        try fixture.git("switch", "-q", "-c", "other")
+        try fixture.commit("theirs", file: "c.txt", contents: "theirs\n")
+        try fixture.git("switch", "-q", "-")
+        try fixture.commit("ours", file: "c.txt", contents: "ours\n")
+        _ = try? fixture.git("merge", "-q", "other")
+        try fixture.git("checkout", "--ours", "c.txt")
+        try fixture.git("add", "c.txt")
+        try fixture.write("a.txt", "staged\n")
+        try fixture.git("add", "a.txt")
+        try fixture.write("a.txt", "staged and more\n")
+        try fixture.git("mv", "sub dir/b.txt", "renamed.txt")
+        try fixture.write("added.txt", "new\n")
+        try fixture.git("add", "added.txt")
+        try fixture.write("untracked.txt", "keep\n")
+
+        try await fixture.repository.discardAllChanges()
+
+        XCTAssertEqual(try fixture.git("status", "--porcelain", "--untracked-files=all"), "?? untracked.txt")
+        XCTAssertEqual(try String(contentsOf: fixture.url.appendingPathComponent("a.txt"), encoding: .utf8), "a\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.url.appendingPathComponent("added.txt").path))
+        XCTAssertNoThrow(try fixture.git("rev-parse", "--verify", "-q", "MERGE_HEAD"), "the merge stays in progress")
+    }
+
     func testRemovingAnUntrackedFileLeavesOthersAlone() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }
