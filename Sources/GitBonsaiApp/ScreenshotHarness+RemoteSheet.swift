@@ -4,7 +4,7 @@ import GitEngine
 /// Harness switches for adding and editing remotes.
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_ADD_REMOTE=1` opens the add-remote sheet with a real click on the sidebar's "Add Remote…"; the edit sheet opens from `GITBONSAI_SIDEBAR_MENU_LIST=remote:<name>` with `GITBONSAI_SIDEBAR_MENU_PICK=Edit`.
+    /// `GITBONSAI_ADD_REMOTE=1` opens the add-remote sheet with a real click on the sidebar's "Add Remote…"; the edit sheet opens from `GITBONSAI_SIDEBAR_MENU=remote:<name>` with `GITBONSAI_SIDEBAR_MENU_PICK=Edit`.
     /// It also prints the sidebar's remote headers once the remotes were read.
     static func openAddRemote(on tab: RepositoryViewController) {
         guard isActive else { return }

@@ -88,17 +88,12 @@ extension ScreenshotHarness {
     }
 
     /// `GITBONSAI_PRINT_SELECTION=<seconds>,…` prints whether the toast shows, the selected history row, whether it is HEAD and whether a diff covers the history after each delay.
-    /// `GITBONSAI_REBASE_MENU=<row>,<row>` prints the interactive rebase entries of those rows with the reason a disabled one gives.
     /// `GITBONSAI_EDIT_AMEND=<subject>` at an edit stop clicks "Amend Commit…" in the banner, types the subject into the commit form, clicks Amend and then Continue, all with real events.
     /// `GITBONSAI_REBASE_UNDO=1` clicks "Undo…" in the status line; the question is answered by `GITBONSAI_CONFIRM=1`.
     static func driveRebase(on tab: RepositoryViewController) {
         if let script = environment["GITBONSAI_REWORD_SCRIPT"] {
             let steps = script.split(separator: ";").map(String.init)
             after(0.5) { runRewordSteps(steps[...], on: tab) }
-        }
-        for row in (environment["GITBONSAI_REBASE_MENU"] ?? "").split(separator: ",").compactMap({ Int($0) }) where tab.viewModel.commits.indices.contains(row) {
-            let items = tab.commitActions.interactiveRebase.entries(for: tab.viewModel.commits[row])
-            log("rebase menu \(row): " + items.map { $0.isEnabled ? $0.plainTitle : "\($0.plainTitle) (aus: \($0.disabledReason ?? ""))" }.joined(separator: "; "))
         }
         if let subject = environment["GITBONSAI_EDIT_AMEND"] {
             after(0.6) { amendAtEditStop(on: tab, subject: subject) }

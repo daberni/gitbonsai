@@ -18,20 +18,11 @@ extension ScreenshotHarness {
 /// Harness switches for the sidebar's context menus and for opening the new-branch sheet. Sheets the menus raise are answered by `GITBONSAI_FORM` and `GITBONSAI_CONFIRM`.
 @MainActor
 extension ScreenshotHarness {
-    /// `GITBONSAI_SIDEBAR_MENU_LIST=<subject>` prints the entries of a sidebar row's menu without opening it; subjects are `branch:<name>` (also `branch:origin/main`) and `worktree:<folder>`.
-    /// `GITBONSAI_SIDEBAR_MENU_PICK=<title prefix>` then runs one of those entries.
-    /// `GITBONSAI_SIDEBAR_MENU=<subject>` right-clicks the row with a real event instead; AppKit shows that menu on screen for a moment while its entries are printed.
+    /// `GITBONSAI_SIDEBAR_MENU=<subject>` right-clicks a sidebar row with a real event; AppKit shows that menu on screen for a moment. Subjects are `branch:<name>` (also `branch:origin/main`), `worktree:<folder>` and `remote:<name>`.
+    /// `GITBONSAI_SIDEBAR_MENU_PICK=<title prefix>` then runs one of its entries. What each menu contains is covered by `MenuBuilderTests`.
     /// `GITBONSAI_NEW_BRANCH=plus|toolbar|worktree` opens the new-branch sheet with a real click on the Local header's plus, or on the toolbar's Branch button; `worktree` opens the new-worktree sheet from the Worktrees header's plus.
     static func openSidebarMenu(on tab: RepositoryViewController) {
         let sidebar = tab.sidebar
-        if let name = environment["GITBONSAI_SIDEBAR_MENU_LIST"] {
-            guard let index = sidebar.itemIndex(named: name), let menu = sidebar.menu(forItemAt: index) else {
-                FileHandle.standardError.write(Data("sidebar has no menu for \(name)\n".utf8))
-                return
-            }
-            FileHandle.standardError.write(Data("sidebar menu \(name): \(describe(menu))\n".utf8))
-            if environment["GITBONSAI_SIDEBAR_MENU"] == nil, let pick = environment["GITBONSAI_SIDEBAR_MENU_PICK"] { choose(pick, in: menu) }
-        }
         if let name = environment["GITBONSAI_SIDEBAR_MENU"], let index = sidebar.itemIndex(named: name), let window = sidebar.window {
             after(0.3) {
                 let rect = sidebar.rowRect(at: index)

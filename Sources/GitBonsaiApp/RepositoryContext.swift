@@ -10,7 +10,7 @@ final class RepositoryContext {
     let lifecycle: TabLifecycle
     let toast: Toast
     let prompter: any Prompting
-    private let actionPrompter: ActionPrompter
+    private let actionPrompter: ActionPrompter?
     let runner: ActionRunner
     /// The window's command bar, for commands of the tab that continue in a second list.
     let commandBar: CommandBarController
@@ -20,12 +20,13 @@ final class RepositoryContext {
 
     /// Shows the working directory with its conflicts, where a toast about conflicts leads; the tab sets it once its parts exist.
     var onShowConflicts: (() -> Void)? {
-        get { actionPrompter.onShowConflicts }
-        set { actionPrompter.onShowConflicts = newValue }
+        get { actionPrompter?.onShowConflicts }
+        set { actionPrompter?.onShowConflicts = newValue }
     }
     var settings: AppSettings { app.settings }
 
-    init(app: AppContext, model: GraphViewModel, commandBar: CommandBarController) {
+    /// `prompter` replaces the window's questions, for tests that answer them in code.
+    init(app: AppContext, model: GraphViewModel, commandBar: CommandBarController, prompter injected: (any Prompting)? = nil) {
         self.app = app
         self.commandBar = commandBar
         self.model = model
@@ -34,9 +35,10 @@ final class RepositoryContext {
         self.lifecycle = lifecycle
         let toast = Toast()
         self.toast = toast
-        let prompter = ActionPrompter(lifecycle: lifecycle, toast: toast, pasteboard: app.pasteboard)
+        let windowPrompter = injected == nil ? ActionPrompter(lifecycle: lifecycle, toast: toast, pasteboard: app.pasteboard) : nil
+        let prompter: any Prompting = injected ?? windowPrompter!
         self.prompter = prompter
-        actionPrompter = prompter
+        actionPrompter = windowPrompter
         runner = ActionRunner(context: model, prompter: prompter)
     }
 }

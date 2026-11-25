@@ -270,13 +270,7 @@ extension ScreenshotHarness {
 
     /// `GITBONSAI_COMMIT_MENU=<row>` right-clicks a history row with a real event through the window. AppKit shows that menu on screen above other apps for a moment. While the menu is open its entries go to stderr
     /// and `GITBONSAI_MENU_SHOT=<png>` captures the menu's window, `GITBONSAI_MENU_WINDOW_SHOT=<png>` the main window behind it. `GITBONSAI_MENU_PICK=<title>`, or `<title>/<title>` in a submenu, then chooses an entry.
-    /// `GITBONSAI_MENU_LIST=<row>` only prints the entries of a row's menu, without opening it on screen, right before the capture; entries that search the repository, such as the detected rebase base, hold the capture until they have their final titles.
     static func openCommitMenu(on tab: RepositoryViewController) {
-        if let row = environment["GITBONSAI_MENU_LIST"].flatMap(Int.init), let items = tab.history.menuItems?(row) {
-            let menu = NSMenu()
-            items.forEach(menu.addItem)
-            beforeCapture { FileHandle.standardError.write(Data("menu: \(describe(menu))\n".utf8)) }
-        }
         guard let row = environment["GITBONSAI_COMMIT_MENU"].flatMap(Int.init) else { return }
         after(0.3) {
             let table = tab.history.tableView
