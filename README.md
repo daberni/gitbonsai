@@ -1,11 +1,113 @@
 # GitBonsai
 
-A native macOS Git client that shapes your history the way a bonsai is shaped: prune, wire, graft. A graph-centric UX, built natively in AppKit on top of the plain `git` binary. A spike that moves the settings window to SwiftUI is under review; history, diff, sidebar and command bar stay AppKit.
+GitBonsai is a native macOS Git client built around the commit graph. It shows the whole history of a repository as one fast graph, puts branches, worktrees, tags and stashes side by side in a clear sidebar, and turns the things that usually need a sequence of git commands — rebasing a branch whose base moved, checking out with your changes carried along, cleaning up branches everywhere — into one action you can undo. It runs the `git` already installed on your Mac; nothing is reimplemented and nothing leaves your machine.
 
 ![GitBonsai, light](docs/screenshots/main-window-light.png)
 ![GitBonsai, dark](docs/screenshots/main-window-dark.png)
 
-See [docs/feature-overview.md](docs/feature-overview.md) for scope, [docs/architecture.md](docs/architecture.md) for the engine design, and [docs/screens.md](docs/screens.md) and [docs/flows.md](docs/flows.md) for the UI.
+## Principles
+
+- **Native.** A Mac app in AppKit, with the Mac's keyboard handling, menus, light and dark appearance and Liquid Glass.
+- **Plain git.** Every read and write is a run of the `git` command line tool you already have. Your configuration, hooks and credentials apply as they do in a terminal.
+- **No AI, no cloud, no account.** GitBonsai talks to your remotes and, if you allow it, to GitHub, GitLab or Gravatar for author pictures. Nothing else.
+- **You see what it runs.** The status line names the git command of the last action, how long it took or why it failed; a failure opens git's own output on request.
+- **Worktrees are first class.** Every worktree of a repository is in the sidebar, one click away.
+- **Fast on large histories.** The history streams in as git delivers it and is laid out in one pass; a repository with 100,000 commits shows its first rows almost at once.
+- **Local actions just run, and can be undone.** Checkout, reset, merge, rebase, cherry-pick, revert and deleting a local branch run without asking and offer Undo in the status line as long as nothing moved since. Actions that lose work or touch a remote ask first.
+
+## Features
+
+### History and graph
+
+- One graph for the whole history: branches, merges and stashes in lanes, laid out in a single pass — 100,000 commits in about a tenth of a second.
+- Three history orders: by commit date, by author date, or branches kept together. Choose it in the column header or in Settings.
+- **Go to Ref…** (⇧⌘O) jumps to any branch, remote branch, tag, worktree or stash; ⌥⏎ checks it out.
+- **Go to parent or child** with ⌘↓ and ⌘↑; a picker opens when there are several.
+- **Search commits** (⌘F) by subject, body, author, co-author, ref name or SHA prefix, and step from match to match.
+- Select several commits with ⌘- or ⇧-click to compare them: two commits directly or from their merge base, a run of commits as one combined change. The detail panel shows the git command behind the comparison.
+
+### Index and working tree
+
+- Staged and unstaged changes in separate lists, with the working directory as the first row of the history.
+- Stage, unstage or discard single files, several selected files, single hunks or everything. Several selected files show their diffs one below the other.
+- A commit form with subject and body, amend, sign-off and co-authors. **Commit** ⌘⏎, **Commit all** (stages everything first) ⇧⌘⏎, **Amend** ⌥⌘⏎.
+- Stash ⇧⌘S and pop ⌥⇧⌘S, with Undo right after stashing.
+
+### Diff
+
+- Diff or whole file, remembered across files.
+- Word diff, ignore whitespace, ignore changes in whitespace amount, ignore blank lines, and invisible characters (tabs, trailing spaces, CR, BOM, non-breaking spaces).
+- Image diff side by side, as a swipe or as an onion skin, for PNG, JPEG, GIF, WebP, HEIC, TIFF, SVG, PDF and more.
+- Open a file in your diff tool, editor or default app.
+
+### Sidebar
+
+The sidebar is ordered by how often you need things:
+
+- **Worktrees** — every worktree with its branch and how many changes it has; click shows its HEAD in the history, double-click switches to it. The + creates a new worktree.
+- **Tags** and **Stashes** — lists in a popover with a filter, to jump to, check out, push, apply, pop or drop.
+- **Local** — your branches with ahead/behind counts, grouped into folders by their prefix (`feature/`, `fix/`, …). A branch checked out in another worktree is marked. Click shows the branch, double-click checks it out. The + creates a branch.
+- **One section per remote** — its branches, likewise in folders, plus **Add Remote…**.
+
+Every row has a context menu with what it offers: fast-forward, checkout, merge, rebase, pull, push, rename, upstream, create worktree, delete, edit or remove a remote, lock or remove a worktree, and more.
+
+### Branches, remotes and tags
+
+- Fetch all remotes ⇧⌘F, one remote, with pruning, or tags only; optional automatic fetching when the app becomes active and periodically, less often on battery and never in Low Power Mode.
+- Pull ⇧⌘L as configured, fast-forward only, merge or rebase; pull a branch that is not checked out.
+- Push ⇧⌘U, push and set the upstream, push tags. A rejected push offers to pull and push again or to overwrite with `--force-with-lease`.
+- Fast-forward any local branch to its upstream or to HEAD without checking it out.
+- **Delete Branches…** removes a branch everywhere at once, locally and on its remotes, and shows whether its commits exist anywhere else.
+- Add, edit and remove remotes.
+- Create lightweight or annotated tags, push, fetch and delete them locally or on a remote.
+
+### Rebase, history editing and conflicts
+
+- **Interactive rebase** in a sheet: reorder by drag or ⌥↑/⌥↓, pick, reword, edit, squash, fixup or drop with a single key, and watch the result in a live preview. Optionally move dependent branches along (`--update-refs`) and stash local changes for the rebase.
+- **Rebase onto a commit with a detected base.** For a branch whose base was rewritten or merged, GitBonsai finds where its own commits start — the tip of the branch it was stacked on, commits that already arrived squashed upstream, or the fork point of a rewritten upstream — and rebases only those with `git rebase --onto`. The menu says how many commits move and which it leaves out, and offers all commits, only the branch's own commits, or the interactive sheet.
+- **Edit Commit Message** (⌘E) in place, **Squash Commits…**, **Move up/down**, **Drop Commit…**, reset (soft, mixed, hard), cherry-pick onto the current branch and revert from the commit menu.
+- A banner for a running rebase, merge, cherry-pick or revert with its step, its conflicts and Continue, Skip, Abort or Amend Commit.
+- A **conflict view** that steps through changes (⌥⌘↑/⌥⌘↓), merges simple conflicts by itself, resolves the remaining ones as ours, theirs or both in either order, shows the base, and marks files resolved — or a **merge window** to resolve side by side, or your own merge tool.
+- **Undo** in the status line for checkout, reset, merge, rebase, cherry-pick, revert, branch deletion and interactive rebases.
+
+### Worktrees
+
+- Create a worktree from the sidebar, from a branch, or from any commit, with a new branch if you like.
+- Switching to another worktree keeps the tab and only changes what it shows, so it is instant; a tab that already shows that worktree comes to the front.
+- The sidebar shows at a glance which branch is checked out where, and checking out such a branch switches to its worktree instead.
+- Lock, unlock, prune and remove worktrees, removing their branch along with them if you want.
+
+### Command bar and keyboard
+
+- The **command bar** (⇧⌘P) runs every command of the menus and the context menus by name.
+- Tabs for several repositories (⌘T, ⌘W, ⇧⌘] and ⇧⌘[), Open Repository ⌘O, Clone ⌥⌘N, New Branch ⌘B, Open in Terminal ⇧⌘T, Open in Editor ⇧⌘E, Show in Finder ⇧⌘R.
+- Shortcuts follow your keyboard layout.
+
+### Settings
+
+- **General:** appearance, history order, language, and the folders whose repositories a new tab suggests.
+- **Apps:** your editors and terminals, the default one, and which appear in the "Open with" choices.
+- **Git:** which git binary to use, the merge tool, and automatic fetching.
+- **Avatars:** initials only, pictures from the remote host (GitHub, GitLab), or also Gravatar.
+
+## Quality of life
+
+Things that usually take several git commands, done in one step:
+
+- **Checkout carries your changes.** Switching branches stashes uncommitted work, switches and brings it back; if it conflicts, the stash stays and the app says so.
+- **Checkout and fast-forward** a branch to its upstream in one go, or for a branch that diverged choose between resetting to the upstream and just checking out, with the number of commits that would be lost.
+- **Checkout a remote branch** creates the tracking local branch.
+- **Rebase an outdated branch** onto main after its base was merged or rewritten, without replaying commits that are already there.
+- **Stash and try again** when local changes block an action.
+- **Pull a branch you are not on**, and for a diverged one offer to check it out and pull, reset it to its upstream, or switch to the worktree that has it.
+- **Delete a branch everywhere** — locally and on every remote — from one sheet.
+- **Undo** the last checkout, reset, merge or rebase from the status line.
+
+## Install
+
+Download the DMG from the [latest release](https://github.com/daberni/gitbonsai/releases/latest), open it and drag GitBonsai into Applications. GitBonsai needs macOS 26 and git 2.38 or later.
+
+Builds that are not notarized are signed ad hoc. macOS then refuses the first launch: open **System Settings › Privacy & Security** and choose **Open Anyway** for GitBonsai once.
 
 ## License
 
@@ -13,39 +115,6 @@ GitBonsai is free for personal and other noncommercial use under the [PolyForm N
 
 GitBonsai uses the `git` installed on your Mac as an external program; it does not bundle git or any other third-party code.
 
-## Build and run
+## Development
 
-```bash
-swift build
-swift test
-swift run GitBonsai /path/to/repo
-```
-
-`GitBonsai` is the app; tests reach it through `@testable import GitBonsai`.
-
-`scripts/make-synthetic-repo.sh bench/synthetic 100000` creates a 100k-commit repository with branches and merges for checks on a large history. `swift run -c release Benchmarks` measures the performance budgets and prints median, min and spread next to each budget; `--filter <text>` picks benchmarks by name, `--json <path>` writes the results, and `--compare Benchmarks/baseline.json` fails when a median is more than 20 % slower than the baseline (`--threshold`; changes under 1 ms, `--min-delta`, never count). The baseline comes from a developer machine, so compare only locally. Laying out and searching 100k commits run in process against `GraphLayout` and `GitEngine`. Opening a 100k-commit repository until 300 rows are laid out and the file list of a commit with 10,000 files are measured in the app: the benchmark builds `GitBonsai Dev.app`, launches it isolated through `scripts/launch-dev.sh` once per iteration and reads the `repository.open` and `files.load` signpost intervals the app emits from `log stream --signpost`, so the numbers include a real launch's cold caches. Fixture repositories are generated once into `.build/benchmark-fixtures`. CI runs the benchmarks nightly and on manual dispatch with `--engine-only` (its runners have no window server), apart from the tests, and only uploads the JSON. To refresh the baseline after an intended change, run `swift run -c release Benchmarks --json Benchmarks/baseline.json`.
-
-### App bundle
-
-```bash
-scripts/make-app-bundle.sh
-open ".build/app/GitBonsai Dev.app"
-```
-
-The script builds the `GitBonsai` release binary and assembles `GitBonsai Dev.app` (bundle id `app.gitbonsai.dev`, its own defaults, macOS 26.0 or later) in `.build/app`, or in the directory given as its argument; `--release` builds `GitBonsai.app` with `app.gitbonsai` instead. Signing, notarization, packaging and the GitHub workflows are in [docs/release.md](docs/release.md). It compiles the app icon `docs/design/app-icon/AppIcon.icon` with `actool` into `Assets.car` (the layered icon macOS 26 renders in every appearance) and writes a classic `AppIcon.icns` with 16–512 pt at @1x and @2x for older surfaces, then signs the bundle (ad hoc unless `GITBONSAI_SIGN_IDENTITY` is set). It needs Xcode for `actool`.
-
-### Profiling and logs
-
-Long-running work shows as signpost intervals in Instruments' Points of Interest (subsystem `app.gitbonsai`): `repository.open` (until the first 300 rows), `history.load`, `history.refresh`, `diff.load`, `files.load` (until the list draws), `fetch`, `pull`, `push`, `clone`, `rebase`, `rebase.interactive`, `search`, `discovery`, `avatar.lookup`, `commitGraph.write`. Launch with `scripts/launch-dev.sh --foreground` and attach Instruments to `GitBonsai Check`, or read them with `/usr/bin/log stream --signpost --predicate 'subsystem == "app.gitbonsai"'`. Every git call writes one line to the unified log (category `git`): the subcommand, duration and exit code, and as private data its arguments, folder and on failure the start of stderr; `log stream --level debug --predicate 'subsystem == "app.gitbonsai"'` shows them with the app's other traces.
-
-### Verification
-
-Views are checked without a window on screen: `SnapshotTests` render the main screens off screen in light and dark (`Tests/GitBonsaiTests/Snapshot.swift`) and compare them with reference PNGs in `Tests/__Snapshots__`, which stay on the machine and are not in the repository. The first run records a missing reference and prints where it went; later runs compare against it. Delete the folder to record anew after an intended change or an OS update; on another machine or OS build than the one in `__Snapshots__/machine.txt` the comparison is skipped. Load times and relative dates are blanked before the comparison. Look at every newly recorded reference before relying on it. Logic (menus, use cases, loading) is covered by unit tests against fixture repositories, which answer the app's questions through an injected `Prompting`.
-
-Changes are checked in the real app with a GUI tool that reads the Accessibility tree and takes screenshots:
-
-```bash
-scripts/launch-dev.sh --appearance dark
-```
-
-`scripts/launch-dev.sh` builds `GitBonsai Dev.app` and launches a copy of it isolated: a throwaway home for its caches, avatar cache and git configuration, a defaults domain of its own (the preferences daemon ignores a changed home, so the copy gets its own bundle identifier), and a generated repository unless one is given. It starts in the background without taking the keyboard focus; `--foreground` brings it to the front for checks that need real mouse events. `--appearance light|dark` and `--language en|de` pass the system's launch arguments, `--default key=value` presets a preference, `--no-build` reuses the last bundle. It prints the process id, the repository, the home and the command that shows the app's traces (`log stream`, subsystem `app.gitbonsai`); the home and the defaults domain are removed when the app quits.
+Building, testing, benchmarks, profiling and releases are described in [docs/development.md](docs/development.md).
