@@ -1,39 +1,33 @@
 import AppKit
 
-/// The filter's scope menu and the action buttons below the list.
+/// The scope switch in the title line and the action buttons below the list.
 extension PanelListView {
     // MARK: Scopes
 
     /// Narrows the list to one scope, or shows everything again with nil.
     func selectScope(_ index: Int?) {
         activeScope = index.flatMap { scopes.indices.contains($0) ? $0 : nil }
-        rebuildScopeMenu()
+        scopeControl.selectedSegment = (activeScope ?? -1) + 1
         applyFilter()
         if !shownRows.isEmpty, selectedID == nil { tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false) }
         updateFooter()
     }
 
-    /// The magnifier's menu: everything, then each scope; the chosen one is checked and named in the placeholder.
-    func rebuildScopeMenu() {
-        guard !scopes.isEmpty else {
-            scopeMenu = nil
-            filterField.placeholder = filterPlaceholder
-            return
+    /// The switch in the title line: everything, then each scope.
+    func rebuildScopeControl() {
+        let titles = [String(localized: "panel.filter.all", defaultValue: "All", bundle: .module, comment: "Filter scope of a panel list that searches every field.")] + scopes.map(\.title)
+        scopeControl.isHidden = scopes.isEmpty
+        scopeControl.segmentCount = scopes.isEmpty ? 0 : titles.count
+        guard !scopes.isEmpty else { return }
+        for (index, title) in titles.enumerated() {
+            scopeControl.setLabel(title, forSegment: index)
+            scopeControl.setWidth(0, forSegment: index)
         }
-        let menu = NSMenu()
-        for (index, title) in ([String(localized: "panel.filter.all", defaultValue: "All", bundle: .module, comment: "Filter scope of a panel list that searches every field.")] + scopes.map(\.title)).enumerated() {
-            let item = NSMenuItem(title: title, action: #selector(scopeChosen(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = index - 1
-            item.state = (activeScope ?? -1) == index - 1 ? .on : .off
-            menu.addItem(item)
-        }
-        scopeMenu = menu
-        filterField.placeholder = activeScope.map { "\(scopes[$0].title) · \(filterPlaceholder)" } ?? filterPlaceholder
+        scopeControl.selectedSegment = (activeScope ?? -1) + 1
     }
 
-    @objc private func scopeChosen(_ sender: NSMenuItem) {
-        selectScope(sender.tag >= 0 ? sender.tag : nil)
+    @objc func scopeChosen(_ sender: NSSegmentedControl) {
+        selectScope(sender.selectedSegment > 0 ? sender.selectedSegment - 1 : nil)
     }
 
     // MARK: Footer

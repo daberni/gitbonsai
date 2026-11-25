@@ -56,7 +56,7 @@ Sections collapse; headers carry a chevron, a glyph, the title and a count, and 
 | Section | Content | Notes |
 |---|---|---|
 | Worktrees (always first) | Bonsai glyph by state, folder name, branch, ahead/behind, number of changed files; the active worktree is marked | Double-click moves the tab to the worktree. The header's plus is *planned* |
-| Tags (one row with count) | No list in the sidebar | Opens a searchable popover: jump to the commit, check out, push, delete locally or on a remote, copy the name; marks which remotes have each tag |
+| Tags (one row with count) | No list in the sidebar | Opens a searchable popover with a switch in its title line (All, Local only, Remote only, Diverging): jump to the commit, check out, push, delete locally or on a remote, copy the name; marks which remotes have each tag |
 | Local | First rows **Working Directory** (selects the working directory) and **Stashes** with count (popover: selector, message, branch, age; show, apply, pop, drop, branch from stash), then local branches grouped by prefix with ahead/behind | Double-click checks out |
 | One section per remote | Remote branches grouped by prefix | Branch context menu: check out, merge, rebase onto, pull, delete on the remote. An "Add Remote…" row follows the last remote; adding and editing remotes is *planned* |
 

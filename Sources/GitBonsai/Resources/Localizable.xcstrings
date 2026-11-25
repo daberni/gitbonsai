@@ -11970,20 +11970,20 @@
         }
       }
     },
-    "panel.filter.scopes" : {
-      "comment" : "Accessibility label of the magnifier that opens the filter's scope menu.",
+    "panel.filter.search" : {
+      "comment" : "Accessibility label of the magnifier in a panel list's filter field, which focuses the field.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Filterbereich"
+            "value" : "Filter"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Filter scope"
+            "value" : "Filter"
           }
         }
       }
@@ -17297,7 +17297,7 @@
         }
       }
     },
-    "tag.scope.differing" : {
+    "tag.scope.diverging" : {
       "comment" : "Tag filter: tags that point elsewhere on a remote.",
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -17310,12 +17310,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Differing"
+            "value" : "Diverging"
           }
         }
       }
     },
-    "tag.scope.differingEmpty" : {
+    "tag.scope.divergingEmpty" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
@@ -17327,7 +17327,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "No differing tags"
+            "value" : "No diverging tags"
           }
         }
       }

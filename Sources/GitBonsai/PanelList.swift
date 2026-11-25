@@ -9,11 +9,11 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     var onActivate: ((String) -> Void)?
     var menuItems: ((String) -> [NSMenuItem])?
     var actions: [PanelAction] = [] { didSet { rebuildFooter() } }
-    /// Offered in the filter's menu; with scopes the filter is always shown.
+    /// Offered as a segmented switch in the title line, after "All".
     var scopes: [PanelScope] = [] {
         didSet {
             if activeScope.map({ !scopes.indices.contains($0) }) ?? false { activeScope = nil }
-            rebuildScopeMenu()
+            rebuildScopeControl()
         }
     }
     var activeScope: Int?
@@ -43,9 +43,9 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     private let empty: String
     private let noMatch: String
     let filterField = TextInput()
-    /// The scope menu the magnifier opens; nil without scopes.
-    var scopeMenu: NSMenu?
-    private lazy var scopeButton = FieldIconButton(symbol: "magnifyingglass", label: String(localized: "panel.filter.scopes", defaultValue: "Filter scope", bundle: .module, comment: "Accessibility label of the magnifier that opens the filter's scope menu."), target: self, action: #selector(showScopeMenu(_:)))
+    /// "All" and one segment per scope; hidden without scopes.
+    let scopeControl = NSSegmentedControl()
+    private lazy var searchButton = FieldIconButton(symbol: "magnifyingglass", label: String(localized: "panel.filter.search", defaultValue: "Filter", bundle: .module, comment: "Accessibility label of the magnifier in a panel list's filter field, which focuses the field."), target: self, action: #selector(focusFilter(_:)))
     let tableView = NSTableView()
     private let scrollView = NSScrollView()
     private let emptyLabel = NSTextField(labelWithString: "")
@@ -78,7 +78,15 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         emptyLabel.alignment = .center
 
         filterField.placeholder = filterPlaceholder.text
-        filterField.leadingAddon = scopeButton
+        filterField.leadingAddon = searchButton
+        scopeControl.segmentStyle = .rounded
+        scopeControl.controlSize = .small
+        scopeControl.font = Theme.caption
+        scopeControl.trackingMode = .selectOne
+        scopeControl.target = self
+        scopeControl.action = #selector(scopeChosen(_:))
+        scopeControl.isHidden = true
+        scopeControl.setAccessibilityIdentifier("panel.scopes")
         filterField.onChange = { [weak self] _ in self?.filterChanged() }
         filterField.onCommand = { [weak self] selector in self?.filterCommand(selector) ?? false }
 
@@ -111,6 +119,7 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         header.addView(titleLabel, in: .leading)
         header.addView(countLabel, in: .leading)
         header.addView(noteLabel, in: .trailing)
+        header.addView(scopeControl, in: .trailing)
         header.addView(busyIndicator, in: .trailing)
         noteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for view in [header, filterField, scrollView, emptyLabel, footer] as [NSView] {
@@ -161,13 +170,10 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         rows = newRows
         // The list keeps the height of all entries while filtering, so the popover does not jump and its content never outgrows it.
         tableHeight.constant = CGFloat(min(max(rows.count, 1), P.maxVisibleRows)) * P.rowHeight
-        let filters = rows.count > P.filterThreshold || !scopes.isEmpty || !filterField.stringValue.isEmpty
+        let filters = rows.count > P.filterThreshold || !filterField.stringValue.isEmpty
         filterField.isHidden = !filters
         filterHeight.isActive = !filters
-        if !filters {
-            filterField.stringValue = ""
-            activeScope = nil
-        }
+        if !filters { filterField.stringValue = "" }
         applyFilter()
         if let selected, let index = shownRows.firstIndex(where: { $0.id == selected }) {
             tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
@@ -210,8 +216,8 @@ final class PanelListView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
         countLabel.stringValue = filtered ? "\(shownRows.count)/\(rows.count)" : "\(rows.count)"
     }
 
-    @objc private func showScopeMenu(_ sender: NSView) {
-        scopeMenu?.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY), in: sender)
+    @objc private func focusFilter(_ sender: Any?) {
+        window?.makeFirstResponder(filterField.field)
     }
 
     private func filterChanged() {

@@ -22,7 +22,7 @@ struct TagRows {
         let remoteRows = remoteOnly.keys.sorted().map { name in Self.remoteOnlyRow(name, states: byName[name] ?? [], labelled: labelled) }
         rows = localRows + remoteRows
 
-        // The scopes are offered from the start whenever there is a remote, empty until it answers, so the filter field and its menu arrow never appear late.
+        // The scopes are offered from the start whenever there is a remote, empty until it answers, so the switch in the title line never appears late.
         guard !remotes.isEmpty else {
             scopes = []
             return
@@ -32,8 +32,8 @@ struct TagRows {
         let onlyRemote = Set(remoteOnly.keys)
         scopes = [
             PanelScope(title: String(localized: "tag.scope.localOnly", defaultValue: "Local only", bundle: .module, comment: "Tag filter: tags no remote has."), empty: String(localized: "tag.scope.localOnlyEmpty", defaultValue: "No local-only tags", bundle: .module)) { onlyLocal.contains($0) },
-            PanelScope(title: String(localized: "tag.scope.differing", defaultValue: "Differing", bundle: .module, comment: "Tag filter: tags that point elsewhere on a remote."), empty: String(localized: "tag.scope.differingEmpty", defaultValue: "No differing tags", bundle: .module)) { differing.contains($0) },
             PanelScope(title: String(localized: "tag.scope.remoteOnly", defaultValue: "Remote only", bundle: .module, comment: "Tag filter: tags only a remote has."), empty: String(localized: "tag.scope.remoteOnlyEmpty", defaultValue: "No remote-only tags", bundle: .module)) { onlyRemote.contains($0) },
+            PanelScope(title: String(localized: "tag.scope.diverging", defaultValue: "Diverging", bundle: .module, comment: "Tag filter: tags that point elsewhere on a remote."), empty: String(localized: "tag.scope.divergingEmpty", defaultValue: "No diverging tags", bundle: .module)) { differing.contains($0) },
         ]
     }
 

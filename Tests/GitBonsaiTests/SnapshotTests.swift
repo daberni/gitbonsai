@@ -131,6 +131,29 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The Tags list with a remote: the switch in the title line and a tag of each kind.
+    func testTagsPanelWithRemote() async throws {
+        let repo = try repository()
+        let remote = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-remote.git", isDirectory: true)
+        try? FileManager.default.removeItem(at: remote)
+        defer { try? FileManager.default.removeItem(at: remote) }
+        _ = try repo.git(["clone", "-q", "--bare", repo.url.path, remote.path])
+        _ = try repo.git(["remote", "add", "origin", remote.path])
+        _ = try repo.git(["-C", remote.path, "tag", "v0.0", "HEAD~1"])
+        _ = try repo.git(["-C", remote.path, "tag", "-f", "v0.1", "feature/leaves"])
+        _ = try repo.git(["tag", "v0.2", "HEAD~1"])
+        for (name, look) in Self.looks {
+            let fixture = TabFixture(repo)
+            try await fixture.load()
+            let list = fixture.tags.popover.list
+            let window = Snapshot.window(for: list, size: list.fittingSize, appearance: look)
+            try Snapshot.assert(list, named: "panel-tags-remote-\(name)")
+            list.selectScope(2)
+            try Snapshot.assert(list, named: "panel-tags-remote-diverging-\(name)")
+            window.close()
+        }
+    }
+
     /// A stash with staged, unstaged and untracked changes: two areas like the working directory, one parent, no helper commits in the history.
     func testStashDetails() async throws {
         let repo = try repository()
