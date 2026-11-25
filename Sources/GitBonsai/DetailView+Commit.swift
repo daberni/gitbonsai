@@ -147,7 +147,7 @@ extension DetailView {
             keep(link, in: parentRow)
             parentLinks.append(link)
         }
-        add(divider())
+        addTitleSeparator()
     }
 
     private static func row(_ file: ChangedFile, source: DiffSource) -> FileRowView.Model {

@@ -10,6 +10,8 @@ extension Theme {
         static let padding = Space.l
         static let spacing: CGFloat = 10
         static let headerHeight: CGFloat = 34
+        /// Between the title line and the separator under it; the title line's own height already leaves the room below its text.
+        static let titleSeparatorGap: CGFloat = 0
         static let avatar: CGFloat = 28
         /// Between the name and the role line of a person.
         static let personLineGap: CGFloat = 1

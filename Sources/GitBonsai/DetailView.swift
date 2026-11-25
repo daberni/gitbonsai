@@ -140,6 +140,12 @@ final class DetailView: NSView {
         return line
     }
 
+    /// The separator right under the title line.
+    func addTitleSeparator() {
+        if let title = stack.arrangedSubviews.first { stack.setCustomSpacing(M.titleSeparatorGap, after: title) }
+        add(divider())
+    }
+
     func add(_ view: NSView, fill: Bool = true) {
         stack.addArrangedSubview(view)
         if fill { view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true }
