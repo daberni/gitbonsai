@@ -214,6 +214,7 @@ final class DiffHunkView: NSView {
     private let label = NSTextField(labelWithString: "")
     let action = NSButton()
     let discard = NSButton()
+    private var blockedReason: String?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -249,19 +250,32 @@ final class DiffHunkView: NSView {
         let visibleMaxX = enclosingScrollView.map { min(convert($0.contentView.bounds, from: $0.contentView).maxX, bounds.maxX) } ?? bounds.maxX
         action.setFrameOrigin(NSPoint(x: visibleMaxX - Theme.Space.m - action.frame.width, y: (bounds.height - action.frame.height) / 2))
         discard.setFrameOrigin(NSPoint(x: action.frame.minX - Theme.Space.s - discard.frame.width, y: (bounds.height - discard.frame.height) / 2))
+        removeAllToolTips()
+        if let blockedReason {
+            let shown = [action, discard].filter { !$0.isHidden }.map(\.frame)
+            if let first = shown.first { addToolTip(shown.dropFirst().reduce(first) { $0.union($1) }, owner: blockedReason as NSString, userData: nil) }
+        }
+    }
+
+    /// Laid out before the table inserted it, the header had no clip view and placed its buttons at its own right edge, which long lines push out of sight.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        needsLayout = true
     }
 
     required init?(coder: NSCoder) { nil }
 
-    /// With `blockedReason` the buttons stay in place but disabled, with the reason as their tooltip.
+    /// With `blockedReason` the buttons stay in place but disabled, and hovering them shows the reason.
     func show(_ hunk: DiffHunk, actionTitle: String?, canDiscard: Bool, blockedReason: String? = nil) {
         label.stringValue = hunk.header
         action.title = actionTitle ?? ""
         action.isHidden = actionTitle == nil
         discard.isHidden = !canDiscard
+        self.blockedReason = blockedReason
         for button in [action, discard] {
             button.isEnabled = blockedReason == nil
-            button.toolTip = blockedReason
+            // The hover tooltip belongs to the header, which shows it over disabled buttons too; accessibility reads the reason from the button.
+            button.setAccessibilityHelp(blockedReason)
         }
         needsLayout = true
     }
