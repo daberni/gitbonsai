@@ -2,9 +2,47 @@ import AppKit
 import GitEngine
 
 /// The last local operation of the tab that can be undone, with the git command it ran.
-struct UndoOffer {
-    let point: UndoPoint
+struct UndoOffer: Equatable {
+    /// What goes back: refs and HEAD, or a removed remote's configuration.
+    enum Kind: Equatable {
+        case refs(UndoPoint)
+        case remote(RemovedRemote)
+    }
+
+    let kind: Kind
     let operation: String
+
+    init(point: UndoPoint, operation: String) {
+        kind = .refs(point)
+        self.operation = operation
+    }
+
+    init(remote: RemovedRemote, operation: String) {
+        kind = .remote(remote)
+        self.operation = operation
+    }
+
+    /// The commands that undo it, for the status line.
+    var commandLine: String {
+        switch kind {
+        case .refs(let point): point.commandLine
+        case .remote(let removed): "git remote add \(removed.name) && git fetch \(removed.name)"
+        }
+    }
+
+    func canUndo(in repository: Repository) async -> Bool {
+        switch kind {
+        case .refs(let point): await repository.canUndo(point)
+        case .remote(let removed): await repository.canRestoreRemote(removed)
+        }
+    }
+
+    func undo(in repository: Repository) async throws {
+        switch kind {
+        case .refs(let point): try await repository.undo(point)
+        case .remote(let removed): try await repository.restoreRemote(removed)
+        }
+    }
 }
 
 /// Which refs a local operation may move besides HEAD, and how HEAD's branch goes back.
@@ -48,7 +86,7 @@ extension GraphViewModel {
     }
 }
 
-/// "Undo" in the status line after a local operation that lost no commits: a rebase, cherry-pick, revert, merge, reset, checkout or branch deletion, and an interactive rebase of the app.
+/// "Undo" in the status line after a local operation that lost no commits: a rebase, cherry-pick, revert, merge, reset, amend, checkout, branch or tag deletion, the removal of a remote, and an interactive rebase of the app.
 /// Local operations run without asking, because this puts the refs back; it is offered only while HEAD and the refs are still where the operation left them.
 @MainActor
 final class UndoHistory {
@@ -87,13 +125,13 @@ final class UndoHistory {
             let rebase = await repository.finishedInteractiveRebase()
             var found: Pending?
             // An interactive rebase that finished after the offer was made is the newer operation.
-            if rebase == nil, let offer, await repository.canUndo(offer.point) {
+            if rebase == nil, let offer, await offer.canUndo(in: repository) {
                 found = .point(offer)
             } else if let last = await repository.lastRebaseUndo() {
                 found = .rebase(last)
             }
             guard current == generation else { return }
-            if case .point = found {} else if viewModel.undoOffer?.point == offer?.point { viewModel.undoOffer = nil }
+            if case .point = found {} else if viewModel.undoOffer == offer { viewModel.undoOffer = nil }
             pending = found
             show()
         }
@@ -103,7 +141,7 @@ final class UndoHistory {
         button.isHidden = pending == nil
         switch pending {
         case .point(let offer):
-            button.toolTip = String(localized: "history.undo.toolTip", defaultValue: "Undoes \(offer.operation) (\(offer.point.commandLine))", bundle: .module, comment: "Tooltip of the status line's Undo; the arguments are git commands.")
+            button.toolTip = String(localized: "history.undo.toolTip", defaultValue: "Undoes \(offer.operation) (\(offer.commandLine))", bundle: .module, comment: "Tooltip of the status line's Undo; the arguments are git commands.")
         case .rebase(let undo):
             let sha = String(undo.before.prefix(RefString.shortSHA))
             button.toolTip = String(localized: "rebase.undo.toolTip", defaultValue: "Resets \(undo.shortBranch ?? "HEAD") to where it was before the rebase (ORIG_HEAD \(sha))", bundle: .module)
@@ -120,7 +158,7 @@ final class UndoHistory {
         let failure = LocalizedStringResource("failure.undo.failed", defaultValue: "Not undone", bundle: .module)
         switch pending {
         case .point(let offer):
-            runner.run(failure: failure, note: offer.point.commandLine, focus: .followHead) { try await $0.undo(offer.point) }
+            runner.run(failure: failure, note: offer.commandLine, focus: .followHead) { try await offer.undo(in: $0) }
         case .rebase(let undo):
             runner.run(failure: failure, note: "git reset --keep ORIG_HEAD", focus: .followHead) { try await $0.undoRebase(undo) }
         }

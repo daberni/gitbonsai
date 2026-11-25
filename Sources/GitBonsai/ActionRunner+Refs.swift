@@ -4,7 +4,7 @@ import GitEngine
 extension ActionRunner {
     /// Deletes a local branch without asking, undoable from the status line; when git refuses it as unmerged, asks before deleting it anyway.
     func deleteBranch(_ name: String) async {
-        let question = ForceQuestion(title: LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "Delete unmerged Branch?", bundle: .module), names: RefString(marked: RefName.branch(name)), info: LocalizedStringResource("branch.deleteUnmerged.info", defaultValue: "The branch has commits that are not merged anywhere.", bundle: .module), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module))
+        let question = ForceQuestion(title: LocalizedStringResource("branch.deleteUnmerged.title", defaultValue: "Delete Branch?", bundle: .module), names: RefString(marked: RefName.branch(name)), info: LocalizedStringResource("branch.deleteUnmerged.info", defaultValue: "The branch has unmerged changes.", bundle: .module), button: LocalizedStringResource("branch.deleteUnmerged.confirm", defaultValue: "Delete anyway", bundle: .module))
         await performOrForce(failure: LocalizedStringResource("failure.branch.notDeleted", defaultValue: "Branch not deleted", bundle: .module), note: "git branch -d", forcedNote: "git branch -D", undo: .branch(name), refusedBecause: \.isUnmergedBranch, question: question) { try await $0.deleteBranch(name, force: $1) }
     }
 

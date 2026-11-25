@@ -150,4 +150,21 @@ extension UndoTests {
         XCTAssertEqual(sha("refs/heads/other"), second)
         XCTAssertEqual(sha("refs/heads/topic"), first)
     }
+
+    /// An annotated tag comes back as the same tag object with its message, not as a lightweight tag on its commit.
+    func testUndoTagDeletionRestoresTheAnnotatedTagObject() async throws {
+        try fixture.git("tag", "-a", "v1", "-m", "Release one", first)
+        let tagObject = sha("refs/tags/v1")
+        let repository = fixture.repository
+        let point = await repository.undoPoint(watching: ["refs/tags/v1"])
+        try await repository.deleteTag("v1")
+        let finished = await repository.finishUndoPoint(point)
+        let done = try XCTUnwrap(finished)
+
+        try await repository.undo(done)
+
+        XCTAssertEqual(sha("refs/tags/v1"), tagObject)
+        XCTAssertEqual(try fixture.git("cat-file", "-t", "v1"), "tag")
+        XCTAssertEqual(sha("HEAD"), second, "HEAD stays")
+    }
 }

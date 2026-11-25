@@ -125,26 +125,7 @@ final class CommitUseCase {
 
     private func commit(amend: Bool) {
         guard canCommit(amend: amend) else { return }
-        guard amend else { run(amend: false); return }
-        isCommitting = true
-        updateButton()
-        Task { [weak self] in
-            guard let self else { return }
-            guard await viewModel.repository.headIsPushed() else { run(amend: true); return }
-            let alert = NSAlert()
-            alert.messageText = String(localized: "commit.amendPushed.title", defaultValue: "Requires a force push", bundle: .module)
-            alert.addButton(withTitle: String(localized: "commit.amendPushed.confirm", defaultValue: "Amend anyway", bundle: .module))
-            alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
-            present(alert) { [weak self] response in
-                guard let self else { return }
-                if response == .alertFirstButtonReturn {
-                    run(amend: true)
-                } else {
-                    isCommitting = false
-                    updateButton()
-                }
-            }
-        }
+        run(amend: amend)
     }
 
     private func commitAll() {
@@ -157,6 +138,7 @@ final class CommitUseCase {
         let trailers = trailers
         let signOff = form.isSignOff
         let repository = viewModel.repository
+        let model = viewModel
         isCommitting = true
         updateButton()
         Task { [weak self] in
@@ -164,7 +146,9 @@ final class CommitUseCase {
                 if all {
                     try await repository.commitAll(message: message, trailers: trailers, signOff: signOff)
                 } else {
-                    try await repository.commit(message: message, amend: amend, trailers: trailers, signOff: signOff)
+                    // An amend runs without asking, also when the commit is pushed: the status line's Undo resets softly to the commit before.
+                    let scope: UndoScope? = amend ? .reset(.soft) : nil
+                    try await model.withUndoPoint(scope: scope, operation: "git commit --amend") { try await repository.commit(message: message, amend: amend, trailers: trailers, signOff: signOff) }
                 }
                 self?.clear()
             } catch {

@@ -87,7 +87,7 @@ final class MenuBuilderTests: XCTestCase {
     /// The Tags list leads with the jump and checks out detached; on a pill the commit's own checkout covers that.
     func testTagMenusDifferBetweenListAndPill() throws {
         let list = tab.menus.menu(for: .tag("v1"), in: .sidebar)
-        XCTAssertEqual(list.outline, [["Jump to Commit"], ["Checkout (Detached HEAD)"], ["Push v1 to origin"], ["Delete…", "Delete on origin…"], ["Copy v1"]])
+        XCTAssertEqual(list.outline, [["Jump to Commit"], ["Checkout (Detached HEAD)"], ["Push v1 to origin"], ["Delete", "Delete on origin…"], ["Copy v1"]])
         let pill = tab.menus.pillMenu(forRow: try tab.row(of: fixture.tagged), ref: .tag("v1"))
         XCTAssertNil(pill.entry("Checkout (Detached HEAD)"))
         XCTAssertNotNil(pill.entry("Checkout Commit \(short(fixture.tagged)) (Detached HEAD)"))
@@ -100,7 +100,7 @@ final class MenuBuilderTests: XCTestCase {
         XCTAssertEqual(head.entry("Move up")?.disabledReason, "Already the topmost commit")
         XCTAssertTrue(head.entry("Move down")?.isEnabled ?? false)
         let root = tab.menus.rowMenu(forRow: try tab.row(of: fixture.root))
-        XCTAssertEqual(root.entry("Drop Commit…")?.disabledReason, "The repository’s first commit has no parent")
+        XCTAssertEqual(root.entry("Drop Commit")?.disabledReason, "The repository’s first commit has no parent")
         XCTAssertEqual(root.entry("Move down")?.disabledReason, "The repository’s first commit has no parent")
     }
 
@@ -114,7 +114,7 @@ final class MenuBuilderTests: XCTestCase {
 
     func testRemoteMenuNamesItsGitCommands() {
         let menu = tab.menus.menu(for: .remote("origin"), in: .sidebar)
-        XCTAssertEqual(menu.outline, [["Edit Remote…"], ["Remove Remote…"]])
-        XCTAssertEqual(menu.entry("Remove Remote…")?.toolTip, "git remote remove origin")
+        XCTAssertEqual(menu.outline, [["Edit Remote…"], ["Remove Remote"]])
+        XCTAssertEqual(menu.entry("Remove Remote")?.toolTip, "git remote remove origin")
     }
 }

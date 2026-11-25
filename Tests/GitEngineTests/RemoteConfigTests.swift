@@ -70,4 +70,30 @@ final class RemoteConfigTests: XCTestCase {
             XCTAssertFalse(valid, name)
         }
     }
+
+    /// Undoing a removal brings back every setting of the remote, the upstreams of the branches that tracked it and, by fetching, its remote-tracking branches.
+    func testRestoringARemovedRemoteBringsBackConfigUpstreamsAndBranches() async throws {
+        let (local, bare, holder) = try repositoryAndBare()
+        defer { local.remove(); holder.remove() }
+        let repo = local.repository
+        try await repo.addRemote("team/ü", url: bare)
+        try local.git("config", "--add", "remote.team/ü.fetch", "+refs/tags/*:refs/tags/*")
+        try local.git("config", "remote.team/ü.pushurl", "https://example.invalid/push.git")
+        try await repo.fetch(.remote("team/ü", prune: false))
+        try local.git("branch", "--set-upstream-to=team/ü/main", "main")
+        try local.git("branch", "other")
+        let config = try local.git("config", "--local", "--get-regexp", "^(remote|branch)\\.")
+
+        let removed = try await repo.removeRemoteKeepingConfig("team/ü")
+        XCTAssertEqual(try remoteRefs(local), [])
+        XCTAssertThrowsError(try local.git("config", "branch.main.remote"))
+
+        try await repo.restoreRemote(removed)
+
+        XCTAssertEqual(try local.git("config", "--local", "--get-regexp", "^(remote|branch)\\."), config)
+        XCTAssertEqual(try remoteRefs(local), ["team/ü/HEAD", "team/ü/main"])
+        XCTAssertEqual(try local.git("symbolic-ref", "refs/remotes/team/ü/HEAD"), "refs/remotes/team/ü/main")
+        let again = await repo.canRestoreRemote(removed)
+        XCTAssertFalse(again, "the remote exists again, so there is nothing left to undo")
+    }
 }

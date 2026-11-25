@@ -127,13 +127,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Branch hat Commits, die nirgends gemergt sind."
+            "value" : "Der Branch hat nicht gemergte Änderungen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "The branch has commits that are not merged anywhere."
+            "value" : "The branch has unmerged changes."
           }
         }
       }
@@ -144,13 +144,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nicht gemergten Branch löschen?"
+            "value" : "Branch löschen?"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete unmerged Branch?"
+            "value" : "Delete Branch?"
           }
         }
       }
@@ -3718,40 +3718,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Edit Message"
-          }
-        }
-      }
-    },
-    "commit.amendPushed.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trotzdem ändern"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Amend anyway"
-          }
-        }
-      }
-    },
-    "commit.amendPushed.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erfordert Force-Push"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Requires a force push"
           }
         }
       }
@@ -12802,74 +12768,6 @@
         }
       }
     },
-    "rebase.drop.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verwerfen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Drop Commit"
-          }
-        }
-      }
-    },
-    "rebase.drop.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Commit verwerfen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Drop Commit?"
-          }
-        }
-      }
-    },
-    "rebase.dropAll.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verwerfen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Drop Commits"
-          }
-        }
-      }
-    },
-    "rebase.dropAll.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle Commits verwerfen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Drop all Commits?"
-          }
-        }
-      }
-    },
     "rebase.error.baseNotInHistory" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -13030,13 +12928,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Commit verwerfen …"
+            "value" : "Commit verwerfen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Drop Commit…"
+            "value" : "Drop Commit"
           }
         }
       }
@@ -15730,48 +15628,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remote entfernen…"
+            "value" : "Remote entfernen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Remove Remote…"
-          }
-        }
-      }
-    },
-    "sidebar.remote.remove.confirm" : {
-      "comment" : "Button that removes the remote.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entfernen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Remove"
-          }
-        }
-      }
-    },
-    "sidebar.remote.remove.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remote entfernen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Remove Remote?"
+            "value" : "Remove Remote"
           }
         }
       }
@@ -16564,13 +16427,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Löschen …"
+            "value" : "Löschen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Delete…"
+            "value" : "Delete"
           }
         }
       }
@@ -16605,23 +16468,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Push Tag"
-          }
-        }
-      }
-    },
-    "tag.delete.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tag löschen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Delete Tag?"
           }
         }
       }

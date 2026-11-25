@@ -53,7 +53,7 @@ final class InteractiveRebaseUseCase {
             reword,
             .action(LocalizedStringResource("rebase.menu.moveUp", defaultValue: "Move up", bundle: .module), disabledBecause: up) { [weak self] in self?.singleStep(.moveUp, commit, branch: branch) },
             .action(LocalizedStringResource("rebase.menu.moveDown", defaultValue: "Move down", bundle: .module), disabledBecause: down) { [weak self] in self?.singleStep(.moveDown, commit, branch: branch) },
-            .action(LocalizedStringResource("rebase.menu.drop", defaultValue: "Drop Commit…", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
+            .action(LocalizedStringResource("rebase.menu.drop", defaultValue: "Drop Commit", bundle: .module), disabledBecause: ownStep) { [weak self] in self?.singleStep(.drop, commit, branch: branch) },
         ]
     }
 
@@ -126,10 +126,6 @@ final class InteractiveRebaseUseCase {
                 let plan = await sheet.run(on: window)
                 self.sheet = nil
                 guard let plan else { return }
-                if plan.dropsEverything {
-                    let confirmed = await runner.confirm(LocalizedStringResource("rebase.dropAll.title", defaultValue: "Drop all Commits?", bundle: .module), names: RefString(marked: RefName.branch(branch) + " → " + RefName.commit(model.targetCommit.id) + " " + model.targetCommit.subject), button: LocalizedStringResource("rebase.dropAll.confirm", defaultValue: "Drop Commits", bundle: .module))
-                    guard confirmed else { return }
-                }
                 let hint = CommitActions.publishedHint(model.published, upstream: upstream)
                 start(plan, note: CommitActions.note(Self.command(plan), hint))
             } catch {
@@ -203,16 +199,7 @@ final class InteractiveRebaseUseCase {
             do {
                 let plan = try await repository.singleStepPlan(step, commit: commit.id)
                 let hint = await publishedHint(plan)
-                // Only dropping asks: it takes the commit's changes out of the branch. Moving is undone from the status line.
-                if step == .drop {
-                    let alert = NSAlert()
-                    alert.alertStyle = .warning
-                    alert.setConfirmation(LocalizedStringResource("rebase.drop.title", defaultValue: "Drop Commit?", bundle: .module), names: RefString(marked: RefName.commit(commit.id) + " " + commit.subject), info: hint ?? RefString(verbatim: ""))
-                    alert.addButton(withTitle: String(localized: "rebase.drop.confirm", defaultValue: "Drop Commit", bundle: .module))
-                    alert.addButton(withTitle: String(localized: "common.cancel", defaultValue: "Cancel", bundle: .module))
-                    alert.buttons.first?.hasDestructiveAction = true
-                    guard await prompter.confirm(alert) else { return }
-                }
+                // Dropping and moving run without asking: the status line's Undo resets the branch to ORIG_HEAD.
                 // The status line names the step inside the command; drop is git's own todo verb.
                 let verb = switch step {
                 case .drop: "drop"

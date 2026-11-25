@@ -95,10 +95,17 @@ extension Repository {
         _ = try await runner.runWrite(["update-ref", "--stdin"], stdin: Data(("start\n" + moves.joined() + "commit\n").utf8))
     }
 
+    /// The object a ref points at, unpeeled: an annotated tag comes back as the tag object itself.
+    private func resolveRef(_ ref: String) async -> String? {
+        guard let result = try? await runner.run(["rev-parse", "--verify", "--quiet", "--end-of-options", ref]) else { return nil }
+        let id = result.stdoutString.trimmingCharacters(in: .whitespacesAndNewlines)
+        return id.isEmpty ? nil : id
+    }
+
     private func undoState(_ refs: [String]) async -> UndoPoint.State {
         var resolved: [String: String] = [:]
         for ref in refs {
-            if let sha = await resolveCommit(ref) { resolved[ref] = sha }
+            if let id = await resolveRef(ref) { resolved[ref] = id }
         }
         return UndoPoint.State(branch: await currentBranchRef(), head: await resolveCommit("HEAD"), refs: resolved)
     }

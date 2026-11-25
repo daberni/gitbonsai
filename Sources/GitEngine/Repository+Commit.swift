@@ -71,9 +71,4 @@ extension Repository {
         default: return "GPG"
         }
     }
-
-    /// True when the upstream of the current branch already contains HEAD, so rewriting it needs a force push.
-    public func headIsPushed() async -> Bool {
-        (try? await runner.run(["merge-base", "--is-ancestor", "HEAD", "@{upstream}"])) != nil
-    }
 }

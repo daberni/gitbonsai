@@ -39,7 +39,7 @@ final class TagActions {
             PanelAction(LocalizedStringResource("tag.action.checkout", defaultValue: "Checkout", bundle: .module), isShown: isLocal) { [weak self] name in self?.checkout(name) },
             PanelAction(Self.pushButton, isEnabled: { [weak self] _ in self?.remotes.isEmpty == false }, isShown: isLocal) { [weak self] name in self?.pushFromButton(name) },
             PanelAction(Self.fetchButton, isShown: { !isLocal($0) }) { [weak self] name in self?.fetchFromButton(name) },
-            PanelAction(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module), isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
+            PanelAction(LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module), isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
             PanelAction(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { [pasteboard] name in pasteboard.copy(name) },
         ]
         remoteTags.onChange = { [weak self] in self?.render() }
@@ -119,7 +119,7 @@ final class TagActions {
         if checkout { sections.goThere = [MenuEntry(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] }
         sections.sync = remotes.map { remote in MenuEntry(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push \(RefName.tag(name)) to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } }
         sections.copy = [MenuEntry(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }]
-        sections.remove = [MenuEntry(LocalizedStringResource("tag.action.delete", defaultValue: "Delete…", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
+        sections.remove = [MenuEntry(LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
             MenuEntry(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
         }
         return sections
@@ -170,10 +170,8 @@ final class TagActions {
     }
 
     func deleteLocally(_ name: String) {
-        Task {
-            guard await confirm(LocalizedStringResource("tag.delete.title", defaultValue: "Delete Tag?", bundle: .module), names: RefString(marked: RefName.tag(name)), button: LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module)) else { return }
-            runner.run(failure: LocalizedStringResource("failure.tag.notDeleted", defaultValue: "Tag not deleted", bundle: .module), note: "git tag --delete \(name)") { try await $0.deleteTag(name) }
-        }
+        // Runs without asking: the status line's Undo puts the tag object back.
+        runner.run(failure: LocalizedStringResource("failure.tag.notDeleted", defaultValue: "Tag not deleted", bundle: .module), note: "git tag --delete \(name)", undo: UndoScope(refs: ["refs/tags/\(name)"])) { try await $0.deleteTag(name) }
     }
 
     func deleteRemotely(_ name: String, on remote: String) {

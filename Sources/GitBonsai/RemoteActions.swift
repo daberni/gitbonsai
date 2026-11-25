@@ -22,7 +22,7 @@ final class RemoteActions {
     func groups(for remote: String) -> [[MenuEntry]] {
         var edit = MenuEntry(LocalizedStringResource("sidebar.remote.menu.edit", defaultValue: "Edit Remote…", bundle: .module)) { [weak self] in self?.showEdit(remote) }
         edit.toolTip = "git remote rename / git remote set-url"
-        var remove = MenuEntry(LocalizedStringResource("sidebar.remote.menu.remove", defaultValue: "Remove Remote…", bundle: .module)) { [weak self] in self?.remove(remote) }
+        var remove = MenuEntry(LocalizedStringResource("sidebar.remote.menu.remove", defaultValue: "Remove Remote", bundle: .module)) { [weak self] in self?.remove(remote) }
         remove.toolTip = "git remote remove \(remote)"
         return [[edit], [remove]]
     }
@@ -64,10 +64,13 @@ final class RemoteActions {
         }
     }
 
+    /// Runs without asking: the status line's Undo adds the remote back as it was and fetches it.
     func remove(_ remote: String) {
-        Task {
-            guard await runner.confirm(LocalizedStringResource("sidebar.remote.remove.title", defaultValue: "Remove Remote?", bundle: .module), names: RefString(marked: RefName.remote(remote)), button: LocalizedStringResource("sidebar.remote.remove.confirm", defaultValue: "Remove", bundle: .module, comment: "Button that removes the remote."), destructive: true, style: .warning) else { return }
-            await runner.perform(failure: LocalizedStringResource("failure.remote.notRemoved", defaultValue: "Remote not removed", bundle: .module), note: "git remote remove") { try await $0.removeRemote(remote) }
+        let viewModel = viewModel
+        let note = "git remote remove \(remote)"
+        runner.run(failure: LocalizedStringResource("failure.remote.notRemoved", defaultValue: "Remote not removed", bundle: .module), note: note) { repository in
+            let removed = try await repository.removeRemoteKeepingConfig(remote)
+            await MainActor.run { viewModel.undoOffer = UndoOffer(remote: removed, operation: note) }
         }
     }
 }
