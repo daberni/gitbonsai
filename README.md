@@ -53,7 +53,7 @@ Every row has a context menu with what it offers: fast-forward, checkout, merge,
 
 ### Branches, remotes and tags
 
-- Fetch all remotes ⇧⌘F, one remote, with pruning, or tags only; optional automatic fetching when the app becomes active and periodically, less often on battery and never in Low Power Mode.
+- Fetch all remotes ⇧⌘F, one remote, with pruning, or tags only; optional automatic fetching every time the app becomes active (switching back within a few seconds does not fetch again) and periodically, less often on battery and never in Low Power Mode.
 - Pull ⇧⌘L as configured, fast-forward only, merge or rebase; pull a branch that is not checked out.
 - Push ⇧⌘U, push and set the upstream — also for a branch that is not checked out, from its menu — push tags. A rejected push offers to pull and push again or to overwrite with `--force-with-lease`.
 - Fast-forward any local branch to its upstream or to HEAD without checking it out.

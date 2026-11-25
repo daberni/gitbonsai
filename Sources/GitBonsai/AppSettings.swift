@@ -78,7 +78,7 @@ final class AppSettings {
         set { store(newValue, forKey: "autoFetchMinutes") }
     }
 
-    /// Whether a repository fetches when the app becomes active or its tab becomes visible, at most once per `AutoFetchPolicy.activationThreshold`.
+    /// Whether a repository fetches when the app becomes active or its tab becomes visible, debounced by `AutoFetchPolicy.activationDebounce`; independent of `autoFetchMinutes`.
     var fetchOnActivation: Bool {
         get { defaults.object(forKey: "fetchOnActivation") as? Bool ?? true }
         set { store(newValue, forKey: "fetchOnActivation") }

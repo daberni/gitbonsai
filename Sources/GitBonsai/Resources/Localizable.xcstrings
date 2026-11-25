@@ -15270,39 +15270,15 @@
     "settings.fetch.automatic.caption" : {
       "localizations" : {
         "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Wenn die App aktiv oder ein Tab sichtbar wird und der letzte Fetch länger als %lld Minute her ist."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Wenn die App aktiv oder ein Tab sichtbar wird und der letzte Fetch länger als %lld Minuten her ist."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jedes Mal, wenn die App aktiv oder ein Tab sichtbar wird, unabhängig vom regelmäßigen Fetch. Wer innerhalb weniger Sekunden zurückwechselt, löst keinen weiteren Fetch aus."
           }
         },
         "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "When the app becomes active or a tab becomes visible and the last fetch was more than %lld minute ago."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "When the app becomes active or a tab becomes visible and the last fetch was more than %lld minutes ago."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every time the app becomes active or a tab becomes visible, independent of the periodic fetch. Switching back within a few seconds does not fetch again."
           }
         }
       }

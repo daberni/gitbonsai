@@ -12,19 +12,23 @@ final class AutoFetchPolicyTests: XCTestCase {
 
     func at(_ minutes: Double) -> Date { start.addingTimeInterval(minutes * 60) }
 
-    func testActivationFetchesOnlyOncePerThreshold() {
-        var policy = policy()
+    func seconds(_ seconds: Double) -> Date { start.addingTimeInterval(seconds) }
+
+    func testActivationIsDebouncedButIndependentOfTheInterval() {
+        var policy = policy(interval: 30)
         XCTAssert(policy.skip(.activation, now: at(0), lastFetch: nil, power: .adapter) == nil)
         policy.started(at: at(0))
         policy.finished(failure: nil)
-        XCTAssert(policy.skip(.activation, now: at(1), lastFetch: at(0), power: .adapter) == .recent)
-        XCTAssert(policy.skip(.activation, now: at(4.9), lastFetch: at(0), power: .adapter) == .recent)
-        XCTAssert(policy.skip(.activation, now: at(5), lastFetch: at(0), power: .adapter) == nil)
+        XCTAssert(policy.skip(.activation, now: seconds(5), lastFetch: at(0), power: .adapter) == .recent)
+        XCTAssert(policy.skip(.activation, now: seconds(11.9), lastFetch: at(0), power: .adapter) == .recent)
+        XCTAssert(policy.skip(.activation, now: seconds(12), lastFetch: at(0), power: .adapter) == nil)
+        XCTAssert(policy.skip(.interval, now: at(1), lastFetch: at(0), power: .adapter) == .recent, "the periodic fetch still waits for its interval")
+        XCTAssert(policy.skip(.activation, now: at(1), lastFetch: at(0), power: .adapter) == nil, "activation does not wait for the interval")
     }
 
     func testManualFetchCountsAsRecent() {
         let policy = policy()
-        XCTAssert(policy.skip(.activation, now: at(10), lastFetch: at(8), power: .adapter) == .recent)
+        XCTAssert(policy.skip(.activation, now: seconds(10), lastFetch: seconds(5), power: .adapter) == .recent)
         XCTAssert(policy.skip(.interval, now: at(10), lastFetch: at(8), power: .adapter) == .recent)
     }
 
@@ -32,8 +36,8 @@ final class AutoFetchPolicyTests: XCTestCase {
         var policy = policy()
         policy.started(at: at(0))
         policy.finished(failure: denied)
-        XCTAssert(policy.skip(.activation, now: at(2), lastFetch: nil, power: .adapter) == .recent)
-        XCTAssert(policy.skip(.activation, now: at(6), lastFetch: nil, power: .adapter) == nil)
+        XCTAssert(policy.skip(.activation, now: seconds(3), lastFetch: nil, power: .adapter) == .recent)
+        XCTAssert(policy.skip(.activation, now: seconds(13), lastFetch: nil, power: .adapter) == nil)
     }
 
     func testActivationCanBeTurnedOff() {

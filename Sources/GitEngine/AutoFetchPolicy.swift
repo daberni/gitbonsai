@@ -1,10 +1,10 @@
 import Foundation
 
-/// Decides when a repository fetches on its own: once when it comes into view after a while, and periodically while it stays in view.
+/// Decides when a repository fetches on its own: whenever it comes into view, and periodically while it stays in view. The two are independent: the periodic interval does not hold back the fetch on activation.
 ///
 /// The rules, in the order they apply:
 /// - A fetch counts from the later of the last fetch (`FETCH_HEAD`, so manual fetches count too) and the last automatic attempt, so failures do not retry on every tab switch.
-/// - Coming into view fetches when that is older than `activationThreshold`.
+/// - Coming into view fetches unless that was within `activationDebounce`, so switching quickly between apps or tabs does not fetch again and again.
 /// - The periodic fetch doubles its interval on battery and pauses in Low Power Mode, which the user turned on to save energy; coming into view still fetches then.
 /// - Failures double the periodic interval, up to eight times. A failure that looks like no network pauses the periodic fetch until the next time the tab comes into view.
 public struct AutoFetchPolicy: Sendable {
@@ -36,7 +36,8 @@ public struct AutoFetchPolicy: Sendable {
         }
     }
 
-    public static let activationThreshold: TimeInterval = 5 * 60
+    /// Short enough that coming back to the app always looks at the remote, long enough to absorb quick app and tab switching.
+    public static let activationDebounce: TimeInterval = 12
     public static let defaultIntervalMinutes = 10
     /// Minutes the periodic fetch can be set to; 0 is off.
     public static let intervalChoices = [0, 5, 10, 30]
@@ -50,15 +51,15 @@ public struct AutoFetchPolicy: Sendable {
     public var fetchOnActivation: Bool
     /// Seconds between periodic fetches; nil turns them off.
     public var interval: TimeInterval?
-    public var activationThreshold: TimeInterval
+    public var activationDebounce: TimeInterval
     public private(set) var lastAttempt: Date?
     public private(set) var failures = 0
     public private(set) var isOffline = false
 
-    public init(fetchOnActivation: Bool, interval: TimeInterval?, activationThreshold: TimeInterval = Self.activationThreshold) {
+    public init(fetchOnActivation: Bool, interval: TimeInterval?, activationDebounce: TimeInterval = Self.activationDebounce) {
         self.fetchOnActivation = fetchOnActivation
         self.interval = interval
-        self.activationThreshold = activationThreshold
+        self.activationDebounce = activationDebounce
     }
 
     /// Whether a trigger at `now` may fetch, judged without asking git; nil means it is due.
@@ -68,7 +69,7 @@ public struct AutoFetchPolicy: Sendable {
         switch trigger {
         case .activation:
             guard fetchOnActivation else { return .disabled }
-            return isRecent(within: activationThreshold) ? .recent : nil
+            return isRecent(within: activationDebounce) ? .recent : nil
         case .interval:
             guard let interval, interval > 0 else { return .disabled }
             if power == .lowPower { return .lowPower }

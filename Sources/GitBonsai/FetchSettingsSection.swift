@@ -7,7 +7,6 @@ struct FetchSettingsSection: View {
 
     var body: some View {
         @Bindable var model = model
-        let minutes = Int(AutoFetchPolicy.activationThreshold / 60)
         Section {
             Toggle(isOn: $model.fetchOnActivation) {
                 Text(LocalizedStringResource("settings.fetch.onActivation", defaultValue: "Fetch on activation", bundle: .module, comment: "Toggle for fetching when the app or a tab becomes active."))
@@ -16,7 +15,7 @@ struct FetchSettingsSection: View {
         } header: {
             Text(LocalizedStringResource("settings.fetch.automatic.label", defaultValue: "Automatic fetch", bundle: .module, comment: "Settings section of the automatic fetch."))
         } footer: {
-            SettingsCaption(LocalizedStringResource("settings.fetch.automatic.caption", defaultValue: "When the app becomes active or a tab becomes visible and the last fetch was more than \(minutes) minutes ago.", bundle: .module))
+            SettingsCaption(LocalizedStringResource("settings.fetch.automatic.caption", defaultValue: "Every time the app becomes active or a tab becomes visible, independent of the periodic fetch. Switching back within a few seconds does not fetch again.", bundle: .module))
         }
         Section {
             Picker(selection: $model.autoFetchMinutes) {
