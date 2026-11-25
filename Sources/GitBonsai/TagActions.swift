@@ -40,7 +40,7 @@ final class TagActions {
             PanelAction(Self.pushButton, isEnabled: { [weak self] _ in self?.remotes.isEmpty == false }, isShown: isLocal) { [weak self] name in self?.pushFromButton(name) },
             PanelAction(Self.fetchButton, isShown: { !isLocal($0) }) { [weak self] name in self?.fetchFromButton(name) },
             PanelAction(LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module), isDestructive: true, isShown: isLocal) { [weak self] name in self?.deleteLocally(name) },
-            PanelAction(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag name", bundle: .module)) { [pasteboard] name in pasteboard.copy(name) },
+            PanelAction(LocalizedStringResource("tag.action.copyName", defaultValue: "Copy Tag", bundle: .module)) { [pasteboard] name in pasteboard.copy(name) },
         ]
         remoteTags.onChange = { [weak self] in self?.render() }
     }
@@ -108,19 +108,27 @@ final class TagActions {
             let copy: [MenuEntry] = [MenuEntry(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }]
             return [fetches, deletes, copy]
         }
-        let jump: [MenuEntry] = [MenuEntry(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }]
-        return [jump] + localTagSections(name, commit: tag.commitID).groups
+        var sections = localTagSections(name, commit: tag.commitID)
+        sections.goThere.insert(MenuEntry(LocalizedStringResource("tag.menu.jumpToCommit", defaultValue: "Jump to Commit", bundle: .module)) { [weak self] in self?.jump(to: name) }, at: 0)
+        return sections.groups
     }
 
-    /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history.
+    /// The actions on a local tag at `commit`, shared by the list and the tag's pill in the history. Push and Delete on a remote follow what each remote has; see `TagRows.remoteOffers`.
     /// `checkout` false leaves the checkout to a menu that offers the commit's own.
     func localTagSections(_ name: String, commit: String, checkout: Bool = true) -> MenuSections {
         var sections = MenuSections()
-        if checkout { sections.goThere = [MenuEntry(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }] }
-        sections.sync = remotes.map { remote in MenuEntry(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push \(RefName.tag(name)) to \(RefName.remote(remote))", bundle: .module)) { [weak self] in self?.push(name, to: remote) } }
+        let offers = rows.remoteOffers(name, remotes: remotes)
+        if checkout { sections.goThere = [MenuEntry(LocalizedStringResource("tag.menu.checkoutDetached", defaultValue: "Checkout (Detached HEAD)", bundle: .module)) { [weak self] in self?.checkout(commit: commit) }.movingHead] }
+        sections.sync = offers.compactMap { offer in
+            switch offer.push {
+            case nil: nil
+            case .add: MenuEntry(LocalizedStringResource("tag.menu.pushTo", defaultValue: "Push \(RefName.tag(name)) to \(RefName.remote(offer.remote))", bundle: .module)) { [weak self] in self?.push(name, to: offer.remote) }
+            case .replace: MenuEntry(LocalizedStringResource("tag.menu.pushReplace", defaultValue: "Push \(RefName.tag(name)) to \(RefName.remote(offer.remote)) (replace)…", bundle: .module)) { [weak self] in self?.replace(name, on: offer.remote) }
+            }
+        }
         sections.copy = [MenuEntry(LocalizedStringResource("tag.menu.copyName", defaultValue: "Copy \(RefName.tag(name))", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }]
-        sections.remove = [MenuEntry(LocalizedStringResource("common.delete", defaultValue: "Delete", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + remotes.map { remote in
-            MenuEntry(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: remote) }
+        sections.remove = [MenuEntry(LocalizedStringResource("tag.menu.delete", defaultValue: "Delete \(RefName.tag(name))", bundle: .module)) { [weak self] in self?.deleteLocally(name) }] + offers.filter(\.canDelete).map { offer in
+            MenuEntry(LocalizedStringResource("tag.menu.deleteOn", defaultValue: "Delete on \(RefName.remote(offer.remote))…", bundle: .module)) { [weak self] in self?.deleteRemotely(name, on: offer.remote) }
         }
         return sections
     }
@@ -167,6 +175,14 @@ final class TagActions {
 
     func push(_ name: String, to remote: String) {
         runner.run(failure: LocalizedStringResource("failure.tag.notPushed", defaultValue: "Tag not pushed", bundle: .module), note: "git push \(remote) refs/tags/\(name)") { try await $0.pushTag(name, to: remote) }
+    }
+
+    /// The remote's tag points elsewhere; only a force push replaces it, so it asks first.
+    private func replace(_ name: String, on remote: String) {
+        Task {
+            guard await confirm(LocalizedStringResource("tag.replaceRemote.title", defaultValue: "Replace Tag on Remote?", bundle: .module), names: RefString(marked: RefName.tag(name) + " " + RefName.remote(remote)), button: LocalizedStringResource("tag.replaceRemote.confirm", defaultValue: "Replace", bundle: .module)) else { return }
+            runner.run(failure: LocalizedStringResource("failure.tag.notPushed", defaultValue: "Tag not pushed", bundle: .module), note: "git push --force \(remote) refs/tags/\(name)") { try await $0.pushTag(name, to: remote, force: true) }
+        }
     }
 
     func deleteLocally(_ name: String) {

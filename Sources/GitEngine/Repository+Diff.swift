@@ -124,10 +124,4 @@ extension Repository {
     public func discardAllChanges() async throws {
         _ = try await runner.runWrite(["restore", "--source=HEAD", "--staged", "--worktree", "--", ":/"])
     }
-
-    /// Deletes untracked files. Ignored files are left alone.
-    public func removeUntracked(_ paths: [String]) async throws {
-        guard !paths.isEmpty else { return }
-        _ = try await runner.runWrite(["clean", "-f", "-q", "--"] + paths)
-    }
 }

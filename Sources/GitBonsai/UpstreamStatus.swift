@@ -17,8 +17,23 @@ final class UpstreamStatus {
         viewModel = model
     }
 
-    var canPull: Bool { branch != nil && !remotes.isEmpty }
-    var canPush: Bool { branch != nil && !remotes.isEmpty }
+    var canPush: Bool { pushBlocked == nil }
+
+    /// Why Pull cannot run: a detached HEAD, or a branch without upstream.
+    var pullBlocked: String? {
+        guard let branch else { return Self.detached }
+        guard upstream != nil else { return String(localized: "toolbar.pull.noUpstream", defaultValue: "\(branch) has no upstream", bundle: .module, comment: "Tooltip of the disabled Pull button; the argument is the branch.") }
+        return nil
+    }
+
+    /// Why Push cannot run: no remote to push to, or a detached HEAD.
+    var pushBlocked: String? {
+        if remotes.isEmpty { return Self.noRemote }
+        return branch == nil ? Self.detached : nil
+    }
+
+    static var noRemote: String { String(localized: "toolbar.reason.noRemote", defaultValue: "No remote configured", bundle: .module, comment: "Tooltip of a disabled Fetch or Push button or entry.") }
+    private static var detached: String { String(localized: "toolbar.reason.detached", defaultValue: "HEAD is detached", bundle: .module, comment: "Tooltip of a disabled Pull or Push button or entry.") }
     /// A branch that could be pushed but has no upstream yet; the Push button marks it.
     var lacksUpstream: Bool { canPush && upstream == nil }
 

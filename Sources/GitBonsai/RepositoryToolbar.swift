@@ -15,8 +15,15 @@ final class RepositoryToolbar: BarView {
     /// The menus of Pull and Push, the first enabled entry each button's default; the buttons start disabled until `showUpstream` enables them.
     var pullMenu: (() -> NSMenu)?
     var pushMenu: (() -> NSMenu)?
-    /// The Stash menu, its first entry stashing everything at once; the button is enabled while it is set.
-    var stashMenu: (() -> NSMenu)? { didSet { stash.isEnabled = stashMenu != nil } }
+    /// The Stash menu, its first entry stashing everything at once; the button is enabled while it is set, and says otherwise that there is nothing to stash.
+    var stashMenu: (() -> NSMenu)? {
+        didSet {
+            stash.isEnabled = stashMenu != nil
+            stash.toolTip = stashMenu == nil ? String(localized: "toolbar.stash.noChanges", defaultValue: "No changes to stash", bundle: .module, comment: "Tooltip of the disabled Stash button.") : nil
+        }
+    }
+    /// Why Fetch cannot run, shown as the disabled button's tooltip; nil enables it.
+    var fetchBlocked: String? { didSet { if fetchBlocked != oldValue { applyRemoteState() } } }
 
     private lazy var fetchButton = MenuButton(LocalizedStringResource("toolbar.fetch.title", defaultValue: "Fetch", bundle: .module, comment: "Toolbar button."), "arrow.down.to.line", enabled: true) { [weak self] in self?.fetchMenu?() ?? self?.singleFetchMenu() ?? NSMenu() }
     private lazy var pull = MenuButton(LocalizedStringResource("toolbar.pull.title", defaultValue: "Pull", bundle: .module, comment: "Toolbar button."), "arrow.down", enabled: false) { [weak self] in self?.pullMenu?() ?? NSMenu() }
@@ -33,8 +40,8 @@ final class RepositoryToolbar: BarView {
     private let fetchSpinner = NSProgressIndicator()
     private var showsSpinner = false
     /// What `showUpstream` last set, combined with the running operation in `applyRemoteState`.
-    private var canPull = false
-    private var canPush = false
+    private var pullBlocked: String? = ""
+    private var pushBlocked: String? = ""
     private var pullToolTip: String?
     private var pushToolTip: String?
     private var activity: RemoteActivity.Running?
@@ -104,10 +111,10 @@ final class RepositoryToolbar: BarView {
     @objc private func runPop(_ sender: Any?) { onPop?() }
 
     /// Enables Pull and Push and badges them with the commits each would move; without counts (no upstream, or never fetched) the badges stay hidden.
-    /// `lacksUpstream` marks a branch that could be pushed but has no upstream yet.
-    func showUpstream(canPull: Bool, canPush: Bool, upstream: Upstream?, lacksUpstream: Bool) {
-        self.canPull = canPull
-        self.canPush = canPush
+    /// A button with a reason in `pullBlocked` or `pushBlocked` is disabled and shows the reason as its tooltip. `lacksUpstream` marks a branch that could be pushed but has no upstream yet.
+    func showUpstream(pullBlocked: String?, pushBlocked: String?, upstream: Upstream?, lacksUpstream: Bool) {
+        self.pullBlocked = pullBlocked
+        self.pushBlocked = pushBlocked
         behindBadge.show(upstream?.behind.map(CornerBadge.Content.count))
         pullToolTip = upstream.flatMap { up in up.behind.map { Self.behind($0, up.name) } }
         if lacksUpstream {
@@ -129,16 +136,16 @@ final class RepositoryToolbar: BarView {
     /// While an operation runs its button spins and offers Cancel, and the other remote buttons wait with a tooltip naming it.
     private func applyRemoteState() {
         let fetchToolTip = fetchMenu == nil ? nil : String(localized: "toolbar.fetch.toolTip", defaultValue: "Fetch all remotes; more options behind the arrow", bundle: .module)
-        let states: [(MenuButton, RemoteActivity.Kind, Bool, String?)] = [
-            (fetchButton, .fetch, true, fetchToolTip),
-            (pull, .pull, canPull, pullToolTip),
-            (push, .push, canPush, pushToolTip),
+        let states: [(MenuButton, RemoteActivity.Kind, String?, String?)] = [
+            (fetchButton, .fetch, fetchBlocked, fetchToolTip),
+            (pull, .pull, pullBlocked, pullToolTip),
+            (push, .push, pushBlocked, pushToolTip),
         ]
-        for (button, kind, available, toolTip) in states {
+        for (button, kind, blocked, toolTip) in states {
             guard let activity else {
                 button.isRunning = false
-                button.isEnabled = available
-                button.toolTip = toolTip
+                button.isEnabled = blocked == nil
+                button.toolTip = blocked ?? toolTip
                 continue
             }
             button.isRunning = activity.kind == kind

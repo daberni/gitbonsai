@@ -158,6 +158,11 @@ public enum CommandRules {
         state.headSHA == nil ? .noCommits : nil
     }
 
+    /// Menu entries that move HEAD or rewrite history (checkout, pull, merge, rebase, cherry-pick, reset, revert, rewording, moving or dropping commits, squash, applying a stash) wait while git is in the middle of an operation; copying, opening, creating refs, fetching and pushing stay possible.
+    public static func movingHead(operation: OperationProgress.Kind?) -> CommandBlocker? {
+        operation.map { .operationInProgress($0) }
+    }
+
     public static func checkout(_ state: RepositoryCommandState) -> CommandBlocker? {
         state.operation.map { .operationInProgress($0) }
     }

@@ -110,7 +110,7 @@ final class RepositoryViewController: NSObject {
         let rebase = commitActions.interactiveRebase
         inlineReword = RewordUseCase(context: context, detail: detail) { [weak rebase] commit in rebase?.rewordAccess(for: commit) }
         let checkout = checkoutUseCase
-        branchActions = BranchActions(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward) { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }
+        branchActions = BranchActions(context: context, pull: pullUseCase, push: pushUseCase, fastForward: fastForward, rebaseOnto: commitActions.rebaseOnto) { target, worktreePath in checkout.perform(target, worktreePath: worktreePath) }
         menuBuilder = MenuBuilder(context: context, checkout: checkoutUseCase, commitActions: commitActions, branches: branchActions, tags: tagActions, fastForward: fastForward, stashes: stashActions, worktrees: worktreeActions, remotes: remoteActions, fetch: fetchUseCase, pull: pullUseCase, push: pushUseCase, files: fileActions, staging: staging)
         wire()
         layout()
@@ -160,6 +160,7 @@ final class RepositoryViewController: NSObject {
 
     /// A remote counts once it is configured, before anything was fetched from it.
     func showFetchState() {
+        toolbar.fetchBlocked = fetchUseCase.remotes.isEmpty ? UpstreamStatus.noRemote : nil
         toolbar.showFetchState(target: fetchTarget, lastFetch: viewModel.lastFetch, fetching: viewModel.isFetching, failure: viewModel.lastFetchFailure)
     }
 

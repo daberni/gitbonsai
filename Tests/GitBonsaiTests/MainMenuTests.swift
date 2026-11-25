@@ -43,18 +43,16 @@ final class MainMenuTests: XCTestCase {
         XCTAssertTrue(groups.allSatisfy { !$0.isEmpty })
     }
 
-    /// A family lists the tab's commands of its prefix that have no place of their own, in the tab's order; an optional entry shows only while offered, with the reason the command gives.
-    func testFamiliesAndOptionalEntriesFollowTheTab() throws {
+    /// A family lists the tab's commands of its prefix that have no place of their own, in the tab's order; offered commands only.
+    func testFamiliesFollowTheTab() throws {
         let offered = [
             command("fetch", "Fetch all Remotes"),
             command("fetch.origin", "Fetch origin"),
             command("pull", "Pull"),
             command("pull.rebase", "Pull with rebase"),
-            command(CommandSpec.setUpstreamAndPull.id, "Set Upstream and Pull…", disabledBecause: .verbatim("No remote branches")),
         ]
         let groups = MainMenu.groups(for: try section("Repository"), commands: Dictionary(uniqueKeysWithValues: offered.map { ($0.id, $0) }), order: offered.map(\.id))
         XCTAssertEqual(groups[0].map(\.plainTitle), ["Fetch all Remotes", "Fetch origin", "Fetch Tags from all Remotes"])
-        XCTAssertEqual(groups[1].map(\.plainTitle), ["Pull", "Pull with rebase", "Set Upstream and Pull…"])
-        XCTAssertEqual(groups[1].last?.disabledReason, "No remote branches")
+        XCTAssertEqual(groups[1].map(\.plainTitle), ["Pull", "Pull with rebase"])
     }
 }

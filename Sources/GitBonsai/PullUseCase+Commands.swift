@@ -6,7 +6,7 @@ extension PullUseCase: CommandProvider {
         pullCommands(state)
     }
 
-    /// Pull with the configured mode first, then the other modes, as in the Pull button's menu; every one carries local changes. Without upstream the bar offers to set one.
+    /// Pull with the configured mode first, then the other modes, as in the Pull button's menu; every one carries local changes. Without upstream they show the reason; the upstream is set from the branch's menu or by the first push.
     private func pullCommands(_ state: RepositoryCommandState) -> [Command] {
         let blocker = CommandRules.pull(state)
         let context = status.upstream?.name ?? state.upstream
@@ -16,10 +16,6 @@ extension PullUseCase: CommandProvider {
         var commands = [Command(.pull, context: standardContext, blocker: blocker) { [weak self] in self?.pull(PullVariant(mode: standard)) }]
         for mode in PullMode.allCases where mode != standard {
             commands.append(Command(id: "pull.\(mode)", title: Self.commandTitle(of: mode), glyph: .symbol("arrow.down"), context: context, blocker: blocker) { [weak self] in self?.pull(PullVariant(mode: mode)) })
-        }
-        if blocker == .noUpstream {
-            let noCandidates: LocalizedStringResource? = remoteBranches().isEmpty ? LocalizedStringResource("pull.command.noRemoteBranches", defaultValue: "No remote branches", bundle: .module) : nil
-            commands.append(Command(.setUpstreamAndPull, context: state.branch, disabledReason: noCandidates) { [weak self] in self?.setUpstreamAndPull() })
         }
         return commands
     }

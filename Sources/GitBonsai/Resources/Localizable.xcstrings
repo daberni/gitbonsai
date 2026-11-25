@@ -331,6 +331,23 @@
         }
       }
     },
+    "branch.menu.deleteAsking" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ löschen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete %@…"
+          }
+        }
+      }
+    },
     "branch.menu.deleteBranches" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -344,23 +361,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Delete Branches…"
-          }
-        }
-      }
-    },
-    "branch.menu.deleteRemote" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ auf %@ löschen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Delete %1$@ from %2$@…"
           }
         }
       }
@@ -389,6 +389,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ in %@ mergen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Merge %1$@ into %2$@"
+          }
+        }
+      }
+    },
+    "branch.menu.mergeRemote" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ in %2$@ mergen"
           }
         },
         "en" : {
@@ -457,6 +474,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ auf %@ rebasen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Rebase %1$@ onto %2$@"
+          }
+        }
+      }
+    },
+    "branch.menu.rebaseRemote" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase %1$@ auf %2$@"
           }
         },
         "en" : {
@@ -934,23 +968,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Reset to %@"
-          }
-        }
-      }
-    },
-    "branch.pull.toolTip" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Holt %@ und spult %@ vor, wenn das ohne Merge geht."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Fetches %1$@ and fast-forwards %2$@ when that works without a merge."
           }
         }
       }
@@ -3123,7 +3140,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Open in terminal"
+            "value" : "Open in Terminal"
           }
         }
       }
@@ -3328,23 +3345,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "find, filter"
-          }
-        }
-      }
-    },
-    "command.setUpstreamAndPull.keywords" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "verfolgen, aktualisieren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "pull, upstream, track"
           }
         }
       }
@@ -4688,23 +4688,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Copied"
-          }
-        }
-      }
-    },
-    "common.copyName" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Namen kopieren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Copy name"
           }
         }
       }
@@ -7556,7 +7539,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Ignore blank Lines"
+            "value" : "Ignore blank lines"
           }
         }
       }
@@ -7568,13 +7551,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Whitespace ignorieren"
+            "value" : "Leerraum ignorieren"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Ignore Whitespace"
+            "value" : "Ignore whitespace"
           }
         }
       }
@@ -7586,13 +7569,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Whitespace-Menge ignorieren"
+            "value" : "Leerraumänderungen ignorieren"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Ignore Whitespace amount"
+            "value" : "Ignore whitespace changes"
           }
         }
       }
@@ -7628,7 +7611,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Word Diff"
+            "value" : "Word diff"
           }
         }
       }
@@ -8346,23 +8329,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t Revert Changes"
-          }
-        }
-      }
-    },
-    "failure.file.notTrashed" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Datei nicht gelöscht"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn’t Move File to Trash"
           }
         }
       }
@@ -9421,23 +9387,6 @@
         }
       }
     },
-    "failure.worktree.pruneFailed" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aufräumen fehlgeschlagen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Pruning failed"
-          }
-        }
-      }
-    },
     "fetch.action.all" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -9553,6 +9502,86 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "No Diff Tool Set Up"
+          }
+        }
+      }
+    },
+    "files.discard.infoTracked" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Datei verliert ihre nicht gestagten Änderungen."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Dateien verlieren ihre nicht gestagten Änderungen."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "%lld file loses its unstaged changes."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "%lld files lose their unstaged changes."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "files.discard.infoUntracked" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld ungetrackte Datei kommt in den Papierkorb."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld ungetrackte Dateien kommen in den Papierkorb."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "%lld untracked file moves to the Trash."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "%lld untracked files move to the Trash."
+                }
+              }
+            }
           }
         }
       }
@@ -9688,46 +9717,6 @@
         }
       }
     },
-    "files.discardSeveral.infoUntracked" : {
-      "localizations" : {
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld ungetrackte Datei wird gelöscht."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld ungetrackte Dateien werden gelöscht."
-                }
-              }
-            }
-          }
-        },
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld untracked file is deleted."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld untracked files are deleted."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "files.discardSeveral.title" : {
       "localizations" : {
         "de" : {
@@ -9857,13 +9846,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Änderungen verwerfen …"
+            "value" : "Verwerfen …"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Discard changes…"
+            "value" : "Discard…"
           }
         }
       }
@@ -9880,23 +9869,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Some selected files have unresolved conflicts"
-          }
-        }
-      }
-    },
-    "files.menu.moveToTrash" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In den Papierkorb legen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Move to Trash…"
           }
         }
       }
@@ -10330,56 +10302,6 @@
         }
       }
     },
-    "files.trash.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In den Papierkorb"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Move to Trash"
-          }
-        }
-      }
-    },
-    "files.trash.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Datei in den Papierkorb legen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Move File to the Trash?"
-          }
-        }
-      }
-    },
-    "files.trashSeveral.title" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dateien in den Papierkorb legen?"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move Files to the Trash?"
-          }
-        }
-      }
-    },
     "history.column.author" : {
       "comment" : "History column header",
       "extractionState" : "extracted_with_value",
@@ -10484,6 +10406,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "SHA"
+          }
+        }
+      }
+    },
+    "history.columns.alwaysShown" : {
+      "comment" : "Why the Commit column cannot be hidden.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immer sichtbar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Always shown"
           }
         }
       }
@@ -11935,23 +11875,6 @@
         }
       }
     },
-    "pull.action.setUpstreamAndPull" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upstream setzen und pullen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Set Upstream and Pull…"
-          }
-        }
-      }
-    },
     "pull.command.fastForward" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -11982,23 +11905,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Pull with merge"
-          }
-        }
-      }
-    },
-    "pull.command.noRemoteBranches" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keine Remote-Branches"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "No remote branches"
           }
         }
       }
@@ -12136,24 +12042,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Fast-forward only"
-          }
-        }
-      }
-    },
-    "pull.menu.headNoUpstream" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "HEAD hat keinen Upstream"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "HEAD has no upstream"
+            "value" : "Fast-Forward only"
           }
         }
       }
@@ -12171,23 +12060,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Pull %1$@ into %2$@"
-          }
-        }
-      }
-    },
-    "pull.menu.noUpstream" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ hat keinen Upstream"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ has no upstream"
           }
         }
       }
@@ -12242,58 +12114,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Rebase"
-          }
-        }
-      }
-    },
-    "pull.setUpstream.confirm" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Setzen und pullen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Set and Pull"
-          }
-        }
-      }
-    },
-    "pull.setUpstream.field" : {
-      "comment" : "Field label: the upstream branch.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upstream"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Upstream"
-          }
-        }
-      }
-    },
-    "pull.setUpstream.title" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upstream für %@ setzen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Set Upstream for %@"
           }
         }
       }
@@ -13459,74 +13279,6 @@
         }
       }
     },
-    "rebase.onto.ambiguous" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf %@ (Basis mehrdeutig) …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %1$@ onto %2$@ (ambiguous base)…"
-          }
-        }
-      }
-    },
-    "rebase.onto.ambiguousHere" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf diesen Commit (Basis mehrdeutig) …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %@ onto this Commit (ambiguous base)…"
-          }
-        }
-      }
-    },
-    "rebase.onto.finding" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf %@ (Basis wird gesucht …)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %1$@ onto %2$@ (finding base…)"
-          }
-        }
-      }
-    },
-    "rebase.onto.findingHere" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf diesen Commit (Basis wird gesucht …)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %@ onto this Commit (finding base…)"
-          }
-        }
-      }
-    },
     "rebase.onto.interactive" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -13561,40 +13313,6 @@
         }
       }
     },
-    "rebase.onto.note.ambiguousBase" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Basis nicht eindeutig"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "ambiguous base"
-          }
-        }
-      }
-    },
-    "rebase.onto.note.findingBase" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Basis wird gesucht …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "finding base…"
-          }
-        }
-      }
-    },
     "rebase.onto.thisCommit" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -13612,87 +13330,53 @@
         }
       }
     },
-    "rebase.onto.variant.all" : {
+    "rebase.onto.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alle Commits (%lld)"
+            "value" : "Rebase %1$@ auf %2$@"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "All commits (%lld)"
+            "value" : "Rebase %1$@ onto %2$@"
           }
         }
       }
     },
-    "rebase.onto.variant.interactive" : {
+    "rebase.onto.titleHere" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Interaktiv …"
+            "value" : "Rebase %@ auf diesen Commit"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Interactively…"
+            "value" : "Rebase %@ onto this Commit"
           }
         }
       }
     },
-    "rebase.onto.variant.own" : {
+    "rebase.onto.toast.ownCommits" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nur die eigenen Commits von %1$@ (%2$@)"
+            "value" : "Nur die eigenen %2$@ von %1$@ rebased, %3$@"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Only %1$@'s own commits (%2$@)"
-          }
-        }
-      }
-    },
-    "rebase.onto.withDetail" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf %@ (%@)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %1$@ onto %2$@ (%3$@)"
-          }
-        }
-      }
-    },
-    "rebase.onto.withDetailHere" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase %@ auf diesen Commit (%@)"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase %1$@ onto this Commit (%2$@)"
+            "value" : "Rebased only %1$@'s own %2$@, %3$@"
           }
         }
       }
@@ -16231,13 +15915,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drop …"
+            "value" : "Stash verwerfen …"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Drop…"
+            "value" : "Drop Stash…"
           }
         }
       }
@@ -16248,13 +15932,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pop"
+            "value" : "Stash poppen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Pop"
+            "value" : "Pop Stash"
           }
         }
       }
@@ -16501,23 +16185,6 @@
         }
       }
     },
-    "stash.menu.createBranch" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch aus Stash anlegen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Create Branch from Stash…"
-          }
-        }
-      }
-    },
     "stash.message.before" : {
       "comment" : "Message of the stash that carries local changes past a command; the argument is the git command.",
       "extractionState" : "extracted_with_value",
@@ -16604,24 +16271,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "WIP on %1$@: %2$@"
-          }
-        }
-      }
-    },
-    "stash.panel.branch" : {
-      "comment" : "Creates a branch from a stash.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branch …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Branch…"
           }
         }
       }
@@ -16836,13 +16485,13 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Name kopieren"
+            "value" : "Tag kopieren"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Copy Tag name"
+            "value" : "Copy Tag"
           }
         }
       }
@@ -16949,6 +16598,23 @@
         }
       }
     },
+    "tag.menu.delete" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete %@"
+          }
+        }
+      }
+    },
     "tag.menu.deleteOn" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -17013,6 +16679,23 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Jump to Commit"
+          }
+        }
+      }
+    },
+    "tag.menu.pushReplace" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ auf %2$@ pushen (ersetzen) …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Push %1$@ to %2$@ (replace)…"
           }
         }
       }
@@ -17223,6 +16906,40 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "tag.replaceRemote.confirm" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ersetzen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Replace"
+          }
+        }
+      }
+    },
+    "tag.replaceRemote.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag auf dem Remote ersetzen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Replace Tag on Remote?"
           }
         }
       }
@@ -17777,6 +17494,24 @@
         }
       }
     },
+    "toolbar.pull.noUpstream" : {
+      "comment" : "Tooltip of the disabled Pull button; the argument is the branch.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat keinen Upstream"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ has no upstream"
+          }
+        }
+      }
+    },
     "toolbar.pull.title" : {
       "comment" : "Toolbar button.",
       "extractionState" : "extracted_with_value",
@@ -17888,6 +17623,42 @@
         }
       }
     },
+    "toolbar.reason.detached" : {
+      "comment" : "Tooltip of a disabled Pull or Push button or entry.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEAD ist losgelöst"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "HEAD is detached"
+          }
+        }
+      }
+    },
+    "toolbar.reason.noRemote" : {
+      "comment" : "Tooltip of a disabled Fetch or Push button or entry.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Remote eingerichtet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No remote configured"
+          }
+        }
+      }
+    },
     "toolbar.remote.fetchRunning" : {
       "comment" : "Tooltip of the toolbar's remote buttons while a fetch runs.",
       "extractionState" : "extracted_with_value",
@@ -17938,6 +17709,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Push is running"
+          }
+        }
+      }
+    },
+    "toolbar.stash.noChanges" : {
+      "comment" : "Tooltip of the disabled Stash button.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Änderungen zum Stashen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No changes to stash"
           }
         }
       }
@@ -18375,6 +18164,24 @@
         }
       }
     },
+    "worktree.menu.currentlyOpen" : {
+      "comment" : "Why the worktree shown in this tab cannot be removed.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerade geöffnet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Currently open"
+          }
+        }
+      }
+    },
     "worktree.menu.lock" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -18392,23 +18199,6 @@
         }
       }
     },
-    "worktree.menu.prune" : {
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fehlende Worktrees aufräumen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Prune missing Worktrees"
-          }
-        }
-      }
-    },
     "worktree.menu.remove" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -18422,6 +18212,24 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Remove…"
+          }
+        }
+      }
+    },
+    "worktree.menu.removeMissing" : {
+      "comment" : "Removes a worktree whose folder is gone; asks nothing.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entfernen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove"
           }
         }
       }
@@ -18629,6 +18437,57 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Remove Worktree with Changes?"
+          }
+        }
+      }
+    },
+    "worktree.removeLocked.info" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Its folder is gone, but it is locked."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sein Ordner fehlt, aber er ist gesperrt."
+          }
+        }
+      }
+    },
+    "worktree.removeLocked.infoReason" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Its folder is gone, but it is locked: %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sein Ordner fehlt, aber er ist gesperrt: %@"
+          }
+        }
+      }
+    },
+    "worktree.removeLocked.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove locked Worktree?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesperrten Worktree entfernen?"
           }
         }
       }

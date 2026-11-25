@@ -31,7 +31,7 @@ final class PushUseCase {
             branchEntry.toolTip = variant.commandLine
         } else {
             branchEntry = MenuEntry(branch.map { name -> LocalizedStringResource in LocalizedStringResource("push.menu.setUpstream", defaultValue: "Push \(RefName.branch(name)) and Set Upstream…", bundle: .module) } ?? LocalizedStringResource("push.menu.headSetUpstream", defaultValue: "Push HEAD and Set Upstream…", bundle: .module)) { [weak self] in self?.firstPush() }
-            branchEntry.isDisabled = branch == nil
+            branchEntry.disabledReason = status.pushBlocked
         }
         let tags = remotes.map { remote in
             let variant = PushVariant.tags(remote: remote)

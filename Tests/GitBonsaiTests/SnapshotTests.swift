@@ -145,6 +145,8 @@ final class SnapshotTests: XCTestCase {
         for (name, look) in Self.looks {
             let fixture = TabFixture(repo)
             try await fixture.load()
+            // The remote answers on its own; the list shows its marks only once it has.
+            try await waitUntil { fixture.tags.isSettled && !fixture.tags.popover.list.isBusy }
             let list = fixture.tags.popover.list
             let window = Snapshot.window(for: list, size: list.fittingSize, appearance: look)
             try Snapshot.assert(list, named: "panel-tags-remote-\(name)")

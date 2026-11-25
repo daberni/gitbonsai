@@ -158,6 +158,25 @@ final class CommitActionsTests: XCTestCase {
         XCTAssertEqual(try fixture.git("diff", "--name-only", "HEAD~1", "HEAD"), "side.txt")
     }
 
+    /// Reverting a merge keeps the branch merged into and takes back what the merged-in branch brought.
+    func testRevertOfAMergeKeepsTheFirstParent() async throws {
+        let fixture = try FixtureRepo()
+        defer { fixture.remove() }
+        try fixture.commit("base")
+        try fixture.git("switch", "-q", "-c", "side")
+        try fixture.commit("side", file: "side.txt")
+        try fixture.git("switch", "-q", "main")
+        try fixture.commit("main", file: "main.txt")
+        try fixture.git("merge", "-q", "--no-ff", "--no-edit", "side")
+        let merge = try await commit(try fixture.git("rev-parse", "HEAD"), in: fixture)
+
+        try await fixture.repository.revert(merge)
+
+        let manager = FileManager.default
+        XCTAssertTrue(manager.fileExists(atPath: fixture.url.appendingPathComponent("main.txt").path), "the branch merged into stays")
+        XCTAssertFalse(manager.fileExists(atPath: fixture.url.appendingPathComponent("side.txt").path), "the merged-in branch's change is taken back")
+    }
+
     func testRevertUndoesACommitAndLeavesAConflictInProgress() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }

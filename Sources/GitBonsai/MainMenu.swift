@@ -7,8 +7,6 @@ final class MainMenu: NSObject, NSMenuDelegate {
     enum Entry {
         /// Always listed; disabled from its spec while the tab offers no such command, as in the empty tab.
         case command(CommandSpec)
-        /// Listed only while the tab offers it, such as "Set Upstream and Pull…".
-        case ifPresent(CommandSpec)
         /// Every command whose id starts with the prefix and is not placed on its own elsewhere: per remote, per pull mode, the running operation.
         case family(String)
         /// An action AppKit implements, sent along the responder chain.
@@ -82,7 +80,6 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .separator,
             .command(.pull),
             .family("pull."),
-            .ifPresent(.setUpstreamAndPull),
             .separator,
             .command(.push),
             .family("push.tags."),
@@ -136,7 +133,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
     /// Ids placed on their own somewhere; a family leaves them out.
     private static let placedIDs: Set<String> = Set(sections.flatMap(\.entries).compactMap { entry in
         switch entry {
-        case .command(let spec), .ifPresent(let spec): spec.id
+        case .command(let spec): spec.id
         default: nil
         }
     })
@@ -206,7 +203,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
     private static func isRebuilt(_ section: Section) -> Bool {
         section.entries.contains { entry in
             switch entry {
-            case .family, .ifPresent: true
+            case .family: true
             default: false
             }
         }
@@ -221,7 +218,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
 
     // MARK: Entries
 
-    /// A section's entries as data, in groups between its separators: commands with the tab's current titles, shortcuts and disabled reasons; families and optional entries only as far as the tab offers them.
+    /// A section's entries as data, in groups between its separators: commands with the tab's current titles, shortcuts and disabled reasons; families only as far as the tab offers them.
     static func groups(for section: Section, commands: [String: Command], order: [String]) -> [[MenuEntry]] {
         var groups: [[MenuEntry]] = [[]]
         func add(_ entry: MenuEntry) { groups[groups.count - 1].append(entry) }
@@ -229,8 +226,6 @@ final class MainMenu: NSObject, NSMenuDelegate {
             switch entry {
             case .command(let spec):
                 add(commands[spec.id].map(Self.entry(for:)) ?? Self.entry(title: spec.title.text, id: spec.id, shortcut: spec.shortcut))
-            case .ifPresent(let spec):
-                if let command = commands[spec.id] { add(Self.entry(for: command)) }
             case .family(let prefix):
                 order.filter { $0.hasPrefix(prefix) && !Self.placedIDs.contains($0) }.compactMap { commands[$0] }.forEach { add(Self.entry(for: $0)) }
             case .standard(let title, let action, let shortcut):

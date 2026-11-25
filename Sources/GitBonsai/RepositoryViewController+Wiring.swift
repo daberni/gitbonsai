@@ -18,7 +18,7 @@ extension RepositoryViewController {
         toolbar.pushMenu = { [weak self] in MenuAdapter.menu(self?.menuBuilder.toolbarMenu(.push) ?? []) }
         upstreamStatus.onChange = { [weak self] in
             guard let self else { return }
-            toolbar.showUpstream(canPull: upstreamStatus.canPull, canPush: upstreamStatus.canPush, upstream: upstreamStatus.upstream, lacksUpstream: upstreamStatus.lacksUpstream)
+            toolbar.showUpstream(pullBlocked: upstreamStatus.pullBlocked, pushBlocked: upstreamStatus.pushBlocked, upstream: upstreamStatus.upstream, lacksUpstream: upstreamStatus.lacksUpstream)
             showFetchState()
         }
         viewModel.onFetchActivityChanged = { [weak self] in self?.showFetchState() }
@@ -54,6 +54,8 @@ extension RepositoryViewController {
 
         history.onSelect = { [weak self] row in self?.selectionChanged(to: row) }
         history.onActivate = { [weak self] row, pill in self?.checkoutUseCase.activate(row: row, pill: pill) }
+        menuBuilder.operation = { [weak self] in self?.operationBanner.progress?.kind }
+        commitActions.squash.operation = { [weak self] in self?.operationBanner.progress?.kind }
         history.menuItems = { [weak self] row in MenuAdapter.items(self?.menuBuilder.rowMenu(forRow: row) ?? []) }
         commitActions.squash.selectedCommitIDs = { [weak self] in
             guard let self else { return [] }
@@ -93,7 +95,7 @@ extension RepositoryViewController {
         operationBanner.onAmend = { [weak self] in self?.amendAtEditStop() }
         operationBanner.onEnded = { [weak self] in self?.operationEnded() }
         commitActions.onRebaseEnded = { [weak self] in self?.operationEnded() }
-        commitActions.onNewBranch = { [weak self] commit in self?.createBranch.show(commit: commit) }
+        commitActions.onNewBranch = { [weak self] start in self?.createBranch.show(start: start) }
         pullUseCase.onSwitchWorktree = { [weak self] path in self?.onSwitchWorktree?(path) }
         context.onShowConflicts = { [weak self] in self?.showWorkingDirectory() }
         operationBanner.onStateChange = { [weak self] in

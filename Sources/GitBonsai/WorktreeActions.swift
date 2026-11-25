@@ -17,32 +17,31 @@ final class WorktreeActions {
         settings = context.settings
     }
 
-    /// In the shared group order: go there (switch, Finder, terminal) | remove | change (lock); Prune comes last on its own, since it acts on all worktrees.
-    /// The worktree shown in this tab is not removed from here: the tab would lose its folder. The main worktree cannot be locked or removed.
+    /// In the shared group order: go there (switch, Finder, terminal) | remove | change (lock).
+    /// The worktree shown in this tab is not removed from here, the tab would lose its folder: its Remove stays disabled. The main worktree cannot be locked or removed.
+    /// A worktree whose folder is gone offers only Remove, which drops git's record of it.
     func groups(for info: WorktreeInfo, isCurrent: Bool) -> [[MenuEntry]] {
         let worktree = info.worktree
         let path = worktree.path
-        let exists = !worktree.isPrunable
+        guard !worktree.isPrunable else {
+            return [[MenuEntry(LocalizedStringResource("worktree.menu.removeMissing", defaultValue: "Remove", bundle: .module, comment: "Removes a worktree whose folder is gone; asks nothing.")) { [weak self] in self?.removeMissing(worktree) }]]
+        }
         var goThere: [MenuEntry] = []
-        if !isCurrent, exists, !worktree.isBare {
-            goThere.append(MenuEntry(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.onSwitchWorktree?(path) })
+        if !isCurrent, !worktree.isBare {
+            goThere.append(MenuEntry(LocalizedStringResource("worktree.menu.switch", defaultValue: "Switch to this Worktree", bundle: .module)) { [weak self] in self?.onSwitchWorktree?(path) }.movingHead)
         }
-        if exists {
-            goThere.append(MenuEntry(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) })
-            goThere.append(MenuEntry(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) })
-        }
+        goThere.append(MenuEntry(LocalizedStringResource("common.showInFinder", defaultValue: "Show in Finder", bundle: .module)) { ExternalApps.reveal([URL(fileURLWithPath: path)]) })
+        goThere.append(MenuEntry(LocalizedStringResource("command.openTerminal.title", defaultValue: "Open in Terminal", bundle: .module)) { [weak self] in self?.openInTerminal(path) })
         var remove: [MenuEntry] = []
         var change: [MenuEntry] = []
         if !worktree.isMain {
-            if !isCurrent {
-                remove.append(MenuEntry(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module)) { [weak self] in self?.remove(worktree) })
-            }
+            let currentReason = isCurrent ? String(localized: "worktree.menu.currentlyOpen", defaultValue: "Currently open", bundle: .module, comment: "Why the worktree shown in this tab cannot be removed.") : nil
+            remove.append(.action(LocalizedStringResource("worktree.menu.remove", defaultValue: "Remove…", bundle: .module), disabledBecause: currentReason) { [weak self] in self?.remove(worktree) })
             change.append(worktree.isLocked
                 ? MenuEntry(LocalizedStringResource("worktree.menu.unlock", defaultValue: "Unlock", bundle: .module)) { [weak self] in self?.unlock(path) }
                 : MenuEntry(LocalizedStringResource("worktree.menu.lock", defaultValue: "Lock…", bundle: .module)) { [weak self] in self?.lock(path) })
         }
-        let pruneGroup: [MenuEntry] = [MenuEntry(LocalizedStringResource("worktree.menu.prune", defaultValue: "Prune missing Worktrees", bundle: .module)) { [weak self] in self?.prune() }]
-        return [goThere, remove, change, pruneGroup]
+        return [goThere, remove, change]
     }
 
     // MARK: Actions
@@ -78,7 +77,16 @@ final class WorktreeActions {
         }
     }
 
-    private func prune() {
-        Task { await runner.perform(failure: LocalizedStringResource("failure.worktree.pruneFailed", defaultValue: "Pruning failed", bundle: .module), note: "git worktree prune") { try await $0.pruneWorktrees() } }
+    /// Only git's record is left; `--force` removes it without touching other missing worktrees, as a prune would. A locked one asks first, since the lock was meant to keep it, and needs `-f -f`.
+    private func removeMissing(_ worktree: Worktree) {
+        let path = worktree.path
+        Task {
+            if worktree.isLocked {
+                let info: LocalizedStringResource = worktree.lockReason.map { reason -> LocalizedStringResource in LocalizedStringResource("worktree.removeLocked.infoReason", defaultValue: "Its folder is gone, but it is locked: \(reason)", bundle: .module) } ?? LocalizedStringResource("worktree.removeLocked.info", defaultValue: "Its folder is gone, but it is locked.", bundle: .module)
+                guard await runner.confirm(LocalizedStringResource("worktree.removeLocked.title", defaultValue: "Remove locked Worktree?", bundle: .module), names: RefString(marked: RefName.worktree((path as NSString).lastPathComponent)), info: info, button: LocalizedStringResource("worktree.remove.confirm", defaultValue: "Remove", bundle: .module)) else { return }
+            }
+            let locked = worktree.isLocked
+            await runner.perform(failure: LocalizedStringResource("failure.worktree.notRemoved", defaultValue: "Worktree not removed", bundle: .module), note: locked ? "git worktree remove -f -f" : "git worktree remove --force") { try await $0.removeWorktree(at: path, force: true, overridingLock: locked) }
+        }
     }
 }

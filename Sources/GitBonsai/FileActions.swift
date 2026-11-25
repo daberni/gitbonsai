@@ -36,28 +36,29 @@ final class FileActions {
 
     // MARK: Menu
 
-    /// Untracked files alone are not offered the permanent discard here; moving them to the Trash does the same and can be undone.
+    /// One "Discard…" for every working-directory selection: tracked changes are restored, untracked files go to the Trash.
     private func indexItems(_ files: [FileRowView.Model]) -> [MenuEntry] {
         let selections = files.map(\.selection)
         let paths = selections.map(\.path)
         let conflicts = files.contains { $0.state == .unmerged }
         let stageable = !conflicts && selections.allSatisfy(\.isStageable)
         let unstageable = !conflicts && selections.allSatisfy(\.isUnstageable)
-        let tracked = selections.contains { $0.source == .unstaged }
         let isWorking = selections.contains { $0.isStageable || $0.isUnstageable }
         guard isWorking else { return [] }
+        let discard = LocalizedStringResource("files.menu.discard", defaultValue: "Discard…", bundle: .module)
         if files.count == 1 {
             guard !conflicts else { return [] }
             if unstageable { return [MenuEntry(LocalizedStringResource("files.menu.unstage", defaultValue: "Unstage", bundle: .module)) { [weak self] in self?.staging.unstage(paths) }] }
-            var items = [MenuEntry(LocalizedStringResource("files.menu.stage", defaultValue: "Stage", bundle: .module)) { [weak self] in self?.staging.stage(paths) }]
-            if tracked { items.append(MenuEntry(LocalizedStringResource("files.menu.discard", defaultValue: "Discard changes…", bundle: .module)) { [weak self] in self?.staging.discard(selections) }) }
-            return items
+            return [
+                MenuEntry(LocalizedStringResource("files.menu.stage", defaultValue: "Stage", bundle: .module)) { [weak self] in self?.staging.stage(paths) },
+                MenuEntry(discard) { [weak self] in self?.staging.discard(selections) },
+            ]
         }
         let reason = conflicts ? Self.conflictReason : nil
         return [
             Self.item(LocalizedStringResource("files.menu.stage", defaultValue: "Stage", bundle: .module), disabledBy: stageable ? nil : reason ?? LocalizedStringResource("files.menu.notAllUnstaged", defaultValue: "Not every selected file has unstaged changes", bundle: .module)) { [weak self] in self?.staging.stage(paths) },
             Self.item(LocalizedStringResource("files.menu.unstage", defaultValue: "Unstage", bundle: .module), disabledBy: unstageable ? nil : reason ?? LocalizedStringResource("files.menu.notAllStaged", defaultValue: "Not every selected file is staged", bundle: .module)) { [weak self] in self?.staging.unstage(paths) },
-            Self.item(LocalizedStringResource("files.menu.discard", defaultValue: "Discard changes…", bundle: .module), disabledBy: stageable ? nil : reason ?? LocalizedStringResource("files.menu.notAllUnstaged", defaultValue: "Not every selected file has unstaged changes", bundle: .module)) { [weak self] in self?.staging.discard(selections) },
+            Self.item(discard, disabledBy: stageable ? nil : reason ?? LocalizedStringResource("files.menu.notAllUnstaged", defaultValue: "Not every selected file has unstaged changes", bundle: .module)) { [weak self] in self?.staging.discard(selections) },
         ]
     }
 
@@ -107,14 +108,7 @@ final class FileActions {
                 Self.item(LocalizedStringResource("files.menu.revertChanges", defaultValue: "Revert changes of this Commit", bundle: .module), disabledBy: reason) { [weak self] in self?.revertChanges(of: commit, paths: revertPaths) },
             ]
         }
-        let working = selections.filter { $0.isStageable || $0.isUnstageable }
-        // A mix of conflicted and other files offers neither; conflicted files alone may go to the Trash, which leaves them unmerged until resolved.
-        let unmerged = files.filter { $0.state == .unmerged }.count
-        guard !working.isEmpty, working.count == selections.count, unmerged == 0 || unmerged == files.count else { return [] }
-        let urls = working.map(url(of:))
-        let onDisk = urls.allSatisfy { FileManager.default.fileExists(atPath: $0.path) }
-        if files.count == 1 && !onDisk { return [] }
-        return [Self.item(LocalizedStringResource("files.menu.moveToTrash", defaultValue: "Move to Trash…", bundle: .module), disabledBy: onDisk ? nil : LocalizedStringResource("files.menu.notAllOnDisk", defaultValue: "Not every selected file is in the working directory", bundle: .module)) { [weak self] in self?.moveToTrash(working) }]
+        return []
     }
 
     private static let conflictReason = LocalizedStringResource("files.menu.hasConflicts", defaultValue: "Some selected files have unresolved conflicts", bundle: .module)
@@ -192,29 +186,6 @@ final class FileActions {
                 prompter.report(error, title: LocalizedStringResource("failure.file.notReverted", defaultValue: "Couldn’t Revert Changes", bundle: .module))
                 await viewModel.refresh(note: nil)
             }
-            onChange?()
-        }
-    }
-
-    private func moveToTrash(_ selections: [FileSelection]) {
-        let files = selections.map(url(of:))
-        Task {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            let names = RefString(marked: selections.map { RefName.path($0.path) }.joined(separator: "\n"))
-            if selections.count == 1 {
-                alert.setConfirmation(LocalizedStringResource("files.trash.title", defaultValue: "Move File to the Trash?", bundle: .module), names: names)
-            } else {
-                alert.setConfirmation(LocalizedStringResource("files.trashSeveral.title", defaultValue: "Move Files to the Trash?", bundle: .module), names: names)
-            }
-            Self.addButtons(to: alert, confirm: LocalizedStringResource("files.trash.confirm", defaultValue: "Move to Trash", bundle: .module))
-            guard await prompter.confirm(alert) else { return }
-            do {
-                try files.forEach { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
-            } catch {
-                prompter.report(error, title: LocalizedStringResource("failure.file.notTrashed", defaultValue: "Couldn’t Move File to Trash", bundle: .module))
-            }
-            await viewModel.refresh(note: nil)
             onChange?()
         }
     }

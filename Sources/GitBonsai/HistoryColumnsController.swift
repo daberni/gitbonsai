@@ -106,6 +106,7 @@ final class HistoryColumnsController: NSObject {
             item.target = self
             item.representedObject = column.rawValue
             item.state = columns.shows(column) ? .on : .off
+            if column == .commit { item.toolTip = String(localized: "history.columns.alwaysShown", defaultValue: "Always shown", bundle: .module, comment: "Why the Commit column cannot be hidden.") }
             menu.addItem(item)
         }
         menu.addItem(.separator())

@@ -9,12 +9,13 @@ final class CommitActions {
     private let pasteboard: Pasteboard
     let interactiveRebase: InteractiveRebaseUseCase
     let squash: SquashUseCase
-    private lazy var rebaseOnto = RebaseOntoUseCase(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
+    /// The one-click and interactive rebase onto a commit, shared with the branch menus.
+    lazy var rebaseOnto = RebaseOntoUseCase(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
         self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, undo: .head, operation)
     }
     private let viewModel: GraphViewModel
     /// Opens the New Branch sheet starting at a commit.
-    var onNewBranch: ((Commit) -> Void)?
+    var onNewBranch: ((CreateBranchUseCase.Start) -> Void)?
     /// A rebase started here finished without stopping; the tab selects HEAD and leaves any open diff.
     var onRebaseEnded: (() -> Void)? {
         didSet { interactiveRebase.onEnded = onRebaseEnded }
@@ -30,17 +31,13 @@ final class CommitActions {
     }
 
     /// The commit section of the history menus beyond its checkout; `worktreeForBranch` replaces Create Worktree…'s own form with the branch's; `moveHere` is the fast-forward of the current branch to this commit, when a branch pill does not already offer it.
-    /// `rebaseAllCommits` is a branch's plain rebase onto this commit, offered next to the detected variants.
-    func sections(for commit: Commit, moveHere: MenuEntry?, worktreeForBranch: (() -> Void)? = nil, rebaseAllCommits: MenuEntry? = nil) -> MenuSections {
-        let rewrite = interactiveRebase.entries(for: commit)
+    func sections(for commit: Commit, moveHere: MenuEntry?, worktreeForBranch: (() -> Void)? = nil) -> MenuSections {
+        let rewrite = interactiveRebase.entries(for: commit).map(\.movingHead)
         var sections = MenuSections()
-        sections.integrate = integrateItems(commit, moveHere: moveHere, rebaseAllCommits: rebaseAllCommits)
-        sections.create = [
-            MenuEntry(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] in self?.createBranch(at: commit) },
-            MenuEntry(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in if let worktreeForBranch { worktreeForBranch() } else { self?.createWorktree(from: commit) } },
-            MenuEntry(LocalizedStringResource("commit.menu.createTag", defaultValue: "Create Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: false) },
-            MenuEntry(LocalizedStringResource("commit.menu.createAnnotatedTag", defaultValue: "Create annotated Tag…", bundle: .module)) { [weak self] in self?.createTag(at: commit, annotated: true) },
-        ]
+        sections.integrate = integrateItems(commit, moveHere: moveHere)
+        let create = createEntries(for: commit)
+        let worktree = MenuEntry(LocalizedStringResource("commit.menu.createWorktree", defaultValue: "Create Worktree…", bundle: .module)) { [weak self] in if let worktreeForBranch { worktreeForBranch() } else { self?.createWorktree(from: commit) } }
+        sections.create = Array(create.prefix(1)) + [worktree] + create.dropFirst()
         // Edit Message and Move up/down change the commit; Drop Commit removes it.
         sections.change = Array(rewrite.dropLast())
         sections.remove = Array(rewrite.suffix(1))
@@ -54,23 +51,41 @@ final class CommitActions {
 
     // MARK: Menu
 
+    /// Create Branch…, Create Tag… and Create annotated Tag… at the commit.
+    private func createEntries(for commit: Commit) -> [MenuEntry] {
+        createEntries(newBranch: { [weak self] in self?.onNewBranch?(.commit(commit)) }, tag: { [weak self] annotated in self?.createTag(at: commit.id, named: RefName.commit(commit.id), subject: commit.subject, annotated: annotated) })
+    }
+
+    /// The same entries for the sidebar's branch menus, starting at the ref itself: `git branch <new> <ref>`, `git tag <name> <ref>`.
+    func createEntries(at ref: Ref) -> [MenuEntry] {
+        createEntries(newBranch: { [weak self] in self?.onNewBranch?(.ref(ref.name)) }, tag: { [weak self] annotated in self?.createTag(at: ref.name, named: RefMenus.pillName(of: ref), subject: nil, annotated: annotated) })
+    }
+
+    private func createEntries(newBranch: @escaping @MainActor () -> Void, tag: @escaping @MainActor (_ annotated: Bool) -> Void) -> [MenuEntry] {
+        [
+            MenuEntry(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module), action: newBranch),
+            MenuEntry(LocalizedStringResource("commit.menu.createTag", defaultValue: "Create Tag…", bundle: .module)) { tag(false) },
+            MenuEntry(LocalizedStringResource("commit.menu.createAnnotatedTag", defaultValue: "Create annotated Tag…", bundle: .module)) { tag(true) },
+        ]
+    }
+
     /// Entries that move the current branch are left out in detached HEAD, and where git would have nothing to do.
-    private func integrateItems(_ commit: Commit, moveHere: MenuEntry?, rebaseAllCommits: MenuEntry?) -> [MenuEntry] {
+    private func integrateItems(_ commit: Commit, moveHere: MenuEntry?) -> [MenuEntry] {
         var items: [MenuEntry] = moveHere.map { [$0] } ?? []
-        guard let branch = viewModel.currentBranch else { return items + (rebaseAllCommits.map { [$0] } ?? []) }
+        guard let branch = viewModel.currentBranch else { return items }
         let isHead = commit.id == viewModel.headSHA
         let inBranch = viewModel.isReachableFromHead(commit.id)
-        items += rebaseOnto.entries(branch: branch, commit: commit, allCommits: rebaseAllCommits)
+        items += rebaseOnto.entries(branch: branch, commit: commit)
         if !inBranch {
-            items.append(MenuEntry(LocalizedStringResource("commit.menu.cherryPick", defaultValue: "Cherry-Pick onto \(RefName.branch(branch))", bundle: .module)) { [weak self] in self?.cherryPick(commit) })
+            items.append(MenuEntry(LocalizedStringResource("commit.menu.cherryPick", defaultValue: "Cherry-Pick onto \(RefName.branch(branch))", bundle: .module)) { [weak self] in self?.cherryPick(commit) }.movingHead)
         }
         if !isHead {
             let modes: [(ResetMode, LocalizedStringResource)] = [(.soft, LocalizedStringResource("commit.menu.resetSoft", defaultValue: "Soft – keep changes staged", bundle: .module)), (.mixed, LocalizedStringResource("commit.menu.resetMixed", defaultValue: "Mixed – keep changes in working directory", bundle: .module)), (.hard, LocalizedStringResource("commit.menu.resetHard", defaultValue: "Hard – discard changes…", bundle: .module))]
             let entries = modes.map { mode, title in MenuEntry(title) { [weak self] in self?.reset(branch, to: commit, mode: mode) } }
-            items.append(MenuEntry(LocalizedStringResource("commit.menu.reset", defaultValue: "Reset \(RefName.branch(branch)) to here", bundle: .module), submenu: [entries]))
+            items.append(MenuEntry(LocalizedStringResource("commit.menu.reset", defaultValue: "Reset \(RefName.branch(branch)) to here", bundle: .module), submenu: [entries]).movingHead)
         }
         if inBranch {
-            items.append(MenuEntry(LocalizedStringResource("commit.menu.revert", defaultValue: "Revert Commit", bundle: .module)) { [weak self] in self?.revert(commit) })
+            items.append(MenuEntry(LocalizedStringResource("commit.menu.revert", defaultValue: "Revert Commit", bundle: .module)) { [weak self] in self?.revert(commit) }.movingHead)
         }
         return items
     }
@@ -89,17 +104,13 @@ final class CommitActions {
         }
     }
 
-    /// The New Branch sheet with this commit preselected as the start point.
-    private func createBranch(at commit: Commit) {
-        onNewBranch?(commit)
-    }
-
     private func cherryPick(_ commit: Commit) {
         run(failure: LocalizedStringResource("failure.cherryPick.failed", defaultValue: "Cherry-pick failed", bundle: .module), conflict: LocalizedStringResource("failure.cherryPick.conflicts", defaultValue: "Cherry-pick stopped on conflicts", bundle: .module), note: "git cherry-pick", undo: .head) { try await $0.cherryPick(commit) }
     }
 
+    /// A merge is reverted against its first parent: the branch merged into stays, the merged-in branch's changes are undone.
     private func revert(_ commit: Commit) {
-        run(failure: LocalizedStringResource("failure.revert.failed", defaultValue: "Revert failed", bundle: .module), conflict: LocalizedStringResource("failure.revert.conflicts", defaultValue: "Revert stopped on conflicts", bundle: .module), note: "git revert", undo: .head) { try await $0.revert(commit) }
+        run(failure: LocalizedStringResource("failure.revert.failed", defaultValue: "Revert failed", bundle: .module), conflict: LocalizedStringResource("failure.revert.conflicts", defaultValue: "Revert stopped on conflicts", bundle: .module), note: commit.parents.count > 1 ? "git revert -m 1" : "git revert", undo: .head) { try await $0.revert(commit) }
     }
 
     private func reset(_ branch: String, to commit: Commit, mode: ResetMode) {
@@ -132,15 +143,16 @@ final class CommitActions {
         }
     }
 
-    private func createTag(at commit: Commit, annotated: Bool) {
-        let title: LocalizedStringResource = annotated ? LocalizedStringResource("commit.createTag.annotatedTitle", defaultValue: "Create annotated Tag at \(RefName.commit(commit.id))", bundle: .module) : LocalizedStringResource("commit.createTag.title", defaultValue: "Create Tag at \(RefName.commit(commit.id))", bundle: .module)
-        let form = ActionForm(title: title, info: .verbatim(commit.subject), confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
+    /// `revision` is a commit or a ref; `name` is how the form shows it, `subject` the commit's subject when known.
+    private func createTag(at revision: String, named name: String, subject: String?, annotated: Bool) {
+        let title: LocalizedStringResource = annotated ? LocalizedStringResource("commit.createTag.annotatedTitle", defaultValue: "Create annotated Tag at \(name)", bundle: .module) : LocalizedStringResource("commit.createTag.title", defaultValue: "Create Tag at \(name)", bundle: .module)
+        let form = ActionForm(title: title, info: subject.map { .verbatim($0) }, confirm: LocalizedStringResource("common.create", defaultValue: "Create", bundle: .module))
         form.addField(key: "name", label: LocalizedStringResource("common.name", defaultValue: "Name", bundle: .module), placeholder: "v1.0")
         if annotated { form.addMessage(label: LocalizedStringResource("commit.createTag.message", defaultValue: "Message", bundle: .module)) }
         Task {
             guard let values = await prompter.ask(form), let name = values.value("name") else { return }
             let message = annotated ? values.text[ActionForm.messageKey] : nil
-            run(failure: LocalizedStringResource("failure.tag.notCreated", defaultValue: "Tag not created", bundle: .module), note: annotated ? "git tag -a" : "git tag") { try await $0.createTag(name, at: commit.id, message: message) }
+            run(failure: LocalizedStringResource("failure.tag.notCreated", defaultValue: "Tag not created", bundle: .module), note: annotated ? "git tag -a" : "git tag") { try await $0.createTag(name, at: revision, message: message) }
         }
     }
 

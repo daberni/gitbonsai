@@ -22,14 +22,9 @@ final class PullUseCase {
 
     // MARK: Menus
 
-    /// With an upstream: the three modes, the default marked and first; every mode carries local changes. Without one: setting it.
+    /// The three modes, the default marked and first; every mode carries local changes. Without an upstream the Pull button is disabled and its menu stays empty.
     func groups() -> [[MenuEntry]] {
-        guard let branch, let upstream else {
-            let header = MenuEntry.header(branch.map { name -> LocalizedStringResource in LocalizedStringResource("pull.menu.noUpstream", defaultValue: "\(RefName.branch(name)) has no upstream", bundle: .module) } ?? LocalizedStringResource("pull.menu.headNoUpstream", defaultValue: "HEAD has no upstream", bundle: .module))
-            var set = MenuEntry(LocalizedStringResource("pull.action.setUpstreamAndPull", defaultValue: "Set Upstream and Pull…", bundle: .module)) { [weak self] in self?.setUpstreamAndPull() }
-            set.isDisabled = branch == nil || remoteBranches().isEmpty
-            return [[header, set]]
-        }
+        guard let branch, let upstream else { return [] }
         let header = MenuEntry.header(LocalizedStringResource("pull.menu.header", defaultValue: "Pull \(RefName.remoteBranch(upstream.name)) into \(RefName.branch(branch))", bundle: .module))
         let modes = [defaultMode] + PullMode.allCases.filter { $0 != defaultMode }
         let entries = modes.map { mode in
@@ -42,7 +37,7 @@ final class PullUseCase {
 
     private static func title(of mode: PullMode) -> LocalizedStringResource {
         switch mode {
-        case .fastForwardOnly: LocalizedStringResource("pull.menu.fastForwardOnly", defaultValue: "Fast-forward only", bundle: .module)
+        case .fastForwardOnly: LocalizedStringResource("pull.menu.fastForwardOnly", defaultValue: "Fast-Forward only", bundle: .module)
         case .merge: LocalizedStringResource("pull.mode.merge", defaultValue: "Merge", bundle: .module, comment: "Pull mode.")
         case .rebase: LocalizedStringResource("pull.mode.rebase", defaultValue: "Rebase", bundle: .module, comment: "Pull mode.")
         }
@@ -50,11 +45,9 @@ final class PullUseCase {
 
     /// "Pull <branch>" for a local branch with an upstream, nil for anything else.
     func entry(for ref: Ref) -> MenuEntry? {
-        guard ref.kind == .localBranch, let upstream = ref.upstream else { return nil }
+        guard ref.kind == .localBranch, ref.upstream != nil else { return nil }
         let name = ref.name
-        var item = MenuEntry(LocalizedStringResource("branch.menu.pull", defaultValue: "Pull \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.pull(name) }
-        item.toolTip = String(localized: "branch.pull.toolTip", defaultValue: "Fetches \(upstream) and fast-forwards \(name) when that works without a merge.", bundle: .module)
-        return item
+        return MenuEntry(LocalizedStringResource("branch.menu.pull", defaultValue: "Pull \(RefName.branch(name))", bundle: .module)) { [weak self] in self?.pull(name) }
     }
 
     private func pullEntry(_ title: LocalizedStringResource, _ variant: PullVariant) -> MenuEntry {
@@ -112,31 +105,6 @@ final class PullUseCase {
             FailureAction(title: LocalizedStringResource("pull.diverged.rebase", defaultValue: "Pull using rebase", bundle: .module)) { [weak self] in self?.pull(PullVariant(mode: .rebase)) },
             FailureAction(title: LocalizedStringResource("pull.diverged.merge", defaultValue: "Pull using merge", bundle: .module)) { [weak self] in self?.pull(PullVariant(mode: .merge)) },
         ])
-    }
-
-    /// Asks for a remote branch, makes it the upstream and pulls with the default mode.
-    func setUpstreamAndPull() {
-        guard let branch else { return }
-        let candidates = remoteBranches()
-        let preferred = candidates.first { $0 == "origin/\(branch)" } ?? candidates.first { $0.hasSuffix("/\(branch)") } ?? candidates.first ?? ""
-        let form = ActionForm(title: LocalizedStringResource("pull.setUpstream.title", defaultValue: "Set Upstream for \(RefName.branch(branch))", bundle: .module), confirm: LocalizedStringResource("pull.setUpstream.confirm", defaultValue: "Set and Pull", bundle: .module))
-        let repository = viewModel.repository
-        Task {
-            let catalog = RefCatalog.remoteBranches((try? await repository.refTips()) ?? [])
-            form.addRefPicker(key: "upstream", label: LocalizedStringResource("pull.setUpstream.field", defaultValue: "Upstream", bundle: .module, comment: "Field label: the upstream branch."), repository: repository, catalog: catalog, selection: catalog.item(titled: preferred))
-            guard let values = await prompter.ask(form), let upstream = values.value("upstream") else { return }
-            do {
-                try await viewModel.repository.setUpstream(of: branch, to: upstream)
-            } catch {
-                prompter.report(error, title: LocalizedStringResource("failure.upstream.notSet", defaultValue: "Upstream not set", bundle: .module))
-                return
-            }
-            pull(PullVariant(mode: defaultMode))
-        }
-    }
-
-    func remoteBranches() -> [String] {
-        viewModel.refs.filter { if case .remoteBranch = $0.kind { !$0.name.hasSuffix("/HEAD") } else { false } }.map(\.name).sorted()
     }
 
     // MARK: Any branch

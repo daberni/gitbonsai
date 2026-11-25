@@ -15,8 +15,10 @@ extension Repository {
     }
 
     /// Removes the worktree at `path` and its folder. Without `force` git refuses a worktree with modified or untracked files (`isDirtyWorktree`); a locked worktree is refused either way.
-    public func removeWorktree(at path: String, force: Bool) async throws {
-        _ = try await runner.runWrite(["worktree", "remove"] + (force ? ["--force"] : []) + [path])
+    /// `overridingLock` passes `-f` twice, which git needs to remove a locked worktree.
+    public func removeWorktree(at path: String, force: Bool, overridingLock: Bool = false) async throws {
+        let flags = overridingLock ? ["-f", "-f"] : force ? ["--force"] : []
+        _ = try await runner.runWrite(["worktree", "remove"] + flags + [path])
     }
 
     /// Protects the worktree at `path` from being pruned, moved or removed.
@@ -26,11 +28,6 @@ extension Repository {
 
     public func unlockWorktree(at path: String) async throws {
         _ = try await runner.runWrite(["worktree", "unlock", path])
-    }
-
-    /// Forgets worktrees whose folders are gone. Locked ones are kept.
-    public func pruneWorktrees() async throws {
-        _ = try await runner.runWrite(["worktree", "prune"])
     }
 }
 

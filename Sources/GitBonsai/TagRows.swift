@@ -48,6 +48,25 @@ struct TagRows {
         return lacking.isEmpty ? remotes : lacking
     }
 
+    /// How a local tag can be pushed to one remote: added where the remote lacks it, replaced (a force push) where the remote's differs.
+    enum PushOffer: Equatable {
+        case add, replace
+    }
+
+    /// What a local tag's menu offers for each remote: a push where the remote lacks the tag or has another one, a delete where it has one. A remote that has not answered yet gets both.
+    func remoteOffers(_ name: String, remotes: [String]) -> [(remote: String, push: PushOffer?, canDelete: Bool)] {
+        let states = statesByName[name] ?? []
+        return remotes.map { remote in
+            switch states.first(where: { $0.remote == remote })?.state {
+            case nil: (remote, .add, true)
+            case .same: (remote, nil, true)
+            case .localOnly: (remote, .add, false)
+            case .differs: (remote, .replace, true)
+            case .remoteOnly: (remote, nil, true)
+            }
+        }
+    }
+
     // MARK: Rows
 
     private static func row(_ tag: Tag, states: [(remote: String, state: TagSyncState)], labelled: Bool) -> PanelRow {

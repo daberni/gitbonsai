@@ -93,17 +93,31 @@ final class WorktreeActionsTests: XCTestCase {
         } catch is GitError {}
     }
 
-    func testPruneForgetsMissingFoldersButKeepsLockedOnes() async throws {
-        let locked = fixture.url.appendingPathComponent("wt-locked").path
+    func testForcedRemoveForgetsOneMissingWorktreeAndLeavesOtherMissingOnes() async throws {
+        let other = fixture.url.appendingPathComponent("wt-other").path
         try fixture.git("worktree", "add", "-q", "--detach", worktree)
-        try fixture.git("worktree", "add", "-q", "--detach", locked)
-        try fixture.git("worktree", "lock", locked)
+        try fixture.git("worktree", "add", "-q", "--detach", other)
         try FileManager.default.removeItem(atPath: worktree)
-        try FileManager.default.removeItem(atPath: locked)
+        try FileManager.default.removeItem(atPath: other)
 
-        try await fixture.repository.pruneWorktrees()
+        try await fixture.repository.removeWorktree(at: worktree, force: true)
 
         let paths = try await fixture.repository.worktrees().filter { !$0.isMain }.map { ($0.path as NSString).lastPathComponent }
-        XCTAssertEqual(paths, ["wt-locked"])
+        XCTAssertEqual(paths, ["wt-other"])
+    }
+
+    func testRemovingAMissingLockedWorktreeNeedsTheLockOverridden() async throws {
+        try fixture.git("worktree", "add", "-q", "--detach", worktree)
+        try fixture.git("worktree", "lock", worktree)
+        try FileManager.default.removeItem(atPath: worktree)
+
+        do {
+            try await fixture.repository.removeWorktree(at: worktree, force: true)
+            XCTFail("a single --force must not remove a locked worktree")
+        } catch is GitError {}
+        try await fixture.repository.removeWorktree(at: worktree, force: true, overridingLock: true)
+
+        let linked = try await fixture.repository.worktrees().filter { !$0.isMain }
+        XCTAssertEqual(linked, [])
     }
 }

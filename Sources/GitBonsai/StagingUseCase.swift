@@ -47,28 +47,30 @@ final class StagingUseCase {
         }
     }
 
-    /// Reverts tracked files to their staged content and deletes untracked ones, once the user confirmed it; staged changes stay. Other files are left out.
+    /// Reverts tracked files to their staged content and moves untracked ones to the Trash, once the user confirmed it; staged changes stay. Other files are left out.
     func discard(_ files: [FileSelection]) {
         let tracked = files.filter { $0.source == .unstaged }.map(\.path)
         let untracked = files.filter { $0.source == .untracked }.map(\.path)
+        guard !tracked.isEmpty || !untracked.isEmpty else { return }
+        let root = URL(fileURLWithPath: viewModel.repository.path)
+        let trash = untracked.map { root.appendingPathComponent($0) }
         let perform: () -> Void = { [weak self] in
             self?.run(failure: Self.discardFailure) { repository in
                 try await repository.discardUnstagedChanges(tracked)
-                try await repository.removeUntracked(untracked)
+                try trash.forEach { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
             }
         }
-        switch (tracked.count, untracked.count) {
-        case (0, 0):
-            return
-        case (1, 0):
-            confirm(title: LocalizedStringResource("files.discard.title", defaultValue: "Discard Changes?", bundle: .module), names: RefString(marked: RefName.path(tracked[0])), then: perform)
-        case (0, 1):
-            confirmDeletion(of: untracked[0], then: perform)
-        default:
-            let names = RefString(marked: (tracked + untracked).map(RefName.path).joined(separator: "\n"))
-            let text: LocalizedStringResource? = untracked.isEmpty ? nil : LocalizedStringResource("files.discardSeveral.infoUntracked", defaultValue: "\(untracked.count) untracked files are deleted.", bundle: .module)
-            confirm(title: LocalizedStringResource("files.discardSeveral.title", defaultValue: "Discard Changes to several Files?", bundle: .module), names: names, text: text, then: perform)
-        }
+        let names = RefString(marked: (tracked + untracked).map(RefName.path).joined(separator: "\n"))
+        let text = Self.discardInfo(tracked: tracked.count, untracked: untracked.count)
+        let title: LocalizedStringResource = tracked.count + untracked.count == 1 ? LocalizedStringResource("files.discard.title", defaultValue: "Discard Changes?", bundle: .module) : LocalizedStringResource("files.discardSeveral.title", defaultValue: "Discard Changes to several Files?", bundle: .module)
+        confirm(title: title, names: names, text: text, then: perform)
+    }
+
+    /// Says what happens to each kind of file, one sentence each: tracked ones lose their changes, untracked ones go to the Trash.
+    private static func discardInfo(tracked: Int, untracked: Int) -> LocalizedStringResource {
+        let trackedText = tracked == 0 ? nil : String(localized: "files.discard.infoTracked", defaultValue: "\(tracked) files lose their unstaged changes.", bundle: .module)
+        let untrackedText = untracked == 0 ? nil : String(localized: "files.discard.infoUntracked", defaultValue: "\(untracked) untracked files move to the Trash.", bundle: .module)
+        return .verbatim(RefString(verbatim: [trackedText, untrackedText].compactMap { $0 }.joined(separator: "\n")))
     }
 
     private static let discardFailure: LocalizedStringResource = LocalizedStringResource("failure.files.notDiscarded", defaultValue: "Changes not discarded", bundle: .module)

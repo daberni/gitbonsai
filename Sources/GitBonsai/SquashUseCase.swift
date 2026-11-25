@@ -9,6 +9,8 @@ final class SquashUseCase {
     private let interactiveRebase: InteractiveRebaseUseCase
     /// The commits selected in the history, in any order.
     var selectedCommitIDs: (() -> [String])?
+    /// The merge, rebase, cherry-pick or revert git is in the middle of; squashing waits for it.
+    var operation: (() -> OperationProgress.Kind?)?
     /// Beyond this many commits below HEAD the rule does not walk the history.
     private static let maximumDistance = 5000
 
@@ -32,7 +34,7 @@ final class SquashUseCase {
     }
 
     private var commandState: RepositoryCommandState {
-        RepositoryCommandState(status: viewModel.status, remotes: [], stashCount: 0, operation: nil)
+        RepositoryCommandState(status: viewModel.status, remotes: [], stashCount: 0, operation: operation?())
     }
 
     /// HEAD and its first parents as far as the history is loaded, newest first.
@@ -81,7 +83,7 @@ final class SquashUseCase {
 extension SquashUseCase: CommandProvider {
     func commands(_ state: RepositoryCommandState) -> [Command] {
         let selected = selectedCommitIDs?() ?? []
-        let blocker = state.operation.map { CommandBlocker.operationInProgress($0) } ?? blocker(for: selected)
+        let blocker = blocker(for: selected)
         let context = selected.count > 1 ? String(localized: "common.commitCount", defaultValue: "\(selected.count) commits", bundle: .module) : nil
         return [Command(.squash, context: context, blocker: blocker) { [weak self] in self?.squash(selected) }]
     }

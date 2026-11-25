@@ -10,6 +10,7 @@ final class FakePrompter: Prompting {
     /// The message of every confirmation, choice and form, in order.
     private(set) var asked: [String] = []
     private(set) var reports: [String] = []
+    private(set) var toasts: [String] = []
     /// The last form and alert asked, for snapshots of the real sheets.
     private(set) var lastForm: ActionForm?
     private(set) var lastAlert: NSAlert?
@@ -46,7 +47,7 @@ final class FakePrompter: Prompting {
     func reportUnlessStopped(_ error: Error, title: LocalizedStringResource, actions: [FailureAction], in repository: Repository) async { reports.append("\(title.text): \(error)") }
     func reportConflictingReturn(of stash: String) { reports.append("conflicting return of \(stash)") }
     func showSheet(title: LocalizedStringResource, summary: LocalizedStringResource, details: String?, actions: [FailureAction]) { reports.append(title.text) }
-    func toast(_ text: RefString, action: ToastAction?) {}
+    func toast(_ text: RefString, action: ToastAction?) { toasts.append(text.plain) }
 }
 
 /// One repository tab without a window: the view model loaded from a fixture repository and the actions and menu builder the tab assembles.
@@ -93,7 +94,7 @@ final class TabFixture {
         let checkout = checkout
         let pull = pull
         let push = push
-        branches = BranchActions(context: context, pull: pull, push: push, fastForward: fastForward) { target, path in checkout.perform(target, worktreePath: path) }
+        branches = BranchActions(context: context, pull: pull, push: push, fastForward: fastForward, rebaseOnto: commitActions.rebaseOnto) { target, path in checkout.perform(target, worktreePath: path) }
         tags = TagActions(context: context)
         stashes = StashActions(context: context)
         worktrees = WorktreeActions(context: context)

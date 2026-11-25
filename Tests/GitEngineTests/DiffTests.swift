@@ -290,26 +290,6 @@ final class DiffTests: XCTestCase {
         XCTAssertNoThrow(try fixture.git("rev-parse", "--verify", "-q", "MERGE_HEAD"), "the merge stays in progress")
     }
 
-    func testRemovingAnUntrackedFileLeavesOthersAlone() async throws {
-        let fixture = try FixtureRepo()
-        defer { fixture.remove() }
-        try fixture.commit("base")
-        try fixture.write("notes/new file.txt", "a\n")
-        try fixture.write("notes/keep.txt", "b\n")
-        try fixture.write("staged.txt", "c\n")
-        try fixture.git("add", "staged.txt")
-        let repo = fixture.repository
-
-        try await repo.removeUntracked(["notes/new file.txt"])
-
-        let manager = FileManager.default
-        XCTAssertFalse(manager.fileExists(atPath: fixture.url.appendingPathComponent("notes/new file.txt").path))
-        XCTAssertTrue(manager.fileExists(atPath: fixture.url.appendingPathComponent("notes/keep.txt").path))
-        let entries = try await repo.status().entries
-        XCTAssertEqual(entries.first { $0.path == "staged.txt" }?.indexState, .added)
-        XCTAssertNil(entries.first { $0.path == "notes/new file.txt" })
-    }
-
     func testDiscardingTheHunkOfAnUntrackedFileRemovesIt() async throws {
         let fixture = try FixtureRepo()
         defer { fixture.remove() }

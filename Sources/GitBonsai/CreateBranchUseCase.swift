@@ -19,8 +19,14 @@ final class CreateBranchUseCase {
         prompter = context.prompter
     }
 
-    /// `commit` is offered under "Current" next to HEAD and preselected, such as a commit selected in the history; HEAD when nil.
-    func show(commit: Commit? = nil, worktree: Bool = false) {
+    /// Where a new branch starts when the sheet opens: a commit selected in the history, or a ref from its menu.
+    enum Start {
+        case commit(Commit)
+        case ref(String)
+    }
+
+    /// A commit start is offered under "Current" next to HEAD and preselected; a ref start preselects that ref; HEAD when nil.
+    func show(start: Start? = nil, worktree: Bool = false) {
         guard !isOpen, let parent = prompter.window else { return }
         isOpen = true
         let repository = viewModel.repository
@@ -30,9 +36,13 @@ final class CreateBranchUseCase {
             let headBranch = viewModel.refs.first { $0.kind == .localBranch && $0.isHead }?.name
             let headCommit = await repository.commitSummary("HEAD")
             var current: [RefCatalog.Item] = headCommit.map { [.head(branch: headBranch, commit: $0)] } ?? []
-            let picked = commit.map { RefCatalog.Item.commit(CommitSummary(sha: $0.id, date: $0.committerDate, subject: $0.subject)) }
-            if let picked { current.append(picked) }
+            var picked: RefCatalog.Item?
+            if case .commit(let commit) = start {
+                picked = .commit(CommitSummary(sha: commit.id, date: commit.committerDate, subject: commit.subject))
+                current.append(picked!)
+            }
             let catalog = RefCatalog(tips: tips, current: current)
+            if case .ref(let name) = start { picked = catalog.item(titled: name) }
             let existing = Set(tips.filter { $0.kind == .localBranch }.map(\.name))
             let checkedOut = Set(viewModel.worktrees.compactMap(\.worktree.branchName))
             let free = existing.subtracting(checkedOut)

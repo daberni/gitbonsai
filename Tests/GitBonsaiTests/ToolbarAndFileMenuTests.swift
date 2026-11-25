@@ -30,13 +30,13 @@ final class ToolbarAndFileMenuTests: XCTestCase {
         XCTAssertEqual(firstEnabled(menu), "Fetch all Remotes")
     }
 
-    /// Without a remote there is nothing to fetch from: the entries stay visible but disabled.
+    /// Without a remote there is nothing to fetch from: the entries stay visible but disabled, and say why.
     func testFetchMenuIsDisabledWithoutRemotes() async throws {
         try fixture.repo.git("remote", "remove", "origin")
         tab.fetch.refreshRemotes()
         try await waitUntil { self.tab.fetch.remotes.isEmpty }
         let menu = tab.menus.toolbarMenu(.fetch)
-        XCTAssertEqual(menu.outline, [["Fetch all Remotes"], ["Fetch Tags from all Remotes"]])
+        XCTAssertEqual(menu.outline, [["Fetch all Remotes (No remote configured)"], ["Fetch Tags from all Remotes (No remote configured)"]])
         XCTAssertNil(firstEnabled(menu))
     }
 
@@ -49,15 +49,26 @@ final class ToolbarAndFileMenuTests: XCTestCase {
         XCTAssertFalse(entries[0].isEnabled)
         XCTAssertEqual(entries.dropFirst().compactMap(\.marker), ["Default"])
         XCTAssertNotNil(entries[1].marker, "the default mode comes first")
-        XCTAssertEqual(Set(entries.dropFirst().map(\.plainTitle)), ["Fast-forward only", "Merge", "Rebase"])
+        XCTAssertEqual(Set(entries.dropFirst().map(\.plainTitle)), ["Fast-Forward only", "Merge", "Rebase"])
         XCTAssertEqual(firstEnabled(menu), entries[1].plainTitle)
     }
 
-    func testPullMenuWithoutUpstreamOffersToSetOne() async throws {
+    /// Pull needs an upstream and Push a remote; without one the button is disabled and its tooltip says why.
+    func testPullAndPushSayWhyTheyCannotRun() async throws {
+        XCTAssertNil(tab.upstream.pullBlocked)
+        XCTAssertNil(tab.upstream.pushBlocked)
         try fixture.repo.git("branch", "--unset-upstream", "main")
         await tab.upstream.refresh().value
-        XCTAssertEqual(tab.menus.toolbarMenu(.pull).outline, [["main has no upstream", "Set Upstream and Pull…"]])
-        XCTAssertEqual(firstEnabled(tab.menus.toolbarMenu(.pull)), "Set Upstream and Pull…")
+        XCTAssertEqual(tab.upstream.pullBlocked, "main has no upstream")
+        XCTAssertNil(tab.upstream.pushBlocked, "the first push sets the upstream")
+        XCTAssertEqual(tab.menus.toolbarMenu(.pull).outline, [])
+        try fixture.repo.git("remote", "remove", "origin")
+        await tab.upstream.refresh().value
+        XCTAssertEqual(tab.upstream.pushBlocked, "No remote configured")
+        try fixture.repo.git("switch", "-q", "--detach")
+        await tab.model.refresh(note: nil)
+        await tab.upstream.refresh().value
+        XCTAssertEqual(tab.upstream.pullBlocked, "HEAD is detached")
     }
 
     func testPushMenuPushesToTheUpstreamOrSetsOneFirst() async throws {
@@ -104,7 +115,7 @@ final class ToolbarAndFileMenuTests: XCTestCase {
     func testStashMenuOffersStagedOnlyWithStagedChanges() async throws {
         try fixture.repo.write("one.txt", "edited\n")
         await tab.model.refresh(note: nil)
-        XCTAssertEqual(tab.menus.toolbarMenu(.stash).joined().map { "\($0.plainTitle)\($0.isEnabled ? "" : " (off)")" }, ["Stash all changes", "Stash with Message…", "Stash staged changes only (off)"])
+        XCTAssertEqual(tab.menus.toolbarMenu(.stash).outline.joined().map { $0 }, ["Stash all changes", "Stash with Message…", "Stash staged changes only (Nothing staged)"])
         try fixture.repo.git("add", "one.txt")
         await tab.model.refresh(note: nil)
         XCTAssertTrue(tab.menus.toolbarMenu(.stash).entry("Stash staged changes only")?.isEnabled ?? false)
@@ -116,16 +127,29 @@ final class ToolbarAndFileMenuTests: XCTestCase {
         FileRowView.Model(selection: FileSelection(path: path, originalPath: nil, source: source), letter: "M", color: .labelColor, stat: nil, note: nil, state: state)
     }
 
-    /// One changed file: stage or discard, open it, copy its path (⌥ for the full path), move it to the Trash.
+    /// One changed file: stage or discard, open it, copy its path (⌥ for the full path).
     func testFileMenuOfOneUnstagedFile() throws {
         try fixture.repo.write("one.txt", "edited\n")
         let menu = tab.menus.fileMenu(for: [file("one.txt", .unstaged)])
-        XCTAssertEqual(menu.outline[0], ["Stage", "Discard changes…"])
+        XCTAssertEqual(menu.outline[0], ["Stage", "Discard…"])
         XCTAssertEqual(menu.outline[1].first, "Open in diff tool")
         XCTAssertEqual(menu.outline[1].suffix(2), ["Open with default app", "Show in Finder"])
         XCTAssertEqual(menu.outline[2], ["Copy path", "Copy full path"])
         XCTAssertEqual(menu[2][1].alternateModifiers, .option)
-        XCTAssertEqual(menu.outline[3], ["Move to Trash…"])
+        XCTAssertEqual(menu.outline.count, 3, "nothing rewrites a working-directory file beyond Discard")
+    }
+
+    /// An untracked file is discarded like a tracked one; it goes to the Trash, which the question says.
+    func testDiscardingAnUntrackedFileMovesItToTheTrash() async throws {
+        try fixture.repo.write("new.txt", "new\n")
+        await tab.model.refresh(note: nil)
+        let menu = tab.menus.fileMenu(for: [file("new.txt", .untracked, state: .added)])
+        XCTAssertEqual(menu.outline[0], ["Stage", "Discard…"])
+        tab.prompter.confirmations = [true]
+        try XCTUnwrap(menu.entry("Discard…")).run()
+        let path = fixture.repo.url.appendingPathComponent("new.txt").path
+        try await waitUntil { !FileManager.default.fileExists(atPath: path) }
+        XCTAssertEqual(tab.prompter.asked, ["Discard Changes?"])
     }
 
     /// With several files an entry that does not fit every one stays visible and says why.
@@ -154,12 +178,12 @@ final class ToolbarAndFileMenuTests: XCTestCase {
         options.whitespace.ignoring = .all
         var changed = options
         let menu = MenuBuilder.diffOptions(options) { edit in edit(&changed) }
-        XCTAssertEqual(menu.outline, [["Show invisible characters"], ["Word Diff"], ["Ignore Whitespace", "Ignore Whitespace amount", "Ignore blank Lines"]])
-        XCTAssertEqual(menu.joined().filter(\.isChecked).map(\.plainTitle), ["Ignore Whitespace"])
-        try XCTUnwrap(menu.entry("Ignore Whitespace amount")).run()
+        XCTAssertEqual(menu.outline, [["Show invisible characters"], ["Word diff"], ["Ignore whitespace", "Ignore whitespace changes", "Ignore blank lines"]])
+        XCTAssertEqual(menu.joined().filter(\.isChecked).map(\.plainTitle), ["Ignore whitespace"])
+        try XCTUnwrap(menu.entry("Ignore whitespace changes")).run()
         XCTAssertEqual(changed.whitespace.ignoring, .changes)
         changed = options
-        try XCTUnwrap(menu.entry("Ignore Whitespace")).run()
+        try XCTUnwrap(menu.entry("Ignore whitespace")).run()
         XCTAssertEqual(changed.whitespace.ignoring, .nothing, "choosing the checked option turns it off")
     }
 }

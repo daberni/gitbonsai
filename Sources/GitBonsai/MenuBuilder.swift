@@ -39,6 +39,8 @@ final class MenuBuilder {
     private let push: PushUseCase
     private let files: FileActions
     private let staging: StagingUseCase
+    /// The merge, rebase, cherry-pick or revert git is in the middle of; entries that move HEAD wait for it.
+    var operation: (() -> OperationProgress.Kind?)?
 
     init(context: RepositoryContext, checkout: CheckoutUseCase, commitActions: CommitActions, branches: BranchActions, tags: TagActions, fastForward: FastForwardUseCase, stashes: StashActions, worktrees: WorktreeActions, remotes: RemoteActions, fetch: FetchUseCase, pull: PullUseCase, push: PushUseCase, files: FileActions, staging: StagingUseCase) {
         viewModel = context.model
@@ -62,8 +64,17 @@ final class MenuBuilder {
 
     /// The menu of a subject where it is shown, as groups of entries; empty groups are left out when the menu is made.
     func menu(for subject: MenuSubject, in context: MenuContext) -> [[MenuEntry]] {
+        guardingHead(unguardedMenu(for: subject, in: context))
+    }
+
+    /// Entries that move HEAD or rewrite history are disabled while git is in the middle of an operation.
+    private func guardingHead(_ groups: [[MenuEntry]]) -> [[MenuEntry]] {
+        MenuEntry.blockingHeadMoves(groups, because: CommandRules.movingHead(operation: operation?())?.reason.text)
+    }
+
+    private func unguardedMenu(for subject: MenuSubject, in context: MenuContext) -> [[MenuEntry]] {
         switch subject {
-        case .branch(let ref): branches.sections(for: ref, in: context).groups
+        case .branch(let ref): branchMenu(ref, in: context)
         case .tag(let name): context == .sidebar ? tags.groups(for: name) : []
         case .worktree(let info, let isCurrent): worktrees.groups(for: info, isCurrent: isCurrent)
         case .remote(let name): remotes.groups(for: name)
@@ -87,7 +98,17 @@ final class MenuBuilder {
     /// The menu of one ref pill of a history row: the pill's ref section zipped with the commit section.
     func pillMenu(forRow index: Int, ref: PillRef) -> [[MenuEntry]] {
         guard let commit = commit(at: index) else { return [] }
-        return combined(refSections(ref, commit: commit), commit: commit, index: index, pills: pills(of: commit).map(\.ref), subject: ref)
+        return guardingHead(combined(refSections(ref, commit: commit), commit: commit, index: index, pills: pills(of: commit).map(\.ref), subject: ref))
+    }
+
+    /// The sidebar's branch menus add the create group of the branch's commit, as its pill in the history has it.
+    private func branchMenu(_ ref: Ref, in context: MenuContext) -> [[MenuEntry]] {
+        var sections = branches.sections(for: ref, in: context)
+        if context == .sidebar {
+            let create = commitActions.createEntries(at: ref)
+            sections.create = Array(create.prefix(1)) + sections.create + create.dropFirst()
+        }
+        return sections.groups
     }
 
     private func historyMenu(row index: Int) -> [[MenuEntry]] {
@@ -101,19 +122,14 @@ final class MenuBuilder {
         return (leading + commitSections(commit, index: index, pills: all, subject: nil)).groups
     }
 
-    /// The branch's own "Rebase main onto X" joins the commit section's rebase variants, which offer it as one entry with a submenu.
     private func combined(_ ref: MenuSections, commit: Commit, index: Int, pills: [PillRef], subject: PillRef) -> [[MenuEntry]] {
-        var ref = ref
-        let allCommits = ref.integrate.first { $0.role == .rebaseAllCommits }
-        ref.integrate.removeAll { $0.role == .rebaseAllCommits }
-        return (ref + commitSections(commit, index: index, pills: pills, subject: subject, rebaseAllCommits: allCommits)).groups
+        (ref + commitSections(commit, index: index, pills: pills, subject: subject)).groups
     }
 
-    /// The Stashes list's menu; the history's stash row adds Copy SHA at the end, in the copy group.
+    /// The same in the Stashes list and on the history's stash row.
     private func stashMenu(_ id: String, in context: MenuContext) -> [[MenuEntry]] {
         let groups = stashes.groups(for: id)
-        let copy = context.isHistory ? [MenuEntry.copySHA(id, to: pasteboard)] : []
-        return [groups.show, groups.takeBack, groups.drop, groups.create, copy]
+        return [groups.show, groups.takeBack, groups.drop, groups.create, [MenuEntry.copySHA(id, to: pasteboard)]]
     }
 
     /// The menu of a toolbar split button; its first enabled entry is what a click on the button's main part runs.
@@ -141,10 +157,10 @@ final class MenuBuilder {
             return entry
         }
         let invisibles = option(String(localized: "diff.options.invisibles", defaultValue: "Show invisible characters", bundle: .module, comment: "Diff option: mark tabs, trailing spaces, line endings and characters without a glyph"), isOn: options.showsInvisibles, toolTip: nil) { $0.showsInvisibles.toggle() }
-        let words = option(String(localized: "diff.options.wordDiff", defaultValue: "Word Diff", bundle: .module, comment: "Diff option: mark changed words within a line instead of whole lines"), isOn: options.wordDiff, toolTip: "git diff --word-diff") { $0.wordDiff.toggle() }
-        let ignoreAll = option(String(localized: "diff.options.ignoreWhitespace", defaultValue: "Ignore Whitespace", bundle: .module, comment: "Diff option: leave out every whitespace difference, git diff -w"), isOn: options.whitespace.ignoring == .all, toolTip: "git diff -w --ignore-cr-at-eol") { $0.whitespace.ignoring = $0.whitespace.ignoring == .all ? .nothing : .all }
-        let ignoreAmount = option(String(localized: "diff.options.ignoreWhitespaceAmount", defaultValue: "Ignore Whitespace amount", bundle: .module, comment: "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b"), isOn: options.whitespace.ignoring == .changes, toolTip: "git diff -b --ignore-cr-at-eol") { $0.whitespace.ignoring = $0.whitespace.ignoring == .changes ? .nothing : .changes }
-        let blankLines = option(String(localized: "diff.options.ignoreBlankLines", defaultValue: "Ignore blank Lines", bundle: .module, comment: "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines"), isOn: options.whitespace.ignoresBlankLines, toolTip: "git diff --ignore-blank-lines") { $0.whitespace.ignoresBlankLines.toggle() }
+        let words = option(String(localized: "diff.options.wordDiff", defaultValue: "Word diff", bundle: .module, comment: "Diff option: mark changed words within a line instead of whole lines"), isOn: options.wordDiff, toolTip: "git diff --word-diff") { $0.wordDiff.toggle() }
+        let ignoreAll = option(String(localized: "diff.options.ignoreWhitespace", defaultValue: "Ignore whitespace", bundle: .module, comment: "Diff option: leave out every whitespace difference, git diff -w"), isOn: options.whitespace.ignoring == .all, toolTip: "git diff -w --ignore-cr-at-eol") { $0.whitespace.ignoring = $0.whitespace.ignoring == .all ? .nothing : .all }
+        let ignoreAmount = option(String(localized: "diff.options.ignoreWhitespaceAmount", defaultValue: "Ignore whitespace changes", bundle: .module, comment: "Diff option: leave out changes in the amount of whitespace but not whitespace where there was none, git diff -b"), isOn: options.whitespace.ignoring == .changes, toolTip: "git diff -b --ignore-cr-at-eol") { $0.whitespace.ignoring = $0.whitespace.ignoring == .changes ? .nothing : .changes }
+        let blankLines = option(String(localized: "diff.options.ignoreBlankLines", defaultValue: "Ignore blank lines", bundle: .module, comment: "Diff option: leave out added or removed empty lines, git diff --ignore-blank-lines"), isOn: options.whitespace.ignoresBlankLines, toolTip: "git diff --ignore-blank-lines") { $0.whitespace.ignoresBlankLines.toggle() }
         return [[invisibles], [words], [ignoreAll, ignoreAmount, blankLines]]
     }
 
@@ -174,22 +190,22 @@ final class MenuBuilder {
             // HEAD is the commit itself; the commit section has everything it offers.
             return MenuSections()
         case .other(let name):
-            return MenuSections(copy: [MenuEntry(LocalizedStringResource("common.copyName", defaultValue: "Copy name", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }])
+            return MenuSections(copy: [MenuEntry(LocalizedStringResource("branch.menu.copyName", defaultValue: "Copy \(name)", bundle: .module)) { [pasteboard] in pasteboard.copy(name) }])
         }
     }
 
     /// The fast-forward to the commit itself only shows where no branch pill already offers it by name.
     /// Create Worktree… preselects the menu's local branch (`subject`) when it can have a worktree; otherwise it starts from the commit.
-    private func commitSections(_ commit: Commit, index: Int, pills: [PillRef], subject: PillRef?, rebaseAllCommits: MenuEntry? = nil) -> MenuSections {
+    private func commitSections(_ commit: Commit, index: Int, pills: [PillRef], subject: PillRef?) -> MenuSections {
         let named = pills.contains { if case .branch = $0 { true } else { false } }
-        let moveHere = named ? nil : fastForward.entry(to: .commit(commit.id))
+        let moveHere = named ? nil : fastForward.entry(to: .commit(commit.id))?.movingHead
         var worktreeForBranch: (() -> Void)?
         if case .branch(let name) = subject, let local = viewModel.refsByCommit[commit.id]?.first(where: { $0.kind == .localBranch && $0.name == name }), branches.canCreateWorktree(for: local) {
             worktreeForBranch = { [weak branches] in branches?.createWorktree(for: name) }
         }
-        var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch, rebaseAllCommits: rebaseAllCommits)
-        if let detached = checkout.detachedEntry(forRow: index) { sections.goThere.append(detached) }
-        if let squash = commitActions.squash.entry(for: commit) { sections.change.append(squash) }
+        var sections = commitActions.sections(for: commit, moveHere: moveHere, worktreeForBranch: worktreeForBranch)
+        if let detached = checkout.detachedEntry(forRow: index) { sections.goThere.append(detached.movingHead) }
+        if let squash = commitActions.squash.entry(for: commit) { sections.change.append(squash.movingHead) }
         return sections
     }
 

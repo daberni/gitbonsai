@@ -220,7 +220,8 @@ final class InteractiveRebaseUseCase {
     // MARK: Running
 
     /// Runs the plan. An `edit` stop or a conflict leaves the banner to say what comes next; a failed command is also reported.
-    func start(_ plan: RebasePlan, note: String) {
+    /// `finished` is a toast shown when the rebase went through without stopping.
+    func start(_ plan: RebasePlan, note: String, finished: RefString? = nil) {
         let repository = viewModel.repository
         Task {
             do {
@@ -228,6 +229,7 @@ final class InteractiveRebaseUseCase {
                 await viewModel.refresh(note: note, focus: .followHead)
                 switch outcome {
                 case .finished:
+                    if let finished { prompter.toast(finished) }
                     onEnded?()
                 case let .stopped(progress, output):
                     // A conflict or an edit stop is a state the banner shows; only a failed command is worth a message.

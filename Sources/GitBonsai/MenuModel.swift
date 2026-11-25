@@ -25,22 +25,14 @@ struct MenuEntry {
     var toolTip: String?
     /// Why the entry cannot run now; a disabled entry shows it as its tooltip.
     var disabledReason: String?
-    /// Disabled without a reason of its own, such as an entry that waits for a choice elsewhere.
-    var isDisabled = false
     var shortcut: CommandShortcut?
     /// Shows a checkmark, as an option that is on.
     var isChecked = false
     /// Replaces the entry before it while these modifier keys are held, as "Copy full path" for "Copy path" with ⌥.
     var alternateModifiers: NSEvent.ModifierFlags?
-    /// Marks an entry that a later step of the builder looks for, such as a branch's plain rebase.
-    var role: Role?
-    /// A title that changes while the menu is open, such as a rebase entry whose base is still searched.
-    var liveTitle: LiveMenuTitle?
+    /// The entry moves HEAD or rewrites history, so it waits while git is in the middle of a merge, rebase, cherry-pick or revert; see `CommandRules.movingHead`.
+    var movesHead = false
     var content: Content
-
-    enum Role {
-        case rebaseAllCommits
-    }
 
     init(_ title: LocalizedStringResource, action: @escaping @MainActor () -> Void) {
         self.init(RefString(title), action: action)
@@ -80,30 +72,34 @@ struct MenuEntry {
 
     var isEnabled: Bool {
         if case .header = content { return false }
-        return disabledReason == nil && !isDisabled
+        return disabledReason == nil
     }
 
     /// The title as a person reads it, without the pills' marks; what tests match entries by.
-    @MainActor var plainTitle: String { liveTitle?.current.plain ?? title.plain }
+    var plainTitle: String { title.plain }
+
+    /// The same entry, marked as one that moves HEAD or rewrites history.
+    var movingHead: MenuEntry {
+        var entry = self
+        entry.movesHead = true
+        return entry
+    }
+
+    /// Disables every entry that moves HEAD, in submenus too, with `reason` as its tooltip.
+    static func blockingHeadMoves(_ groups: [[MenuEntry]], because reason: String?) -> [[MenuEntry]] {
+        guard let reason else { return groups }
+        return groups.map { group in
+            group.map { entry in
+                var entry = entry
+                if case .submenu(let inner) = entry.content { entry.content = .submenu(blockingHeadMoves(inner, because: reason)) }
+                if entry.movesHead, entry.disabledReason == nil { entry.disabledReason = reason }
+                return entry
+            }
+        }
+    }
 
     var submenu: [[MenuEntry]]? {
         if case .submenu(let groups) = content { groups } else { nil }
-    }
-}
-
-/// A title that a running search updates while its menu is open; the menu item shows each new value.
-@MainActor
-final class LiveMenuTitle {
-    private(set) var current: RefString
-    fileprivate var onChange: ((RefString) -> Void)?
-
-    init(_ title: RefString) {
-        current = title
-    }
-
-    func update(_ title: RefString) {
-        current = title
-        onChange?(title)
     }
 }
 
@@ -186,12 +182,6 @@ enum MenuAdapter {
         if let modifiers = entry.alternateModifiers {
             item.keyEquivalentModifierMask = modifiers
             item.isAlternate = true
-        }
-        if let live = entry.liveTitle {
-            item.setTitle(live.current)
-            // The item keeps the title source alive; the search only holds it weakly.
-            item.representedObject = live
-            live.onChange = { [weak item] title in item?.setTitle(title) }
         }
         return item
     }

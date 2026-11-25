@@ -211,7 +211,7 @@ final class StackedDiffBar: BarView {
         switch action {
         case .stage: String(localized: "diff.stack.stage", defaultValue: "Stage files", bundle: .module)
         case .unstage: String(localized: "diff.stack.unstage", defaultValue: "Unstage files", bundle: .module)
-        case .discard: String(localized: "files.menu.discard", defaultValue: "Discard changes…", bundle: .module)
+        case .discard: String(localized: "files.menu.discard", defaultValue: "Discard…", bundle: .module)
         }
     }
 

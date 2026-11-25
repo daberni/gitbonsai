@@ -31,7 +31,7 @@ final class UseCaseTests: XCTestCase {
     /// A branch checked out in another worktree only goes together with that worktree, after asking.
     func testDeletingABranchOfAnotherWorktreeAsksAndKeepsBothOnNo() async throws {
         let menu = tab.menus.menu(for: .branch(try tab.ref("other")), in: .sidebar)
-        try XCTUnwrap(menu.entry("Delete other")).run()
+        try XCTUnwrap(menu.entry("Delete other…")).run()
         try await waitUntil { !self.tab.prompter.asked.isEmpty }
         try await settle()
         XCTAssertEqual(tab.prompter.asked, ["Delete Branch and Worktree?"])
@@ -42,7 +42,7 @@ final class UseCaseTests: XCTestCase {
     func testDeletingABranchOfAnotherWorktreeRemovesBothOnYesAndCanBeUndone() async throws {
         tab.prompter.confirmations = [true]
         let menu = tab.menus.menu(for: .branch(try tab.ref("other")), in: .sidebar)
-        try XCTUnwrap(menu.entry("Delete other")).run()
+        try XCTUnwrap(menu.entry("Delete other…")).run()
         try await waitUntil { !self.branchExists("other") && self.tab.model.undoOffer != nil }
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.worktreePath))
         XCTAssertEqual(tab.model.undoOffer?.operation, "git branch -d")

@@ -1,8 +1,7 @@
 import AppKit
 import GitEngine
-import Synchronization
 
-/// The rebase group of the commit menu. On a commit outside the current branch: a one-click rebase from the detected base, and the interactive sheet onto the commit.
+/// The rebase group of the commit menu. On a commit outside the current branch: a one-click rebase that moves only the branch's own commits when their base is clear, and the interactive sheet onto the commit.
 /// On a commit of the branch: the interactive sheet in place. Both forms share one detection and run through the interactive rebase engine, so the status line can undo them.
 /// Rewriting published commits only gets the hint in the status line, as everywhere else.
 @MainActor
@@ -25,119 +24,33 @@ final class RebaseOntoUseCase {
     // MARK: Menu
 
     /// Nothing on a descendant of HEAD: the rebase would only fast-forward, which the menu's Fast-Forward entry offers.
-    /// With a branch's plain rebase (`allCommits`) next to the detected one there are several variants; they go into one entry with a submenu: all commits, only the branch's own, interactively.
-    func entries(branch: String, commit: Commit, allCommits: MenuEntry? = nil) -> [MenuEntry] {
-        let plain = allCommits.map { [$0] } ?? []
-        if let head = viewModel.headSHA, head != commit.id, viewModel.history.reachable(from: commit.id).contains(head) { return plain }
+    /// Off the branch: the one-click rebase and the interactive sheet, both waiting for the base detection that starts when the menu opens.
+    func entries(branch: String, commit: Commit) -> [MenuEntry] {
+        if let head = viewModel.headSHA, head != commit.id, viewModel.history.reachable(from: commit.id).contains(head) { return [] }
         let place = placeName(of: commit)
         let name = RefName.branch(branch)
         let interactiveTitle: LocalizedStringResource = if let place { LocalizedStringResource("rebase.onto.interactive", defaultValue: "Rebase \(name) interactively onto \(place.marked)…", bundle: .module) } else { LocalizedStringResource("rebase.onto.interactiveHere", defaultValue: "Rebase \(name) interactively onto this Commit…", bundle: .module) }
         // The sheet names the target in its own sentences; a commit without a branch or tag is "this commit" there too.
         let targetName = place ?? RefString(LocalizedStringResource("rebase.onto.thisCommit", defaultValue: "this commit", bundle: .module))
         guard !viewModel.isReachableFromHead(commit.id) else {
-            if let reason = interactive.inPlaceReason(for: commit) { return plain + [Self.disabled(RefString(interactiveTitle), reason)] }
-            return plain + [MenuEntry(interactiveTitle) { [weak self] in self?.interactive.openSheet(branch: branch, onto: commit, targetName: targetName, detection: .plain(moving: 0)) }]
+            if let reason = interactive.inPlaceReason(for: commit) { return [Self.disabled(RefString(interactiveTitle), reason)] }
+            return [MenuEntry(interactiveTitle) { [weak self] in self?.interactive.openSheet(branch: branch, onto: commit, targetName: targetName, detection: .plain(moving: 0)) }.movingHead]
         }
         let repository = viewModel.repository
         let targetRef = branchRef(at: commit)
-        let found = DetectionResult()
-        let key = "\(branch) \(viewModel.headSHA ?? "") \(commit.id)"
-        let detection = Task.detached {
-            let result = await repository.detectRebaseBase(of: branch, onto: commit.id, targetRef: targetRef)
-            found.store(result)
-            return result
+        let detection = Task.detached { await repository.detectRebaseBase(of: branch, onto: commit.id, targetRef: targetRef) }
+        let title: LocalizedStringResource = if let place { LocalizedStringResource("rebase.onto.title", defaultValue: "Rebase \(name) onto \(place.marked)", bundle: .module) } else { LocalizedStringResource("rebase.onto.titleHere", defaultValue: "Rebase \(name) onto this Commit", bundle: .module) }
+        let oneClick = MenuEntry(title) { [weak self] in
+            Task { await self?.rebase(branch, onto: commit.id, targetRef: targetRef, detection: detection.value) }
         }
-        let searchingTitle: LocalizedStringResource = if let place { LocalizedStringResource("rebase.onto.finding", defaultValue: "Rebase \(name) onto \(place.marked) (finding base…)", bundle: .module) } else { LocalizedStringResource("rebase.onto.findingHere", defaultValue: "Rebase \(name) onto this Commit (finding base…)", bundle: .module) }
-        var oneClick = MenuEntry(searchingTitle) { [weak self] in
-            Task { await self?.rebase(branch, onto: commit, targetName: targetName, detection: detection.value) }
-        }
-        var sheet = MenuEntry(interactiveTitle) { [weak self] in
+        let sheet = MenuEntry(interactiveTitle) { [weak self] in
             Task {
                 let result = await detection.value
                 self?.interactive.openSheet(branch: branch, onto: commit, targetName: targetName, detection: result)
             }
         }
-        let isVariant = allCommits != nil
-        let known = isVariant ? detections[key] ?? Self.briefly(found) : nil
-        // Nothing left out: the branch's own commits are all of them, so the plain rebase and the interactive one stay single entries.
-        if let allCommits, let known, Self.ownCommitsTitle(branch: branch, place: place, detection: known) == nil {
-            detections[key] = known
-            return [allCommits, sheet]
-        }
-        if allCommits != nil {
-            oneClick.title = Self.ownCommits(branch: branch, notes: [RefString(LocalizedStringResource("rebase.onto.note.findingBase", defaultValue: "finding base…", bundle: .module))])
-            sheet.title = RefString(LocalizedStringResource("rebase.onto.variant.interactive", defaultValue: "Interactively…", bundle: .module))
-        }
-        let live = LiveMenuTitle(oneClick.title)
-        oneClick.liveTitle = live
-        let grouped = allCommits.map { variants($0, oneClick: oneClick, sheet: sheet, commit: commit) }
-        // The timer fires on the main run loop; storing the result only crosses into its closure.
-        nonisolated(unsafe) let remember: (RebaseBaseDetection) -> Void = { [weak self] result in self?.detections[key] = result }
-        // An open menu runs its own tracking loop, which serves no main-actor tasks; a timer in the common modes still fires and updates the entry in place.
-        let started = Date()
-        // The timer fires on the main run loop; an item that closed takes the title along.
-        let poll = Timer(timeInterval: 0.05, repeats: true) { [weak live] timer in
-            let finished = MainActor.assumeIsolated {
-                guard let entry = live, Date().timeIntervalSince(started) < Self.searchTimeout else { return true }
-                guard let result = found.value else { return false }
-                if isVariant {
-                    remember(result)
-                    entry.update(Self.ownCommitsTitle(branch: branch, place: place, detection: result) ?? Self.allOwn(branch: branch, result))
-                } else {
-                    entry.update(Self.title(branch: branch, place: place, detection: result))
-                }
-                return true
-            }
-            if finished {
-                timer.invalidate()
-            }
-        }
-        RunLoop.main.add(poll, forMode: .common)
-        return grouped.map { [$0] } ?? [oneClick, sheet]
+        return [oneClick.movingHead, sheet.movingHead]
     }
-
-    /// The branch's rebase entry keeps its title and gets the variants as its submenu.
-    private func variants(_ allCommits: MenuEntry, oneClick: MenuEntry, sheet: MenuEntry, commit: Commit) -> MenuEntry {
-        let moving = viewModel.headSHA.map { viewModel.history.reachable(from: $0).subtracting(viewModel.history.reachable(from: commit.id)).count } ?? 0
-        var all = allCommits
-        all.role = nil
-        all.title = RefString(LocalizedStringResource("rebase.onto.variant.all", defaultValue: "All commits (\(moving))", bundle: .module))
-        return MenuEntry(allCommits.title, submenu: [[all, oneClick, sheet]])
-    }
-
-    /// "Only main's own commits (1 commit, without feature/a)"; nil when the detection leaves nothing out, so the variant equals all commits.
-    private static func ownCommitsTitle(branch: String, place: RefString?, detection: RebaseBaseDetection) -> RefString? {
-        switch detection {
-        case .plain: return nil
-        case .tie: return ownCommits(branch: branch, notes: [RefString(LocalizedStringResource("rebase.onto.note.ambiguousBase", defaultValue: "ambiguous base", bundle: .module))])
-        case .detected(let base):
-            let reason = if case .branch(let target) = base.reason, place?.containsNames == true, target == place?.plain { without(.forkPoint(target)) } else { without(base.reason) }
-            return ownCommits(branch: branch, notes: [commits(base.moving), reason])
-        }
-    }
-
-    /// The shape stays while the menu is open: a detection that leaves nothing out names the count of all commits.
-    private static func allOwn(branch: String, _ detection: RebaseBaseDetection) -> RefString {
-        guard case .plain(let moving) = detection else { return ownCommits(branch: branch, notes: []) }
-        return ownCommits(branch: branch, notes: [commits(moving)])
-    }
-
-    private static func ownCommits(branch: String, notes: [RefString]) -> RefString {
-        let list = notes.map(\.marked).joined(separator: ", ")
-        return RefString(LocalizedStringResource("rebase.onto.variant.own", defaultValue: "Only \(RefName.branch(branch))'s own commits (\(list))", bundle: .module))
-    }
-
-    /// A detection that finishes within this time decides the menu's shape before it opens.
-    private static let menuWait: TimeInterval = 0.15
-
-    private static func briefly(_ found: DetectionResult) -> RebaseBaseDetection? {
-        let deadline = Date().addingTimeInterval(menuWait)
-        while found.value == nil, Date() < deadline { usleep(5_000) }
-        return found.value
-    }
-
-    /// After this many seconds an open menu stops waiting for the detected base; choosing the entry still waits for it.
-    private static let searchTimeout: TimeInterval = 30
 
     private static func disabled(_ title: RefString, _ reason: String) -> MenuEntry {
         var entry = MenuEntry(title) {}
@@ -145,28 +58,11 @@ final class RebaseOntoUseCase {
         return entry
     }
 
-    /// "Rebase feature/b onto main (3 commits, without feature/a)", or with the commit count alone when the merge base is all there is. `place` nil is a commit without a branch or tag.
-    static func title(branch: String, place: RefString?, detection: RebaseBaseDetection) -> RefString {
-        let name = RefName.branch(branch)
-        switch detection {
-        case .plain(let moving):
-            return title(branch: branch, place: place, notes: [commits(moving)])
-        case .tie:
-            guard let place else { return RefString(LocalizedStringResource("rebase.onto.ambiguousHere", defaultValue: "Rebase \(name) onto this Commit (ambiguous base)…", bundle: .module)) }
-            return RefString(LocalizedStringResource("rebase.onto.ambiguous", defaultValue: "Rebase \(name) onto \(place.marked) (ambiguous base)…", bundle: .module))
-        case .detected(let base):
-            // A former tip of the target branch itself means the target was rewritten, like a fork point.
-            let reason = if case .branch(let target) = base.reason, place?.containsNames == true, target == place?.plain { without(.forkPoint(target)) } else { without(base.reason) }
-            return title(branch: branch, place: place, notes: [commits(base.moving), reason])
-        }
-    }
-
-    /// The notes are complete phrases of their own, also shown alone elsewhere, listed in parentheses after the title.
-    private static func title(branch: String, place: RefString?, notes: [RefString]) -> RefString {
-        let name = RefName.branch(branch)
-        let list = notes.map(\.marked).joined(separator: ", ")
-        guard let place else { return RefString(LocalizedStringResource("rebase.onto.withDetailHere", defaultValue: "Rebase \(name) onto this Commit (\(list))", bundle: .module)) }
-        return RefString(LocalizedStringResource("rebase.onto.withDetail", defaultValue: "Rebase \(name) onto \(place.marked) (\(list))", bundle: .module))
+    /// "Rebased only main's own 3 commits, without feature/a": what the one-click rebase left out.
+    static func leftOutToast(branch: String, base: RebaseBase, target: String?) -> RefString {
+        // A former tip of the target branch itself means the target was rewritten, like a fork point.
+        let reason = if case .branch(let name) = base.reason, name == target { without(.forkPoint(name)) } else { without(base.reason) }
+        return RefString(LocalizedStringResource("rebase.onto.toast.ownCommits", defaultValue: "Rebased only \(RefName.branch(branch))'s own \(commits(base.moving).marked), \(reason.marked)", bundle: .module))
     }
 
     private static func commits(_ count: Int) -> RefString { RefString(LocalizedStringResource("common.commitCount", defaultValue: "\(count) commits", bundle: .module)) }
@@ -188,6 +84,12 @@ final class RebaseOntoUseCase {
         return nil
     }
 
+    /// The same name for a commit known only by its ID, such as a merge's parent.
+    func placeName(ofCommit id: String) -> RefString? {
+        guard let row = viewModel.rowIndex(of: id) else { return nil }
+        return placeName(of: viewModel.commits[row])
+    }
+
     /// A branch at the commit, whose reflog can tell an earlier position for `--fork-point`.
     private func branchRef(at commit: Commit) -> String? {
         branch(at: commit, local: true) ?? branch(at: commit, local: false)
@@ -201,33 +103,36 @@ final class RebaseOntoUseCase {
 
     // MARK: Running
 
-    /// The one-click form: every commit of the detected range picked onto the target. A tie opens the sheet to choose; a merge in the range or a fast-forward goes to plain `git rebase`.
-    private func rebase(_ branch: String, onto target: Commit, targetName: RefString, detection: RebaseBaseDetection) async {
-        if case .tie = detection { return interactive.openSheet(branch: branch, onto: target, targetName: targetName, detection: detection) }
+    /// The one-click rebase of `branch` onto a ref's tip, as the sidebar's branch menus offer it: the same detection and the same choice as the history's entry.
+    func rebase(_ branch: String, onto ref: Ref) {
+        let repository = viewModel.repository
+        let target = ref.target
+        let targetRef = ref.name
+        Task {
+            let detection = await repository.detectRebaseBase(of: branch, onto: target, targetRef: targetRef)
+            await rebase(branch, onto: target, targetRef: targetRef, detection: detection)
+        }
+    }
+
+    /// The one-click form. A base found without doubt moves only the branch's own commits (`--onto`), and a toast names what stayed behind; an ambiguous base, or none better than the merge base, runs a plain `git rebase <target>`.
+    /// A merge in the range or a fast-forward also goes to plain `git rebase`.
+    private func rebase(_ branch: String, onto target: String, targetRef: String?, detection: RebaseBaseDetection) async {
         let repository = viewModel.repository
         let upstream = viewModel.status?.branch.upstream
+        guard case .detected(let base) = detection else {
+            let hint = CommitActions.publishedHint(await repository.publishedCommitCount(rewrittenBy: target), upstream: upstream)
+            return runPlainRebase(CommitActions.note("git rebase", hint)) { repository in try await Signposts.measure("rebase", branch) { try await repository.rebaseCurrentBranch(onto: target) } }
+        }
+        let toast = Self.leftOutToast(branch: branch, base: base, target: targetRef)
         do {
-            let range = try await repository.rebaseRange(onto: target.id, detection: detection)
+            let range = try await repository.rebaseRange(onto: target, detection: detection)
             let plan = RebasePlan(range: range, branches: await repository.stackedBranches(in: range.commits))
             let hint = CommitActions.publishedHint(await repository.publishedCommitCount(rewrittenBy: range.base), upstream: upstream)
-            interactive.start(plan, note: CommitActions.note(InteractiveRebaseUseCase.command(plan), hint))
+            interactive.start(plan, note: CommitActions.note(InteractiveRebaseUseCase.command(plan), hint), finished: toast)
         } catch {
-            let base: String? = if case .detected(let found) = detection { found.commit } else { nil }
-            let hint = CommitActions.publishedHint(await repository.publishedCommitCount(rewrittenBy: base ?? target.id), upstream: upstream)
-            if let base {
-                runPlainRebase(CommitActions.note("git rebase --onto \(target.id.prefix(RefString.shortSHA)) \(base.prefix(RefString.shortSHA))", hint)) { repository in try await Signposts.measure("rebase", branch) { try await repository.rebase(onto: target.id, from: base, branch: branch) } }
-            } else {
-                runPlainRebase(CommitActions.note("git rebase", hint)) { repository in try await Signposts.measure("rebase", branch) { try await repository.rebaseCurrentBranch(onto: target.id) } }
-            }
+            let hint = CommitActions.publishedHint(await repository.publishedCommitCount(rewrittenBy: base.commit), upstream: upstream)
+            runPlainRebase(CommitActions.note("git rebase --onto \(target.prefix(RefString.shortSHA)) \(base.commit.prefix(RefString.shortSHA))", hint)) { repository in try await Signposts.measure("rebase", branch) { try await repository.rebase(onto: target, from: base.commit, branch: branch) } }
         }
     }
 }
 
-/// The detection's result, handed from the background search to the menu's timer.
-private final class DetectionResult: Sendable {
-    private let result = Mutex<RebaseBaseDetection?>(nil)
-
-    var value: RebaseBaseDetection? { result.withLock { $0 } }
-
-    func store(_ detection: RebaseBaseDetection) { result.withLock { $0 = detection } }
-}

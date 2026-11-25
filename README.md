@@ -29,7 +29,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 ### Index and working tree
 
 - Staged and unstaged changes in separate lists, with the working directory as the first row of the history.
-- Stage, unstage or discard single files, several selected files, single hunks or everything. "Discard all" in the working directory's title takes back staged and unstaged changes, and can move untracked files to the Trash. Several selected files show their diffs one below the other.
+- Stage, unstage or discard single files, several selected files, single hunks or everything; discarding moves untracked files to the Trash. "Discard all" in the working directory's title takes back staged and unstaged changes, and can move untracked files to the Trash. Several selected files show their diffs one below the other.
 - A commit form with subject and body, amend and sign-off. **Commit** ⌘⏎, **Commit all** (stages everything first) ⇧⌘⏎, **Amend** ⌥⌘⏎.
 - Stash ⇧⌘S and pop ⌥⇧⌘S, with Undo right after stashing.
 
@@ -59,14 +59,14 @@ Every row has a context menu with what it offers: fast-forward, checkout, merge,
 - Fast-forward any local branch to its upstream or to HEAD without checking it out.
 - **Delete Branches…** removes a branch everywhere at once, locally and on its remotes, and shows whether its commits exist anywhere else.
 - Add, edit and remove remotes.
-- Create lightweight or annotated tags, push, fetch and delete them locally or on a remote.
+- Create lightweight or annotated tags, push, fetch and delete them locally or on a remote; the menus offer per remote only what applies, and replace a differing tag after asking.
 
 ### Rebase, history editing and conflicts
 
 - **Interactive rebase** in a sheet: reorder by drag or ⌥↑/⌥↓, pick, reword, edit, squash, fixup or drop with a single key, and watch the result in a live preview. Optionally move dependent branches along (`--update-refs`) and stash local changes for the rebase.
-- **Rebase onto a commit with a detected base.** For a branch whose base was rewritten or merged, GitBonsai finds where its own commits start — the tip of the branch it was stacked on, commits that already arrived squashed upstream, or the fork point of a rewritten upstream — and rebases only those with `git rebase --onto`. The menu says how many commits move and which it leaves out, and offers all commits, only the branch's own commits, or the interactive sheet.
+- **Rebase onto a commit with a detected base.** For a branch whose base was rewritten or merged, GitBonsai finds where its own commits start — the tip of the branch it was stacked on, commits that already arrived squashed upstream, or the fork point of a rewritten upstream — and rebases only those with `git rebase --onto`. When the base is ambiguous it falls back to a plain rebase; a toast names the commits it left out, and the interactive sheet shows every choice.
 - **Edit Commit Message** (⌘E) in place, **Squash Commits…**, **Move up/down**, **Drop Commit…**, reset (soft, mixed, hard), cherry-pick onto the current branch and revert from the commit menu.
-- A banner for a running rebase, merge, cherry-pick or revert with its step, its conflicts and Continue, Skip, Abort or Amend Commit.
+- A banner for a running rebase, merge, cherry-pick or revert with its step, its conflicts and Continue, Skip, Abort or Amend Commit. Meanwhile menu entries that would move HEAD or rewrite history stay disabled and say why.
 - A **conflict view** that steps through changes (⌥⌘↑/⌥⌘↓), merges simple conflicts by itself, resolves the remaining ones as ours, theirs or both in either order, shows the base, and marks files resolved — or a **merge window** to resolve side by side, or your own merge tool.
 - Conflicted files in the file list, one or several at once, and all of them from the banner's "Resolve all": accept the version of a branch by its name, keep or delete a file one side deleted, mark as resolved or bring the conflict markers back, compare against the base or either side, and list the commits behind the conflict.
 - **Undo** in the status line for checkout, reset, merge, rebase, cherry-pick, revert, amend, branch and tag deletion, removing a remote and interactive rebases.
@@ -76,7 +76,7 @@ Every row has a context menu with what it offers: fast-forward, checkout, merge,
 - Create a worktree from the sidebar, from a branch, or from any commit, with a new branch if you like.
 - Switching to another worktree keeps the tab and only changes what it shows, so it is instant; a tab that already shows that worktree comes to the front.
 - The sidebar shows at a glance which branch is checked out where, and checking out such a branch switches to its worktree instead.
-- Lock, unlock, prune and remove worktrees, removing their branch along with them if you want.
+- Lock, unlock and remove worktrees, removing their branch along with them if you want; a worktree whose folder is gone is removed from its own menu.
 
 ### Command bar and keyboard
 

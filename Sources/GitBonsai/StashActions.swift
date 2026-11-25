@@ -24,9 +24,9 @@ final class StashActions {
         list.actions = [
             PanelAction(LocalizedStringResource("stash.action.showDiff", defaultValue: "Show Diff", bundle: .module)) { [weak self] id in self?.showDiff(id) },
             PanelAction(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] id in self?.apply(id) },
-            PanelAction(LocalizedStringResource("stash.action.pop", defaultValue: "Pop", bundle: .module)) { [weak self] id in self?.pop(id) },
-            PanelAction(LocalizedStringResource("stash.panel.branch", defaultValue: "Branch…", bundle: .module, comment: "Creates a branch from a stash.")) { [weak self] id in self?.createBranch(id) },
-            PanelAction(LocalizedStringResource("stash.action.drop", defaultValue: "Drop…", bundle: .module), isDestructive: true) { [weak self] id in self?.drop(id) },
+            PanelAction(LocalizedStringResource("stash.action.pop", defaultValue: "Pop Stash", bundle: .module)) { [weak self] id in self?.pop(id) },
+            PanelAction(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] id in self?.createBranch(id) },
+            PanelAction(LocalizedStringResource("stash.action.drop", defaultValue: "Drop Stash…", bundle: .module), isDestructive: true) { [weak self] id in self?.drop(id) },
         ]
     }
 
@@ -59,11 +59,11 @@ final class StashActions {
     func groups(for id: String) -> (show: [MenuEntry], takeBack: [MenuEntry], drop: [MenuEntry], create: [MenuEntry]) {
         let show = [MenuEntry(LocalizedStringResource("stash.action.showDiff", defaultValue: "Show Diff", bundle: .module)) { [weak self] in self?.showDiff(id) }]
         let takeBack = [
-            MenuEntry(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] in self?.apply(id) },
-            MenuEntry(LocalizedStringResource("stash.action.pop", defaultValue: "Pop", bundle: .module)) { [weak self] in self?.pop(id) },
+            MenuEntry(LocalizedStringResource("stash.action.apply", defaultValue: "Apply Stash", bundle: .module)) { [weak self] in self?.apply(id) }.movingHead,
+            MenuEntry(LocalizedStringResource("stash.action.pop", defaultValue: "Pop Stash", bundle: .module)) { [weak self] in self?.pop(id) }.movingHead,
         ]
-        let create = [MenuEntry(LocalizedStringResource("stash.menu.createBranch", defaultValue: "Create Branch from Stash…", bundle: .module)) { [weak self] in self?.createBranch(id) }]
-        let drop = [MenuEntry(LocalizedStringResource("stash.action.drop", defaultValue: "Drop…", bundle: .module)) { [weak self] in self?.drop(id) }]
+        let create = [MenuEntry(LocalizedStringResource("commit.menu.createBranch", defaultValue: "Create Branch…", bundle: .module)) { [weak self] in self?.createBranch(id) }]
+        let drop = [MenuEntry(LocalizedStringResource("stash.action.drop", defaultValue: "Drop Stash…", bundle: .module)) { [weak self] in self?.drop(id) }]
         return (show, takeBack, drop, create)
     }
 
@@ -76,7 +76,7 @@ final class StashActions {
         let message = MenuEntry(LocalizedStringResource("stash.action.withMessage", defaultValue: "Stash with Message…", bundle: .module)) { [weak self] in self?.stashWithMessage() }
         var staged = MenuEntry(LocalizedStringResource("stash.action.stagedOnly", defaultValue: "Stash staged changes only", bundle: .module)) { [weak self] in self?.stashNow(.staged) }
         staged.toolTip = StashScope.staged.commandLine
-        staged.isDisabled = !hasStagedChanges
+        staged.disabledReason = hasStagedChanges ? nil : CommandBlocker.nothingStaged.reason.text
         return [[all, message, staged]]
     }
 

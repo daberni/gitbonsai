@@ -35,8 +35,9 @@ extension Repository {
         _ = try await runner.runWrite(["tag", "--delete", name])
     }
 
-    public func pushTag(_ name: String, to remote: String) async throws {
-        _ = try await runner.runWithoutIndex(["push", remote, "refs/tags/\(name)"])
+    /// `force` replaces a tag of the same name that points elsewhere on the remote.
+    public func pushTag(_ name: String, to remote: String, force: Bool = false) async throws {
+        _ = try await runner.runWithoutIndex(["push"] + (force ? ["--force"] : []) + [remote, "refs/tags/\(name)"])
     }
 
     /// Deletes the tag on the remote only; the local tag stays.

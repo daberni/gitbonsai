@@ -50,7 +50,7 @@ final class FetchUseCase {
     private func entry(_ title: LocalizedStringResource, _ variant: FetchVariant) -> MenuEntry {
         var entry = MenuEntry(title) { [weak self] in self?.fetch(variant) }
         entry.toolTip = variant.commandLine
-        entry.isDisabled = remotes.isEmpty
+        entry.disabledReason = remotes.isEmpty ? UpstreamStatus.noRemote : nil
         return entry
     }
 }
