@@ -15,10 +15,8 @@ final class GraphViewModel {
         case keepSelection
         /// Nobody asked to look elsewhere, as after a fetch: like `keepSelection`, but when the selected commit left the history the view stays where it was and nothing else is selected.
         case keepPlace
-        /// The action moved the working tree on purpose, such as a checkout: the uncommitted changes or HEAD are selected and HEAD is brought into view.
+        /// The action moved the working tree on purpose, such as a checkout or applying a stash: the uncommitted changes or HEAD are selected and HEAD is brought into view.
         case current
-        /// The action brought changes back onto HEAD, such as a pop: HEAD is selected and brought into view, even with uncommitted changes on top.
-        case head
         /// The action may have moved HEAD, such as a reset, pull, rebase or undo: `current` when HEAD is on another commit afterwards, else `keepSelection`.
         case followHead
     }

@@ -36,7 +36,6 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     /// Commits a rewrite replaced, by their old ID: the selection follows them to their new rows once the history is read again.
     var rewrittenCommits: [String: String] = [:]
     /// A reload asked to select HEAD once it finished.
-    var headAfterReload = false
     /// A reload asked to bring the current row into view once it finished, since the action moved HEAD.
     var currentAfterReload = false
     /// A refresh kept its place after the selected commit left the history; nothing is selected on its behalf until the user picks a row.
@@ -169,14 +168,6 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         if refOverlay.cancel() { return true }
         guard search.search == nil, let row = viewModel.currentRow else { return false }
         search.userSelected()
-        select(row: row, scroll: true)
-        return true
-    }
-
-    /// False while HEAD is not loaded.
-    @discardableResult
-    func selectHead() -> Bool {
-        guard let head = viewModel.headSHA, let row = viewModel.rowIndex(of: head) else { return false }
         select(row: row, scroll: true)
         return true
     }
