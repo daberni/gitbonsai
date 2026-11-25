@@ -39,6 +39,8 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
     var headAfterReload = false
     /// A reload asked to bring the current row into view once it finished, since the action moved HEAD.
     var currentAfterReload = false
+    /// A refresh kept its place after the selected commit left the history; nothing is selected on its behalf until the user picks a row.
+    var staysUnselected = false
     let search: CommitSearchViewModel
     private(set) weak var searchField: CommitSearchField?
 
@@ -265,6 +267,7 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
         if selectedRow >= 0 {
             focusAfterReload = nil
             currentAfterReload = false
+            staysUnselected = false
         }
         if !isExtendingRange { multiSelection.anchor = selectedRow >= 0 ? selectedRow : nil }
         let changed = previous.symmetricDifference(selectedRows).filteredIndexSet { $0 < viewModel.rows.count }

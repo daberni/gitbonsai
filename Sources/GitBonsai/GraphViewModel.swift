@@ -13,6 +13,8 @@ final class GraphViewModel {
     enum Focus {
         /// The selected commit stays selected at the same place on screen, as long as it is still in the history.
         case keepSelection
+        /// Nobody asked to look elsewhere, as after a fetch: like `keepSelection`, but when the selected commit left the history the view stays where it was and nothing else is selected.
+        case keepPlace
         /// The action moved the working tree on purpose, such as a checkout: the uncommitted changes or HEAD are selected and HEAD is brought into view.
         case current
         /// The action brought changes back onto HEAD, such as a pop: HEAD is selected and brought into view, even with uncommitted changes on top.
@@ -231,16 +233,17 @@ final class GraphViewModel {
             try await repository.fetch(variant)
             lastFetchFailure = nil
             await loadLastFetch()
-            await refresh(note: "\(variant.commandLine) \(elapsed(since: start))")
+            // A fetch moves no local branch and no HEAD, so it never takes the view to HEAD, whether the user or the timer started it.
+            await refresh(note: "\(variant.commandLine) \(elapsed(since: start))", focus: .keepPlace)
             return nil
         } catch is CancellationError {
-            await refreshAfterCancel(variant.commandLine)
+            await refreshAfterCancel(variant.commandLine, focus: .keepPlace)
             return nil
         } catch {
             await loadLastFetch()
             let message = (error as? GitError)?.stderr.split(separator: "\n").first.map(String.init) ?? "\(error)"
             lastFetchFailure = message
-            await refresh(note: String(localized: "history.status.failedAfter", defaultValue: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"))
+            await refresh(note: String(localized: "history.status.failedAfter", defaultValue: "\(variant.commandLine) failed after \(elapsed(since: start)): \(message)", bundle: .module, comment: "Status line: git command, duration, git's error"), focus: .keepPlace)
             return error
         }
     }

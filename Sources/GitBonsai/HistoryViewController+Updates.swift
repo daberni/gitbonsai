@@ -15,6 +15,7 @@ extension HistoryViewController {
 
     /// A reload that a later refresh restarted keeps the anchor of the first one, since nothing was selected in between.
     func rowsReset(focus: GraphViewModel.Focus) {
+        staysUnselected = false
         headAfterReload = focus == .head
         currentAfterReload = focus == .current || focus == .followHead
         if focus != .keepSelection {
@@ -40,7 +41,8 @@ extension HistoryViewController {
     /// A refresh swapped in new rows. The table takes in only the difference without animation, so unchanged rows stay as they are on screen; a reorder reloads every row once.
     /// The selected commit stays where it was on screen unless the focus moves elsewhere or the commit left the history.
     func rowsRebuilt(_ diff: HistoryRowDiff?, focus: GraphViewModel.Focus) {
-        let kept = focus == .keepSelection ? anchor() : nil
+        let kept = focus == .keepSelection || focus == .keepPlace ? anchor() : nil
+        let top = tableView.enclosingScrollView?.contentView.bounds.minY
         selectedRow = -1
         selectedRows = []
         selectedID = nil
@@ -59,7 +61,10 @@ extension HistoryViewController {
         columnsController.update(laneCount: viewModel.maxLaneCount)
         search.historyChanged()
         switch focus {
-        case .keepSelection where restore(kept): break
+        case .keepSelection where restore(kept), .keepPlace where restore(kept): break
+        case .keepPlace:
+            staysUnselected = true
+            if let top { scroll(toY: top) }
         case .head where selectHead(): break
         default: selectCurrentRow(scrollToHead: true)
         }
@@ -70,7 +75,7 @@ extension HistoryViewController {
     func metadataChanged() {
         search.refsMayHaveChanged()
         reloadAvailableRows()
-        guard selectedRow < 0, !viewModel.isLoading else { return }
+        guard selectedRow < 0, !viewModel.isLoading, !staysUnselected else { return }
         let anchor = focusAfterReload
         focusAfterReload = nil
         if headAfterReload {
@@ -109,6 +114,14 @@ extension HistoryViewController {
         clip.scroll(to: NSPoint(x: clip.bounds.minX, y: y))
         tableView.enclosingScrollView?.reflectScrolledClipView(clip)
         return true
+    }
+
+    /// Scrolls to `y`, clamped to the rows there are now.
+    private func scroll(toY y: CGFloat) {
+        guard let clip = tableView.enclosingScrollView?.contentView else { return }
+        let maxY = max(tableView.bounds.height - clip.bounds.height, 0)
+        clip.scroll(to: NSPoint(x: clip.bounds.minX, y: min(max(y, 0), maxY)))
+        tableView.enclosingScrollView?.reflectScrolledClipView(clip)
     }
 
     /// Every row view the table keeps, not only the visible ones: responsive scrolling prepares rows beyond the visible rect, and those must not scroll in with an earlier model.
