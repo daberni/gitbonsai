@@ -40,7 +40,7 @@ Long-running work shows as signpost intervals in Instruments' Points of Interest
 
 ### Verification
 
-Logic (menus, use cases, loading) is covered by unit tests against fixture repositories, which answer the app's questions through an injected `Prompting`.
+Views are checked without a window on screen: `SnapshotTests` render the main screens off screen in light and dark (`Tests/GitBonsaiTests/Snapshot.swift`) and compare them with reference PNGs in `Tests/__Snapshots__`, which stay on the machine and are not in the repository. The first run records a missing reference and prints where it went; later runs compare against it. Delete the folder to record anew after an intended change or an OS update; on another machine or OS build than the one in `__Snapshots__/machine.txt` the comparison is skipped. Load times and relative dates are blanked before the comparison. Look at every newly recorded reference before relying on it. Logic (menus, use cases, loading) is covered by unit tests against fixture repositories, which answer the app's questions through an injected `Prompting`.
 
 Changes are checked in the real app with a GUI tool that reads the Accessibility tree and takes screenshots:
 

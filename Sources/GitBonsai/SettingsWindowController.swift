@@ -71,12 +71,15 @@ final class SettingsWindowController: NSWindowController {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    /// Switches to `section` without bringing the window forward.
+    func select(_ section: Section) {
+        guard let index = Section.allCases.firstIndex(of: section) else { return }
+        tabs.selectedTabViewItemIndex = index
+        window?.title = section.title
+    }
 
     func show(_ section: Section? = nil) {
-        if let section, let index = Section.allCases.firstIndex(of: section) {
-            tabs.selectedTabViewItemIndex = index
-            window?.title = section.title
-        }
+        if let section { select(section) }
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
     }

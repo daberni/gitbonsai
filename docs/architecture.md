@@ -166,6 +166,7 @@ Long-running work emits signpost intervals through `Signposts` (subsystem `app.g
 
 The app holds no code for verification; checks reach it through its ordinary dependencies or from outside.
 
+- Snapshot tests render the main screens and sheets off screen in light and dark and compare them with references recorded on one machine (`SnapshotTests`, `Snapshot`; README, Verification).
 - Use cases, menus and loading are unit tests against fixture repositories; a tab built without a window answers its questions through an injected `Prompting` (`TabFixture`).
 - Changes are checked in the real app with a GUI tool (Accessibility tree, screenshots) against an isolated launch from `scripts/launch-dev.sh`: a copy of the dev bundle with its own defaults domain, a throwaway home and a fixture repository, in the background by default. The app's traces are in the unified log (subsystem `app.gitbonsai`, `TraceSink`).
 - Engine and layout logic is covered by XCTest against fixture repositories that `Tests/GitEngineTests/FixtureRepo.swift` builds with git in a temporary folder.

@@ -10,6 +10,9 @@ final class FakePrompter: Prompting {
     /// The message of every confirmation, choice and form, in order.
     private(set) var asked: [String] = []
     private(set) var reports: [String] = []
+    /// The last form and alert asked, for snapshots of the real sheets.
+    private(set) var lastForm: ActionForm?
+    private(set) var lastAlert: NSAlert?
     /// Answers for `confirm`, taken in order; a missing answer is no.
     var confirmations: [Bool] = []
 
@@ -17,11 +20,13 @@ final class FakePrompter: Prompting {
     var showConflictsAction: ToastAction { ToastAction(title: LocalizedStringResource("common.cancel", defaultValue: "Cancel"), run: {}) }
 
     func ask(_ form: ActionForm) async -> ActionForm.Values? {
+        lastForm = form
         asked.append(form.alert.messageText)
         return nil
     }
 
     func confirm(_ alert: NSAlert) async -> Bool {
+        lastAlert = alert
         asked.append(alert.messageText)
         return confirmations.isEmpty ? false : confirmations.removeFirst()
     }

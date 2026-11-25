@@ -13,3 +13,5 @@ DerivedData/
 .vscode/
 .idea/
 *.xcresult
+# Snapshot references belong to the machine that recorded them.
+__Snapshots__/
