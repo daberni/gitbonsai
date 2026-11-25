@@ -38,10 +38,9 @@ final class DetailView: NSView {
     /// The shown commit's subject and body labels, which the message editor takes the place of.
     var message: (commitID: String, views: [NSView])?
     private(set) var messageEditor: CommitMessageEditor?
-    private(set) var editMessageButton: NSButton?
     var subjectLabel: NSTextField?
-    /// The title line: the title with the SHA at the left, the parent links at the right, before the button at the right of the title.
-    var titleRow: (lead: NSStackView, parents: NSStackView, end: NSLayoutConstraint)?
+    /// The title line: the title with the SHA (or the working directory's trash) at the left, the parent links at its right end, in the same place for every row.
+    var titleRow: (lead: NSStackView, parents: NSStackView)?
 
     override var isFlipped: Bool { true }
 
@@ -74,12 +73,10 @@ final class DetailView: NSView {
         bounds.fill()
     }
 
-    @discardableResult
-    func reset(title: String) -> NSView {
+    func reset(title: String) {
         isShowingWorkingDirectory = false
         message = nil
         messageEditor = nil
-        editMessageButton = nil
         subjectLabel = nil
         loadTask?.cancel()
         loadingNoteTask?.cancel()
@@ -105,19 +102,17 @@ final class DetailView: NSView {
         box.translatesAutoresizingMaskIntoConstraints = false
         box.addSubview(lead)
         box.addSubview(parents)
-        let end = parents.trailingAnchor.constraint(equalTo: box.trailingAnchor)
         NSLayoutConstraint.activate([
             box.heightAnchor.constraint(equalToConstant: M.headerHeight),
             lead.centerYAnchor.constraint(equalTo: box.centerYAnchor),
             lead.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             parents.firstBaselineAnchor.constraint(equalTo: lead.firstBaselineAnchor),
             parents.leadingAnchor.constraint(greaterThanOrEqualTo: lead.trailingAnchor, constant: Theme.Space.m),
-            end,
+            parents.trailingAnchor.constraint(equalTo: box.trailingAnchor),
         ])
         stack.addArrangedSubview(box)
         box.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
-        titleRow = (lead, parents, end)
-        return box
+        titleRow = (lead, parents)
     }
 
     func label(_ string: String, font: NSFont, color: NSColor, wraps: Bool = false) -> NSTextField {
@@ -153,8 +148,8 @@ final class DetailView: NSView {
 
     // MARK: Message editing
 
-    /// The pencil at the right of the panel's title; disabled with the reason as tooltip where the message cannot be edited.
-    func addEditButton(to header: NSView, access: InteractiveRebaseUseCase.RewordAccess) {
+    /// The pencil after the subject, where editing the message belongs; disabled with the reason as tooltip where the message cannot be edited.
+    func editButton(access: InteractiveRebaseUseCase.RewordAccess) -> NSButton {
         let button = LinkButton(target: self, action: #selector(editMessagePressed(_:)))
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.MessageEditor.pencilSymbol, weight: .regular)
         button.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: String(localized: "commit.action.editMessage", defaultValue: "Edit Message", bundle: .module))?.withSymbolConfiguration(configuration)
@@ -167,20 +162,34 @@ final class DetailView: NSView {
             button.isEnabled = false
             button.toolTip = String(localized: "detail.commit.editDisabledToolTip", defaultValue: "Can’t edit the message: \(reason)", bundle: .module)
         }
-        button.translatesAutoresizingMaskIntoConstraints = false
-        header.addSubview(button)
+        return button
+    }
+
+    /// The subject with the pencil at the right, centred on its first line; the editor replaces both.
+    func subjectRow(_ subject: NSTextField, edit button: NSButton) -> NSView {
+        let row = NSView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+        for view in [subject, button] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            row.addSubview(view)
+        }
+        let firstLineMiddle = NSLayoutManager().defaultLineHeight(for: Theme.title) / 2
         NSLayoutConstraint.activate([
-            button.trailingAnchor.constraint(equalTo: header.trailingAnchor),
-            button.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            subject.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            subject.topAnchor.constraint(equalTo: row.topAnchor),
+            subject.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            subject.trailingAnchor.constraint(lessThanOrEqualTo: button.leadingAnchor, constant: -Theme.Space.s),
+            button.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            button.centerYAnchor.constraint(equalTo: subject.topAnchor, constant: firstLineMiddle),
             button.widthAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
             button.heightAnchor.constraint(equalToConstant: Theme.MessageEditor.pencil),
         ])
-        endTitleRow(before: button)
-        editMessageButton = button
+        return row
     }
 
-    /// The trash at the right of the working directory's title: discards staged and unstaged changes after asking.
-    private func addDiscardAllButton(to header: NSView) {
+    /// The trash beside the working directory's title: discards staged and unstaged changes after asking.
+    private func addDiscardAllButton() {
+        guard let lead = titleRow?.lead else { return }
         let button = LinkButton(target: self, action: #selector(discardAllPressed(_:)))
         let configuration = NSImage.SymbolConfiguration(pointSize: Theme.Detail.DiscardAll.symbol, weight: .regular)
         let title = String(localized: "detail.workingDirectory.discardAll", defaultValue: "Discard all Changes…", bundle: .module, comment: "Tooltip of the trash in the working directory's title")
@@ -190,20 +199,11 @@ final class DetailView: NSView {
         button.toolTip = title
         button.setAccessibilityIdentifier("detail.discardAll")
         button.translatesAutoresizingMaskIntoConstraints = false
-        header.addSubview(button)
         NSLayoutConstraint.activate([
-            button.trailingAnchor.constraint(equalTo: header.trailingAnchor),
-            button.centerYAnchor.constraint(equalTo: header.centerYAnchor),
             button.widthAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
             button.heightAnchor.constraint(equalToConstant: Theme.Detail.DiscardAll.button),
         ])
-        endTitleRow(before: button)
-    }
-
-    private func endTitleRow(before button: NSView) {
-        guard let titleRow else { return }
-        titleRow.end.isActive = false
-        titleRow.parents.trailingAnchor.constraint(equalTo: button.leadingAnchor, constant: -Theme.Space.s).isActive = true
+        lead.addArrangedSubview(button)
     }
 
     @objc private func discardAllPressed(_ sender: NSButton) {
@@ -221,7 +221,6 @@ final class DetailView: NSView {
         stack.insertArrangedSubview(editor, at: index)
         editor.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
         messageEditor = editor
-        editMessageButton?.isHidden = true
         layoutSubtreeIfNeeded()
         return true
     }
@@ -235,7 +234,6 @@ final class DetailView: NSView {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -2 * M.padding).isActive = true
         }
         messageEditor = nil
-        editMessageButton?.isHidden = false
     }
 
     // MARK: Working directory
@@ -248,8 +246,8 @@ final class DetailView: NSView {
         if isUpdate, let fileList {
             list = fileList
         } else {
-            let header = reset(title: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"))
-            addDiscardAllButton(to: header)
+            reset(title: String(localized: "common.workingDirectory", defaultValue: "Working Directory", bundle: .module, comment: "Detail panel title for uncommitted changes"))
+            addDiscardAllButton()
             isShowingWorkingDirectory = true
             addMeta(commit: nil, parents: head.map { [$0] } ?? [])
             list = makeFileList()

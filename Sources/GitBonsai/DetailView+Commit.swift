@@ -11,9 +11,8 @@ extension DetailView {
     /// A stash lists its files like the working directory it was taken from, staged and unstaged, and names only the commit it was made on as its parent.
     func show(commit: Commit, strand: NSColor, repository: Repository, isStash: Bool = false) {
         let previous = commitFiles
-        let header = reset(title: String(localized: "detail.commit.title", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"))
+        reset(title: String(localized: "detail.commit.title", defaultValue: "Commit", bundle: .module, comment: "Detail panel title for one commit"))
         let access = messageAccess?(commit)
-        if let access { addEditButton(to: header, access: access) }
         addMeta(commit: (commit.id, commit.shortID), parents: isStash ? Array(commit.parents.prefix(1)) : commit.parents)
         let subject = SubjectLabel(wrappingLabelWithString: commit.subject)
         subject.font = Theme.title
@@ -25,9 +24,10 @@ extension DetailView {
             subject.onDoubleClick = { [weak self] in self?.onEditMessage?() }
             subject.toolTip = String(localized: "detail.commit.subjectToolTip", defaultValue: "Double-click to edit the message (\(CommandShortcut.editMessage.display))", bundle: .module)
         }
-        add(subject)
+        let subjectLine = access.map { subjectRow(subject, edit: editButton(access: $0)) } ?? subject
+        add(subjectLine)
         subjectLabel = subject
-        var messageViews: [NSView] = [subject]
+        var messageViews: [NSView] = [subjectLine]
         // Trailers read as data, not prose: co-authors join the people below, the rest form a key/value block.
         let body = CommitTrailer.body(commit.body, without: commit.trailers).trimmingCharacters(in: .whitespacesAndNewlines)
         if !body.isEmpty {
