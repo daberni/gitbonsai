@@ -10,10 +10,10 @@ enum HistoryRowModel {
         let refs = viewModel.refsByCommit[commit.id] ?? []
         let isDetachedHead = kind != .wip && viewModel.currentBranch == nil && commit.id == viewModel.headSHA
         let stash = viewModel.stashesByCommit[commit.id]
-        var wipCounts: (changed: Int, staged: Int, untracked: Int)?
+        var wipCounts: GraphRowView.WipCounts?
         if kind == .wip, let status = viewModel.status {
             let untracked = status.entries.filter(\.isUntracked).count
-            wipCounts = (status.unstaged.count - untracked + status.conflicted.count, status.staged.count, untracked)
+            wipCounts = GraphRowView.WipCounts(conflicts: status.conflicted.count, changed: status.unstaged.count - untracked, staged: status.staged.count, untracked: untracked)
         }
         let subject = stash.map { "\($0.selector): \($0.message)" } ?? commit.subject
         let isMatch = search.isMatch(row: index)

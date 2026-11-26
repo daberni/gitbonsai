@@ -1,7 +1,7 @@
 import AppKit
 import GitEngine
 
-/// What the file list's menu of conflicted files and the operation banner's "Resolve" menu run: take a side, keep or delete the file, mark it resolved or bring its markers back, open it, compare it and list the commits behind it.
+/// What the file list's menu of conflicted files and the Conflicts section's "Resolve all" menu run: take a side, keep or delete the file, mark it resolved or bring its markers back, open it, compare it and list the commits behind it.
 /// The sides are named by the branch or commit they come from, never "ours" and "theirs". Binary files are offered whole sides and deletion only.
 @MainActor
 final class ConflictActions {
@@ -49,8 +49,8 @@ final class ConflictActions {
         return [resolveItems(paths), inspectItems(paths)]
     }
 
-    /// The banner's menu: every open conflict at once.
-    func bannerGroups() -> [[MenuEntry]] {
+    /// The menu of the Conflicts section's "Resolve all": every open conflict at once.
+    func resolveAllGroups() -> [[MenuEntry]] {
         let paths = viewModel.status?.conflicted.map(\.path) ?? []
         guard !paths.isEmpty else { return [] }
         return [resolveItems(paths), [logEntry(paths)]]

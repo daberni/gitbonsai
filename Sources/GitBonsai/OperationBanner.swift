@@ -18,11 +18,6 @@ final class OperationBannerController {
     var onStateChange: (() -> Void)?
     /// The operation is over, finished or aborted, however it got there; the tab selects HEAD and leaves the conflict state behind.
     var onEnded: (() -> Void)?
-    /// The menu of "Resolve all": every open conflict at once.
-    var resolveMenu: (() -> NSMenu)? {
-        get { view.resolveMenu }
-        set { view.resolveMenu = newValue }
-    }
 
     init(context: RepositoryContext) {
         viewModel = context.model
@@ -175,11 +170,9 @@ final class OperationBannerView: NSView {
     var onSkip: (() -> Void)?
     var onAbort: (() -> Void)?
     var onAmend: (() -> Void)?
-    var resolveMenu: (() -> NSMenu)?
 
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
-    private(set) lazy var resolveButton = button(String(localized: "operation.banner.resolveAll", defaultValue: "Resolve all", bundle: .module, comment: "Opens a menu that resolves every open conflict at once."), #selector(showResolveMenu(_:)))
     private(set) lazy var amendButton = button(String(localized: "operation.banner.amend", defaultValue: "Amend Commit…", bundle: .module), #selector(amendCommit))
     private(set) lazy var continueButton = button(String(localized: "operation.banner.continue", defaultValue: "Continue", bundle: .module, comment: "Continues a rebase, cherry-pick, revert or merge."), #selector(continueOperation))
     private(set) lazy var skipButton = button(String(localized: "operation.banner.skip", defaultValue: "Skip", bundle: .module, comment: "Skips the current step of a rebase, cherry-pick or revert."), #selector(skipOperation))
@@ -194,12 +187,15 @@ final class OperationBannerView: NSView {
         label.textColor = Theme.ink
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        // The label takes the free width, so the actions sit at the right end.
-        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        // The label takes the free width, so the actions sit at the right end, as in the diff header.
+        label.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.regular, weight: .medium)
-        let buttons = NSStackView(views: [resolveButton, amendButton, continueButton, skipButton, abortButton])
+        // The way forward is the rightmost button and Abort stands left of it, as Cancel does in macOS dialogs.
+        let buttons = NSStackView(views: [amendButton, skipButton, abortButton, continueButton])
         buttons.spacing = Theme.OperationBanner.spacing
+        buttons.setHuggingPriority(.required, for: .horizontal)
         let row = NSStackView(views: [glyph, label, buttons])
+        row.distribution = .fill
         row.spacing = Theme.OperationBanner.spacing
         row.setHuggingPriority(.defaultLow, for: .horizontal)
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -226,8 +222,6 @@ final class OperationBannerView: NSView {
         skipButton.isEnabled = isEnabled
         skipButton.isHidden = !canSkip
         abortButton.isEnabled = isEnabled
-        resolveButton.isHidden = !hasConflicts
-        resolveButton.isEnabled = isEnabled
         amendButton.isHidden = !canAmend
         amendButton.isEnabled = isEnabled
         amendButton.toolTip = String(localized: "operation.banner.amendToolTip", defaultValue: "Opens the commit form with amend; then Continue", bundle: .module)
@@ -256,8 +250,4 @@ final class OperationBannerView: NSView {
     @objc private func skipOperation() { onSkip?() }
     @objc private func abortOperation() { onAbort?() }
     @objc private func amendCommit() { onAmend?() }
-
-    @objc private func showResolveMenu(_ sender: NSButton) {
-        resolveMenu?().popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + Theme.Space.xs), in: sender)
-    }
 }

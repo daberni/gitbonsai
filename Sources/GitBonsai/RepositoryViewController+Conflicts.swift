@@ -52,6 +52,6 @@ extension RepositoryViewController {
             self?.reloadDiffs()
             self?.refreshWorkingDirectoryCounts()
         }
-        operationBanner.resolveMenu = { [weak self] in MenuAdapter.menu(self?.conflictActions.bannerGroups() ?? []) }
+        detail.resolveAllMenu = { [weak self] in MenuAdapter.menu(self?.conflictActions.resolveAllGroups() ?? []) }
     }
 }

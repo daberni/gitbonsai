@@ -9,6 +9,8 @@ final class DetailView: NSView {
     var onSelectFiles: (([FileSelection]) -> Void)?
     var onStage: (([String]) -> Void)?
     var onUnstage: (([String]) -> Void)?
+    /// The menu of the Conflicts section's "Resolve all": every open conflict at once.
+    var resolveAllMenu: (() -> NSMenu)?
     /// Discard the unstaged changes of files, or delete them when they are untracked.
     var onDiscard: (([FileSelection]) -> Void)?
     /// "Discard all": the trash in the working directory's title, or the Unstaged header's link.
@@ -275,7 +277,7 @@ final class DetailView: NSView {
             ]
             if status.hasConflicts {
                 let conflictRows = status.conflicted.map { FileRowView.Model(selection: FileSelection(path: $0.path, originalPath: nil, source: .unstaged), letter: "U", color: Theme.persimmon, stat: nil, note: String(localized: "files.state.conflict", defaultValue: "conflict", bundle: .module, comment: "Note on a file row: the file has unresolved conflicts"), state: .unmerged) }
-                result.append(FileListView.Section(title: String(localized: "detail.files.conflicts", defaultValue: "Conflicts  \(conflictRows.count)", bundle: .module, comment: "File list section header with its count"), rows: conflictRows))
+                result.append(FileListView.Section(title: String(localized: "detail.files.conflicts", defaultValue: "Conflicts  \(conflictRows.count)", bundle: .module, comment: "File list section header with its count"), rows: conflictRows, actions: [.init(title: String(localized: "detail.files.resolveAll", defaultValue: "Resolve all", bundle: .module, comment: "Link in the Conflicts section header; opens a menu that resolves every open conflict at once."), menu: { [weak self] in self?.resolveAllMenu?() ?? NSMenu() })]))
             }
             return result
         }

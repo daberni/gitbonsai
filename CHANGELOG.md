@@ -13,6 +13,7 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 ### Changed
 
 - A merge, rebase, cherry-pick, revert, pull or stash that stops on conflicts says so in a toast with the number of conflicted files and selects the working directory, which lists them.
+- While files have open conflicts, the working directory row in the history is tinted and leads with a warning and their number, and "Resolve all" moved from the operation banner to the Conflicts section of the file list, where it also serves a stash that applied with conflicts. The banner's buttons sit at its right end.
 - The operation banner's conflict count follows staging and unstaging right away, for every kind of operation.
 - The sidebar works with the keyboard like a native list: arrow keys, type-select, Space and Return, with VoiceOver support; expanded sections are remembered across launches.
 - Open in Terminal moves to ⌥⌘T.

@@ -6609,6 +6609,24 @@
         }
       }
     },
+    "detail.files.resolveAll" : {
+      "comment" : "Link in the Conflicts section header; opens a menu that resolves every open conflict at once.",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle lösen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Resolve all"
+          }
+        }
+      }
+    },
     "detail.files.stageAll" : {
       "comment" : "Link in the Unstaged section header",
       "extractionState" : "extracted_with_value",
@@ -11272,6 +11290,47 @@
         }
       }
     },
+    "history.wip.conflicts" : {
+      "comment" : "Working directory row in the history while files have unresolved conflicts",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Konflikte in %lld Datei"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Konflikte in %lld Dateien"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Conflicts in %lld files"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "menu.app.about" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -11981,24 +12040,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ onto %2$@"
-          }
-        }
-      }
-    },
-    "operation.banner.resolveAll" : {
-      "comment" : "Opens a menu that resolves every open conflict at once.",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle lösen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Resolve all"
           }
         }
       }

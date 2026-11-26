@@ -10,7 +10,9 @@ final class FileListView: NSView {
         struct Action {
             let title: String
             var isDestructive = false
-            let perform: () -> Void
+            var perform: () -> Void = {}
+            /// Opens below the link instead of running `perform`, as "Resolve all" does.
+            var menu: (() -> NSMenu)? = nil
         }
         let title: String
         let rows: [FileRowView.Model]
@@ -259,7 +261,12 @@ final class FileListView: NSView {
     @objc fileprivate func runAction(_ sender: NSButton) {
         let section = sender.tag / FileSectionHeaderView.linksPerSection, link = sender.tag % FileSectionHeaderView.linksPerSection
         guard sections.indices.contains(section), sections[section].actions.indices.contains(link) else { return }
-        sections[section].actions[link].perform()
+        let action = sections[section].actions[link]
+        if let menu = action.menu {
+            menu().popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + Theme.Space.xs), in: sender)
+        } else {
+            action.perform()
+        }
     }
 }
 

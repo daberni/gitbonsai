@@ -21,7 +21,7 @@ final class GraphRowView: NSView {
         var dimmed: Bool
         var isSelected: Bool
         var subject: String
-        var wipCounts: (changed: Int, staged: Int, untracked: Int)?
+        var wipCounts: WipCounts?
         /// A search is active and this row does not match: everything but the strands is drawn at `Theme.Focus.dimmedAlpha`.
         var isSearchMiss = false
         /// The author's picture when the avatar store has it; the node shows the generated fallback otherwise.
@@ -29,6 +29,14 @@ final class GraphRowView: NSView {
         var avatarFallback: AvatarFallbackStyle = .initials
         var highlights = Highlights()
         var columns: HistoryColumns
+    }
+
+    /// What the working directory row counts; open conflicts lead and tint the row.
+    struct WipCounts {
+        var conflicts: Int
+        var changed: Int
+        var staged: Int
+        var untracked: Int
     }
 
     var model: Model? { didSet { needsDisplay = true } }
@@ -57,6 +65,11 @@ final class GraphRowView: NSView {
         if model.isSelected {
             Theme.surfaceSelected.setFill()
             bounds.fill()
+        }
+        // Open conflicts tint the working directory row from the commit column on, so it stands out in the history.
+        if let counts = model.wipCounts, counts.conflicts > 0 {
+            Theme.persimmon.withAlphaComponent(model.isSelected ? Theme.Wash.guide : Theme.Wash.pressed).setFill()
+            CGRect(x: layout.commit.lowerBound, y: G.bandInset, width: bounds.width - layout.commit.lowerBound, height: height - 2 * G.bandInset).fill()
         }
         defer {
             beginDimming(context, model)
@@ -250,6 +263,13 @@ final class GraphRowView: NSView {
 
         if let counts = model.wipCounts {
             var x = textX
+            if counts.conflicts > 0 {
+                Glyph.warning.draw(in: CGRect(x: x, y: midY - Theme.Icon.small / 2, width: Theme.Icon.small, height: Theme.Icon.small), color: Theme.persimmon, context: context)
+                let text = NSAttributedString(string: String(localized: "history.wip.conflicts", defaultValue: "Conflicts in \(counts.conflicts) files", bundle: .module, comment: "Working directory row in the history while files have unresolved conflicts"), attributes: [.font: Theme.bodyStrong, .foregroundColor: Theme.persimmon])
+                let textX = x + Theme.Icon.small + G.counterGap
+                text.draw(at: CGPoint(x: textX, y: midY - text.size().height / 2))
+                x = textX + text.size().width + G.counterSpacing
+            }
             let items: [(Glyph, Int)] = [(.pencil, counts.changed), (.staged, counts.staged), (.plus, counts.untracked)]
             for (glyph, count) in items where count > 0 {
                 glyph.draw(in: CGRect(x: x, y: midY - Theme.Icon.small / 2, width: Theme.Icon.small, height: Theme.Icon.small), color: Theme.inkMuted, context: context)
