@@ -52,6 +52,8 @@ The sidebar is ordered by how often you need things:
 
 Every row has a context menu with what it offers: fast-forward, checkout, merge, rebase, pull, push, rename, upstream, create worktree, delete, edit or remove a remote, lock or remove a worktree, and more.
 
+The sidebar works from the keyboard and with VoiceOver: arrows move and fold sections and folders, typing jumps to a name, space does what a click does, ⏎ what a double-click does, and ⌃⏎ opens the row's menu.
+
 ### Branches, remotes and tags
 
 - Fetch all remotes ⇧⌘F, one remote, with pruning, or tags only; optional automatic fetching every time the app becomes active (switching back within a few seconds does not fetch again) and periodically, less often on battery and never in Low Power Mode.

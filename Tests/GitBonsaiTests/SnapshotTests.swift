@@ -215,6 +215,36 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The sidebar with every kind of row: worktrees, a folder of branches, a branch ahead of its upstream, a remote and a collapsed folder.
+    func testSidebar() async throws {
+        let repo = try repository()
+        let remote = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-sidebar-remote.git", isDirectory: true)
+        let linked = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-linked", isDirectory: true)
+        try? FileManager.default.removeItem(at: remote)
+        try? FileManager.default.removeItem(at: linked)
+        defer {
+            try? FileManager.default.removeItem(at: remote)
+            try? FileManager.default.removeItem(at: linked)
+        }
+        _ = try repo.git(["clone", "-q", "--bare", repo.url.path, remote.path])
+        _ = try repo.git(["remote", "add", "origin", remote.path])
+        _ = try repo.git(["fetch", "-q", "origin"])
+        _ = try repo.git(["branch", "-q", "--set-upstream-to=origin/main", "main"])
+        _ = try repo.git(["commit", "-q", "--allow-empty", "-m", "Water the tree"], date: "2024-01-01T08:00:00+0000")
+        _ = try repo.git(["branch", "bugfix/roots"])
+        _ = try repo.git(["branch", "bugfix/bark"])
+        _ = try repo.git(["worktree", "add", "-q", linked.path, "feature/leaves"])
+        for (name, look) in Self.looks {
+            let (fixture, controller, window) = try await tab(in: repo, appearance: look)
+            try await waitUntil { fixture.model.worktrees.count == 2 && fixture.model.worktrees.allSatisfy { $0.status != nil } }
+            try await settle()
+            let sidebar = controller.sidebar
+            if let folder = sidebar.row(of: "folder:remote:origin/feature/"), let node = sidebar.node(atRow: folder) { sidebar.toggle(node) }
+            try Snapshot.assert(sidebar, named: "sidebar-\(name)")
+            window.close()
+        }
+    }
+
     /// The Tags list as its popover shows it.
     func testTagsPanel() async throws {
         let repo = try repository()

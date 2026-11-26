@@ -35,8 +35,8 @@ extension RepositoryViewController {
         sidebar.onOpenPanel = { [weak self] panel, anchor in
             guard let self else { return }
             switch panel {
-            case .tags: tagActions.show(relativeTo: anchor, of: sidebar)
-            case .stashes: stashActions.show(relativeTo: anchor, of: sidebar)
+            case .tags: tagActions.show(relativeTo: anchor, of: sidebar.outlineView)
+            case .stashes: stashActions.show(relativeTo: anchor, of: sidebar.outlineView)
             }
         }
         tagActions.onNavigate = { [weak self] sha in self?.history.navigate(to: sha) }

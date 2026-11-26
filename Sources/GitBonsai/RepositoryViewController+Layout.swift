@@ -6,7 +6,6 @@ extension RepositoryViewController {
     // MARK: Layout
 
     func layout() {
-        let sidebarScroll = Self.scroll(sidebar, background: Theme.surface1)
         let detailScroll = Self.scroll(detail, background: Theme.surface1)
         Self.fitToContent(detail, in: detailScroll)
         // The banner of a rebase, cherry-pick or revert in progress sits above the history and takes no room while hidden.
@@ -21,7 +20,7 @@ extension RepositoryViewController {
         historyPane.show(history.view)
         // The commit form sits below the detail panel and only appears for the working directory.
         rightColumn = ColumnWithBottomBar(content: detailScroll, bar: commitUseCase.form)
-        split = PanelSplitView(sidebar: sidebarScroll, history: historyColumn, detail: rightColumn)
+        split = PanelSplitView(sidebar: sidebar, history: historyColumn, detail: rightColumn)
 
         let statusBar = BarView(edge: .top)
         statusLabel.font = Theme.captionDigits

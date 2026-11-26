@@ -11,6 +11,7 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 
 ### Changed
 
+- The sidebar works with the keyboard like a native list: arrow keys, type-select, Space and Return, with VoiceOver support; expanded sections are remembered across launches.
 - Open in Terminal moves to ⌥⌘T.
 
 ### Fixed

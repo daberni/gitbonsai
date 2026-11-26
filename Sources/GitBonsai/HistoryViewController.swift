@@ -189,8 +189,14 @@ final class HistoryViewController: NSObject, NSTableViewDataSource, NSTableViewD
 
     /// Leaves a few rows of context above the target.
     private func scrollWithContext(to row: Int) {
-        tableView.scrollRowToVisible(min(row + 6, viewModel.rows.count - 1))
-        tableView.scrollRowToVisible(max(row - 3, 0))
+        let context = tableView.rect(ofRow: max(row - 3, 0)).union(tableView.rect(ofRow: min(row + 6, viewModel.rows.count - 1)))
+        guard let clipView = tableView.enclosingScrollView?.contentView else { return }
+        let visible = clipView.documentVisibleRect
+        guard !visible.contains(context) else { return }
+        let y = context.minY < visible.minY ? context.minY : context.maxY - visible.height
+        // Scrolling the clip view through AppKit animates during a key event, such as an arrow or space in the sidebar; setting its origin moves at once, as for a click.
+        clipView.setBoundsOrigin(clipView.constrainBoundsRect(NSRect(origin: NSPoint(x: visible.minX, y: y), size: visible.size)).origin)
+        tableView.enclosingScrollView?.reflectScrolledClipView(clipView)
     }
 
     // MARK: Search
