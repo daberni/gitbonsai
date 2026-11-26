@@ -4,6 +4,14 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Reopen closed tab (⇧⌘T) brings back the most recently closed repository tab at its old place; repeated presses go further back.
+
+### Changed
+
+- Open in Terminal moves to ⌥⌘T.
+
 ### Fixed
 
 - The Remove Worktree sheet shows the worktree and the “Also delete branch” checkbox on their own lines, and the message box of the Squash sheet opens at its first line with an inset, growing with the message before it scrolls.

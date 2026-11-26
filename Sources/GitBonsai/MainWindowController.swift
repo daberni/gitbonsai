@@ -14,6 +14,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let root: FillView
     private let titlebar: TitlebarTabRow
     var tabs = TabList()
+    var closedTabs = ClosedTabs()
     private var frameKeeper: WindowFrameKeeper!
     /// One set of panel widths for all tabs of the window.
     let panelWidths: PanelWidths
@@ -101,6 +102,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func close(_ index: Int) {
         guard tabs.indices.contains(index) else { return }
+        if let path = tabs[index].repository?.repositoryPath { closedTabs.push(path: path, index: index) }
         tabs[index].repository?.closed()
         guard let next = tabs.remove(at: index) else {
             newTab()

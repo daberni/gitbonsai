@@ -81,7 +81,7 @@ Every row has a context menu with what it offers: fast-forward, checkout, merge,
 ### Command bar and keyboard
 
 - The **command bar** (⇧⌘P) runs every command of the menus and the context menus by name.
-- Tabs for several repositories (⌘T, ⌘W, ⇧⌘] and ⇧⌘[), Open Repository ⌘O, Clone ⌥⌘N, New Branch ⌘B, Open in Terminal ⇧⌘T, Open in Editor ⇧⌘E, Show in Finder ⇧⌘R.
+- Tabs for several repositories (⌘T, ⌘W, ⇧⌘] and ⇧⌘[), Reopen closed tab ⇧⌘T, Open Repository ⌘O, Clone ⌥⌘N, New Branch ⌘B, Open in Terminal ⌥⌘T, Open in Editor ⇧⌘E, Show in Finder ⇧⌘R.
 - Shortcuts follow your keyboard layout.
 
 ### Settings

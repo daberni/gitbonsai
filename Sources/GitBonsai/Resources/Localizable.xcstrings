@@ -1939,6 +1939,23 @@
         }
       }
     },
+    "command.blocker.noClosedTab" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein geschlossener Tab"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No closed tab"
+          }
+        }
+      }
+    },
     "command.blocker.noCommitSelected" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
@@ -3311,6 +3328,40 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Interactive Rebase…"
+          }
+        }
+      }
+    },
+    "command.reopenClosedTab.keywords" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wiederherstellen, rückgängig, geschlossen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "tab, reopen, undo, closed"
+          }
+        }
+      }
+    },
+    "command.reopenClosedTab.title" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geschlossenen Tab wieder öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Reopen closed tab"
           }
         }
       }
@@ -18426,16 +18477,16 @@
     "worktree.removeLocked.info" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Its folder is gone, but it is locked."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sein Ordner fehlt, aber er ist gesperrt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Its folder is gone, but it is locked."
           }
         }
       }
@@ -18443,16 +18494,16 @@
     "worktree.removeLocked.infoReason" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Its folder is gone, but it is locked: %@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sein Ordner fehlt, aber er ist gesperrt: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Its folder is gone, but it is locked: %@"
           }
         }
       }
@@ -18460,16 +18511,16 @@
     "worktree.removeLocked.title" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Remove locked Worktree?"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gesperrten Worktree entfernen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove locked Worktree?"
           }
         }
       }

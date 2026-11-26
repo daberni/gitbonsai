@@ -87,6 +87,8 @@ public enum CommandBlocker: Sendable, Equatable {
     case containsMerge
     /// A merge lies above the selected commits and would be flattened by the replay.
     case mergeAbove
+    /// No closed repository tab is left to reopen.
+    case noClosedTab
 }
 
 /// The enabled rules of the repository commands, one function per command family. Nil means the command can run.
@@ -152,6 +154,10 @@ public enum CommandRules {
 
     public static func pop(_ state: RepositoryCommandState) -> CommandBlocker? {
         state.stashCount == 0 ? .noStash : nil
+    }
+
+    public static func reopenTab(reopenableCount: Int) -> CommandBlocker? {
+        reopenableCount == 0 ? .noClosedTab : nil
     }
 
     public static func newBranch(_ state: RepositoryCommandState) -> CommandBlocker? {

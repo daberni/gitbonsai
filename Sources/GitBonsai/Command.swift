@@ -124,6 +124,8 @@ struct CommandShortcut: Equatable {
     static let goToRef = CommandShortcut("o", [.command, .shift])
     static let clone = CommandShortcut("n", [.command, .option])
     static let closeTab = CommandShortcut("w")
+    /// ⇧⌘T as in browsers.
+    static let reopenClosedTab = CommandShortcut("t", [.command, .shift])
     static let nextTab = CommandShortcut("}")
     static let previousTab = CommandShortcut("{")
     static let fetch = CommandShortcut("f", [.command, .shift])
@@ -145,7 +147,7 @@ struct CommandShortcut: Equatable {
     static let toggleSidebar = CommandShortcut("s", [.command, .control])
     /// ⌥⌘I as the inspector in Finder and Pages; ⌥⌘D belongs to the Dock.
     static let toggleDetail = CommandShortcut("i", [.command, .option])
-    static let openTerminal = CommandShortcut("t", [.command, .shift])
+    static let openTerminal = CommandShortcut("t", [.command, .option])
     static let openEditor = CommandShortcut("e", [.command, .shift])
     static let revealInFinder = CommandShortcut("r", [.command, .shift])
 }
@@ -164,6 +166,7 @@ extension CommandBlocker {
         case .noTrackedChanges: LocalizedStringResource("command.blocker.noTrackedChanges", defaultValue: "No changes to tracked files", bundle: .module)
         case .noChanges: LocalizedStringResource("command.blocker.noChanges", defaultValue: "No changes", bundle: .module)
         case .noStash: LocalizedStringResource("command.blocker.noStash", defaultValue: "No stash", bundle: .module)
+        case .noClosedTab: LocalizedStringResource("command.blocker.noClosedTab", defaultValue: "No closed tab", bundle: .module)
         case .conflicts: LocalizedStringResource("command.blocker.conflicts", defaultValue: "Unresolved conflicts", bundle: .module)
         case .operationInProgress(let kind): LocalizedStringResource("command.blocker.operationInProgress", defaultValue: "\(kind.label) in progress", bundle: .module)
         case .noOperation: LocalizedStringResource("command.blocker.noOperation", defaultValue: "Nothing in progress", bundle: .module)

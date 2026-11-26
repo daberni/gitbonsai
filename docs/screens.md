@@ -132,6 +132,7 @@ The menu bar (GitBonsai, File, Edit, View, Repository, Branch, Window, Help) is 
 |---|---|
 | ⌘, | Settings… |
 | ⌘T / ⌘W | New tab / Close tab (⌘W closes the settings and other auxiliary windows) |
+| ⇧⌘T | Reopen closed tab |
 | ⌘O / ⌥⌘N | Open Repository… / Clone Repository… |
 | ⇧⌘] / ⇧⌘[ | Next tab / Previous tab |
 | ⇧⌘P | Command bar… |
@@ -144,6 +145,6 @@ The menu bar (GitBonsai, File, Edit, View, Repository, Branch, Window, Help) is 
 | ⌘↩ | Commit… |
 | ⌘E | Edit Commit Message |
 | ⌘B | New Branch… |
-| ⇧⌘T / ⇧⌘E / ⇧⌘R | Open in terminal / Open in editor / Show in Finder |
+| ⌥⌘T / ⇧⌘E / ⇧⌘R | Open in terminal / Open in editor / Show in Finder |
 
 Inside views: ↑↓ move through the history and the file lists, ⌘-click and ⇧-click select several commits, ⌥↑/⌥↓ and p, r, e, s, f, d in the interactive rebase sheet. Shortcuts for staging and file actions are *planned*.

@@ -49,6 +49,7 @@ final class MainMenu: NSObject, NSMenuDelegate {
             .recent,
             .separator,
             .command(.closeTab),
+            .command(.reopenClosedTab),
             .standard(LocalizedStringResource("menu.file.closeWindow", defaultValue: "Close Window", bundle: .module), #selector(NSWindow.performClose(_:)), CommandShortcut("w", [.command, .shift])),
         ]),
         Section(title: LocalizedStringResource("menu.edit.title", defaultValue: "Edit", bundle: .module), entries: [

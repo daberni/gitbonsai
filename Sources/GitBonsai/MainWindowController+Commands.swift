@@ -11,6 +11,7 @@ extension MainWindowController: CommandProvider {
             Command(.openRepository) { [weak self] in self?.openRepository() },
             Command(.clone) { [weak self] in self?.cloneRepository() },
             Command(.closeTab, context: titles.indices.contains(active) ? titles[active] : nil) { [weak self] in self?.closeTab() },
+            Command(.reopenClosedTab, blocker: CommandRules.reopenTab(reopenableCount: closedTabs.reopenableCount())) { [weak self] in self?.reopenClosedTab() },
             Command(.nextTab, disabledReason: several) { [weak self] in self?.selectNextTab() },
             Command(.previousTab, disabledReason: several) { [weak self] in self?.selectPreviousTab() },
             Command(.switchTab, disabledReason: several, action: .choose(placeholder: LocalizedStringResource("window.tabs.searchPlaceholder", defaultValue: "Search tabs", bundle: .module)) { [weak self] in

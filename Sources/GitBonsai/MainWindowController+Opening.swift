@@ -42,6 +42,18 @@ extension MainWindowController {
         }
     }
 
+    /// Reopens the most recently closed repository tab at its old place; one that is open again meanwhile is only shown.
+    func reopenClosedTab() {
+        guard let entry = closedTabs.pop() else { return NSSound.beep() }
+        if let existing = tabs.index(showing: entry.path) { return activate(existing) }
+        Task {
+            guard let location = await opener.locations(containing: [entry.path]).first ?? nil else { return reportNotARepository([entry.path]) }
+            store.noteOpened(location.root)
+            if let existing = tabs.index(showing: location.root) { return activate(existing) }
+            activate(tabs.insert(makeTab(for: location), at: entry.index))
+        }
+    }
+
     private func reportNotARepository(_ paths: [String]) {
         guard let window else { return }
         for path in paths { opener.reportNotARepository(path, on: window) }

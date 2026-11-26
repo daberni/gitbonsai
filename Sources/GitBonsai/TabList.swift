@@ -68,6 +68,15 @@ struct TabList {
         return append(tab)
     }
 
+    /// Puts the tab back at `index`, or at the end when fewer tabs are left; an empty active tab is replaced as in `add`.
+    mutating func insert(_ tab: WindowTab, at index: Int) -> Int {
+        if active?.welcome != nil { return add(tab) }
+        let place = min(max(index, 0), tabs.count)
+        tabs.insert(tab, at: place)
+        if place <= activeIndex, tabs.count > 1 { activeIndex += 1 }
+        return place
+    }
+
     /// Swaps the two tabs; the active tab stays active at its new place.
     mutating func move(from: Int, to: Int) -> Bool {
         guard tabs.indices.contains(from), tabs.indices.contains(to) else { return false }
