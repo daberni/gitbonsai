@@ -26,6 +26,8 @@ final class ActionForm: NSObject, NSTextViewDelegate {
     private var pickers: [(key: String, picker: RefPicker, catalog: RefCatalog)] = []
     private var choices: [(key: String, popup: NSPopUpButton, values: [String])] = []
     private var messageView: NSTextView?
+    private var messageArea: TextArea?
+    private var messageHeight: NSLayoutConstraint?
 
     /// With `names`, the title stays short and the names show as full pills above `info`, as in a confirmation.
     init(title: LocalizedStringResource, names: RefString? = nil, info: LocalizedStringResource? = nil, confirm: LocalizedStringResource) {
@@ -90,8 +92,11 @@ final class ActionForm: NSObject, NSTextViewDelegate {
         area.textView.string = value
         area.textView.delegate = self
         messageView = area.textView
+        messageArea = area
         addRow(label: label, control: area)
-        area.heightAnchor.constraint(equalToConstant: Theme.ActionSheet.messageHeight).isActive = true
+        let height = area.heightAnchor.constraint(equalToConstant: Theme.ActionSheet.messageMinHeight)
+        height.isActive = true
+        messageHeight = height
         updateConfirm()
     }
 
@@ -107,6 +112,7 @@ final class ActionForm: NSObject, NSTextViewDelegate {
     func fill(_ answers: [String: String]) {
         for (key, field, _) in fields { if let answer = answers[key] { field.stringValue = answer } }
         if let message = answers[Self.messageKey] { messageView?.string = message.replacingOccurrences(of: "\\n", with: "\n") }
+        fitMessage()
         if let checked = answers[Self.checkboxKey] { checkbox?.state = checked == "1" ? .on : .off }
         for choice in choices { if let answer = answers[choice.key], let index = choice.values.firstIndex(of: answer) { choice.popup.selectItem(at: index) } }
         for (key, picker, catalog) in pickers { if let answer = answers[key] { picker.setCatalog(catalog, selection: catalog.item(titled: answer)) } }
@@ -121,13 +127,34 @@ final class ActionForm: NSObject, NSTextViewDelegate {
 
     /// Sizes the accessory to its content and lays the alert out; called before the sheet is shown or rendered.
     func prepare() {
+        fitMessage()
         stack.layoutSubtreeIfNeeded()
         stack.frame = NSRect(origin: .zero, size: stack.fittingSize)
         alert.layout()
-        alert.window.initialFirstResponder = fields.first?.field.field
+        alert.window.initialFirstResponder = fields.first?.field.field ?? messageView
+        // A long message opens at its first line, not wherever the text system scrolled while it was filled in.
+        messageView?.setSelectedRange(NSRange(location: 0, length: 0))
+        messageArea?.scrollToTop()
+        // Showing the sheet lays the alert out once more and moves the clip view; scroll back once it is up.
+        DispatchQueue.main.async { [weak self] in self?.messageArea?.scrollToTop() }
     }
 
-    func textDidChange(_ notification: Notification) { updateConfirm() }
+    func textDidChange(_ notification: Notification) {
+        updateConfirm()
+        if fitMessage() { alert.layout() }
+    }
+
+    /// Lets the message box follow its text between its minimum and maximum height; true when the height changed.
+    @discardableResult
+    private func fitMessage() -> Bool {
+        guard let area = messageArea, let height = messageHeight else { return false }
+        let wanted = min(max(area.contentHeight(width: Theme.ActionSheet.fieldWidth), Theme.ActionSheet.messageMinHeight), Theme.ActionSheet.messageMaxHeight)
+        guard wanted != height.constant else { return false }
+        height.constant = wanted
+        stack.layoutSubtreeIfNeeded()
+        stack.frame.size = stack.fittingSize
+        return true
+    }
 
     /// A focused field gets Esc and Return before the alert's key equivalents, so the form presses the buttons itself: Esc cancels with the text kept as typed, Return in a single-line field confirms.
     private func fieldCommand(_ commandSelector: Selector) -> Bool {

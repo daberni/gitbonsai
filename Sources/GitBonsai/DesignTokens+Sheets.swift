@@ -17,7 +17,9 @@ extension Theme {
     /// Sheets that ask for the values of a commit action: name, folder, message.
     enum ActionSheet {
         static let fieldWidth: CGFloat = 320
-        static let messageHeight: CGFloat = 72
+        /// The message box grows with its text from about four lines up to this height, then scrolls.
+        static let messageMinHeight: CGFloat = 84
+        static let messageMaxHeight: CGFloat = 200
         static let rowSpacing = Space.s
         static let labelSpacing = Space.xs
     }

@@ -4,6 +4,10 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- The Remove Worktree sheet shows the worktree and the “Also delete branch” checkbox on their own lines, and the message box of the Squash sheet opens at its first line with an inset, growing with the message before it scrolls.
+
 ## [0.2.0] - 2026-11-26
 
 ### Added

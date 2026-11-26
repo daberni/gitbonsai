@@ -128,6 +128,45 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The worktree's pill and the checkbox with the branch pill each keep their own line, also with long names.
+    func testRemoveWorktreeForm() throws {
+        for (name, look) in Self.looks {
+            let form = ActionForm(title: LocalizedStringResource("worktree.remove.title", defaultValue: "Remove Worktree?", bundle: .module), names: RefString(marked: RefName.worktree("engineering-docs-domain-with-a-much-longer-folder-name")), confirm: LocalizedStringResource("worktree.remove.confirm", defaultValue: "Remove", bundle: .module))
+            form.addCheckbox(LocalizedStringResource("worktree.remove.deleteBranch", defaultValue: "Also delete branch \(RefName.branch("codex/engineering-docs-domain-with-a-much-longer-branch-name"))", bundle: .module), checked: true)
+            form.prepare()
+            form.alert.window.appearance = NSAppearance(named: look)
+            form.alert.applyRefText()
+            try Snapshot.assert(sheet: form.alert.window, named: "form-removeWorktree-\(name)")
+        }
+    }
+
+    /// A long squash message opens at its first line, inset from the border, in a box that grows to its limit and scrolls.
+    func testSquashForm() throws {
+        let paragraph = "Nothing follows the parent links in the title line any more, so they sit in the same place for commits, merges, stashes and the working directory."
+        let message = "Keep the parent links at the right end of the title line\n\n" + Array(repeating: paragraph, count: 4).joined(separator: "\n\n")
+        for (name, look) in Self.looks {
+            let form = ActionForm(title: LocalizedStringResource("rebase.squash.sheet.title", defaultValue: "Squash \(2) Commits", bundle: .module), confirm: LocalizedStringResource("rebase.squash.sheet.confirm", defaultValue: "Squash", bundle: .module))
+            form.addMessage(label: LocalizedStringResource("rebase.squash.sheet.message", defaultValue: "Message", bundle: .module), value: message)
+            form.prepare()
+            form.alert.window.appearance = NSAppearance(named: look)
+            form.alert.applyRefText()
+            try Snapshot.assert(sheet: form.alert.window, named: "form-squash-\(name)")
+        }
+    }
+
+    /// A confirmation with two long names wraps them as full pills above its sentence.
+    func testLongNameConfirmation() throws {
+        for (name, look) in Self.looks {
+            let alert = NSAlert()
+            alert.setConfirmation(LocalizedStringResource("branch.deleteWithWorktree.title", defaultValue: "Delete Branch and Worktree?", bundle: .module), names: RefString(marked: RefName.branch("task/TIMR-13355-migrate-existing-requests-to-the-new-approval-flow") + " " + RefName.worktree("timr-backend-TIMR-13355-migrate-existing-requests")))
+            alert.addButton(withTitle: "Delete Worktree and Branch")
+            alert.addButton(withTitle: "Cancel")
+            alert.window.appearance = NSAppearance(named: look)
+            alert.layout()
+            try Snapshot.assert(sheet: alert.window, named: "confirm-longNames-\(name)")
+        }
+    }
+
     /// A failure sheet with its actions and git's output.
     func testFailureSheet() throws {
         for (name, look) in Self.looks {

@@ -189,6 +189,9 @@ final class TextArea: NSView {
         scroll.autohidesScrollers = true
         scroll.drawsBackground = false
         scroll.borderType = .noBorder
+        // In a sheet the window's safe area would add a top content inset that scrolls the first line under the border.
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsetsZero
         for view in [box, scroll] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
         }
@@ -208,6 +211,22 @@ final class TextArea: NSView {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    /// The height that shows all of the text at `width`, insets and border included.
+    func contentHeight(width: CGFloat) -> CGFloat {
+        let font = textView.font ?? Theme.body
+        let border = Theme.Control.focusWidth
+        let inset = textView.textContainerInset
+        let textWidth = width - 2 * border - 2 * inset.width
+        let text = NSAttributedString(string: textView.string.isEmpty ? " " : textView.string, attributes: [.font: font])
+        let bounds = text.boundingRect(with: NSSize(width: textWidth, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading])
+        return ceil(bounds.height + 2 * inset.height + 2 * border)
+    }
+
+    func scrollToTop() {
+        scroll.contentView.scroll(to: .zero)
+        scroll.reflectScrolledClipView(scroll.contentView)
+    }
 
     /// Clicks anywhere in the box edit the text.
     override func mouseDown(with event: NSEvent) {

@@ -136,4 +136,7 @@ final class ConfirmationBody: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override var isFlipped: Bool { true }
+
+    /// The body lays its parts out by frame; in a stack view, such as an action form's, Auto Layout would otherwise give it no height and the next row would draw over it.
+    override var intrinsicContentSize: NSSize { frame.size }
 }
