@@ -59,7 +59,8 @@ fi
 
 # Launch arguments set preferences for this launch only (NSArgumentDomain); the app ignores `-Key value` pairs when it opens folders.
 arguments=($repo)
-[[ -n $appearance ]] && arguments+=(-AppleInterfaceStyle ${(C)appearance})
+# AppleInterfaceStyle cannot force light on a system set to dark, so the app's own appearance preference is set instead.
+[[ -n $appearance ]] && arguments+=(-appearance $appearance)
 [[ -n $language ]] && arguments+=(-AppleLanguages "($language)")
 for pair in $defaults; do arguments+=("-${pair%%=*}" "${pair#*=}"); done
 
