@@ -245,6 +245,23 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// The "Whole file" mode in the text viewer: old and new numbers, washed changes, the changed part marked, syntax colours and invisibles.
+    func testWholeFileViewer() async throws {
+        let repo = try repository()
+        for (name, look) in Self.looks {
+            let (fixture, controller, window) = try await tab(in: repo, appearance: look) { defaults in
+                let preferences = DiffPreferences(defaults: defaults)
+                preferences.mode = .file
+                preferences.options = DiffOptions(showsInvisibles: true)
+            }
+            let head = try XCTUnwrap(fixture.model.commits.first)
+            controller.openFile(FileSelection(path: "Leaves.swift", originalPath: nil, source: .commit(head)))
+            try await settle()
+            try Snapshot.assert(controller.view, named: "whole-file-\(name)")
+            window.close()
+        }
+    }
+
     /// The Tags list as its popover shows it.
     func testTagsPanel() async throws {
         let repo = try repository()

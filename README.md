@@ -36,7 +36,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 
 ### Diff
 
-- Diff or whole file, remembered across files.
+- Diff or whole file, remembered across files. The whole file shows in a read-only text viewer with old and new line numbers, syntax highlighting (Swift, C, C++, C#, Go, Rust, Java, Kotlin, JavaScript, JSX, TypeScript, TSX, Python, Ruby, PHP, Bash, JSON, CSS, SCSS, Less, HTML, XML, YAML, Java properties, Markdown, Diff/Patch), find in the file (⌘F, ⌘G, ⇧⌘G) and go to line (⌘L).
 - Word diff, ignore whitespace, ignore changes in whitespace amount, ignore blank lines, and invisible characters (tabs, trailing spaces, CR, BOM, non-breaking spaces).
 - Image diff side by side, as a swipe or as an onion skin, for PNG, JPEG, GIF, WebP, HEIC, TIFF, SVG, PDF and more.
 - Open a file in your diff tool, editor or default app.
@@ -117,7 +117,7 @@ Builds that are not notarized are signed ad hoc. macOS then refuses the first la
 
 GitBonsai is free for personal and other noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE). Use for work at or for a company needs a commercial license; see [COMMERCIAL.md](COMMERCIAL.md).
 
-GitBonsai uses the `git` installed on your Mac as an external program; it does not bundle git or any other third-party code.
+GitBonsai uses the `git` installed on your Mac as an external program; it does not bundle git. The text viewer bundles CodeEditTextView, tree-sitter and tree-sitter grammars under their MIT, BSD and Apache licenses; [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists them with their license texts, and the app carries the same file.
 
 ## Development
 

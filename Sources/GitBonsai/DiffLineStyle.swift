@@ -30,8 +30,9 @@ struct DiffLineStyle {
         content(diff.hunks[hunk].lines[line], change: hunkChanges.indices.contains(hunk) ? hunkChanges[hunk][line] : nil)
     }
 
-    func content(ofFileLine index: Int, in fileLines: [DiffLine]) -> DiffLineView.Content {
-        content(fileLines[index], change: fileChanges[index])
+    /// The changed part of a line of the whole file, paired with its counterpart.
+    func change(ofFileLine index: Int) -> IntralineChange? {
+        fileChanges[index]
     }
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.

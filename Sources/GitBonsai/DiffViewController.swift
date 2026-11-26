@@ -3,15 +3,13 @@ import GitEngine
 import os
 
 /// The diff of one file, shown in the history pane in place of the graph. In the working directory each hunk can be staged or unstaged, and unstaged or untracked hunks discarded.
-/// The "Whole file" mode shows the whole file with the changes in place instead; hunks are staged in the "Diff" mode only.
+/// The "Whole file" mode shows the whole file with the changes in place instead, in the shared `TextViewer`; hunks are staged in the "Diff" mode only.
 /// Embedded in `StackedDiffController` it shows one of several files: as tall as its content, scrolled by the stack around it.
 @MainActor
 final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDelegate {
     enum Row {
         case hunk(Int)
         case line(hunk: Int, line: Int)
-        /// A line of the whole file in the "Whole file" mode.
-        case fileLine(Int)
         /// A sentence about the whole file above its lines.
         case notice(String)
     }
@@ -53,7 +51,11 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     let trace: TraceSink
     /// Every line of the file, read only in the "Whole file" mode.
     var fileLines: [DiffLine] = []
-    /// The rows hunk navigation stops at: hunk headers, or in the "Whole file" mode the line each hunk starts with.
+    /// The whole file in the "Whole file" mode, below a notice about the file when there is one.
+    let fileViewer: TextViewer
+    let fileNotice = DiffNoticeView()
+    var fileNoticeHeight: NSLayoutConstraint?
+    /// The rows hunk navigation stops at: hunk headers, or in the "Whole file" mode the viewer's line each hunk starts with.
     var hunkStarts: [Int] = []
     var rows: [Row] = []
     var loadTask: Task<Void, Never>?
@@ -71,6 +73,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         style = DiffLineStyle(options: preferences.options)
         isEmbedded = embedded
         scroll = embedded ? NestedScrollView() : NSScrollView()
+        fileViewer = TextViewer(nested: embedded)
         super.init()
         header.isEmbedded = embedded
         header.onClose = { [weak self] in self?.onClose?() }
@@ -111,7 +114,11 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
         emptyState.isHidden = true
         emptyState.onAction = { [weak self] in self?.retry() }
         imageView.isHidden = true
-        for subview in [header, scroll, emptyState, imageView] as [NSView] {
+        fileViewer.isHidden = true
+        fileNotice.isHidden = true
+        let fileNoticeHeight = fileNotice.heightAnchor.constraint(equalToConstant: 0)
+        self.fileNoticeHeight = fileNoticeHeight
+        for subview in [header, scroll, emptyState, imageView, fileNotice, fileViewer] as [NSView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
@@ -132,6 +139,14 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             imageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            fileNotice.topAnchor.constraint(equalTo: header.bottomAnchor),
+            fileNotice.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            fileNotice.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            fileNoticeHeight,
+            fileViewer.topAnchor.constraint(equalTo: fileNotice.bottomAnchor),
+            fileViewer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            fileViewer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            fileViewer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         if isEmbedded {
             embeddedHeight = view.heightAnchor.constraint(equalToConstant: Theme.Diff.headerHeight + Theme.Diff.stackedEmptyHeight)
@@ -142,7 +157,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     /// Room for every row, for the images, or for the empty state, plus a horizontal scroller that takes space.
     func fitEmbeddedHeight() {
         guard let embeddedHeight else { return }
-        let lines = !imageView.isHidden ? Theme.Diff.stackedImageHeight : scroll.isHidden || rows.isEmpty ? Theme.Diff.stackedEmptyHeight : table.rect(ofRow: rows.count - 1).maxY
+        let lines = !imageView.isHidden ? Theme.Diff.stackedImageHeight : !fileViewer.isHidden ? (fileNoticeHeight?.constant ?? 0) + fileViewer.contentHeight : scroll.isHidden || rows.isEmpty ? Theme.Diff.stackedEmptyHeight : table.rect(ofRow: rows.count - 1).maxY
         let scroller = scroll.hasHorizontalScroller && NSScroller.preferredScrollerStyle == .legacy ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
         embeddedHeight.constant = Theme.Diff.headerHeight + lines + scroller
     }
@@ -171,12 +186,24 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     /// Near the end of the file several hunks can share one scroll position; a jump goes to the next hunk that actually moves the view, and beeps when none does.
     private func jumpToHunk(forward: Bool) {
+        if !fileViewer.isHidden { return jumpToChange(forward: forward) }
         let top = topRow
         let current = clipView?.bounds.minY ?? 0
         let candidates = forward ? hunkStarts.filter { $0 > top } : hunkStarts.filter { $0 < top }.reversed()
         let target = candidates.first { forward ? offset(ofRow: $0) > current : offset(ofRow: $0) < current }
         guard let target else { NSSound.beep(); return }
         scrollToTop(row: target)
+    }
+
+    /// The same in the whole file: by the viewer's lines and offsets.
+    private func jumpToChange(forward: Bool) {
+        let top = fileViewer.topLine
+        let current = fileViewer.topOffset
+        let offset = { (line: Int) in min(CGFloat(line) * Theme.TextViewer.lineHeight, self.fileViewer.lastTopOffset) }
+        let candidates = forward ? hunkStarts.filter { $0 > top } : hunkStarts.filter { $0 < top }.reversed()
+        let target = candidates.first { forward ? offset($0) > current : offset($0) < current }
+        guard let target else { NSSound.beep(); return }
+        fileViewer.scrollToTop(line: target, resettingSideways: false)
     }
 
     /// The first row in view.
@@ -212,7 +239,7 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         switch rows[row] {
-        case .line, .fileLine: Theme.Diff.lineHeight
+        case .line: Theme.Diff.lineHeight
         case .hunk: Theme.Diff.hunkHeight
         case .notice: Theme.Diff.noticeHeight
         }
@@ -232,11 +259,6 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
             let view = (tableView.makeView(withIdentifier: .init("line"), owner: nil) as? DiffLineView) ?? DiffLineView()
             view.identifier = .init("line")
             if let shown { view.content = style.content(ofHunk: hunk, line: line, in: shown) }
-            return view
-        case .fileLine(let index):
-            let view = (tableView.makeView(withIdentifier: .init("line"), owner: nil) as? DiffLineView) ?? DiffLineView()
-            view.identifier = .init("line")
-            view.content = style.content(ofFileLine: index, in: fileLines)
             return view
         case .notice(let text):
             let view = (tableView.makeView(withIdentifier: .init("notice"), owner: nil) as? DiffNoticeView) ?? DiffNoticeView()

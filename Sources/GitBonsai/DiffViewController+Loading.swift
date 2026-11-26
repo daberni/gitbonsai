@@ -140,6 +140,7 @@ extension DiffViewController {
         }
         column.minWidth = contentWidth()
         table.reloadData()
+        if mode == .file, !fileViewer.isHidden, let diff { showWholeFile(diff, notice: fileNotice.text.isEmpty ? nil : fileNotice.text) }
     }
 
     private func apply(_ diff: FileDiff?, full: FileDiff?, encoding: WideTextEncoding?, onlyLeftOut: Bool, scrolling: PendingLoad.Scroll, failure: String? = nil) {
@@ -156,18 +157,14 @@ extension DiffViewController {
         if let empty { emptyState.show(empty) }
         emptyState.isHidden = empty == nil
         scroll.isHidden = empty != nil || showsImages
-        if let diff, empty == nil, mode == .file, !fileLines.isEmpty {
-            let firstLineRow = rows.count
-            rows += fileLines.indices.map { .fileLine($0) }
-            // A hunk starts with the same line in both views, and a line's pair of old and new number occurs once in the file.
-            if style.options.wordDiff {
-                // Word diff numbers follow the lines as shown, not the line diff's; navigation stops at each run of changed lines instead.
-                let changed = fileLines.map { $0.kind != .context || !$0.segments.isEmpty }
-                hunkStarts = changed.indices.filter { changed[$0] && ($0 == 0 || !changed[$0 - 1]) }.map { firstLineRow + max(0, $0 - Self.contextAboveChange) }
-            } else {
-                let rowOfNumbers = Dictionary(fileLines.enumerated().map { (NumberPair($1), firstLineRow + $0) }, uniquingKeysWith: { first, _ in first })
-                hunkStarts = diff.hunks.compactMap { $0.lines.first.flatMap { rowOfNumbers[NumberPair($0)] } }
-            }
+        let showsFile = diff != nil && empty == nil && mode == .file && !fileLines.isEmpty
+        fileViewer.isHidden = !showsFile
+        fileNotice.isHidden = !showsFile
+        if showsFile { scroll.isHidden = true }
+        if showsFile, let diff {
+            let notices = rows.compactMap { row -> String? in if case .notice(let text) = row { text } else { nil } }
+            showWholeFile(diff, notice: notices.isEmpty ? nil : notices.joined(separator: " · "))
+            rows = []
         } else if let shown, empty == nil {
             for (hunkIndex, hunk) in shown.hunks.enumerated() {
                 hunkStarts.append(rows.count)
@@ -179,11 +176,10 @@ extension DiffViewController {
         table.reloadData()
         fitEmbeddedHeight()
         // The whole file opens where its first change is.
-        if case .start(let sideways) = scrolling { scrollToTop(row: mode == .file ? hunkStarts.first ?? 0 : 0, resettingSideways: sideways) }
+        if case .start(let sideways) = scrolling {
+            if showsFile { fileViewer.scrollToTop(line: hunkStarts.first ?? 0, resettingSideways: sideways) } else { scrollToTop(row: 0, resettingSideways: sideways) }
+        }
     }
-
-    /// git's default context, so a jump in a word diff lands where the hunk would start.
-    private static let contextAboveChange = 3
 
     /// The file changed only in whitespace or blank lines the options leave out.
     private static func leftOutContent(_ whitespace: DiffWhitespace) -> EmptyStateView.Content {
@@ -219,7 +215,7 @@ extension DiffViewController {
 
     /// Wide enough for the longest line, so long lines scroll sideways instead of being cut.
     private func contentWidth() -> CGFloat {
-        let lines = mode == .file && !fileLines.isEmpty ? fileLines : shown?.hunks.flatMap(\.lines) ?? []
+        let lines = shown?.hunks.flatMap(\.lines) ?? []
         return style.width(of: lines) + Theme.Space.xl
     }
 }
