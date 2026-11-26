@@ -46,6 +46,12 @@ final class OperationBannerController {
         }
     }
 
+    /// The status changed, for instance after staging a resolved file: the conflict count follows without asking git about the operation again.
+    func statusChanged() {
+        guard let progress else { return }
+        show(progress)
+    }
+
     private func show(_ progress: OperationProgress?) {
         let wasEditStop = isEditStop
         let wasRunning = self.progress != nil
@@ -156,7 +162,7 @@ final class OperationBannerController {
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil, focus: .followHead)
                 if let toast = GitFailureText.toast(for: report) { prompter.toast(toast) }
-                await prompter.reportUnlessStopped(error, title: LocalizedStringResource("failure.operation.failed", defaultValue: "\(command) failed", bundle: .module), actions: [], in: repository)
+                await prompter.reportUnlessStopped(error, title: LocalizedStringResource("failure.operation.failed", defaultValue: "\(command) failed", bundle: .module), stop: .operation(kind), actions: [], in: repository)
             }
             update()
         }

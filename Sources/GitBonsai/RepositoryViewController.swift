@@ -215,7 +215,10 @@ final class RepositoryViewController: NSObject {
         }
         history.metadataChanged()
         commitUseCase.update(status: viewModel.status)
-        if viewModel.status != shownStatus { conflictActions.update() }
+        if viewModel.status != shownStatus {
+            conflictActions.update()
+            operationBanner.statusChanged()
+        }
         // The working directory lists follow every change of the status, for instance after staging.
         if let row = singleSelectedRow, viewModel.kinds.indices.contains(row), viewModel.kinds[row] == .wip, viewModel.status != shownStatus {
             showDetail(for: row, keepingFile: true)

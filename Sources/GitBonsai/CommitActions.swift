@@ -11,7 +11,7 @@ final class CommitActions {
     let squash: SquashUseCase
     /// The one-click and interactive rebase onto a commit, shared with the branch menus.
     lazy var rebaseOnto = RebaseOntoUseCase(viewModel: viewModel, interactive: interactiveRebase) { [weak self] note, operation in
-        self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: LocalizedStringResource("failure.rebase.conflicts", defaultValue: "Rebase stopped on conflicts", bundle: .module), note: note, endsRebase: true, undo: .head, operation)
+        self?.runOperation(failure: LocalizedStringResource("failure.rebase.failed", defaultValue: "Rebase failed", bundle: .module), conflict: .operation(.rebase), note: note, endsRebase: true, undo: .head, operation)
     }
     private let viewModel: GraphViewModel
     /// Opens the New Branch sheet starting at a commit.
@@ -105,12 +105,12 @@ final class CommitActions {
     }
 
     private func cherryPick(_ commit: Commit) {
-        run(failure: LocalizedStringResource("failure.cherryPick.failed", defaultValue: "Cherry-pick failed", bundle: .module), conflict: LocalizedStringResource("failure.cherryPick.conflicts", defaultValue: "Cherry-pick stopped on conflicts", bundle: .module), note: "git cherry-pick", undo: .head) { try await $0.cherryPick(commit) }
+        run(failure: LocalizedStringResource("failure.cherryPick.failed", defaultValue: "Cherry-pick failed", bundle: .module), conflict: .operation(.cherryPick), note: "git cherry-pick", undo: .head) { try await $0.cherryPick(commit) }
     }
 
     /// A merge is reverted against its first parent: the branch merged into stays, the merged-in branch's changes are undone.
     private func revert(_ commit: Commit) {
-        run(failure: LocalizedStringResource("failure.revert.failed", defaultValue: "Revert failed", bundle: .module), conflict: LocalizedStringResource("failure.revert.conflicts", defaultValue: "Revert stopped on conflicts", bundle: .module), note: commit.parents.count > 1 ? "git revert -m 1" : "git revert", undo: .head) { try await $0.revert(commit) }
+        run(failure: LocalizedStringResource("failure.revert.failed", defaultValue: "Revert failed", bundle: .module), conflict: .operation(.revert), note: commit.parents.count > 1 ? "git revert -m 1" : "git revert", undo: .head) { try await $0.revert(commit) }
     }
 
     private func reset(_ branch: String, to commit: Commit, mode: ResetMode) {
@@ -159,7 +159,7 @@ final class CommitActions {
     // MARK: Running
 
     /// Runs one git write and refreshes the tab, also after a failure: a stopped cherry-pick, revert or rebase has changed the repository.
-    private func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, undo: UndoScope? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    private func run(failure: LocalizedStringResource, conflict: ConflictStop? = nil, note: String, undo: UndoScope? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         runOperation(failure: failure, conflict: conflict, note: note, endsRebase: false, undo: undo) { repository in
             try await operation(repository)
             return nil
@@ -169,7 +169,7 @@ final class CommitActions {
     /// Runs a rebase, cherry-pick or revert. Commits it left out as already applied show in a toast; a stop on conflicts is left to the banner, other failures are reported.
     /// A rebase that finished at once ends like one finished through the banner.
     /// `undo` names what the operation may move, so the status line can offer to undo it.
-    private func runOperation(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, endsRebase: Bool, undo: UndoScope?, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
+    private func runOperation(failure: LocalizedStringResource, conflict: ConflictStop?, note: String, endsRebase: Bool, undo: UndoScope?, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) {
         let repository = viewModel.repository
         Task {
             do {
@@ -181,15 +181,14 @@ final class CommitActions {
                 let report = (error as? GitError).map { OperationReport(output: $0.stderr) }
                 await viewModel.refresh(note: nil, focus: .followHead)
                 if let toast = GitFailureText.toast(for: report) { prompter.toast(toast) }
-                let stopped = (error as? GitError)?.stoppedOnConflict == true
                 let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, endsRebase: endsRebase, undo: undo, operation)] : []
-                await prompter.reportUnlessStopped(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, in: repository)
+                await prompter.reportUnlessStopped(error, title: failure, stop: conflict, actions: retry, in: repository)
             }
         }
     }
 
     /// Runs the operation again with the local changes set aside and brought back afterwards; see `Repository.withLocalChangesStashed`.
-    private func stashAndRetry(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, endsRebase: Bool, undo: UndoScope?, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
+    private func stashAndRetry(failure: LocalizedStringResource, conflict: ConflictStop?, note: String, endsRebase: Bool, undo: UndoScope?, _ operation: @escaping @Sendable (Repository) async throws -> OperationReport?) -> FailureAction {
         let message = String(localized: "stash.message.before", defaultValue: "GitBonsai: before \(note)", bundle: .module, comment: "Message of the stash that carries local changes past a command; the argument is the git command.")
         let prompter = prompter
         let carried = String(localized: "stash.message.carriedAlong", defaultValue: "\(note) · local changes carried along in a stash", bundle: .module, comment: "Status line after a command ran with the local changes stashed around it; the argument is the git command.")

@@ -166,12 +166,12 @@ final class StashActions {
 
     func apply(_ id: String) {
         guard let stash = stash(id) else { return }
-        runner.run(failure: LocalizedStringResource("failure.stash.notApplied", defaultValue: "Stash not applied", bundle: .module), conflict: LocalizedStringResource("failure.stash.appliedWithConflicts", defaultValue: "Stash applied with conflicts", bundle: .module), note: "git stash apply \(stash.selector)", focus: .current) { try await $0.applyStash(stash) }
+        runner.run(failure: LocalizedStringResource("failure.stash.notApplied", defaultValue: "Stash not applied", bundle: .module), conflict: .stashApply, note: "git stash apply \(stash.selector)", focus: .current) { try await $0.applyStash(stash) }
     }
 
     func pop(_ id: String) {
         guard let stash = stash(id) else { return }
-        runner.run(failure: LocalizedStringResource("failure.stash.notApplied", defaultValue: "Stash not applied", bundle: .module), conflict: LocalizedStringResource("failure.stash.poppedWithConflicts", defaultValue: "Stash applied with conflicts; it stays", bundle: .module), note: "git stash pop \(stash.selector)", focus: .current) { try await $0.popStash(stash) }
+        runner.run(failure: LocalizedStringResource("failure.stash.notApplied", defaultValue: "Stash not applied", bundle: .module), conflict: .stashPop, note: "git stash pop \(stash.selector)", focus: .current) { try await $0.popStash(stash) }
     }
 
     func drop(_ id: String) {

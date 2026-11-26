@@ -100,6 +100,34 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// A merge stopped on conflicts in two files: the banner counts them and the working directory lists them.
+    func testOperationBannerWithConflicts() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-banner", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        let repo = try FixtureRepo(at: folder)
+        let date = "2024-01-01T08:00:00+0000"
+        try repo.write("Leaves.swift", "let color = \"green\"\n")
+        try repo.write("Roots.swift", "let depth = 1\n")
+        _ = try repo.git(["add", "-A"], date: date)
+        _ = try repo.git(["commit", "-q", "-m", "Plant the seed"], date: date)
+        _ = try repo.git(["checkout", "-q", "-b", "feature/leaves"])
+        try repo.write("Leaves.swift", "let color = \"red\"\n")
+        try repo.write("Roots.swift", "let depth = 2\n")
+        _ = try repo.git(["commit", "-q", "-am", "Grow red and deep"], date: date)
+        _ = try repo.git(["checkout", "-q", "main"])
+        try repo.write("Leaves.swift", "let color = \"gold\"\n")
+        try repo.write("Roots.swift", "let depth = 3\n")
+        _ = try repo.git(["commit", "-q", "-am", "Grow gold and deeper"], date: date)
+        _ = try? repo.git(["merge", "feature/leaves"], date: date)
+        for (name, look) in Self.looks {
+            let (_, controller, window) = try await tab(in: repo, appearance: look)
+            controller.showWorkingDirectory()
+            try await settle()
+            try Snapshot.assert(controller.view, named: "banner-conflicts-\(name)")
+            window.close()
+        }
+    }
+
     /// The "Create Tag" form as the commit menu opens it, filled in.
     /// The command bar over the conflict view of a rebase that stopped: it opens below the operation banner, as it opens below the history header, never under the window's title bar.
     func testCommandBarOverConflictView() async throws {

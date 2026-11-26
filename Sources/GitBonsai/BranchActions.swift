@@ -135,7 +135,7 @@ final class BranchActions {
     // MARK: Actions
 
     private func merge(_ name: String, into current: String) {
-        Task { await runner.perform(failure: LocalizedStringResource("failure.merge.failed", defaultValue: "Merge failed", bundle: .module), conflict: LocalizedStringResource("failure.merge.conflicts", defaultValue: "Merge stopped on conflicts", bundle: .module), note: "git merge", focus: .followHead, undo: .head) { try await $0.merge(name) } }
+        Task { await runner.perform(failure: LocalizedStringResource("failure.merge.failed", defaultValue: "Merge failed", bundle: .module), conflict: .operation(.merge), note: "git merge", focus: .followHead, undo: .head) { try await $0.merge(name) } }
     }
 
     private func rename(_ name: String) {

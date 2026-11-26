@@ -44,7 +44,9 @@ final class FakePrompter: Prompting {
 
     func saveLocation(title: LocalizedStringResource, suggestedName: String) async -> URL? { nil }
     func reportFailure(_ error: Error, title: LocalizedStringResource, summary: LocalizedStringResource?, actions: [FailureAction]) { reports.append("\(title.text): \(error)") }
-    func reportUnlessStopped(_ error: Error, title: LocalizedStringResource, actions: [FailureAction], in repository: Repository) async { reports.append("\(title.text): \(error)") }
+    /// How often the working directory was selected to show conflicts.
+    private(set) var conflictsShown = 0
+    func showConflicts() { conflictsShown += 1 }
     func reportConflictingReturn(of stash: String) { reports.append("conflicting return of \(stash)") }
     func showSheet(title: LocalizedStringResource, summary: LocalizedStringResource, details: String?, actions: [FailureAction]) { reports.append(title.text) }
     func toast(_ text: RefString, action: ToastAction?) { toasts.append(text.plain) }

@@ -8079,18 +8079,41 @@
       }
     },
     "failure.cherryPick.conflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cherry-pick mit Konflikten angehalten"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Cherry-pick mit Konflikten in %lld Datei angehalten"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Cherry-pick mit Konflikten in %lld Dateien angehalten"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Cherry-pick stopped on conflicts"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Cherry-pick stopped on conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Cherry-pick stopped on conflicts in %lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -8401,18 +8424,41 @@
       }
     },
     "failure.merge.conflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge mit Konflikten angehalten"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Merge mit Konflikten in %lld Datei angehalten"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Merge mit Konflikten in %lld Dateien angehalten"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Merge stopped on conflicts"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Merge stopped on conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Merge stopped on conflicts in %lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -8469,18 +8515,41 @@
       }
     },
     "failure.pull.conflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pull mit Konflikten angehalten"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pull mit Konflikten in %lld Datei angehalten"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pull mit Konflikten in %lld Dateien angehalten"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Pull stopped on conflicts"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pull stopped on conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pull stopped on conflicts in %lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -8826,18 +8895,41 @@
       }
     },
     "failure.rebase.conflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase mit Konflikten angehalten"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Rebase mit Konflikten in %lld Datei angehalten"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Rebase mit Konflikten in %lld Dateien angehalten"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Rebase stopped on conflicts"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Rebase stopped on conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Rebase stopped on conflicts in %lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -8979,18 +9071,41 @@
       }
     },
     "failure.revert.conflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Revert mit Konflikten angehalten"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Revert mit Konflikten in %lld Datei angehalten"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Revert mit Konflikten in %lld Dateien angehalten"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Revert stopped on conflicts"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Revert stopped on conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Revert stopped on conflicts in %lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -9063,18 +9178,41 @@
       }
     },
     "failure.stash.appliedWithConflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stash mit Konflikten angewendet"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash mit Konflikten in %lld Datei angewendet"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash mit Konflikten in %lld Dateien angewendet"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Stash applied with conflicts"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash applied with conflicts in %lld file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash applied with conflicts in %lld files"
+                }
+              }
+            }
           }
         }
       }
@@ -9148,18 +9286,41 @@
       }
     },
     "failure.stash.poppedWithConflicts" : {
-      "extractionState" : "extracted_with_value",
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stash mit Konflikten angewendet, er bleibt erhalten"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash mit Konflikten in %lld Datei angewendet, er bleibt erhalten"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash mit Konflikten in %lld Dateien angewendet, er bleibt erhalten"
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Stash applied with conflicts; it stays"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash applied with conflicts in %lld file; it stays"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stash applied with conflicts in %lld files; it stays"
+                }
+              }
+            }
           }
         }
       }

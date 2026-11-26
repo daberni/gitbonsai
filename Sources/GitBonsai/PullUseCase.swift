@@ -83,8 +83,7 @@ final class PullUseCase {
             await offerRebase(after: error, upstream: upstreamName)
         } catch {
             await viewModel.refresh(note: nil, focus: .followHead)
-            let stopped = (error as? GitError)?.stoppedOnConflict == true
-            await prompter.reportUnlessStopped(error, title: stopped ? LocalizedStringResource("failure.pull.conflicts", defaultValue: "Pull stopped on conflicts", bundle: .module) : LocalizedStringResource("failure.pull.failed", defaultValue: "Pull failed", bundle: .module), actions: [], in: repository)
+            await prompter.reportUnlessStopped(error, title: LocalizedStringResource("failure.pull.failed", defaultValue: "Pull failed", bundle: .module), stop: .pull, actions: [], in: repository)
         }
         return false
     }

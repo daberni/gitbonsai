@@ -18,7 +18,7 @@ struct ActionRunner {
     /// The tab is refreshed after a failure too: a conflicting apply or pop has changed the working tree.
     /// When local changes stopped the command before it changed anything, the failure offers to stash them, run it again and bring them back.
     /// `focus` is the history's selection after a successful run. `undo` names what a local operation may move, so the status line can offer to undo it.
-    func run(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, undo: UndoScope? = nil, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
+    func run(failure: LocalizedStringResource, conflict: ConflictStop? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, undo: UndoScope? = nil, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) {
         Task {
             await perform(failure: failure, conflict: conflict, note: note, focus: focus, undo: undo, then: then, operation)
             then?()
@@ -28,7 +28,7 @@ struct ActionRunner {
     /// `run` for a caller that waits for the outcome: returns the error so it can offer a way out, such as force; `report` false leaves telling the user to that caller.
     /// `then` runs after a retry with the changes stashed, which ends after this call.
     @discardableResult
-    func perform(failure: LocalizedStringResource, conflict: LocalizedStringResource? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, report: Bool = true, undo: UndoScope? = nil, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
+    func perform(failure: LocalizedStringResource, conflict: ConflictStop? = nil, note: String, focus: GraphViewModel.Focus = .keepSelection, report: Bool = true, undo: UndoScope? = nil, then: (() -> Void)? = nil, _ operation: @escaping @Sendable (Repository) async throws -> Void) async -> GitError? {
         let repository = context.repository
         do {
             try await context.withUndoPoint(scope: undo, operation: note) { try await operation(repository) }
@@ -38,16 +38,15 @@ struct ActionRunner {
             await context.refresh(note: nil, focus: .keepSelection)
             let gitError = error as? GitError
             if report {
-                let stopped = gitError?.stoppedOnConflict == true
                 let retry = GitFailureText.isBlockedByLocalChanges(error) ? [stashAndRetry(failure: failure, conflict: conflict, note: note, undo: undo, then: then, operation)] : []
-                await prompter.reportUnlessStopped(error, title: stopped ? (conflict ?? failure) : failure, actions: retry, in: repository)
+                await prompter.reportUnlessStopped(error, title: failure, stop: conflict, actions: retry, in: repository)
             }
             return gitError ?? GitError(arguments: [], exitCode: -1, stderr: error.localizedDescription)
         }
     }
 
     /// Runs the operation again with the local changes set aside. If they conflict on the way back, the working directory shows the conflicts and the stash stays; if the operation stops on conflicts itself, they wait in the stash.
-    private func stashAndRetry(failure: LocalizedStringResource, conflict: LocalizedStringResource?, note: String, undo: UndoScope?, then: (() -> Void)?, _ operation: @escaping @Sendable (Repository) async throws -> Void) -> FailureAction {
+    private func stashAndRetry(failure: LocalizedStringResource, conflict: ConflictStop?, note: String, undo: UndoScope?, then: (() -> Void)?, _ operation: @escaping @Sendable (Repository) async throws -> Void) -> FailureAction {
         let message = String(localized: "stash.message.before", defaultValue: "GitBonsai: before \(note)", bundle: .module, comment: "Message of the stash that carries local changes past a command; the argument is the git command.")
         let prompter = prompter
         let carried = String(localized: "stash.message.carriedAlong", defaultValue: "\(note) · local changes carried along in a stash", bundle: .module, comment: "Status line after a command ran with the local changes stashed around it; the argument is the git command.")

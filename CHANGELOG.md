@@ -12,6 +12,8 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 
 ### Changed
 
+- A merge, rebase, cherry-pick, revert, pull or stash that stops on conflicts says so in a toast with the number of conflicted files and selects the working directory, which lists them.
+- The operation banner's conflict count follows staging and unstaging right away, for every kind of operation.
 - The sidebar works with the keyboard like a native list: arrow keys, type-select, Space and Return, with VoiceOver support; expanded sections are remembered across launches.
 - Open in Terminal moves to ⌥⌘T.
 - The "Whole file" diff mode shows the file in a read-only text viewer with old and new line numbers and syntax colours, now also for SCSS, Less, XML (including property lists, SVG, Interface Builder and MSBuild files), Java properties and diff/patch files.

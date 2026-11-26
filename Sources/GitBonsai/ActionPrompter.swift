@@ -16,7 +16,8 @@ protocol Prompting: AnyObject, Sendable {
     func saveLocation(title: LocalizedStringResource, suggestedName: String) async -> URL?
     /// Says what went wrong, as a toast or a sheet; `report` fills in the defaults.
     func reportFailure(_ error: Error, title: LocalizedStringResource, summary: LocalizedStringResource?, actions: [FailureAction])
-    func reportUnlessStopped(_ error: Error, title: LocalizedStringResource, actions: [FailureAction], in repository: Repository) async
+    /// Selects the working directory, where the conflicted files are listed.
+    func showConflicts()
     func reportConflictingReturn(of stash: String)
     func showSheet(title: LocalizedStringResource, summary: LocalizedStringResource, details: String?, actions: [FailureAction])
     func toast(_ text: RefString, action: ToastAction?)
@@ -31,6 +32,20 @@ extension Prompting {
 
     func toast(_ text: RefString) {
         toast(text, action: nil)
+    }
+
+    /// Reports a failure, or, when the command stopped on conflicts, says so in a toast with their number and selects the working directory with the conflicted files.
+    /// `stop` names what stopped; without it, the operation git is in the middle of names it. An operation still in progress also shows in the banner.
+    func reportUnlessStopped(_ error: Error, title: LocalizedStringResource, stop: ConflictStop? = nil, actions: [FailureAction], in repository: Repository) async {
+        guard (error as? GitError)?.stoppedOnConflict == true else {
+            report(error, title: title, actions: actions)
+            return
+        }
+        let count = (try? await repository.status())?.conflicted.count ?? 0
+        let operation = await repository.operationInProgress()
+        let text = (stop ?? operation.map { .operation($0.kind) }).map { RefString($0.title(count: count)) } ?? RefString(title)
+        toast(text, action: showConflictsAction)
+        showConflicts()
     }
 }
 
@@ -83,7 +98,7 @@ final class ActionPrompter: Prompting {
     }
 
     var showConflictsAction: ToastAction {
-        ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { [weak self] in self?.onShowConflicts?() }
+        ToastAction(title: LocalizedStringResource("failure.toast.showConflicts", defaultValue: "Show conflicts", bundle: .module)) { [weak self] in self?.showConflicts() }
     }
 
     /// Says what went wrong. A failure that changed nothing and needs no decision, such as an unreachable server, is a toast whose "Details" opens the sheet;
@@ -100,15 +115,8 @@ final class ActionPrompter: Prompting {
         showSheet(title: .verbatim(title), summary: .verbatim(sentence), details: details, actions: actions)
     }
 
-    /// A rebase, cherry-pick, revert or merge that stopped on conflicts is a state, not an error: the banner and the conflict list show it, so only other failures are reported.
-    /// A stash that applied with conflicts leaves no operation behind; the working directory shows the conflicts, and a toast leads there.
-    func reportUnlessStopped(_ error: Error, title: LocalizedStringResource, actions: [FailureAction], in repository: Repository) async {
-        if (error as? GitError)?.stoppedOnConflict == true {
-            if await repository.operationInProgress() != nil { return }
-            toast(RefString(title), action: showConflictsAction)
-            return
-        }
-        report(error, title: title, actions: actions)
+    func showConflicts() {
+        onShowConflicts?()
     }
 
     /// Changes set aside for a command conflicted when they came back: the working directory shows the conflicts, and the stash named `stash` stays.
