@@ -7,6 +7,7 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 ### Fixed
 
 - The Remove Worktree sheet shows the worktree and the “Also delete branch” checkbox on their own lines, and the message box of the Squash sheet opens at its first line with an inset, growing with the message before it scrolls.
+- A branch whose upstream was deleted on the remote no longer offers Delete Branches…, which would only have deleted the local branch.
 
 ## [0.2.0] - 2026-11-26
 

@@ -113,11 +113,11 @@ final class BranchActions {
         ref.kind == .localBranch && !ref.isHead && viewModel.branchesInOtherWorktrees[ref.fullName] == nil
     }
 
-    /// A remote has a branch of that name, or the branch tracks one.
+    /// A remote-tracking branch exists for the branch's upstream or under its name on any remote, as `branchDeletion(of:)` collects them; an upstream that is gone does not count.
     private func hasRemoteCounterpart(_ ref: Ref) -> Bool {
-        ref.upstream != nil || viewModel.refs.contains { candidate in
+        viewModel.refs.contains { candidate in
             guard case .remoteBranch(let remote) = candidate.kind else { return false }
-            return candidate.name == "\(remote)/\(ref.name)"
+            return candidate.name == ref.upstream || candidate.name == "\(remote)/\(ref.name)"
         }
     }
 

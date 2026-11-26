@@ -160,6 +160,17 @@ final class MenuBuilderTests: XCTestCase {
         XCTAssertNotNil(menu.entry("Delete old"))
     }
 
+    /// "Delete Branches…" needs a remote branch to delete; a configured upstream that was deleted on the remote and pruned does not count.
+    func testDeleteBranchesNeedsAnExistingRemoteBranch() async throws {
+        XCTAssertNotNil(tab.menus.menu(for: .branch(try tab.ref("feature")), in: .sidebar).entry("Delete Branches…"))
+        try fixture.origin.git("branch", "-D", "feature")
+        try fixture.repo.git("fetch", "-q", "--prune", "origin")
+        await tab.model.refresh(note: nil)
+        let feature = try tab.ref("feature")
+        XCTAssertEqual(feature.upstream, "origin/feature", "the upstream stays configured")
+        XCTAssertNil(tab.menus.menu(for: .branch(feature), in: .sidebar).entry("Delete Branches…"))
+    }
+
     func testRemoteMenuNamesItsGitCommands() {
         let menu = tab.menus.menu(for: .remote("origin"), in: .sidebar)
         XCTAssertEqual(menu.outline, [["Edit Remote…"], ["Remove Remote"]])
