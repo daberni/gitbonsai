@@ -77,6 +77,41 @@ final class SnapshotTests: XCTestCase {
     }
 
     /// The "Create Tag" form as the commit menu opens it, filled in.
+    /// The command bar over the conflict view of a rebase that stopped: it opens below the operation banner, as it opens below the history header, never under the window's title bar.
+    func testCommandBarOverConflictView() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-conflict", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        let repo = try FixtureRepo(at: folder)
+        let date = "2024-01-01T08:00:00+0000"
+        try repo.write("Leaves.swift", "let color = \"green\"\n")
+        _ = try repo.git(["add", "-A"], date: date)
+        _ = try repo.git(["commit", "-q", "-m", "Plant the seed"], date: date)
+        _ = try repo.git(["checkout", "-q", "-b", "feature/leaves"])
+        try repo.write("Leaves.swift", "let color = \"red\"\n")
+        _ = try repo.git(["commit", "-q", "-am", "Colour the leaves red"], date: date)
+        _ = try repo.git(["checkout", "-q", "main"])
+        try repo.write("Leaves.swift", "let color = \"gold\"\n")
+        _ = try repo.git(["commit", "-q", "-am", "Colour the leaves gold"], date: date)
+        _ = try repo.git(["checkout", "-q", "feature/leaves"])
+        _ = try? repo.git(["rebase", "main"], date: date)
+        for (name, look) in Self.looks {
+            let (fixture, controller, window) = try await tab(in: repo, appearance: look)
+            controller.showConflict("Leaves.swift")
+            try await waitUntil { controller.historyPane.current === controller.conflicts.view }
+            try await settle()
+            let bar = CommandBarController(persistence: fixture.context.app.persistence)
+            bar.open(in: window, commands: [Command(id: "probe", title: .verbatim("Open in Editor"), glyph: .symbol("chevron.left.forwardslash.chevron.right"), context: "repo · Visual Studio Code") {}])
+            let panel = try XCTUnwrap(window.contentView?.subviews.compactMap { ($0 as? CommandBarOverlay)?.panel }.first)
+            window.contentView?.layoutSubtreeIfNeeded()
+            let paneTop = controller.historyPane.convert(controller.historyPane.bounds, to: nil).maxY
+            let panelTop = panel.convert(panel.bounds, to: nil).maxY
+            XCTAssertLessThan(panelTop, paneTop, "The command bar must open inside the history column, below toolbar and banner")
+            try Snapshot.assert(controller.view, named: "commandBar-conflict-\(name)")
+            bar.close()
+            window.close()
+        }
+    }
+
     func testCreateTagForm() async throws {
         let repo = try repository()
         for (name, look) in Self.looks {

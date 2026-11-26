@@ -61,19 +61,31 @@ final class CommandBarController: NSObject, NSTableViewDataSource, NSTableViewDe
         window.makeFirstResponder(panel.search.field)
     }
 
-    /// The panel's distance from the top of `host`: below the visible history header with a gap, so the header stays readable; without a history, below the top of the content.
+    /// The panel's distance from the top of `host`: below the visible history header with a gap, so the header stays readable; when the history column shows a diff or the conflict view instead, below the top of that column, so toolbar and operation banner stay readable; without either, below the window's title bar and tabs.
     private static func top(in host: NSView) -> CGFloat {
         host.layoutSubtreeIfNeeded()
-        guard let header = visibleHistoryHeader(in: host) else { return Theme.CommandBar.topGap }
-        let frame = header.convert(header.bounds, to: host)
-        let bottom = host.isFlipped ? frame.maxY : host.bounds.height - frame.minY
-        return bottom + Theme.CommandBar.topGap
+        if let header = visible(HistoryHeaderView.self, in: host) {
+            return distance(fromTopOf: host, to: header, edge: .bottom) + Theme.CommandBar.topGap
+        }
+        if let pane = visible(HistoryPaneView.self, in: host) {
+            return distance(fromTopOf: host, to: pane, edge: .top) + Theme.CommandBar.topGap
+        }
+        let titleBar = host.window.map { $0.frame.height - $0.contentLayoutRect.maxY } ?? 0
+        return titleBar + Theme.CommandBar.topGap
     }
 
-    private static func visibleHistoryHeader(in view: NSView) -> HistoryHeaderView? {
-        if let header = view as? HistoryHeaderView, !header.isHiddenOrHasHiddenAncestor, header.window != nil { return header }
+    private enum Edge { case top, bottom }
+
+    private static func distance(fromTopOf host: NSView, to view: NSView, edge: Edge) -> CGFloat {
+        let frame = view.convert(view.bounds, to: host)
+        let upper = host.isFlipped ? frame.minY : host.bounds.height - frame.maxY
+        return edge == .top ? upper : upper + frame.height
+    }
+
+    private static func visible<View: NSView>(_ type: View.Type, in view: NSView) -> View? {
+        if let match = view as? View, !match.isHiddenOrHasHiddenAncestor, match.window != nil { return match }
         for subview in view.subviews where !subview.isHidden {
-            if let header = visibleHistoryHeader(in: subview) { return header }
+            if let match = visible(type, in: subview) { return match }
         }
         return nil
     }

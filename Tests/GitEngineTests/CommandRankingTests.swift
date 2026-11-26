@@ -37,6 +37,19 @@ final class CommandRankingTests: XCTestCase {
         XCTAssertEqual(ids(CommandRanking.rank(candidates, query: "pul", recent: [])), ["pull", "stash-apply"])
     }
 
+    /// The command bar passes each entry's context (repository, remote or app name) as a keyword, so a subtitle is searchable, while a title match of the same word still comes first.
+    func testSubtitlesMatchBelowTitles() throws {
+        let candidates = [
+            CommandRanking.Candidate(id: "editor", title: "Open in Editor", keywords: ["tour-android · Visual Studio Code"]),
+            CommandRanking.Candidate(id: "terminal", title: "Open in Terminal", keywords: ["tour-android · Ghostty"]),
+            CommandRanking.Candidate(id: "fetch", title: "Fetch origin", keywords: ["origin"]),
+            CommandRanking.Candidate(id: "code", title: "Copy Code Path"),
+        ]
+        XCTAssertEqual(ids(CommandRanking.rank(candidates, query: "ghostty", recent: [])), ["terminal"])
+        XCTAssertEqual(ids(CommandRanking.rank(candidates, query: "code", recent: [])), ["code", "editor"])
+        XCTAssertEqual(ids(CommandRanking.rank(candidates, query: "tour", recent: [])), ["editor", "terminal"])
+    }
+
     func testKeywordsMatchWithoutHighlightingTheTitle() throws {
         let candidates = [CommandRanking.Candidate(id: "terminal", title: "Im Terminal öffnen", keywords: ["shell", "iTerm"])]
         let result = try XCTUnwrap(CommandRanking.rank(candidates, query: "shell", recent: []).first)

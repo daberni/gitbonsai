@@ -48,7 +48,7 @@ final class RepositoryViewController: NSObject {
     let tagActions: TagActions
     let stashActions: StashActions
     /// The history column shows the graph, or the diff or conflict view of one file in its place.
-    let historyPane = ContainerView()
+    let historyPane = HistoryPaneView()
     /// Detail panel, and below it the commit form for the working directory.
     var rightColumn: ColumnWithBottomBar!
     var split: PanelSplitView!

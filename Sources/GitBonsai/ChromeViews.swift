@@ -92,3 +92,6 @@ final class ColumnWithBottomBar: NSView {
         contentToBar.isActive = showsBar
     }
 }
+
+/// The history column's content area, which shows the history, a diff or the conflict view; the command bar opens below its top when no history header is visible.
+final class HistoryPaneView: ContainerView {}
