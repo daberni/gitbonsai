@@ -49,6 +49,7 @@ final class HistoryColumnsController: NSObject {
         let automatic = Theme.Graph.firstLane + CGFloat(min(laneCount, Theme.Graph.maxVisibleLanes)) * Theme.Graph.lane
         updated.graph = chosenGraphWidth ?? automatic
         updated.graphScrollX = min(max(updated.graphScrollX, 0), max(graphContentWidth - updated.graph, 0))
+        updated.graphContentWidth = graphContentWidth
         header.graphContentWidth = graphContentWidth
         apply(updated)
     }

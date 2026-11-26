@@ -7,6 +7,7 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 ### Added
 
 - Reopen closed tab (⇧⌘T) brings back the most recently closed repository tab at its old place; repeated presses go further back.
+- When the graph is wider than its column, author pictures of lanes out of view stay pinned, dimmed, at the left and right edge of the graph instead of scrolling away.
 
 ### Changed
 

@@ -167,5 +167,12 @@ extension Theme {
         /// Working directory counters: glyph to number, and one counter to the next.
         static let counterGap: CGFloat = 5
         static let counterSpacing: CGFloat = 14
+        /// The strip that holds avatars of lanes out of view: room around the avatar, and the width of its shadow over the graph.
+        static let pinStripPadding = Space.xs
+        static let pinStripWidth = nodeDiameter + 2 * pinStripPadding
+        static let pinShadowWidth: CGFloat = 10
+        /// A pinned avatar stands back from the commits whose lanes are in view.
+        static let pinnedAvatarAlpha: CGFloat = 0.55
+        @MainActor static let pinShadow = dynamic(0x2a241e, 0x000000, lightAlpha: 0x1f / 255, darkAlpha: 0x8c / 255)
     }
 }

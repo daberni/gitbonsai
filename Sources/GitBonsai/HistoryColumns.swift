@@ -57,6 +57,8 @@ struct HistoryColumns: Equatable {
     var hidden: Set<Column> = []
     /// How far the graph is scrolled to the left inside its column.
     var graphScrollX: CGFloat = 0
+    /// Width the graph needs to show every lane; wider than `graph` when the graph scrolls.
+    var graphContentWidth: CGFloat = 0
 
     static let standard = HistoryColumns(hidden: [.sha])
 
@@ -89,6 +91,39 @@ struct HistoryColumns: Equatable {
             edge -= self.width(of: column)
         }
         return Layout(label: label, graph: graph, commit: x...max(edge, x), author: ranges[.author], sha: ranges[.sha], date: ranges[.date])
+    }
+
+    /// The strips at both ends of the lanes that keep avatars of lanes out of view; nil while the whole graph fits its column.
+    struct AvatarStrips: Equatable {
+        var left: ClosedRange<CGFloat>
+        var right: ClosedRange<CGFloat>
+        /// Each strip fades in over its own width of scrolling, so it neither shows at its end of the scroll range nor appears at once.
+        var leftOpacity: CGFloat
+        var rightOpacity: CGFloat
+    }
+
+    func avatarStrips(lanes: ClosedRange<CGFloat>) -> AvatarStrips? {
+        let maxScroll = graphContentWidth - graph
+        guard maxScroll > 0 else { return nil }
+        let width = Theme.Graph.pinStripWidth
+        let fade = { (distance: CGFloat) in min(max(distance / width, 0), 1) }
+        return AvatarStrips(left: lanes.lowerBound...(lanes.lowerBound + width), right: (lanes.upperBound - width)...lanes.upperBound, leftOpacity: fade(graphScrollX), rightOpacity: fade(maxScroll - graphScrollX))
+    }
+
+    /// Centre of an avatar drawn above the strips, or nil when it is drawn on its lane below them. An avatar slides into a strip on its lane and stops at the strip's centre, so nothing jumps.
+    static func pinnedAvatarX(nodeX: CGFloat, strips: AvatarStrips?) -> CGFloat? {
+        guard let strips else { return nil }
+        let radius = Theme.Graph.nodeRadius
+        guard nodeX - radius < strips.left.upperBound || nodeX + radius > strips.right.lowerBound else { return nil }
+        let leftCentre = (strips.left.lowerBound + strips.left.upperBound) / 2
+        let rightCentre = (strips.right.lowerBound + strips.right.upperBound) / 2
+        return min(max(nodeX, leftCentre), rightCentre)
+    }
+
+    /// Opacity of an avatar above a strip: full while it still follows its lane, dimmed further the further its lane has run past, so it fades instead of switching.
+    static func pinnedAvatarAlpha(nodeX: CGFloat, pinnedX: CGFloat) -> CGFloat {
+        let progress = min(abs(nodeX - pinnedX) / Theme.Graph.pinStripWidth, 1)
+        return 1 - progress * (1 - Theme.Graph.pinnedAvatarAlpha)
     }
 
     /// Moves the boundary of `column` to `x`. Every column keeps its minimum, and the commit text keeps its own.

@@ -64,6 +64,30 @@ final class SnapshotTests: XCTestCase {
         }
     }
 
+    /// Eight branches side by side in a graph column that shows five lanes, scrolled right: avatars of lanes out of view stay pinned in the strip at its right end.
+    func testHistoryWithPinnedAvatars() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-lanes", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        let repo = try FixtureRepo(at: folder)
+        _ = try repo.commit("Plant the seed", date: "2024-01-01T00:00:00+0000")
+        for branch in 1...8 {
+            _ = try repo.git(["checkout", "-q", "-b", "branch-\(branch)", "main"])
+            try repo.write("b\(branch).txt", "\(branch)\n")
+            _ = try repo.git(["add", "-A"], date: "2024-01-01T0\(branch):00:00+0000")
+            _ = try repo.git(["commit", "-q", "-m", "Grow branch \(branch)"], date: "2024-01-01T0\(branch):00:00+0000")
+        }
+        _ = try repo.git(["checkout", "-q", "main"])
+        for (name, look) in Self.looks {
+            let (_, controller, window) = try await tab(in: repo, appearance: look)
+            let columns = controller.history.columnsController
+            let graph = try XCTUnwrap(columns.columns.layout(in: window.frame.width).graph)
+            _ = columns.scrollGraph(by: -2 * Theme.Graph.lane, at: NSPoint(x: graph.lowerBound + 1, y: 0))
+            try await settle()
+            try Snapshot.assert(controller.view, named: "history-pinned-avatars-\(name)")
+            window.close()
+        }
+    }
+
     func testDiffOfACommit() async throws {
         let repo = try repository()
         for (name, look) in Self.looks {

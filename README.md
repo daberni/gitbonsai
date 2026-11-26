@@ -20,6 +20,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 ### History and graph
 
 - One graph for the whole history: branches, merges and stashes in lanes, laid out in a single pass — 100,000 commits in about a tenth of a second.
+- A graph wider than its column scrolls sideways, and author pictures of lanes out of view stay pinned at its edges.
 - Three history orders: by commit date, by author date, or branches kept together. Choose it in the column header or in Settings.
 - **Go to Ref…** (⇧⌘O) jumps to any branch, remote branch, tag, worktree or stash; ⌥⏎ checks it out.
 - **Go to parent or child** with ⌘↓ and ⌘↑; a picker opens when there are several.

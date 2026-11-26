@@ -109,15 +109,21 @@ final class GraphRowView: NSView {
             stroke(context, from: laneX(edge.fromLane), to: laneX(target), startY: midY, color: isWipStrand ? Theme.inkMuted : Self.color(of: edge, kind: model.kind, row: model.row), dashed: dashed)
         }
         let nodeCenter = CGPoint(x: nodeX, y: midY)
+        let strips = model.columns.avatarStrips(lanes: lanesRect.minX...lanesRect.maxX)
+        let pinnedX = model.kind == .commit ? HistoryColumns.pinnedAvatarX(nodeX: nodeX, strips: strips) : nil
         if model.isSearchMiss { eraseStrands(context, under: nodeCenter, model: model) }
-        beginDimming(context, model)
-        drawNode(context, at: nodeCenter, strand: strand, model: model)
-        endDimming(context, model)
+        // An avatar that reaches a strip is drawn only above it, so no copy stays under the strip.
+        if pinnedX == nil {
+            beginDimming(context, model)
+            drawNode(context, at: nodeCenter, strand: strand, model: model)
+            endDimming(context, model)
+        }
+        if let strips { drawPinStrips(context, strips, band: nodeX < barX ? max(nodeX, graphRect.minX)...barX : nil, bandColor: bandColor, midY: midY, nodeX: nodeX, pinnedX: pinnedX, strand: strand, model: model) }
         context.restoreGState()
 
         beginDimming(context, model)
         defer { endDimming(context, model) }
-        let nodeEdge = nodeX - Self.nodeExtent(model.kind)
+        let nodeEdge = (pinnedX ?? nodeX) - Self.nodeExtent(model.kind)
         let pillsEnd = layout.label.flatMap { drawPills(context, model: model, strand: strand, midY: midY, labelEnd: $0.upperBound) }
         if let pillsEnd, nodeEdge > pillsEnd {
             context.setStrokeColor(strand.cgColor)
@@ -177,7 +183,7 @@ final class GraphRowView: NSView {
 
     // MARK: Node
 
-    private func drawNode(_ context: CGContext, at center: CGPoint, strand: NSColor, model: Model) {
+    func drawNode(_ context: CGContext, at center: CGPoint, strand: NSColor, model: Model) {
         switch model.kind {
         case .commit:
             let rect = CGRect(x: center.x - G.nodeRadius, y: center.y - G.nodeRadius, width: G.nodeRadius * 2, height: G.nodeRadius * 2)
