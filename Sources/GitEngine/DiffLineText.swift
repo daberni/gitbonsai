@@ -16,11 +16,14 @@ public enum DiffLineText {
         public let text: String
         /// Inside the changed part of a changed line pair.
         public let emphasized: Bool
+        /// The caller's style of this text, such as a syntax colour; nil for plain text.
+        public let style: Int?
 
-        public init(kind: Kind, text: String, emphasized: Bool = false) {
+        public init(kind: Kind, text: String, emphasized: Bool = false, style: Int? = nil) {
             self.kind = kind
             self.text = text
             self.emphasized = emphasized
+            self.style = style
         }
     }
 
@@ -37,6 +40,8 @@ public enum DiffLineText {
         /// The changed part, in Unicode scalars of the line's text.
         public var emphasis: Range<Int>?
         public var tabWidth: Int
+        /// Styles of stretches of the text, in Unicode scalars; text outside them is plain.
+        public var styles: [StyledRange] = []
 
         public init(showsInvisibles: Bool, isChanged: Bool = false, isFileStart: Bool = false, marksCarriageReturn: Bool = false, carriageReturnEmphasized: Bool = false, emphasis: Range<Int>? = nil, tabWidth: Int = 4) {
             self.showsInvisibles = showsInvisibles
@@ -46,6 +51,17 @@ public enum DiffLineText {
             self.carriageReturnEmphasized = carriageReturnEmphasized
             self.emphasis = emphasis
             self.tabWidth = tabWidth
+        }
+    }
+
+    /// A stretch of a line's text, in Unicode scalars, with the caller's style.
+    public struct StyledRange: Sendable, Hashable {
+        public let range: Range<Int>
+        public let style: Int
+
+        public init(range: Range<Int>, style: Int) {
+            self.range = range
+            self.style = style
         }
     }
 
@@ -84,6 +100,10 @@ public enum DiffLineText {
         let scalars = Array(text.unicodeScalars)
         let marksWhitespace = options.showsInvisibles && options.isChanged
         let trailingStart = marksWhitespace ? (scalars.lastIndex { $0 != " " && $0 != "\t" }.map { $0 + 1 } ?? 0) : scalars.count
+        var styleOf = [Int?](repeating: nil, count: options.styles.isEmpty ? 0 : scalars.count)
+        for styled in options.styles {
+            for index in styled.range.clamped(to: 0..<scalars.count) { styleOf[index] = styled.style }
+        }
         var builder = Builder()
         for (index, scalar) in scalars.enumerated() {
             let emphasized = options.emphasis?.contains(index) ?? false
@@ -110,7 +130,7 @@ public enum DiffLineText {
             } else if let name = invisibleNames[value], options.showsInvisibles {
                 builder.append(.badge, name, emphasized)
             } else {
-                builder.append(.text, String(scalar), emphasized)
+                builder.append(.text, String(scalar), emphasized, style: styleOf.isEmpty ? nil : styleOf[index])
             }
         }
         if options.marksCarriageReturn { builder.append(.marker, "␍", options.carriageReturnEmphasized) }
@@ -126,11 +146,11 @@ public enum DiffLineText {
     private struct Builder {
         var runs: [Run] = []
 
-        mutating func append(_ kind: Run.Kind, _ text: String, _ emphasized: Bool) {
-            if kind != .badge, let last = runs.last, last.kind == kind, last.emphasized == emphasized {
-                runs[runs.count - 1] = Run(kind: kind, text: last.text + text, emphasized: emphasized)
+        mutating func append(_ kind: Run.Kind, _ text: String, _ emphasized: Bool, style: Int? = nil) {
+            if kind != .badge, let last = runs.last, last.kind == kind, last.emphasized == emphasized, last.style == style {
+                runs[runs.count - 1] = Run(kind: kind, text: last.text + text, emphasized: emphasized, style: style)
             } else {
-                runs.append(Run(kind: kind, text: text, emphasized: emphasized))
+                runs.append(Run(kind: kind, text: text, emphasized: emphasized, style: style))
             }
         }
     }

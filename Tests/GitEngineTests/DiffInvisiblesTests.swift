@@ -182,4 +182,13 @@ final class DiffInvisiblesTests: XCTestCase {
         XCTAssertEqual(added.kind, .added)
         XCTAssertEqual(added.text, "\u{0301}e")
     }
+
+    /// Styles count scalars of the text, so a tab expanded to spaces or a character outside the BMP never shifts a colour onto its neighbour.
+    func testStylesFollowScalarsAcrossTabsAndWideCharacters() {
+        var options = DiffLineText.Options(showsInvisibles: false, tabWidth: 2)
+        options.styles = [DiffLineText.StyledRange(range: 3..<6, style: 1)]
+        let runs = DiffLineText.runs("\t😀 let x", options: options)
+        XCTAssertEqual(runs.map(\.text), ["  😀 ", "let", " x"])
+        XCTAssertEqual(runs.map(\.style), [nil, 1, nil])
+    }
 }

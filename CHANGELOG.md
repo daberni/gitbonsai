@@ -8,6 +8,7 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 
 - Reopen closed tab (⇧⌘T) brings back the most recently closed repository tab at its old place; repeated presses go further back.
 - When the graph is wider than its column, author pictures of lanes out of view stay pinned, dimmed, at the left and right edge of the graph instead of scrolling away.
+- Diffs colour their hunks with syntax highlighting, taken from the whole file so strings and comments that start outside a hunk keep their colour.
 
 ### Changed
 

@@ -59,6 +59,8 @@ final class DiffViewController: NSObject, NSTableViewDataSource, NSTableViewDele
     var hunkStarts: [Int] = []
     var rows: [Row] = []
     var loadTask: Task<Void, Never>?
+    /// Parses both versions of the shown file for the hunks' syntax colours.
+    var syntaxTask: Task<Void, Never>?
     /// The read under way and what it does once it is in.
     var pending: PendingLoad?
 

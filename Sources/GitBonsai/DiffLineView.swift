@@ -79,7 +79,8 @@ final class DiffLineView: NSView {
         typealias D = Theme.Diff
         switch run.kind {
         case .text, .marker:
-            let color = run.kind == .text ? Theme.ink : Theme.inkFaint
+            let token = run.style.flatMap(DiffSyntax.token(ofStyle:))
+            let color = run.kind == .text ? token.map(Theme.Syntax.color) ?? Theme.ink : Theme.inkFaint
             var attributes: [NSAttributedString.Key: Any] = [.font: Theme.mono, .foregroundColor: color]
             if struck { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
             let text = NSAttributedString(string: run.text, attributes: attributes)

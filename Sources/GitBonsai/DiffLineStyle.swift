@@ -10,6 +10,8 @@ struct DiffLineStyle {
     private var fileChanges: [Int: IntralineChange] = [:]
     /// Set when every line only changed its ending; one notice replaces the markers on each line.
     private var lineEndingConversion: (from: LineEnding, to: LineEnding)?
+    /// Syntax colours of the hunks' lines, once both versions of the file are parsed.
+    var syntax: DiffSyntax?
 
     init(options: DiffOptions) {
         self.options = options
@@ -20,6 +22,7 @@ struct DiffLineStyle {
         hunkChanges = diff?.hunks.map { IntralineDiff.changes(in: $0.lines) } ?? []
         fileChanges = IntralineDiff.changes(in: fileLines)
         lineEndingConversion = diff?.lineEndingConversion
+        syntax = nil
     }
 
     var notice: String? {
@@ -42,7 +45,12 @@ struct DiffLineStyle {
     }
 
     private func content(_ line: DiffLine, change: IntralineChange?) -> DiffLineView.Content {
-        guard !line.segments.isEmpty else { return DiffLineView.Content(line: line, runs: DiffLineText.runs(line.text, options: textOptions(for: line, change: change))) }
+        guard !line.segments.isEmpty else {
+            var options = textOptions(for: line, change: change)
+            options.styles = syntax?.styles(of: line) ?? []
+            return DiffLineView.Content(line: line, runs: DiffLineText.runs(line.text, options: options))
+        }
+        // Word diff lines mix both versions and stay without syntax colours.
         // A word diff line that kept some words: each changed word is emphasized on its own, in the colour of its side.
         let words = line.segments.map { segment in
             var options = textOptions(for: line, change: nil)

@@ -36,7 +36,7 @@ GitBonsai is a native macOS Git client built around the commit graph. It shows t
 
 ### Diff
 
-- Diff or whole file, remembered across files. The whole file shows in a read-only text viewer with old and new line numbers, syntax highlighting (Swift, C, C++, C#, Go, Rust, Java, Kotlin, JavaScript, JSX, TypeScript, TSX, Python, Ruby, PHP, Bash, JSON, CSS, SCSS, Less, HTML, XML, YAML, Java properties, Markdown, Diff/Patch), find in the file (⌘F, ⌘G, ⇧⌘G) and go to line (⌘L).
+- Diff or whole file, remembered across files, both with syntax colours. The whole file shows in a read-only text viewer with old and new line numbers, syntax highlighting (Swift, C, C++, C#, Go, Rust, Java, Kotlin, JavaScript, JSX, TypeScript, TSX, Python, Ruby, PHP, Bash, JSON, CSS, SCSS, Less, HTML, XML, YAML, Java properties, Markdown, Diff/Patch), find in the file (⌘F, ⌘G, ⇧⌘G) and go to line (⌘L).
 - Word diff, ignore whitespace, ignore changes in whitespace amount, ignore blank lines, and invisible characters (tabs, trailing spaces, CR, BOM, non-breaking spaces).
 - Image diff side by side, as a swipe or as an onion skin, for PNG, JPEG, GIF, WebP, HEIC, TIFF, SVG, PDF and more.
 - Open a file in your diff tool, editor or default app.

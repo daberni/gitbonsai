@@ -175,9 +175,23 @@ extension DiffViewController {
         column.minWidth = contentWidth()
         table.reloadData()
         fitEmbeddedHeight()
+        highlightHunks(selection: selection, show: !showsFile && empty == nil)
         // The whole file opens where its first change is.
         if case .start(let sideways) = scrolling {
             if showsFile { fileViewer.scrollToTop(line: hunkStarts.first ?? 0, resettingSideways: sideways) } else { scrollToTop(row: 0, resettingSideways: sideways) }
+        }
+    }
+
+    /// Colours the hunks' lines once both versions are parsed; until then they show plain.
+    private func highlightHunks(selection: FileSelection, show: Bool) {
+        syntaxTask?.cancel()
+        guard show, let shown else { return }
+        let repository = self.repository()
+        syntaxTask = Task { [weak self] in
+            let syntax = await Task.detached(priority: .userInitiated) { await DiffSyntax.load(shown, path: selection.path, source: selection.source, from: repository) }.value
+            guard let self, !Task.isCancelled, let syntax, self.selection == selection else { return }
+            style.syntax = syntax
+            table.reloadData()
         }
     }
 
