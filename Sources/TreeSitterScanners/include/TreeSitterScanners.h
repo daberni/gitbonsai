@@ -1,0 +1,1 @@
+// The external scanners of the CSS, JavaScript, Python and YAML grammars. Their packages add scanner.c only when the manifest's working directory is the package itself, which is not the case for a dependency, so the scanners are compiled here.

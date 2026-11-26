@@ -9,12 +9,15 @@ See also: [Feature overview](feature-overview.md) · [Screens](screens.md) · [F
 | Engine | `GitEngine` | Foundation | Process runner, models, parsers, the `Repository` facade, file watching, command rules, commit search |
 | Layout | `GraphLayout` | `GitEngine` | Incremental lane layout of the commit graph, row diffs for in-place refreshes; pure functions over `Commit` values |
 | Avatars | `Avatars` | Foundation | Author avatars from the remote host (GitHub, GitLab) or Gravatar, with memory and disk caches |
-| App | `GitBonsai` | all three, AppKit | Windows and tabs, history, diff, sidebar, sheets, settings, command bar; the string catalog and assets; `main.swift` builds the `AppContext` |
-| Benchmarks | `Benchmarks` | `GitEngine`, `GraphLayout` | The performance budgets: engine work in process, the app's paths from its signposts in a launched app |
+| Text | `TextViewerModel` | Foundation, swift-tree-sitter, tree-sitter grammars, `TreeSitterScanners`, the vendored `TreeSitterSCSS`, `TreeSitterXML` and `TreeSitterProperties` | The text viewer's model: decoding and line index (`TextDocument`), line/column selection, find, syntax highlighting by file extension (`SyntaxLanguage`, `SyntaxHighlighter`, an actor that parses once and answers highlights per range) |
+| App | `GitBonsai` | all of the above, CodeEditTextView, AppKit | Windows and tabs, history, diff, sidebar, sheets, settings, command bar; the string catalog and assets; `main.swift` builds the `AppContext` |
+| Benchmarks | `Benchmarks` | `GitEngine`, `GraphLayout`, `TextViewerModel` | The performance budgets: engine work in process, the app's paths from its signposts in a launched app |
 
-Rules: `GitEngine`, `GraphLayout` and `Avatars` import neither AppKit nor SwiftUI. Tests reach the app through `@testable import GitBonsai`; nothing links the app. Every repository read and write is a `git` command run by `GitRunner`; nothing is reimplemented that git itself provides. [git-operations.md](git-operations.md) lists the command behind every operation.
+Rules: `GitEngine`, `GraphLayout`, `Avatars` and `TextViewerModel` import neither AppKit nor SwiftUI. Tests reach the app through `@testable import GitBonsai`; nothing links the app. Every repository read and write is a `git` command run by `GitRunner`; nothing is reimplemented that git itself provides. [git-operations.md](git-operations.md) lists the command behind every operation.
 
 The app is AppKit with SwiftUI for self-contained forms and panels; section 1.1 states the rule.
+
+Text in the app shows through `TextViewer`: CodeEditTextView (MIT) lays out, draws only the visible lines, read-only and for now without selection; the gutter with line numbers or a caller's side column (`TextViewerSideColumn`) and the washes, marks and invisibles behind the text (`TextViewerDecoration`) are views of their own that follow its line positions, so copy never takes them along. Highlighting parses the file off the main thread and colours the lines in view plus a margin as they scroll in. `TreeSitterScanners` compiles the external scanners of the CSS, JavaScript, Python and YAML grammars, whose manifests leave them out when built as a dependency; `TreeSitterSCSS` vendors the SCSS grammar, which ships no Swift package; the grammars' highlight queries are copied into `TextViewerModel/Resources/queries` at the pinned versions. Third-party licenses are in `THIRD_PARTY_NOTICES.md`, which the app bundle carries.
 
 ### 1.1 AppKit and SwiftUI
 

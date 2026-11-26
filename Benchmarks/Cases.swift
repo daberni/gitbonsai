@@ -1,6 +1,7 @@
 import Foundation
 import GitEngine
 import GraphLayout
+import TextViewerModel
 
 /// The benchmarks with the budget AGENTS.md sets for each. Inputs are built inside each benchmark, so a filtered run prepares only what it measures.
 /// Engine work runs in this process; what the app itself does is measured in the app, from its signposts.
@@ -10,7 +11,7 @@ enum Cases {
     static let changedFiles = 10_000
 
     static var all: [Benchmark] {
-        [historyOpen, layout, search, fileListFirstRows]
+        [historyOpen, layout, search, fileListFirstRows, textOpen, textHighlight]
     }
 
     /// The app opening the synthetic repository with its commit-graph, until the first 300 history rows are laid out (`repository.open`).
@@ -52,5 +53,29 @@ enum Cases {
         }
         benchmark.launchesApp = true
         return benchmark
+    }
+
+    static let largeFileLines = 100_000
+
+    /// Opening a 100k-line file in the text viewer's model: decoding its bytes and indexing its lines, what happens before the first lines can show.
+    private static var textOpen: Benchmark {
+        Benchmark("text.open100k", budget: .milliseconds(100), iterations: 5) { warmup, iterations in
+            let data = Fixtures.largeSourceFile(lines: largeFileLines)
+            return try await Benchmark.clocked("", budget: nil) {
+                _ = TextDocument(data: data)
+            }.run(warmup, iterations)
+        }
+    }
+
+    /// Colours for the first screen of a 100k-line Swift file: tree-sitter parses the whole file off the main thread, then the first 300 lines are queried.
+    private static var textHighlight: Benchmark {
+        Benchmark.timed("text.highlight100k.first300", budget: nil, iterations: 5) {
+            let document = TextDocument(data: Fixtures.largeSourceFile(lines: largeFileLines))
+            let start = ContinuousClock.now
+            guard let highlighter = await SyntaxHighlighter.make(for: document, language: .swift) else { throw FixtureError("no highlighter") }
+            let firstScreen = NSRange(location: 0, length: NSMaxRange(document.range(ofLine: 299)))
+            _ = await highlighter.spans(in: firstScreen)
+            return start.duration(to: .now)
+        }
     }
 }

@@ -33,6 +33,21 @@
       "medianMs" : 14.548041,
       "minMs" : 14.087666,
       "name" : "files.10k.firstRows"
+    },
+    {
+      "budgetMs" : 100,
+      "iterations" : 5,
+      "maxMs" : 18.017458,
+      "medianMs" : 17.551209,
+      "minMs" : 17.248125,
+      "name" : "text.open100k"
+    },
+    {
+      "iterations" : 5,
+      "maxMs" : 255.132458,
+      "medianMs" : 251.794125,
+      "minMs" : 248.777417,
+      "name" : "text.highlight100k.first300"
     }
   ]
 }

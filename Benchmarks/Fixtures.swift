@@ -53,6 +53,20 @@ enum Fixtures {
     }
 
     /// Commits with subjects, bodies and authors like a real history, for the search.
+    /// A Swift source file of `lines` lines in repeating declarations, comments and strings, as a large generated or vendored file would look.
+    static func largeSourceFile(lines: Int) -> Data {
+        var text = ""
+        text.reserveCapacity(lines * 40)
+        for index in 0..<(lines / 5) {
+            text += "/// Entry \(index) of the table.\n"
+            text += "struct Entry\(index): Codable {\n"
+            text += "    let name = \"entry-\(index)\"\n"
+            text += "    var count: Int = \(index * 3)\n"
+            text += "}\n"
+        }
+        return Data(text.utf8)
+    }
+
     static func searchableHistory(count: Int) -> [Commit] {
         (0..<count).map { index in
             commit(String(format: "%040x", index), subject: "Change number \(index) in module \(index % 97)", body: "Body line for commit \(index).\nRefs #\(index % 1000)", author: "Author \(index % 50)", email: "author\(index % 50)@example.com")

@@ -43,6 +43,9 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp $bin/GitBonsai "$app/Contents/MacOS/GitBonsai"
 # Bundle.module looks for SwiftPM's resource bundle in Contents/Resources; it holds en.lproj and de.lproj compiled from Localizable.xcstrings.
 cp -R $bin/GitBonsai_GitBonsai.bundle "$app/Contents/Resources/"
+# The text viewer's highlight queries.
+cp -R $bin/GitBonsai_TextViewerModel.bundle "$app/Contents/Resources/"
+cp $root/THIRD_PARTY_NOTICES.md "$app/Contents/Resources/"
 
 # actool turns the layered Icon Composer document into Assets.car, which macOS 26 renders in every appearance.
 echo "› actool AppIcon.icon"
