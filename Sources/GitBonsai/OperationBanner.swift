@@ -62,7 +62,7 @@ final class OperationBannerController {
         let conflicts = viewModel.status?.conflicted.count ?? 0
         // A merge names what it brings in, a rebase where it replays onto.
         let target = progress.kind == .merge ? progress.commit : progress.onto
-        view.show(text: Self.describe(progress, conflicts: conflicts, ontoName: target.map(name(of:))), conflicts: conflicts, canContinue: conflicts == 0 && !isRunning, canSkip: progress.kind.canSkip, canAmend: isEditStop, isEnabled: !isRunning)
+        view.show(text: { [weak self] limit in Self.describe(progress, conflicts: conflicts, ontoName: target.map { self?.name(of: $0, limit: limit) ?? RefString(marked: RefName.commit($0)) }, nameLimit: limit) }, conflicts: conflicts, canContinue: conflicts == 0 && !isRunning, canSkip: progress.kind.canSkip, canAmend: isEditStop, isEnabled: !isRunning)
         view.isHidden = false
     }
 
@@ -71,14 +71,22 @@ final class OperationBannerController {
         if case .edit? = progress?.stop { true } else { false }
     }
 
-    /// "Rebase of feature onto main: step 3 of 7, 2 conflicts", or at an edit stop "Stopped to edit 1a2b3c4 “Subject” · step 3 of 7 · Rebase of feature onto …"
+    /// What the banner says: the operation, which may shorten, and its state, which always shows whole.
+    struct Description {
+        /// "Rebase of feature onto main"
+        let head: RefString
+        /// "Step 3 of 7, 2 conflicts", or at an edit stop "Stopped to edit 1a2b3c4 “Subject” · Step 3 of 7"
+        let state: RefString
+    }
+
     /// The operation's name is git's own word and stays the same in every language.
-    static func describe(_ progress: OperationProgress, conflicts: Int, ontoName: RefString?) -> RefString {
+    /// `nameLimit` shortens branch names and the subject in their middle, so a narrow banner gives up names before it cuts the operation off; 0 leaves only the operation's name.
+    static func describe(_ progress: OperationProgress, conflicts: Int, ontoName: RefString?, nameLimit: Int? = nil) -> Description {
         let label = progress.kind.label
-        let from = progress.branch.map(RefName.branch)
+        let from = progress.branch.map { RefName.branch(shortened($0, to: nameLimit)) }
         let onto = ontoName?.marked
         let commit = progress.commit.map(RefName.commit)
-        let head: RefString = switch progress.kind {
+        let full: RefString = switch progress.kind {
         case .rebase:
             if let from, let onto { RefString(LocalizedStringResource("operation.banner.fromOnto", defaultValue: "\(label) of \(from) onto \(onto)", bundle: .module)) }
             else if let from { RefString(LocalizedStringResource("operation.banner.of", defaultValue: "\(label) of \(from)", bundle: .module)) }
@@ -87,23 +95,30 @@ final class OperationBannerController {
         case .cherryPick, .revert: commit.map { RefString(LocalizedStringResource("operation.banner.of", defaultValue: "\(label) of \($0)", bundle: .module)) } ?? RefString(verbatim: label)
         case .merge: onto.map { RefString(LocalizedStringResource("operation.banner.of", defaultValue: "\(label) of \($0)", bundle: .module)) } ?? RefString(verbatim: label)
         }
+        let head = nameLimit == 0 ? RefString(verbatim: label) : full
         let step = progress.step.flatMap { step in progress.total.map { RefString(LocalizedStringResource("operation.banner.step", defaultValue: "Step \(step) of \($0)", bundle: .module)) } }
         // A stop that waits for the user leads, so a narrow banner still says why it waits. The parts are complete on their own and only listed.
         let stop: RefString? = switch (progress.stop, conflicts) {
-        case let (.edit(commit, subject)?, 0): RefString(LocalizedStringResource("operation.banner.stoppedToEdit", defaultValue: "Stopped to edit \(RefName.commit(commit)) “\(subject)”", bundle: .module))
+        case let (.edit(commit, subject)?, 0): RefString(LocalizedStringResource("operation.banner.stoppedToEdit", defaultValue: "Stopped to edit \(RefName.commit(commit)) “\(shortened(subject, to: nameLimit))”", bundle: .module))
         case let (.exec(command)?, 0): RefString(LocalizedStringResource("operation.banner.execFailed", defaultValue: "“\(command)” failed", bundle: .module))
         default: nil
         }
         if let stop {
-            return RefString(marked: ([stop, step].compactMap { $0 } + [head]).map(\.marked).joined(separator: " · "))
+            return Description(head: head, state: RefString(marked: [stop, step].compactMap { $0 }.map(\.marked).joined(separator: " · ")))
         }
         let open = conflicts == 0 ? RefString(LocalizedStringResource("operation.banner.noConflicts", defaultValue: "no open conflicts", bundle: .module)) : RefString(LocalizedStringResource("operation.banner.conflicts", defaultValue: "\(conflicts) conflicts", bundle: .module))
-        let state = ([step].compactMap { $0 } + [open]).map(\.marked).joined(separator: ", ")
-        return RefString(LocalizedStringResource("operation.banner.status", defaultValue: "\(head.marked): \(state)", bundle: .module))
+        return Description(head: head, state: RefString(marked: ([step].compactMap { $0 } + [open]).map(\.marked).joined(separator: ", ")))
     }
 
-    /// The branch, remote branch or tag at a commit, or its short SHA.
-    func name(of sha: String) -> RefString {
+    /// `text` with its middle replaced by "…" when it is longer than `limit` characters.
+    static func shortened(_ text: String, to limit: Int?) -> String {
+        guard let limit, text.count > limit else { return text }
+        let head = (limit + 1) / 2
+        return String(text.prefix(head)) + "…" + String(text.suffix(max(limit - head, 1)))
+    }
+
+    /// The branch, remote branch or tag at a commit, or its short SHA; `limit` shortens the name as `describe` does.
+    func name(of sha: String, limit: Int? = nil) -> RefString {
         // origin/HEAD only repeats the branch it points at.
         let refs = viewModel.refs.filter { $0.target == sha && !$0.name.hasSuffix("/HEAD") }
         let order: (Ref) -> Int = { ref in
@@ -116,9 +131,9 @@ final class OperationBannerController {
         }
         guard let ref = refs.filter({ order($0) < 3 }).min(by: { order($0) < order($1) }) else { return RefString(marked: RefName.commit(sha)) }
         return switch ref.kind {
-        case .localBranch: RefString(marked: RefName.branch(ref.name))
-        case .tag: RefString(marked: RefName.tag(ref.name))
-        default: RefString(marked: RefName.remoteBranch(ref.name))
+        case .localBranch: RefString(marked: RefName.branch(Self.shortened(ref.name, to: limit)))
+        case .tag: RefString(marked: RefName.tag(Self.shortened(ref.name, to: limit)))
+        default: RefString(marked: RefName.remoteBranch(Self.shortened(ref.name, to: limit)))
         }
     }
 
@@ -173,13 +188,20 @@ final class OperationBannerView: NSView {
 
     private let glyph = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    /// Step and conflict count: never shortened, the operation's names give way first.
+    private let stateLabel = NSTextField(labelWithString: "")
+    /// Takes the free width between the text and the actions.
+    private let spacer = NSView()
+    private let buttons = NSStackView()
+    /// The operation's text gets exactly the width it was fitted to; the label's own measure of name pills runs short.
+    private lazy var labelWidth = label.widthAnchor.constraint(equalToConstant: 0)
     private(set) lazy var amendButton = button(String(localized: "operation.banner.amend", defaultValue: "Amend Commit…", bundle: .module), #selector(amendCommit))
     private(set) lazy var continueButton = button(String(localized: "operation.banner.continue", defaultValue: "Continue", bundle: .module, comment: "Continues a rebase, cherry-pick, revert or merge."), #selector(continueOperation))
     private(set) lazy var skipButton = button(String(localized: "operation.banner.skip", defaultValue: "Skip", bundle: .module, comment: "Skips the current step of a rebase, cherry-pick or revert."), #selector(skipOperation))
     private(set) lazy var abortButton = button(String(localized: "operation.banner.abort", defaultValue: "Abort", bundle: .module, comment: "Aborts a rebase, cherry-pick, revert or merge."), #selector(abortOperation))
     private var hasConflicts = false
 
-    var text: String { RefText.plain(label.stringValue) }
+    var text: String { RefText.plain(label.stringValue) + " · " + RefText.plain(stateLabel.stringValue) }
 
     init() {
         super.init(frame: .zero)
@@ -187,15 +209,21 @@ final class OperationBannerView: NSView {
         label.textColor = Theme.ink
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        // The label takes the free width, so the actions sit at the right end, as in the diff header.
-        label.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+        stateLabel.font = Theme.bodyMedium
+        stateLabel.textColor = Theme.ink
+        stateLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        stateLabel.setContentHuggingPriority(.required, for: .horizontal)
+        // The spacer takes the free width, so the actions sit at the right end, as in the diff header.
+        spacer.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         glyph.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: Theme.Icon.regular, weight: .medium)
         // The way forward is the rightmost button and Abort stands left of it, as Cancel does in macOS dialogs.
-        let buttons = NSStackView(views: [amendButton, skipButton, abortButton, continueButton])
+        buttons.setViews([amendButton, skipButton, abortButton, continueButton], in: .leading)
         buttons.spacing = Theme.OperationBanner.spacing
         buttons.setHuggingPriority(.required, for: .horizontal)
-        let row = NSStackView(views: [glyph, label, buttons])
+        let row = NSStackView(views: [glyph, label, stateLabel, spacer, buttons])
         row.distribution = .fill
+        // Name pills make the operation's line taller than the state's; their text shares one baseline.
+        row.alignment = .firstBaseline
         row.spacing = Theme.OperationBanner.spacing
         row.setHuggingPriority(.defaultLow, for: .horizontal)
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -212,9 +240,16 @@ final class OperationBannerView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func show(text: RefString, conflicts: Int, canContinue: Bool, canSkip: Bool, canAmend: Bool, isEnabled: Bool) {
-        label.setText(text)
-        label.toolTip = text.plain
+    /// The banner's text for a limit on the length of names, nil for full names.
+    private var describe: ((Int?) -> OperationBannerController.Description)?
+
+    func show(text: @escaping (Int?) -> OperationBannerController.Description, conflicts: Int, canContinue: Bool, canSkip: Bool, canAmend: Bool, isEnabled: Bool) {
+        describe = text
+        let full = text(nil)
+        label.toolTip = full.head.plain
+        stateLabel.setText(full.state)
+        shownHead = nil
+        fitText()
         hasConflicts = conflicts > 0
         glyph.image = NSImage(systemSymbolName: hasConflicts ? "exclamationmark.triangle.fill" : "arrow.triangle.branch", accessibilityDescription: nil)
         glyph.contentTintColor = hasConflicts ? Theme.persimmon : Theme.clay
@@ -227,6 +262,33 @@ final class OperationBannerView: NSView {
         amendButton.toolTip = String(localized: "operation.banner.amendToolTip", defaultValue: "Opens the commit form with amend; then Continue", bundle: .module)
         needsDisplay = true
     }
+
+    override func layout() {
+        super.layout()
+        fitText()
+    }
+
+    /// Full names when they fit the width left of the state; otherwise names shortened step by step before the text is cut off.
+    private func fitText() {
+        guard let describe, let font = label.font else { return }
+        // The width left once the glyph, the state and the visible actions have theirs, worked out from the banner's own width so it does not depend on an earlier pass.
+        let visible = [glyph, label, stateLabel, spacer, buttons].filter { !$0.isHidden }
+        let inner = bounds.width - 2 * (Theme.OperationBanner.inset + Theme.OperationBanner.padding)
+        let width = inner - glyph.fittingSize.width - stateLabel.fittingSize.width - buttons.fittingSize.width - CGFloat(visible.count - 1) * Theme.OperationBanner.spacing
+        let heads = Self.nameLimits.lazy.map { describe($0).head }
+        let fitting = bounds.width == 0 ? describe(nil).head : heads.first { RefText.attributed($0, font: font).size().width <= width } ?? describe(Self.nameLimits.last ?? nil).head
+        let needed = ceil(RefText.attributed(fitting, font: font).size().width) + Theme.Space.xs
+        labelWidth.constant = max(min(needed, width), 0)
+        labelWidth.isActive = bounds.width > 0
+        guard fitting.marked != shownHead?.marked else { return }
+        shownHead = fitting
+        label.setText(fitting)
+        // The shorter or longer text changes what the label needs; the next pass places it.
+        needsLayout = true
+    }
+
+    private var shownHead: RefString?
+    private static let nameLimits: [Int?] = [nil, 32, 24, 16, 10, 6, 0]
 
     override func draw(_ dirtyRect: NSRect) {
         let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: Theme.OperationBanner.inset, dy: Theme.OperationBanner.inset), xRadius: Theme.OperationBanner.radius, yRadius: Theme.OperationBanner.radius)

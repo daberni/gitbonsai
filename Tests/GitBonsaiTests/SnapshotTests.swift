@@ -36,13 +36,13 @@ final class SnapshotTests: XCTestCase {
     }
 
     /// A loaded tab in an off-screen window, with the newest commit selected.
-    private func tab(in repo: FixtureRepo, appearance: NSAppearance.Name, prepare: (UserDefaults) -> Void = { _ in }) async throws -> (TabFixture, RepositoryViewController, NSWindow) {
+    private func tab(in repo: FixtureRepo, appearance: NSAppearance.Name, size: CGSize = SnapshotTests.size, prepare: (UserDefaults) -> Void = { _ in }) async throws -> (TabFixture, RepositoryViewController, NSWindow) {
         let fixture = TabFixture(repo)
         prepare(fixture.context.app.persistence.defaults)
         // The history draws its dates itself, where `Snapshot` cannot blank them; they would change as the fixed dates age.
         fixture.context.app.persistence.defaults.set(["date"], forKey: "hiddenColumns")
         let controller = RepositoryViewController(context: fixture.context)
-        let window = Snapshot.window(for: controller.view, size: Self.size, appearance: appearance)
+        let window = Snapshot.window(for: controller.view, size: size, appearance: appearance)
         if fixture.model.history.commitCount == 0 { fixture.model.load() }
         try await waitUntil { !fixture.model.isLoading && fixture.model.history.commitCount > 0 }
         controller.history.select(row: 0, scroll: true)
@@ -124,6 +124,32 @@ final class SnapshotTests: XCTestCase {
             controller.showWorkingDirectory()
             try await settle()
             try Snapshot.assert(controller.view, named: "banner-conflicts-\(name)")
+            window.close()
+        }
+    }
+
+    /// A rebase of a long branch onto another long one in a narrow history column: the names give way, the step and the conflict count stay whole.
+    func testOperationBannerWithLongNamesInANarrowColumn() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("gitbonsai-snapshots-banner-narrow", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        let repo = try FixtureRepo(at: folder)
+        let date = "2024-01-01T08:00:00+0000"
+        let feature = "feature/grow-the-leaves-in-autumn-colours"
+        let base = "release/spring-planting-season-2024"
+        try repo.write("Leaves.swift", "let color = \"green\"\n")
+        _ = try repo.git(["add", "-A"], date: date)
+        _ = try repo.git(["commit", "-q", "-m", "Plant the seed"], date: date)
+        _ = try repo.git(["checkout", "-q", "-b", base])
+        try repo.write("Leaves.swift", "let color = \"gold\"\n")
+        _ = try repo.git(["commit", "-q", "-am", "Colour the leaves gold"], date: date)
+        _ = try repo.git(["checkout", "-q", "-b", feature, "main"])
+        try repo.write("Leaves.swift", "let color = \"red\"\n")
+        _ = try repo.git(["commit", "-q", "-am", "Colour the leaves red"], date: date)
+        _ = try? repo.git(["rebase", base], date: date)
+        for (name, look) in Self.looks {
+            let (_, controller, window) = try await tab(in: repo, appearance: look, size: NSSize(width: 1200, height: 400))
+            try await settle()
+            try Snapshot.assert(controller.view, named: "banner-narrow-\(name)")
             window.close()
         }
     }

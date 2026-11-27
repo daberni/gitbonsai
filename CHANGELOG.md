@@ -21,6 +21,7 @@ User-visible changes of each GitBonsai release. The format follows [Keep a Chang
 
 ### Fixed
 
+- In a narrow history column the operation banner keeps its step and conflict count whole: branch names shorten in the middle first, then only the operation's name remains, and the full description shows as a tooltip.
 - The Remove Worktree sheet shows the worktree and the “Also delete branch” checkbox on their own lines, and the message box of the Squash sheet opens at its first line with an inset, growing with the message before it scrolls.
 - A branch whose upstream was deleted on the remote no longer offers Delete Branches…, which would only have deleted the local branch.
 
